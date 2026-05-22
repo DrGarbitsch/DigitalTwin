@@ -1,3 +1,7 @@
+---
+description: Monitor a DigitalTwin PR through CI — checks Build (deterministic) and K8s tests (flakiness analysis), auto-retries failed runs, stops on success or confirmed deterministic failure.
+---
+
 # /watch-pr
 
 Monitor a pull request in the IndustryFusion/DigitalTwin repository through CI until it either passes or has a confirmed deterministic failure.
