@@ -197,5 +197,37 @@ class TestJobStatus(TestCase):
         response = target.get_savepoint_state(Logger(), job_id, savepoint_dir)
         self.assertEqual(response, {'status': 'NOT_FOUND', 'location': None})
 
+def get_json_jobs_with_failed():
+    """return job list containing a FAILED job"""
+    return {'jobs': [{'id': 'failed_job_id'}]}
+
+
+def get_json_failed_job_status():
+    """return job status for a FAILED job"""
+    return {'name': 'test-job', 'state': 'FAILED'}
+
+
+def request_get_jobs_then_status_failed(url, timeout=0):
+    """mock: return job list on /jobs, return FAILED status on /jobs/<id>"""
+    response = Bunch()
+    response.raise_for_status = raise_for_status_success
+    response.status_code = 200
+    if '/jobs/' in url:
+        response.json = get_json_failed_job_status
+    else:
+        response.json = get_json_jobs_with_failed
+    return response
+
+
+class TestGetJobFromName(TestCase):
+    """Test class for get_job_from_name"""
+
+    @patch('requests.get', request_get_jobs_then_status_failed)
+    def test_get_job_from_name_excludes_failed(self):
+        """verify that FAILED jobs are not returned by get_job_from_name"""
+        result = target.get_job_from_name(Logger(), 'test-job')
+        self.assertIsNone(result)
+
+
 if __name__ == '__main__':
     unittest.main()

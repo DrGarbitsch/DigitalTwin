@@ -112,6 +112,11 @@ class TestMonitoring(TestCase):
         """mock status not found"""
         patchx.status["state"] = "NOT_FOUND"
 
+    # pylint: disable=no-self-use, unused-argument, no-self-argument
+    def update_status_failed(body, patchx, logger):
+        """mock status failed"""
+        patchx.status["state"] = "FAILED"
+
     @patch('beamsqlstatementsetoperator.tables_and_views.create_ddl_from_beamsqltables',
            create_ddl_from_beamsqltables)
     @patch('beamsqlstatementsetoperator.deploy_statementset',
@@ -244,6 +249,38 @@ class TestMonitoring(TestCase):
     @patch('beamsqlstatementsetoperator.refresh_state', update_status_not_found)
     def test_update_handle_unknown(self):
         """test handling unknow job state while update"""
+        body = {
+            "metadata": {
+                "name": "name",
+                "namespace": "namespace"
+            },
+            "spec": {
+                "sqlstatements": ["select;"],
+                "tables": ["table"]
+            },
+            "status": {
+                "state": "RUNNING",
+                "job_id": "job_id"
+            }
+        }
+
+        patchx = Bunch()
+        patchx.status = {}
+
+        beamsqltables = {}
+
+        target.monitor(beamsqltables, None, None, patchx, Logger(),
+                       body, body["spec"])
+        self.assertEqual(patchx.status["state"], "INITIALIZED")
+        self.assertIsNone(patchx.status["job_id"])
+
+    @patch('beamsqlstatementsetoperator.tables_and_views.create_ddl_from_beamsqltables',
+           create_ddl_from_beamsqltables)
+    @patch('beamsqlstatementsetoperator.deploy_statementset',
+           submit_statementset_failed)
+    @patch('beamsqlstatementsetoperator.refresh_state', update_status_failed)
+    def test_update_handle_failed(self):
+        """test that a failed job is re-initialized"""
         body = {
             "metadata": {
                 "name": "name",

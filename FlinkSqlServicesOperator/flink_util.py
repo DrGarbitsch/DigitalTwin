@@ -52,7 +52,7 @@ def get_job_from_name(logger, name):
         job_name = status_info.get('name')
         job_state = status_info.get('state')
         logger.debug(f'Found job name {job_name}')
-        if job_name == name and job_state not in ["CANCELED", "FINISHED"] :
+        if job_name == name and job_state not in ["CANCELED", "FINISHED", "FAILED"] :
             found_job_id = job_id
             break
     return found_job_id
