@@ -104,15 +104,45 @@ def get_common_data():
         raise Exception("Could not read common.yaml file.")
 
 
+def shape_parent(g, node):
+    """
+    The enclosing shape, seen through logical connectives.
+
+    Normalisation wraps a nested sh:property into an sh:or branch, so the direct
+    sh:property parent of a sub-attribute shape is the BRANCH node, not the
+    attribute shape that owns it. Stopping there loses the parent path, the
+    constraint ends up with subpropertyPath NULL, and the generated SQL then
+    looks for the sub-attribute directly on the entity (parentId IS NULL) --
+    where it never matches, so the constraint silently never fires.
+    """
+    parent = next(g.subjects(SH.property, node), None)
+    if parent is not None:
+        return parent
+    # `node` may instead be an element of an RDF list a connective points at.
+    for cell in g.subjects(RDF.first, node):
+        head = cell
+        while True:
+            previous = next(g.subjects(RDF.rest, head), None)
+            if previous is None:
+                break
+            head = previous
+        for predicate in (SH['or'], SH['and'], SH.xone):
+            owner = next(g.subjects(predicate, head), None)
+            if owner is not None:
+                return owner
+    return next(g.subjects(SH['not'], node), None)
+
+
 def get_full_path_of_shacl_property(g, property):
     cur_property = property
     paths = []
-    while (cur_property is not None):
+    seen = set()
+    while (cur_property is not None and cur_property not in seen):
+        seen.add(cur_property)
         path = g.value(cur_property, SH.path)
         if path is not None:
             paths.append(path)
-        next_property = next(g.subjects(SH.property, cur_property), None)
-        cur_property = next_property
+        cur_property = shape_parent(g, cur_property)
     return paths
 
 

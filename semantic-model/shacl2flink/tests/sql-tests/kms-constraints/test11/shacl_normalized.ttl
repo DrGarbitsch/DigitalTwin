@@ -1,0 +1,26 @@
+@prefix iff: <https://industry-fusion.com/types/v0.9/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+iff:ConnectiveShape a sh:NodeShape ;
+    sh:property [ sh:and ( [ sh:property [ sh:or ( [ sh:minInclusive 5 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] [ sh:property [ sh:or ( [ sh:maxInclusive 50 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] ) ;
+            sh:path iff:andValue ],
+        [ sh:path iff:xoneBoth ;
+            sh:xone ( [ sh:property [ sh:or ( [ sh:minInclusive 10 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] [ sh:property [ sh:or ( [ sh:maxInclusive 100 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] ) ],
+        [ sh:path iff:xoneValue ;
+            sh:xone ( [ sh:property [ sh:or ( [ sh:minInclusive 100 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] [ sh:property [ sh:or ( [ sh:maxInclusive 10 ;
+                                            sh:nodeKind sh:Literal ] ) ;
+                                sh:path <https://uri.etsi.org/ngsi-ld/hasValue> ] ] ) ] ;
+    sh:targetClass iff:connectivetest .
+
