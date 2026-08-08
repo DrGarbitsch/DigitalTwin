@@ -20,6 +20,23 @@ MAX_SUBPROPERTY_DEPTH = 1
 # universe re-joined. OR and AND are monotone and do not.
 ABSENCE_FIRING_OPERATIONS = ('NOT', 'XONE')
 
+# sh:or, sh:and and sh:xone all take an RDF list of shapes, so the extraction
+# pattern is shared and ?connective says which one matched.
+CONNECTIVE_OPERATION = {
+    str(SH['or']): 'OR',
+    str(SH['and']): 'AND',
+    str(SH.xone): 'XONE',
+    str(SH['not']): 'NOT',
+}
+
+
+def connective_operation(connective):
+    """Map a SHACL connective predicate onto a circuit operation."""
+    if connective is None:
+        return 'OR'
+    return CONNECTIVE_OPERATION.get(str(connective), 'OR')
+
+
 yaml = ruamel.yaml.YAML()
 
 alerts_bulk_table = configs.alerts_bulk_table_name
@@ -29,16 +46,19 @@ constraint_trigger_table_name = configs.constraint_trigger_table_name
 constraint_combination_table_name = configs.constraint_combination_table_name
 
 sparql_get_all_relationships = """
-SELECT ?nodeshape ?targetclass ?inheritedTargetclass ?propertypath ?mincount ?maxcount ?attributeclass ?severitycode ?property ?innerOr
+SELECT ?nodeshape ?targetclass ?inheritedTargetclass ?propertypath ?mincount ?maxcount ?attributeclass ?severitycode ?property ?innerOr ?connective
 where {
     ?nodeshape a sh:NodeShape .
     ?nodeshape sh:targetClass ?targetclass .
     ?inheritedTargetclass rdfs:subClassOf* ?targetclass .
-    ?nodeshape sh:property/(sh:or/rdf:rest*/rdf:first/sh:property)* ?property .
-    ?property
-        sh:path ?propertypath ;
-        sh:or ?outerOr .
-        ?outerOr rdf:rest*/rdf:first ?clause .
+    ?nodeshape sh:property/((sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first/sh:property|sh:not/sh:property)* ?property .
+    ?property sh:path ?propertypath .
+    { VALUES ?connective { sh:or sh:and sh:xone }
+      ?property ?connective ?outerOr .
+      ?outerOr rdf:rest*/rdf:first ?clause . }
+    UNION
+    { BIND(sh:not AS ?connective)
+      ?property sh:not ?clause . }
         OPTIONAL{?clause sh:maxCount ?maxcount ; }
         OPTIONAL{?clause sh:minCount ?mincount ; }
         OPTIONAL{?clause sh:severity ?severity . ?severity rdfs:label ?severitycode .}
@@ -54,19 +74,23 @@ order by ?inhertiedTargetclass
 sparql_get_all_properties = """
 SELECT
     ?nodeshape ?targetclass ?inheritedTargetclass ?propertypath ?mincount ?maxcount ?attributeclass ?nodekind
-    ?minexclusive ?maxexclusive ?mininclusive ?maxinclusive ?minlength ?maxlength ?pattern ?severitycode ?property ?valuepath ?innerOr ?hasValue
+    ?minexclusive ?maxexclusive ?mininclusive ?maxinclusive ?minlength ?maxlength ?pattern ?severitycode ?property ?valuepath ?innerOr ?hasValue ?connective
     (GROUP_CONCAT(CONCAT('"', ?in, '"'); separator=',') as ?ins)
     (GROUP_CONCAT(?datatype; separator=',') as ?datatypes)
 where {
     ?nodeshape a sh:NodeShape .
     ?nodeshape sh:targetClass ?targetclass .
     ?inheritedTargetclass rdfs:subClassOf* ?targetclass .
-    ?nodeshape sh:property/(sh:or/rdf:rest*/rdf:first/sh:property)* ?property .
-      ## First-level property
-  ?property
-    sh:path ?propertypath ;
-    sh:or   ?outerOr .
-    ?outerOr rdf:rest*/rdf:first ?clause .
+    ?nodeshape sh:property/((sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first/sh:property|sh:not/sh:property)* ?property .
+      ## First-level property. sh:or, sh:and and sh:xone are all an RDF list of
+      ## shapes, so one pattern covers them; ?connective carries which it was.
+  ?property sh:path ?propertypath .
+    { VALUES ?connective { sh:or sh:and sh:xone }
+      ?property ?connective ?outerOr .
+      ?outerOr rdf:rest*/rdf:first ?clause . }
+    UNION
+    { BIND(sh:not AS ?connective)
+      ?property sh:not ?clause . }
     OPTIONAL { ?clause  sh:minCount ?mincount ; }
     OPTIONAL { ?clause sh:maxCount ?maxcount ; }
     OPTIONAL { ?clause sh:severity ?severity . ?severity rdfs:label ?severitycode .}
@@ -91,7 +115,7 @@ where {
     OPTIONAL { ?innerclause sh:datatype ?datatype ; }
 }
 GROUP BY ?nodeshape ?targetclass ?propertypath ?mincount ?maxcount ?attributeclass ?nodekind
-    ?minexclusive ?maxexclusive ?mininclusive ?maxinclusive ?minlength ?maxlength ?pattern ?severitycode ?inheritedTargetclass ?property ?valuepath ?innerOr ?hasValue
+    ?minexclusive ?maxexclusive ?mininclusive ?maxinclusive ?minlength ?maxlength ?pattern ?severitycode ?inheritedTargetclass ?property ?valuepath ?innerOr ?hasValue ?connective
 order by ?inheritedTargetclass
 """  # noqa: E501
 sql_check_relationship_base = """
@@ -967,6 +991,7 @@ def translate(shaclefile, knowledgefile, prefixes):
     constraint_id_counter = 0
 
     property_nodes = {}
+    property_connectives = {}
     qres = g.query(sparql_get_all_relationships, initNs=prefixes)
     for row in qres:
         paths = get_full_path_of_shacl_property(g, row.property)
@@ -985,6 +1010,8 @@ def translate(shaclefile, knowledgefile, prefixes):
         property = row.property.toPython()
         if (property, target_class) not in property_nodes.keys():
             property_nodes[(property, target_class)] = []
+        property_connectives[(property, target_class)] = \
+            connective_operation(getattr(row, 'connective', None))
         severitycode = row.severitycode.toPython() if row.severitycode \
             else 'warning'
         check['targetClass'] = target_class
@@ -1023,6 +1050,8 @@ def translate(shaclefile, knowledgefile, prefixes):
         property = row.property.toPython()
         if (property, target_class) not in property_nodes.keys():
             property_nodes[(property, target_class)] = []
+        property_connectives[(property, target_class)] = \
+            connective_operation(getattr(row, 'connective', None))
         severitycode = row.severitycode.toPython() if row.severitycode \
             else 'warning'
         nodekind = row.nodekind if row.nodekind else None
@@ -1100,7 +1129,8 @@ string elements in list are supported.")
         constraint_id_counter += 1
 
     for property_node in property_nodes.keys():
-        if len(property_nodes[property_node]) == 1:
+        operation = property_connectives.get(property_node, 'OR')
+        if len(property_nodes[property_node]) == 1 and operation != 'NOT':
             constraint_id = property_nodes[property_node][0]
             # Only single "OR" mean that this can be published directly
             # Add Publish rule to direct publish it to alerts
@@ -1128,14 +1158,14 @@ string elements in list are supported.")
             # Internal node of the constraint circuit. The target class is needed
             # so that connectives which fire on the ABSENCE of a violation
             # (NOT, XONE) can be scoped to the right set of focus nodes.
-            check['operation'] = 'OR'
+            check['operation'] = operation
             check['targetClass'] = property_node[1]
             check['circuit_level'] = utils.circuit_level_of(constraint_checks,
                                                             property_nodes[property_node])
             constraint_checks.append(check)
             for id in property_nodes[property_node]:
                 combination = {}
-                combination['operation'] = 'OR'
+                combination['operation'] = check['operation']
                 combination['member_constraint_id'] = id
                 combination['target_constraint_id'] = target_constraint_id
                 constraint_combination.append(combination)

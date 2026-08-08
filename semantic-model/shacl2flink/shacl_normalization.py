@@ -16,14 +16,21 @@ from rdflib.collection import Collection
 from rdflib.namespace import SH
 
 
+# sh:and / sh:xone / sh:not are STRUCTURE, not constraint parameters. Treating
+# them as "extras" wrapped them into a singleton sh:or, which buried the
+# connective one level below where the extractor looks -- so a shape using them
+# produced no constraints at all, silently. Keep them at the property node.
+STRUCTURAL = (SH.path, SH['or'], SH['and'], SH.xone, SH['not'])
+
+
 def wrap_property_or(g):
     # Collect all blank nodes appearing as objects of sh:property
     prop_nodes = set(g.objects(None, SH.property))
     for prop in prop_nodes:
         # Gather all predicate-object pairs on this prop node
         preds = list(g.predicate_objects(prop))
-        # Identify predicates other than sh:path and sh:or
-        extras = [(p, o) for p, o in preds if p not in (SH.path, SH['or'])]
+        # Identify predicates that are constraint parameters, not structure
+        extras = [(p, o) for p, o in preds if p not in STRUCTURAL]
         # Does this prop have an existing OR?
         or_lists = [o for _, _, o in g.triples((prop, SH['or'], None))]
 
