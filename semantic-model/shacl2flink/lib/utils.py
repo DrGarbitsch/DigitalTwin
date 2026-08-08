@@ -52,6 +52,8 @@ class DnsNameNotCompliant(Exception):
 constraint_table_primary_key = ["id"]
 constraint_table = [
     {"id": "INTEGER"},
+    {"operation": "STRING"},
+    {"circuit_level": "INTEGER"},
     {"targetClass": "STRING"},
     {"propertyPath": "STRING"},
     {"subpropertyPath": "STRING"},
@@ -786,8 +788,28 @@ schema {table}.")
     return statements
 
 
+def circuit_level_of(constraint_checks, member_ids):
+    """
+    Level of an internal circuit node: 1 + max(level of its members).
+
+    Levels are assigned by LONGEST path from a leaf, so a node is never
+    evaluated before every one of its members has been. The evaluator is
+    unrolled once per level, which is what keeps the whole thing expressible
+    without recursion.
+    """
+    levels = [check['circuit_level'] for check in constraint_checks
+              if check.get('id') in member_ids]
+    return 1 + max(levels, default=0)
+
+
 def init_constraint_check():
     check = {}
+    # `operation` is NULL for leaf constraints and holds the boolean connective
+    # ('OR', 'AND', 'NOT', 'XONE') for internal nodes of the constraint circuit.
+    # `circuit_level` is 0 for leaves and 1 + max(level of members) for internal
+    # nodes, so the evaluator can be unrolled one statement per level.
+    check["operation"] = None
+    check["circuit_level"] = 0
     check["targetClass"] = None
     check["propertyPath"] = None
     check["subpropertyPath"] = None

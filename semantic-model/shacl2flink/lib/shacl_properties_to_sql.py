@@ -15,6 +15,11 @@ import utils  # noqa: E402
 
 MAX_SUBPROPERTY_DEPTH = 1
 
+# Connectives that can fire when NONE of their members fired. These cannot be
+# evaluated from the (sparse) trigger rows alone and need the focus-node
+# universe re-joined. OR and AND are monotone and do not.
+ABSENCE_FIRING_OPERATIONS = ('NOT', 'XONE')
+
 yaml = ruamel.yaml.YAML()
 
 alerts_bulk_table = configs.alerts_bulk_table_name
@@ -347,7 +352,7 @@ SELECT this AS resource,
 FROM A1 where `ins` IS NOT NULL and `index` IS NOT NULL AND {{ constraint_cond }}
 """  # noqa: E501
 
-sql_check_literal_datatypes = """
+sql_check_literal_datatypes = r"""
 {%set common_datatypes%}
 (datatypes LIKE '%http://www.w3.org/2001/XMLSchema#double%' OR
  datatypes LIKE '%http://www.w3.org/2001/XMLSchema#boolean%' OR
@@ -484,10 +489,35 @@ GROUP BY
 """  # noqa: E501
 
 
-sql_combine_or_into_alerts = """
+"""
+One evaluation pass over the constraint circuit.
+
+The circuit is described by two tables: `constraint_table` carries the boolean
+connective of every internal node in `operation` plus its `circuit_level`, and
+`constraint_combination_table` is the edge list. This template is rendered once
+per level, so an arbitrarily nested shape is evaluated by a fixed number of
+non-recursive statements known at build time.
+
+`needed_count` is always taken from the static edge list, never from observed
+triggers, which is what lets leaves stay sparse and emit only violations.
+
+Connectives that fire on the ABSENCE of a violation (NOT, XONE) additionally
+need the set of focus nodes they range over, because "no member fired" is not
+observable from the trigger rows alone. Those levels are rendered with
+`needs_universe`, which re-joins the entity view. OR and AND are monotone --
+they can only fire when at least one member fired, so the resource is always
+present in the trigger table -- and are rendered without it.
+"""
+sql_combine_logic = """
 INSERT{% if sqlite %} OR REPlACE {% endif %} INTO constraint_trigger_table
+{%- set triggered_expr %}CASE f.operation
+    WHEN 'OR'   THEN (f.needed_count = IFNULL(f.fired_count, 0))
+    WHEN 'AND'  THEN (IFNULL(f.fired_count, 0) >= 1)
+    WHEN 'NOT'  THEN (IFNULL(f.fired_count, 0) = 0)
+    WHEN 'XONE' THEN ((f.needed_count - IFNULL(f.fired_count, 0)) <> 1)
+  END{% endset %}
 WITH
-  -- 1) How many members each OR-rule has
+  -- 1) How many members each circuit node has. Static: from the edge list.
   needed AS (
     SELECT /*+ STATE_TTL('constraint_combination_table' = '0d') */
       target_constraint_id,
@@ -495,26 +525,72 @@ WITH
     FROM
       constraint_combination_table
     WHERE
-      operation = 'OR'
+      operation <> 'PUBLISH'
     GROUP BY
       target_constraint_id
   ),
 
-  -- 2) For each resource/target, find how many distinct members actually triggered
-  --    and collect their events
+  -- 2) For each focus node and each circuit node on this level, how many
+  --    distinct members actually triggered, plus their collected texts.
   fired AS (
-    SELECT /*+ STATE_TTL('comb' = '0d') */ DISTINCT
-      t.resource,
-      comb.target_constraint_id,
+    SELECT /*+ STATE_TTL('comb' = '0d') */
+{%- if needs_universe %}
+      A.id AS resource,
+      ct.id AS target_constraint_id,
+      ct.operation AS operation,
+      ct.severity AS severity,
       nm.needed_count as needed_count,
       COUNT(DISTINCT CASE WHEN t.triggered THEN t.constraint_id ELSE NULL END) AS fired_count,
       {% if sqlite %}
       -- SQLite: GROUP_CONCAT only takes one argument when DISTINCT
-      'OR Constraint id ' || comb.target_constraint_id AS events,
+      ct.operation || ' Constraint id ' || ct.id AS events,
       'AND(' || GROUP_CONCAT(DISTINCT t.text) || ')' AS texts
       {% else %}
       -- Calcite: LISTAGG without DISTINCT
-      'OR Constraint id ' || CAST(comb.target_constraint_id as STRING) AS events,
+      ct.operation || ' Constraint id ' || CAST(ct.id as STRING) AS events,
+      LISTAGG(DISTINCT CASE WHEN t.triggered THEN t.text ELSE NULL END, ' AND ') AS texts
+      {% endif %}
+    FROM {{target_class}}_view AS A
+    JOIN
+      constraint_table AS ct
+      ON A.`type` = ct.targetClass
+     AND ct.circuit_level = {{ level }}
+    JOIN
+      needed AS nm
+      ON nm.target_constraint_id = ct.id
+    JOIN
+      constraint_combination_table AS comb
+      ON comb.target_constraint_id = ct.id
+     AND comb.operation <> 'PUBLISH'
+    LEFT JOIN (
+      -- Pre-sort the data for Calcite
+      SELECT *
+      FROM constraint_trigger_table
+      ORDER BY event, text
+    ) AS t
+      ON t.constraint_id = comb.member_constraint_id
+     AND t.resource = A.id
+    WHERE IFNULL(A.`deleted`, false) IS FALSE
+    GROUP BY
+      A.id,
+      ct.id,
+      ct.operation,
+      ct.severity,
+      nm.needed_count
+{%- else %}
+      t.resource,
+      ct.id AS target_constraint_id,
+      ct.operation AS operation,
+      ct.severity AS severity,
+      nm.needed_count as needed_count,
+      COUNT(DISTINCT CASE WHEN t.triggered THEN t.constraint_id ELSE NULL END) AS fired_count,
+      {% if sqlite %}
+      -- SQLite: GROUP_CONCAT only takes one argument when DISTINCT
+      ct.operation || ' Constraint id ' || ct.id AS events,
+      'AND(' || GROUP_CONCAT(DISTINCT t.text) || ')' AS texts
+      {% else %}
+      -- Calcite: LISTAGG without DISTINCT
+      ct.operation || ' Constraint id ' || CAST(ct.id as STRING) AS events,
       LISTAGG(DISTINCT CASE WHEN t.triggered THEN t.text ELSE NULL END, ' AND ') AS texts
       {% endif %}
  FROM (
@@ -526,27 +602,36 @@ WITH
     JOIN
       constraint_combination_table AS comb
       ON comb.member_constraint_id = t.constraint_id
-     AND comb.operation            = 'OR'
+     AND comb.operation <> 'PUBLISH'
+    JOIN
+      constraint_table AS ct
+      ON ct.id = comb.target_constraint_id
+     AND ct.circuit_level = {{ level }}
     JOIN
       needed AS nm
       ON nm.target_constraint_id   = comb.target_constraint_id
     GROUP BY
       t.resource,
-      comb.target_constraint_id,
+      ct.id,
+      ct.operation,
+      ct.severity,
       nm.needed_count
+{%- endif %}
   )
 
-SELECT /*+ STATE_TTL('ct' = '0d') */
+SELECT /*+ STATE_TTL('f' = '0d') */
   f.resource                             AS resource,
   f.events                               AS event,
   f.target_constraint_id                 AS constraint_id,
-     (f.needed_count = IFNULL(f.fired_count, 0)) AS triggered,
-     CASE WHEN f.needed_count = IFNULL(f.fired_count, 0) THEN ct.severity ELSE 'ok' END AS severity,
-CASE WHEN f.needed_count = IFNULL(f.fired_count, 0) THEN f.texts ELSE 'All ok' END AS text
+     ({{ triggered_expr }}) AS triggered,
+     CASE WHEN {{ triggered_expr }} THEN f.severity ELSE 'ok' END AS severity,
+-- A connective that fires on absence (NOT, XONE with nothing fired) has no
+-- member text to report, so fall back to naming the constraint itself.
+CASE WHEN {{ triggered_expr }} THEN IFNULL(f.texts, f.events) ELSE 'All ok' END AS text
   {% if sqlite %}
     ,CURRENT_TIMESTAMP AS ts
     {% endif %}
-FROM  constraint_table AS ct JOIN  fired AS f  ON ct.id = f.target_constraint_id;
+FROM  fired AS f;
 ;
 """
 
@@ -790,6 +875,62 @@ def create_property_sql():
     return sql_command_sqlite, sql_command_yaml
 
 
+def inject_synthetic_circuit(constraint_checks, constraint_combination, next_id):
+    """
+    Graft a NOT node and a level-2 AND node onto already-extracted constraints.
+
+    Debug only, see the call site. Deliberately adds no PUBLISH edge, so the
+    synthetic verdicts land in constraint_trigger_table and never reach
+    alerts_bulk. Returns the next free constraint id.
+    """
+    leaf = next((check for check in constraint_checks
+                 if check['operation'] is None and check['targetClass']), None)
+    if leaf is None:
+        print('SHACL_DEBUG_SYNTHETIC_CIRCUIT: no leaf with a targetClass, skipping')
+        return next_id
+    target_class = leaf['targetClass']
+
+    not_id = next_id
+    next_id += 1
+    not_node = utils.init_constraint_check()
+    not_node['id'] = not_id
+    not_node['operation'] = 'NOT'
+    not_node['circuit_level'] = utils.circuit_level_of(constraint_checks, [leaf['id']])
+    not_node['targetClass'] = target_class
+    not_node['severity'] = 'warning'
+    constraint_checks.append(not_node)
+    constraint_combination.append({'operation': 'NOT',
+                                   'member_constraint_id': leaf['id'],
+                                   'target_constraint_id': not_id})
+
+    # Pair the NOT with an existing OR node so the AND lands on level 2.
+    members = [not_id]
+    or_node = next((check for check in constraint_checks
+                    if check['operation'] == 'OR' and
+                    check['targetClass'] == target_class), None)
+    if or_node is not None:
+        members.append(or_node['id'])
+
+    and_id = next_id
+    next_id += 1
+    and_node = utils.init_constraint_check()
+    and_node['id'] = and_id
+    and_node['operation'] = 'AND'
+    and_node['circuit_level'] = utils.circuit_level_of(constraint_checks, members)
+    and_node['targetClass'] = target_class
+    and_node['severity'] = 'warning'
+    constraint_checks.append(and_node)
+    for member in members:
+        constraint_combination.append({'operation': 'AND',
+                                       'member_constraint_id': member,
+                                       'target_constraint_id': and_id})
+
+    print(f'SHACL_DEBUG_SYNTHETIC_CIRCUIT: NOT({leaf["id"]})={not_id}, '
+          f'AND{tuple(members)}={and_id} at level {and_node["circuit_level"]}, '
+          f'targetClass={target_class}')
+    return next_id
+
+
 def translate(shaclefile, knowledgefile, prefixes):
     """
     Translate shacl properties into SQL constraints.
@@ -979,6 +1120,13 @@ string elements in list are supported.")
             severity_object = next((d for d in constraint_checks if d.get('id') == severity_id), None)
             check['id'] = target_constraint_id
             check['severity'] = severity_object['severity']
+            # Internal node of the constraint circuit. The target class is needed
+            # so that connectives which fire on the ABSENCE of a violation
+            # (NOT, XONE) can be scoped to the right set of focus nodes.
+            check['operation'] = 'OR'
+            check['targetClass'] = property_node[1]
+            check['circuit_level'] = utils.circuit_level_of(constraint_checks,
+                                                            property_nodes[property_node])
             constraint_checks.append(check)
             for id in property_nodes[property_node]:
                 combination = {}
@@ -986,6 +1134,16 @@ string elements in list are supported.")
                 combination['member_constraint_id'] = id
                 combination['target_constraint_id'] = target_constraint_id
                 constraint_combination.append(combination)
+
+    # Debug hook. The extractor cannot yet emit AND/NOT/XONE or a circuit deeper
+    # than one level, so there is no way to exercise those code paths against a
+    # real cluster. Setting SHACL_DEBUG_SYNTHETIC_CIRCUIT grafts a small
+    # multi-level circuit onto existing constraints, which keeps the generated
+    # SQL and the constraint rows consistent with each other. Never set in
+    # production: it publishes nothing, but it does add rows to constraint_table.
+    if os.getenv('SHACL_DEBUG_SYNTHETIC_CIRCUIT'):
+        constraint_id_counter = inject_synthetic_circuit(
+            constraint_checks, constraint_combination, constraint_id_counter)
 
     tables.append(configs.kafka_topic_ngsi_prefix_name)
     views.append(configs.kafka_topic_ngsi_prefix_name + "-view")
@@ -1029,18 +1187,32 @@ string elements in list are supported.")
     sqlite += sql_command_sqlite
     statementsets.append(sql_command_yaml)
 
-    sql_command_yaml = Template(sql_combine_or_into_alerts).render(
-        alerts_bulk_table=alerts_bulk_table,
-        constraint_trigger_table=constraint_trigger_table_name,
-        constraint_combination_table=constraint_combination_table_name,
-        sqlite=False)
-    sql_command_sqlite = Template(sql_combine_or_into_alerts).render(
-        alerts_bulk_table=alerts_bulk_table,
-        constraint_trigger_table=constraint_trigger_table_name,
-        constraint_combination_table=constraint_combination_table_name,
-        sqlite=True)
-    statementsets.append(sql_command_yaml)
-    sqlite += sql_command_sqlite
+    # Evaluate the constraint circuit bottom up, one statement per level. The
+    # levels are known at build time, so no recursion is needed at runtime.
+    levels = sorted({check['circuit_level'] for check in constraint_checks
+                     if check['circuit_level'] > 0})
+    for level in levels:
+        needs_universe = any(check['circuit_level'] == level and
+                             check['operation'] in ABSENCE_FIRING_OPERATIONS
+                             for check in constraint_checks)
+        sql_command_yaml = Template(sql_combine_logic).render(
+            alerts_bulk_table=alerts_bulk_table,
+            constraint_trigger_table=constraint_trigger_table_name,
+            constraint_combination_table=constraint_combination_table_name,
+            target_class="entities",
+            level=level,
+            needs_universe=needs_universe,
+            sqlite=False)
+        sql_command_sqlite = Template(sql_combine_logic).render(
+            alerts_bulk_table=alerts_bulk_table,
+            constraint_trigger_table=constraint_trigger_table_name,
+            constraint_combination_table=constraint_combination_table_name,
+            target_class="entities",
+            level=level,
+            needs_universe=needs_universe,
+            sqlite=True)
+        statementsets.append(sql_command_yaml)
+        sqlite += sql_command_sqlite
     tables.append(configs.constraint_combination_table_object_name)
     tables.append(configs.constraint_trigger_table_object_name)
     sqlite += '\n'
