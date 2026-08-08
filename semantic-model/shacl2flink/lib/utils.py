@@ -424,7 +424,21 @@ def create_statementmap(object_name, table_object_names,
         spec['refreshInterval'] = refresh_interval
     spec['views'] = view_object_names
     spec['sqlsettings'] = [
-        {"table.exec.sink.upsert-materialize": "none"},
+        # AUTO inserts a SinkUpsertMaterializer that remembers the last row
+        # emitted per key and drops updates that do not change it. Without it
+        # every intermediate changelog state is written to Kafka: measured ~25
+        # msg/s reaching alerts_bulk to produce ~0.5 useful alerts/min, i.e.
+        # roughly 2900:1 write amplification that CoreServices' AlertsFilter
+        # then had to absorb downstream. Suppressing at the sink keeps those
+        # records out of Kafka entirely.
+        {"table.exec.sink.upsert-materialize": "auto"},
+        # Mini-batch buffers changelog records per key and emits once per
+        # window, collapsing the convergence churn of a multi-level constraint
+        # circuit (measured: 76% of verdict changes land within 2ms of the
+        # previous one). All three keys are required for it to take effect.
+        {"table.exec.mini-batch.enabled": "true"},
+        {"table.exec.mini-batch.allow-latency": "100 ms"},
+        {"table.exec.mini-batch.size": "1000"},
         {"execution.savepoint.ignore-unclaimed-state": "true"},
         {"pipeline.object-reuse": "true"},
         {"parallelism.default": "{{ .Values.flink.defaultParalellism }}"},

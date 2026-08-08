@@ -625,9 +625,14 @@ SELECT /*+ STATE_TTL('f' = '0d') */
   f.target_constraint_id                 AS constraint_id,
      ({{ triggered_expr }}) AS triggered,
      CASE WHEN {{ triggered_expr }} THEN f.severity ELSE 'ok' END AS severity,
--- A connective that fires on absence (NOT, XONE with nothing fired) has no
--- member text to report, so fall back to naming the constraint itself.
-CASE WHEN {{ triggered_expr }} THEN IFNULL(f.texts, f.events) ELSE 'All ok' END AS text
+-- Text must be DETERMINISTIC per node, not an aggregate of member texts.
+-- LISTAGG of member texts changes as the member set fills in during
+-- convergence, so an unchanged verdict still produced a different alert every
+-- time. Measured: one focus node emitted 99 alerts carrying only 2-3 distinct
+-- values, and CoreServices' AlertsFilter forwards each of them because it keys
+-- on (severity, text). Naming the node instead collapses that to one alert.
+-- Member detail remains inspectable in constraint_trigger_table.
+CASE WHEN {{ triggered_expr }} THEN f.events ELSE 'All ok' END AS text
   {% if sqlite %}
     ,CURRENT_TIMESTAMP AS ts
     {% endif %}
