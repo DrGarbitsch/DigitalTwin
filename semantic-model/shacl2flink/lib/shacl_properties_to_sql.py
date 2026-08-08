@@ -1,4 +1,5 @@
 from rdflib import Graph
+from rdflib.collection import Collection
 from rdflib.namespace import SH
 import os
 import re
@@ -51,7 +52,7 @@ where {
     ?nodeshape a sh:NodeShape .
     ?nodeshape sh:targetClass ?targetclass .
     ?inheritedTargetclass rdfs:subClassOf* ?targetclass .
-    ?nodeshape sh:property/((sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first/sh:property|sh:not/sh:property)* ?property .
+    ?nodeshape (sh:property|(sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first|sh:not)+ ?property .
     ?property sh:path ?propertypath .
     { VALUES ?connective { sh:or sh:and sh:xone }
       ?property ?connective ?outerOr .
@@ -81,7 +82,7 @@ where {
     ?nodeshape a sh:NodeShape .
     ?nodeshape sh:targetClass ?targetclass .
     ?inheritedTargetclass rdfs:subClassOf* ?targetclass .
-    ?nodeshape sh:property/((sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first/sh:property|sh:not/sh:property)* ?property .
+    ?nodeshape (sh:property|(sh:or|sh:and|sh:xone)/rdf:rest*/rdf:first|sh:not)+ ?property .
       ## First-level property. sh:or, sh:and and sh:xone are all an RDF list of
       ## shapes, so one pattern covers them; ?connective carries which it was.
   ?property sh:path ?propertypath .
@@ -904,6 +905,133 @@ def create_property_sql():
     return sql_command_sqlite, sql_command_yaml
 
 
+LIST_CONNECTIVES = ((SH['and'], 'AND'), (SH['or'], 'OR'), (SH.xone, 'XONE'))
+
+
+class ShapeCycle(Exception):
+    """A cyclic shape graph cannot be unrolled into a finite circuit."""
+
+
+def emit_circuit_node(ctx, operation, member_ids, target_class):
+    """Add one internal circuit node over `member_ids` and return its id."""
+    node_id = ctx['next_id']
+    ctx['next_id'] += 1
+    severity_of = next((c for c in ctx['checks'] if c.get('id') == member_ids[0]), None)
+    check = utils.init_constraint_check()
+    check['id'] = node_id
+    check['operation'] = operation
+    check['targetClass'] = target_class
+    check['severity'] = (severity_of or {}).get('severity') or 'warning'
+    check['circuit_level'] = utils.circuit_level_of(ctx['checks'], member_ids)
+    ctx['checks'].append(check)
+    for member in member_ids:
+        ctx['combination'].append({'operation': operation,
+                                   'member_constraint_id': member,
+                                   'target_constraint_id': node_id})
+    return node_id
+
+
+def walk_shape(g, shape, target_class, ctx):
+    """
+    Build the circuit for `shape` and return its node id, or None if nothing
+    underneath it produced constraints.
+
+    Recursion is what makes arbitrary nesting work: every branch returns an id
+    that the enclosing connective can use as a member, so depth falls out
+    rather than needing another query arm per level. Each node is named as it
+    is emitted (Tseitin), so the encoding stays linear instead of distributing
+    into an exponential number of terms.
+    """
+    key = (shape, target_class)
+    if key in ctx['memo']:
+        return ctx['memo'][key]
+    if key in ctx['stack']:
+        raise ShapeCycle(f'shape graph is cyclic at {shape}: a cycle has no '
+                         f'finite circuit, and Flink SQL has no fixpoint to '
+                         f'evaluate one with')
+    ctx['stack'].add(key)
+
+    members = []
+    # Property shapes already have a circuit node from the property-level pass.
+    for prop in g.objects(shape, SH.property):
+        top = ctx['property_top'].get((str(prop), target_class))
+        if top is not None:
+            members.append(top)
+            ctx['consumed'].add((str(prop), target_class))
+
+    for predicate, operation in LIST_CONNECTIVES:
+        for collection in g.objects(shape, predicate):
+            branches = [walk_shape(g, branch, target_class, ctx)
+                        for branch in Collection(g, collection)]
+            branches = [b for b in branches if b is not None]
+            if branches:
+                members.append(emit_circuit_node(ctx, operation, branches,
+                                                 target_class))
+    for inner in g.objects(shape, SH['not']):
+        inner_id = walk_shape(g, inner, target_class, ctx)
+        if inner_id is not None:
+            members.append(emit_circuit_node(ctx, 'NOT', [inner_id],
+                                             target_class))
+
+    ctx['stack'].discard(key)
+    if not members:
+        result = None
+    elif len(members) == 1:
+        result = members[0]
+    else:
+        # Every constraint on a shape must hold: implicit conjunction.
+        result = emit_circuit_node(ctx, 'AND', members, target_class)
+    ctx['memo'][key] = result
+    return result
+
+
+sparql_get_node_shapes = """
+SELECT DISTINCT ?nodeshape ?inheritedTargetclass
+where {
+    ?nodeshape a sh:NodeShape .
+    ?nodeshape sh:targetClass ?targetclass .
+    ?inheritedTargetclass rdfs:subClassOf* ?targetclass .
+}
+"""
+
+
+def apply_node_level_logic(g, prefixes, constraint_checks,
+                           constraint_combination, property_top, next_id):
+    """
+    Build circuits for connectives attached directly to a NodeShape.
+
+    These group whole shapes rather than the values of one path, so their
+    branches may each constrain a different property. A SPARQL property path
+    can reach the leaves but cannot report the tree that groups them, which is
+    why this walks the graph instead.
+
+    Returns (next_id, consumed, roots): `consumed` are property shapes that are
+    now members of a node-level connective and must not raise their own alert,
+    `roots` are the circuit nodes to publish.
+    """
+    ctx = {'checks': constraint_checks, 'combination': constraint_combination,
+           'next_id': next_id, 'property_top': property_top,
+           'consumed': set(), 'memo': {}, 'stack': set()}
+    roots = []
+    for row in g.query(sparql_get_node_shapes, initNs=prefixes):
+        nodeshape = row.nodeshape
+        target_class = row.inheritedTargetclass.toPython()
+        for predicate, operation in LIST_CONNECTIVES:
+            for collection in g.objects(nodeshape, predicate):
+                branches = [walk_shape(g, branch, target_class, ctx)
+                            for branch in Collection(g, collection)]
+                branches = [b for b in branches if b is not None]
+                if branches:
+                    roots.append(emit_circuit_node(ctx, operation, branches,
+                                                   target_class))
+        for inner in g.objects(nodeshape, SH['not']):
+            inner_id = walk_shape(g, inner, target_class, ctx)
+            if inner_id is not None:
+                roots.append(emit_circuit_node(ctx, 'NOT', [inner_id],
+                                               target_class))
+    return ctx['next_id'], ctx['consumed'], roots
+
+
 def inject_synthetic_circuit(constraint_checks, constraint_combination, next_id):
     """
     Graft a NOT node and a level-2 AND node onto already-extracted constraints.
@@ -1128,25 +1256,20 @@ string elements in list are supported.")
         property_nodes[(property, target_class)].append(constraint_id_counter)
         constraint_id_counter += 1
 
+    # Build the circuit node for each property shape but do NOT publish yet: a
+    # property that turns out to sit under a node-level connective has to feed
+    # that connective instead of raising an alert of its own.
+    property_top = {}
     for property_node in property_nodes.keys():
         operation = property_connectives.get(property_node, 'OR')
         if len(property_nodes[property_node]) == 1 and operation != 'NOT':
-            constraint_id = property_nodes[property_node][0]
-            # Only single "OR" mean that this can be published directly
-            # Add Publish rule to direct publish it to alerts
-            combination = {}
-            combination['operation'] = 'PUBLISH'
-            combination['member_constraint_id'] = constraint_id
-            combination['target_constraint_id'] = -1
-            constraint_combination.append(combination)
+            # OR/AND/XONE at arity 1 all reduce to "violated iff the member
+            # violated", so the member stands in for the group. NOT does not.
+            property_top[property_node] = property_nodes[property_node][0]
         else:
             target_constraint_id = constraint_id_counter
             constraint_id_counter += 1
-            or_combination = {}
-            or_combination['operation'] = 'PUBLISH'
-            or_combination['member_constraint_id'] = target_constraint_id
-            or_combination['target_constraint_id'] = -1
-            constraint_combination.append(or_combination)
+            property_top[property_node] = target_constraint_id
             check = utils.init_constraint_check()
             severity_id = None
             if len(property_nodes[property_node]) > 0:
@@ -1169,6 +1292,24 @@ string elements in list are supported.")
                 combination['member_constraint_id'] = id
                 combination['target_constraint_id'] = target_constraint_id
                 constraint_combination.append(combination)
+
+    # Connectives attached directly to a NodeShape group whole shapes, so their
+    # branches can each constrain a different property. Only a graph walk can
+    # recover that tree -- see apply_node_level_logic.
+    constraint_id_counter, consumed, node_level_roots = apply_node_level_logic(
+        g, prefixes, constraint_checks, constraint_combination,
+        property_top, constraint_id_counter)
+
+    for property_node, top_id in property_top.items():
+        if property_node in consumed:
+            continue
+        constraint_combination.append({'operation': 'PUBLISH',
+                                       'member_constraint_id': top_id,
+                                       'target_constraint_id': -1})
+    for root_id in node_level_roots:
+        constraint_combination.append({'operation': 'PUBLISH',
+                                       'member_constraint_id': root_id,
+                                       'target_constraint_id': -1})
 
     # Debug hook. The extractor cannot yet emit AND/NOT/XONE or a circuit deeper
     # than one level, so there is no way to exercise those code paths against a
