@@ -75,6 +75,38 @@ Three conclusions:
    parameters as plain RDF and letting them be picked up from the existing
    `rdf` table.
 
+### How much of this actually needs templates
+
+Templating and circuit-routing were measured separately, because they are
+independent changes and only one of them is cheap:
+
+| variant | operators |
+| --- | --- |
+| core baseline | 427 |
+| + the 2 compiled state-mismatch constraints, as today | 479 (+52) |
+| + the same 2, emitted into `constraint_trigger_table` instead of `alerts_bulk` | 469 (+42) |
+| + 2 templates covering both | 460 (+33) |
+| + all 4 compiled SPARQL constraints, as today | 542 (+115) |
+| + all 4, routed to the circuit | 524 (+97) |
+
+So of the 19 operators templating saves on this pair, **10 come from circuit
+routing alone** — dropping the per-query `LEFT JOIN` against
+`<targetclass>_view` — which needs no template machinery whatsoever. Across all
+four constraints, circuit routing alone is worth 18.
+
+The rest is the real templating gain, and on this model it is **9 operators**.
+
+That is the honest shape of the result: **a template used once costs about what
+compiling that one query costs** (+23 against +22–26 measured). All of the
+benefit comes from the *second and subsequent* constraints that share a shape.
+The saving is not per constraint — it is per **structural duplicate**, at
+roughly 25 operators each.
+
+`kms/shacl.ttl` has four SPARQL constraints with four distinct shapes, hence
+zero duplicates, hence no meaningful templating gain. That is not a defect in
+the design; it is the design working as predicted on a corpus that does not yet
+repeat itself.
+
 ### Scaling
 
 With compiled cost ≈ 26 operators per one-hop constraint and a fixed 33 for the
@@ -245,9 +277,14 @@ directory scanned at build time, alongside the shapes.
 
 ## 7. Recommended order
 
+Given §2, step 1 is the only step justified by the current model. Steps 2-4 are
+justified by the *trajectory*, and should wait for evidence of it — concretely,
+for `sh:sparql` constraints that duplicate each other's shape.
+
 1. Route `sh:sparql` output into `constraint_trigger_table` as circuit leaves.
-   Independent of everything else, removes N universe joins, gains circuit
-   composability. Measure the job before and after.
+   Independent of everything else, worth 18 operators on the current model,
+   and gains `sh:and`/`sh:or`/`sh:not` composability for SPARQL constraints,
+   which is a feature rather than only a saving. Measure before and after.
 2. Prototype variable-predicate support in `process_ngsild_spo`. Success
    criterion: hand-write the forward-hop template, parameterise it, and
    reproduce `StateOnCutterShape`'s results in the SQLite harness.
