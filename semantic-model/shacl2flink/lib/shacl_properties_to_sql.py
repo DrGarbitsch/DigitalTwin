@@ -1088,12 +1088,17 @@ def inject_synthetic_circuit(constraint_checks, constraint_combination, next_id)
     return next_id
 
 
-def translate(shaclefile, knowledgefile, prefixes):
+def translate(shaclefile, knowledgefile, prefixes, extra_checks=None,
+              extra_combination=None, first_constraint_id=0):
     """
     Translate shacl properties into SQL constraints.
 
     Parameters:
         filename: filename of SHACL file
+        extra_checks: constraint_table rows contributed by another translation
+            (the SPARQL constraints), merged in before the table is emitted
+        extra_combination: their constraint_combination_table edges
+        first_constraint_id: first id not already taken by those rows
 
     Returns:
         sql-statement-list: list of plain SQL objects
@@ -1116,7 +1121,7 @@ def translate(shaclefile, knowledgefile, prefixes):
 
     constraint_checks = []
     constraint_combination = []
-    constraint_id_counter = 0
+    constraint_id_counter = first_constraint_id
 
     property_nodes = {}
     property_connectives = {}
@@ -1320,6 +1325,12 @@ string elements in list are supported.")
     if os.getenv('SHACL_DEBUG_SYNTHETIC_CIRCUIT'):
         constraint_id_counter = inject_synthetic_circuit(
             constraint_checks, constraint_combination, constraint_id_counter)
+
+    # SPARQL constraints are leaves of the same circuit. They were translated
+    # first so that they could bake their own id into their SQL; merge their
+    # rows in here, after the graph walks, since they take part in neither.
+    constraint_checks.extend(extra_checks or [])
+    constraint_combination.extend(extra_combination or [])
 
     tables.append(configs.kafka_topic_ngsi_prefix_name)
     views.append(configs.kafka_topic_ngsi_prefix_name + "-view")

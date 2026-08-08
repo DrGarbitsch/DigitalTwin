@@ -37,7 +37,9 @@ def test_main(mock_rdflib, mock_utils, mock_yaml, mock_translate_construct, mock
                                                         ['tables'], ['views'], ['constraint_values'],
                                                         ['pg_constraints'])
     mock_translate_sparql.return_value = 'sqlite2', ('statementsets2',
-                                                     ['tables2'], ['views2'])
+                                                     ['tables2'], ['views2'],
+                                                     ['sparql_checks'],
+                                                     ['sparql_combination'], 7)
     mock_translate_construct.return_value = 'sqlite3', ('statementsets3',
                                                         ['tables3'], ['views3'])
     mock_rdflib.Graph.return_value = mock_rdflib
@@ -47,6 +49,12 @@ def test_main(mock_rdflib, mock_utils, mock_yaml, mock_translate_construct, mock
                                           tmp_path)
     mock_file.assert_called_with(os.path.join(tmp_path, 'shacl-constraints-maps.yaml'), 'w')
     assert mock_yaml.YAML().dump.called
+    # the SPARQL constraints' circuit rows have to reach the property
+    # translation, which is what emits constraint_table
+    _, kwargs = mock_translate_properties.call_args
+    assert kwargs['extra_checks'] == ['sparql_checks']
+    assert kwargs['extra_combination'] == ['sparql_combination']
+    assert kwargs['first_constraint_id'] == 7
 
 
 def test_parse_args_minimal():

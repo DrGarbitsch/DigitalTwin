@@ -281,10 +281,17 @@ Given §2, step 1 is the only step justified by the current model. Steps 2-4 are
 justified by the *trajectory*, and should wait for evidence of it — concretely,
 for `sh:sparql` constraints that duplicate each other's shape.
 
-1. Route `sh:sparql` output into `constraint_trigger_table` as circuit leaves.
-   Independent of everything else, worth 18 operators on the current model,
-   and gains `sh:and`/`sh:or`/`sh:not` composability for SPARQL constraints,
-   which is a feature rather than only a saving. Measure before and after.
+1. **Done.** `sh:sparql` output goes into `constraint_trigger_table` as circuit
+   leaves. Measured 542 -> 524 operators, the predicted 18. Each constraint now
+   holds a `constraint_table` row and a `PUBLISH` edge, so the shared step
+   raises the alert.
+
+   One behaviour change: SPARQL constraints no longer emit an explicit
+   `severity='ok'` / `text='All ok'` alert when a focus node passes. Circuit
+   leaves are sparse — they emit violations only — and an alert clears by
+   retraction, which is how every core SHACL constraint has always behaved.
+   Consumers that watched for the 'ok' alert now see a tombstone instead.
+   Expected SQLite results lost 71 such rows; no violation row changed.
 2. Prototype variable-predicate support in `process_ngsild_spo`. Success
    criterion: hand-write the forward-hop template, parameterise it, and
    reproduce `StateOnCutterShape`'s results in the SQLite harness.

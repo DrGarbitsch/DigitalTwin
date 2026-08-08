@@ -80,16 +80,27 @@ accessible: {e}")
     sqlite3, (statementsets3, tables3, views3) = \
         translate_construct(shaclfile, knowledgefile)
 
-    sqlite, (statementsets, tables, views, constraints, postgres_constraints) = \
-        translate_properties(shaclfile, knowledgefile, prefixes)
-
-    sqlite2, (statementsets2, tables2, views2) = \
+    # SPARQL constraints are leaves of the constraint circuit, so they need an
+    # id from the same sequence and their rows have to reach constraint_table.
+    # They translate first to claim their ids, then hand the rows to the
+    # property translation, which owns emitting the circuit tables.
+    sqlite2, (statementsets2, tables2, views2, sparql_checks,
+              sparql_combination, next_constraint_id) = \
         translate_sparql(shaclfile, knowledgefile, prefixes)
+
+    sqlite, (statementsets, tables, views, constraints, postgres_constraints) = \
+        translate_properties(shaclfile, knowledgefile, prefixes,
+                             extra_checks=sparql_checks,
+                             extra_combination=sparql_combination,
+                             first_constraint_id=next_constraint_id)
 
     tables = list(set(tables2).union(set(tables)).union(set(tables3)))  # deduplication
     views = list(set(views2).union(set(views)).union(set(views3)))  # deduplication
 
-    split_statementsets = utils.split_statementsets(statementsets + statementsets2 + statementsets3,
+    # SPARQL leaves must come first: SQLite executes the set in order, and the
+    # combine and PUBLISH statements at the tail of the property set read the
+    # trigger rows these produce. Flink runs them concurrently either way.
+    split_statementsets = utils.split_statementsets(statementsets2 + statementsets + statementsets3,
                                                     configs.max_sql_configmap_size)
     split_constraints = utils.split_statementsets(constraints,
                                                   configs.max_sql_configmap_size)
@@ -110,7 +121,7 @@ accessible: {e}")
 
     with open(os.path.join(output_folder, "shacl-validation.sqlite"), "w") as sqlitef, \
             open(os.path.join(output_folder, "shacl-constraints.postgres"), "w") as postgresf:
-        print(sqlite + sqlite2 + sqlite3, file=sqlitef)
+        print(sqlite2 + sqlite + sqlite3, file=sqlitef)
         print(postgres_constraints, file=postgresf)
 
     with open(os.path.join(output_folder, "shacl-constraints.yaml"), "w") as f, \

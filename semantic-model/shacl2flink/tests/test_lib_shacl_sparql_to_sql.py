@@ -60,11 +60,23 @@ def test_translate(mock_utils, mock_add_variables_to_message, mock_translate_spa
     g.__iadd__.return_value.query.return_value[0].subclass = subclass
     prefixes = {"sh": "http://example.com/sh", "base": "http://example.com/base"}
     mock_utils.process_sql_dialect.return_value = 'adapted_sql_dialect'
-    sqlite, (statementsets, tables, views) = \
+    sqlite, (statementsets, tables, views, constraint_checks,
+             constraint_combination, next_constraint_id) = \
         lib.shacl_sparql_to_sql.translate('kms/shacl.ttl',
-                                          'kms/knowledge.ttl', prefixes)
-    assert tables == ['alerts-bulk', 'rdf']
+                                          'kms/knowledge.ttl', prefixes,
+                                          first_constraint_id=5)
+    assert tables == ['alerts-bulk', 'constraint-trigger-table', 'rdf']
     assert views == []
     assert len(statementsets) == 1
     lower_sqlite = sqlite.lower()
-    assert lower_sqlite.count('select') == 3
+    # the focus-node universe join is gone; only the compiled query remains
+    assert lower_sqlite.count('select') == 1
+    assert 'constraint_trigger_table' in lower_sqlite
+    assert 'alerts_bulk' not in lower_sqlite
+
+    # the constraint becomes a leaf of the shared circuit, publishing directly
+    assert next_constraint_id == 6
+    assert len(constraint_checks) == 1
+    assert constraint_combination == [{'operation': 'PUBLISH',
+                                       'member_constraint_id': 5,
+                                       'target_constraint_id': -1}]
