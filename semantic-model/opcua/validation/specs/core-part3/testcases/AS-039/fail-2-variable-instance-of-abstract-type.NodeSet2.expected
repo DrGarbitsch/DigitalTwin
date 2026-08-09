@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-039/nodei3000
+Focus Node: http://example.org/UA/AS-039/nodei3001
+Message: AS-039: http://example.org/UA/AS-039/nodei3000 is an instance whose type definition http://opcfoundation.org/UA/BaseVariableType is abstract. Only InstanceDeclarations, which carry a HasModellingRule, may be typed with an abstract type; an instance must name a concrete one.
+Message: AS-039: http://example.org/UA/AS-039/nodei3001 is an instance whose type definition http://example.org/UA/AS-039/AbstractMeasurementType is abstract. Only InstanceDeclarations, which carry a HasModellingRule, may be typed with an abstract type; an instance must name a concrete one.

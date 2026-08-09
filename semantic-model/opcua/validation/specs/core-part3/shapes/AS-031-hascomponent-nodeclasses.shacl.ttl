@@ -1,0 +1,78 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-031 -- OPC 10000-3 section 7 (HasComponent), 5.6.4
+#
+#   SourceNode: Object, ObjectType, DataVariable, or VariableType.
+#   TargetNode: Variable, Object, or Method.
+#
+# "DataVariable" is not a NodeClass, which is what makes the source half of
+# this rule more than a NodeClass test. Section 5.6.4 defines a DataVariable as
+# a Variable that is itself the TargetNode of a HasComponent Reference, so a
+# Variable may only own components once something owns it. That is the
+# recursive part, and it is why a plain Property (a Variable reached by
+# HasProperty) cannot be a HasComponent source.
+#
+# The two halves are separate node shapes so that a violating edge is reported
+# once, against the endpoint that is actually wrong, instead of twice.
+#
+# Both shapes list every NodeClass as a target so the check applies to whatever
+# NodeClass the offending endpoint happens to have; the query then decides.
+# opcua:BaseNodeClass is deliberately not used as a target: that class is
+# declared in base.ttl and is only inferable with RDFS entailment over an
+# ontology these shapes do not load, so targeting it would silently match
+# nothing.
+
+base:AS031HasComponentSourceShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
+                   opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
+                   opcua:ReferenceTypeNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-031: {$this} is the SourceNode of a HasComponent Reference to {?target}, but the SourceNode of HasComponent shall be an Object, an ObjectType, a VariableType, or a DataVariable (a Variable that is itself the target of a HasComponent Reference)." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?target
+            WHERE {
+                $this ?reference ?target .
+                ?reference rdfs:subPropertyOf* opcua:HasComponent .
+
+                FILTER NOT EXISTS { $this a opcua:ObjectNodeClass . }
+                FILTER NOT EXISTS { $this a opcua:ObjectTypeNodeClass . }
+                FILTER NOT EXISTS { $this a opcua:VariableTypeNodeClass . }
+                FILTER NOT EXISTS {
+                    $this a opcua:VariableNodeClass .
+                    ?owner ?ownerreference $this .
+                    ?ownerreference rdfs:subPropertyOf* opcua:HasComponent .
+                }
+            }
+        """ ;
+    ] .
+
+base:AS031HasComponentTargetShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
+                   opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
+                   opcua:ReferenceTypeNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-031: {$this} is the TargetNode of a HasComponent Reference from {?source}, but the TargetNode of HasComponent shall be a Variable, an Object, or a Method." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?source
+            WHERE {
+                ?source ?reference $this .
+                ?reference rdfs:subPropertyOf* opcua:HasComponent .
+
+                FILTER NOT EXISTS { $this a opcua:VariableNodeClass . }
+                FILTER NOT EXISTS { $this a opcua:ObjectNodeClass . }
+                FILTER NOT EXISTS { $this a opcua:MethodNodeClass . }
+            }
+        """ ;
+    ] .

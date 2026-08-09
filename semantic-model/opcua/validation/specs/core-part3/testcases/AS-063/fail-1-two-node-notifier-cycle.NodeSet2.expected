@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-063/nodei2000
+Focus Node: http://example.org/UA/AS-063/nodei2001
+Message: AS-063: http://example.org/UA/AS-063/nodei2000 is reachable from itself by following HasEventSource or HasNotifier References. Event source chains shall never lead back to their origin.
+Message: AS-063: http://example.org/UA/AS-063/nodei2001 is reachable from itself by following HasEventSource or HasNotifier References. Event source chains shall never lead back to their origin.

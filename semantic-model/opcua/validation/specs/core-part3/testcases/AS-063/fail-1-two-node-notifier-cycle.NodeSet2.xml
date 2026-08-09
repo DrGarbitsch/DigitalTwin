@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-063 (OPC 10000-3 section 7.17) - FAIL case 1: a two-node cycle.
+
+  Plant notifies from Area and Area notifies from Plant. A Server forwarding an
+  Event along these references never terminates.
+
+  Both nodes are reachable from themselves, so both are reported: neither one
+  is more at fault than the other, and a modeller has to see the whole cycle.
+  Detached, the correctly wired Standalone node must not be reported.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-063/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-063/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasNotifier">i=48</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+  </Aliases>
+
+  <!-- Violation: part of a HasNotifier cycle. -->
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:Plant" EventNotifier="1">
+    <DisplayName>Plant</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasNotifier">ns=1;i=2001</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: closes the cycle back to Plant. -->
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:Area" EventNotifier="1">
+    <DisplayName>Area</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasNotifier" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasNotifier">ns=1;i=2000</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2002" BrowseName="1:Standalone" EventNotifier="1">
+    <DisplayName>Standalone</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+    </References>
+  </UAObject>
+</UANodeSet>

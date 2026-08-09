@@ -2,6 +2,7 @@
   "id": "core-part3",
   "title": "OPC UA Part 3 - Address Space Model",
   "catalog": "docs/validation-rules-part3.md",
+  "catalogRuleCount": 70,
   "commonNodeset": "common/opcua-ns0-subset.NodeSet2.xml",
   "rules": [
     {
@@ -33,6 +34,30 @@
       "section": "5.6.3, 5.6.4",
       "summary": "Property and DataVariable are mutually exclusive",
       "shape": "shapes/AS-057-property-datavariable-exclusive.shacl.ttl"
+    },
+    {
+      "id": "AS-031",
+      "section": "7 (HasComponent), 5.6.4",
+      "summary": "HasComponent source and target NodeClasses",
+      "shape": "shapes/AS-031-hascomponent-nodeclasses.shacl.ttl"
+    },
+    {
+      "id": "AS-035",
+      "section": "7.13",
+      "summary": "HasTypeDefinition target matches the source's NodeClass",
+      "shape": "shapes/AS-035-type-definition-nodeclass.shacl.ttl"
+    },
+    {
+      "id": "AS-039",
+      "section": "6.2.1",
+      "summary": "An instance's type definition is not abstract",
+      "shape": "shapes/AS-039-instance-type-not-abstract.shacl.ttl"
+    },
+    {
+      "id": "AS-063",
+      "section": "7.17",
+      "summary": "HasEventSource chains never return to their origin",
+      "shape": "shapes/AS-063-haseventsource-acyclic.shacl.ttl"
     }
   ]
 }

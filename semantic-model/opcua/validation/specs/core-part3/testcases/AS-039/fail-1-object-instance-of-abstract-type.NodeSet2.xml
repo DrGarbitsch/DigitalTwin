@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-039 (OPC 10000-3 section 6.2.1) - FAIL case 1: instance of an abstract
+  ObjectType.
+
+  AbstractInstance has no HasModellingRule, so it is an instance rather than an
+  InstanceDeclaration, and it names the abstract EquipmentType. No Server can
+  realise it: the type deliberately leaves its members unspecified.
+
+  ConcreteInstance sits next to it with the concrete subtype and must not be
+  reported, and Equipment inside PlantType names the same abstract type but is
+  an InstanceDeclaration, so it must not be reported either. Together they pin
+  down that the shape keys on HasModellingRule and not on the abstract type.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-039/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-039/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:EquipmentType" IsAbstract="true">
+    <DisplayName>EquipmentType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObjectType NodeId="ns=1;i=1001" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObjectType NodeId="ns=1;i=1002" BrowseName="1:PlantType">
+    <DisplayName>PlantType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1003</Reference>
+    </References>
+  </UAObjectType>
+
+  <!-- Legal: InstanceDeclaration, so an abstract type is allowed. -->
+  <UAObject NodeId="ns=1;i=1003" BrowseName="1:Equipment" ParentNodeId="ns=1;i=1002">
+    <DisplayName>Equipment</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1002</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:ConcreteInstance">
+    <DisplayName>ConcreteInstance</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1001</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: an instance typed with an abstract ObjectType. -->
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:AbstractInstance">
+    <DisplayName>AbstractInstance</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+    </References>
+  </UAObject>
+</UANodeSet>

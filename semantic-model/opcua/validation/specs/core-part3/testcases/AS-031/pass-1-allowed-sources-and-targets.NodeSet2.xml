@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-031 (OPC 10000-3 section 7, HasComponent) - PASS case 1.
+
+  Every allowed combination in one graph: an ObjectType and an Object as
+  sources, and a Variable, an Object and a Method as targets.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-031/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-031/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <!-- Source: ObjectType. -->
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1001</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAVariable NodeId="ns=1;i=1001" BrowseName="1:Pressure" DataType="String" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Pressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Source: Object. Targets: Variable, Object, Method. -->
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=2001</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=4000</Reference>
+    </References>
+  </UAObject>
+
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:CurrentPressure" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>CurrentPressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:Diagnostics">
+    <DisplayName>Diagnostics</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAObject>
+
+  <UAMethod NodeId="ns=1;i=4000" BrowseName="1:Start" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Start</DisplayName>
+    <References>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAMethod>
+</UANodeSet>

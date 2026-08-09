@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-031 (OPC 10000-3 section 7, HasComponent; 5.6.4) - PASS case 2: the two
+  Variable-side sources.
+
+  The source list includes "DataVariable", which is not a NodeClass. Section
+  5.6.4 defines it as a Variable that is itself the target of a HasComponent
+  Reference, so whether a Variable may own components depends on its own
+  incoming references. Both legal Variable-side sources appear here:
+
+    * Pressure is a DataVariable (owned by PumpObject through HasComponent) and
+      so may own RawValue.
+    * PressureVariableType is a VariableType, which is allowed outright.
+
+  A shape that simply refused every Variable source would reject Pressure and
+  break ordinary complex DataVariables.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-031/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-031/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <!-- Source: VariableType. -->
+  <UAVariableType NodeId="ns=1;i=1100" BrowseName="1:PressureVariableType" DataType="String" ValueRank="-1">
+    <DisplayName>PressureVariableType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=63</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1101</Reference>
+    </References>
+  </UAVariableType>
+
+  <UAVariable NodeId="ns=1;i=1101" BrowseName="1:Deviation" DataType="String" ParentNodeId="ns=1;i=1100">
+    <DisplayName>Deviation</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1100</Reference>
+    </References>
+  </UAVariable>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Source: DataVariable, because it is itself a HasComponent target. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:Pressure" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Pressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1100</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3001</Reference>
+    </References>
+  </UAVariable>
+
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:RawValue" DataType="String" ParentNodeId="ns=1;i=3000">
+    <DisplayName>RawValue</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=3000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-035/nodei3000
+Focus Node: http://example.org/UA/AS-035/nodei3001
+Message: AS-035: Variable http://example.org/UA/AS-035/nodei3000 has the type definition http://example.org/UA/AS-035/PumpType, which is defined by http://example.org/UA/AS-035/nodei1000, a http://opcfoundation.org/UA/ObjectTypeNodeClass. The HasTypeDefinition target of a Variable shall be a VariableType.
+Message: AS-035: Variable http://example.org/UA/AS-035/nodei3001 has the type definition http://opcfoundation.org/UA/BaseObjectType, which is defined by http://opcfoundation.org/UA/nodei58, a http://opcfoundation.org/UA/ObjectTypeNodeClass. The HasTypeDefinition target of a Variable shall be a VariableType.

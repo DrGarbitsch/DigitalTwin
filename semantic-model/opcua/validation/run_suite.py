@@ -295,8 +295,8 @@ def check_targeted(spec, rule, fixture, update):
     if report != expected:
         raise TestFailure(
             f'{rule.id}/{fixture.name}: findings changed.\n'
-            f'  expected:\n    ' + '\n    '.join(expected) +
-            f'\n  actual:\n    ' + '\n    '.join(report))
+            '  expected:\n    ' + '\n    '.join(expected) +
+            '\n  actual:\n    ' + '\n    '.join(report))
 
 
 def check_cross(spec, rule, fixture, all_shapes):
@@ -306,8 +306,8 @@ def check_cross(spec, rule, fixture, all_shapes):
     if not conforms:
         raise TestFailure(
             f'{rule.id}/{fixture.name}: conforms to its own shape but VIOLATES another rule in {spec.id}. '
-            f'A shape is over-firing, or this "passing" nodeset is not actually spec-compliant:\n  '
-            + '\n  '.join(report))
+            'A shape is over-firing, or this "passing" nodeset is not actually spec-compliant:\n  ' +
+            '\n  '.join(report))
 
 
 def collect_specs(only_spec):
@@ -358,8 +358,10 @@ def main():
                 return 1
 
         print(f'=== {spec.title} ({spec.id}) ===')
-        for rule in rules:
-            failures.extend(rule.check_fixture_counts())
+        # Kept per rule rather than thrown straight onto `failures`, so a rule
+        # missing a fixture is shown as FAIL on its own line instead of only in
+        # the summary, where it reads as a failure of some other rule.
+        count_problems = {rule.id: rule.check_fixture_counts() for rule in rules}
 
         # Warm the shared artefacts before fanning out, so parallel workers
         # never race to build the same NS0 translation.
@@ -391,7 +393,7 @@ def main():
 
         checks += len(jobs)
         for rule in rules:
-            rule_failures = [
+            rule_failures = count_problems[rule.id] + [
                 result for result, job in zip(results, jobs)
                 if result and job[1].id == rule.id
             ]
@@ -410,18 +412,32 @@ def main():
 
 
 def report_coverage(spec):
-    """Print how much of a specification's catalog is enforced by a shape."""
-    print(f'=== {spec.title} ({spec.id}) ===')
-    by_status = {}
-    for rule in spec.rules:
-        by_status.setdefault(rule.status, []).append(rule)
+    """Print how much of a specification's rule catalog this suite enforces.
+
+    The manifest lists the rules that have a shape; the rules that do not are
+    left in the prose catalog it points at, together with the reason each one
+    is still open (checkable but unwritten, blocked on an Attribute the
+    translation drops, or a cross-consistency check too large for a shape).
+    Duplicating that backlog here would only let the two copies drift, so the
+    denominator is a count taken from the catalog and the gap list stays in it.
+    """
     implemented = spec.implemented_rules
-    print(f'  rules in manifest : {len(spec.rules)}')
-    print(f'  enforced by shape : {len(implemented)}')
-    for status, rules in sorted(by_status.items()):
-        print(f'    {status:<24} {len(rules):>3}  {", ".join(rule.id for rule in rules)}')
+    total = spec.manifest.get('catalogRuleCount')
     fixtures = sum(len(rule.fixtures()) for rule in implemented)
+
+    print(f'=== {spec.title} ({spec.id}) ===')
+    print(f'  catalog           : {spec.manifest.get("catalog", "(none)")}')
+    if total:
+        print(f'  rules enforced    : {len(implemented)} of {total}')
+    else:
+        print(f'  rules enforced    : {len(implemented)}')
     print(f'  nodeset fixtures  : {fixtures}')
+    print()
+    for rule in implemented:
+        names = [path.name for path in rule.fixtures()]
+        passes = sum(1 for name in names if name.startswith(PASS_PREFIX))
+        fails = sum(1 for name in names if name.startswith(FAIL_PREFIX))
+        print(f'  {rule.id}  {passes} pass / {fails} fail   {rule.section:<18} {rule.summary}')
     print()
 
 

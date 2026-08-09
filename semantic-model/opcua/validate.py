@@ -103,7 +103,7 @@ data-file name (.jsonld, .ttl).")
 
     else:
         print("No valid mode selected.")
-        sys.sys.exit(1)
+        sys.exit(1)
 
     if args.merge_entity is True:
         os.environ["PYSHACL_USE_FULL_MIXIN"] = "true"
@@ -153,7 +153,7 @@ data-file name (.jsonld, .ttl).")
             else:
                 print(f'Focus Node (Entity which triggered the validation error): {entity_id}. More details \
 cannot be determined. Check Source Shape for detailed path.')
-    sys.sys.exit(1)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

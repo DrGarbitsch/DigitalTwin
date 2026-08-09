@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-039 (OPC 10000-3 section 6.2.1) - FAIL case 2: abstract VariableTypes.
+
+  The Variable side of the rule, which a shape written only against
+  base:instanceOf would miss entirely: nodeset2owl.py rewrites rdf:type into
+  base:instanceOf only for types below BaseObjectType, so a Variable's type
+  definition stays on rdf:type and has to be matched there.
+
+  Two violations, one against Namespace 0's abstract BaseVariableType (i=62)
+  and one against an abstract VariableType defined in this model, so the check
+  is pinned down on both sides of the graph boundary.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-039/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-039/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAVariableType NodeId="ns=1;i=1100" BrowseName="1:AbstractMeasurementType" IsAbstract="true" DataType="String" ValueRank="-1">
+    <DisplayName>AbstractMeasurementType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=63</Reference>
+    </References>
+  </UAVariableType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3001</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3002</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: instance of Namespace 0's abstract BaseVariableType. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:AbstractStandard" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>AbstractStandard</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=62</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Violation: instance of an abstract VariableType defined in this model. -->
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:AbstractLocal" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>AbstractLocal</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1100</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Correct sibling: must not be reported. -->
+  <UAVariable NodeId="ns=1;i=3002" BrowseName="1:Pressure" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Pressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

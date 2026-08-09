@@ -19,7 +19,7 @@ LINTER := python3 -m flake8
 PIP := pip
 HELM_DIR := ../../helm/charts/shacl
 NAMESPACE := iff
-TOLINT := nodeset2owl.py extractType.py nodeset-dump.py validate.py start_fuseki.py extractIffBindings.py lib/nodesetparser.py lib/utils.py lib/shacl.py lib/entity.py lib/jsonld.py lib/bindings.py
+TOLINT := nodeset2owl.py extractType.py nodeset-dump.py validate.py start_fuseki.py extractIffBindings.py lib/nodesetparser.py lib/utils.py lib/shacl.py lib/entity.py lib/jsonld.py lib/bindings.py validation/run_suite.py validation/tools/make_ns0_subset.py
 PYTEST := python3 -m pytest
 
 
@@ -40,3 +40,4 @@ test:
 	(cd tests/nodeset-dump; bash ./test.bash)
 	(cd tests/validation; bash ./test.bash)
 	(cd tests/extractIffBindings; bash ./test.bash)
+	$(PYTHON) validation/run_suite.py

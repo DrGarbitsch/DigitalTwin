@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-063 (OPC 10000-3 section 7.17) - PASS case 2: a diamond is not a cycle.
+
+  Plant notifies from both LineA and LineB, and both notify from the shared
+  Machine. Machine is therefore reachable from Plant by two distinct paths,
+  which section 7.17 explicitly permits: the rule forbids returning to the
+  *origin*, not arriving at the same descendant twice.
+
+  This is the case a naive "has this node been visited before" implementation
+  reports as a loop. A shape that fails this fixture is rejecting the standard
+  way an address space shares one Machine between two production lines.
+
+  HasEventSource and HasNotifier are mixed here so both members of the shape's
+  path alternation are exercised in the same graph.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-063/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-063/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasEventSource">i=36</Alias>
+    <Alias Alias="HasNotifier">i=48</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+  </Aliases>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:Plant" EventNotifier="1">
+    <DisplayName>Plant</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasNotifier">ns=1;i=2001</Reference>
+      <Reference ReferenceType="HasNotifier">ns=1;i=2002</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:LineA" EventNotifier="1">
+    <DisplayName>LineA</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasNotifier" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasEventSource">ns=1;i=2003</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2002" BrowseName="1:LineB" EventNotifier="1">
+    <DisplayName>LineB</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasNotifier" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasEventSource">ns=1;i=2003</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2003" BrowseName="1:SharedMachine" EventNotifier="1">
+    <DisplayName>SharedMachine</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasEventSource" IsForward="false">ns=1;i=2001</Reference>
+      <Reference ReferenceType="HasEventSource" IsForward="false">ns=1;i=2002</Reference>
+    </References>
+  </UAObject>
+</UANodeSet>

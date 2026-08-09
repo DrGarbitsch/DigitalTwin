@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-035/nodei2001
+Message: AS-035: Object http://example.org/UA/AS-035/nodei2001 has the type definition http://example.org/UA/AS-035/PressureVariableType, which is defined by http://example.org/UA/AS-035/nodei1100, a http://opcfoundation.org/UA/VariableTypeNodeClass. The HasTypeDefinition target of an Object shall be an ObjectType.

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-035 (OPC 10000-3 section 7.13) - FAIL case 1: Object typed with a
+  VariableType.
+
+  MisTypedObject is an Object whose HasTypeDefinition names PressureVariableType.
+  The node claims to be an Object while its type describes a Variable, so
+  nothing says whether it has a Value.
+
+  The Object next to it is correctly typed and must not be reported.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-035/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-035/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAVariableType NodeId="ns=1;i=1100" BrowseName="1:PressureVariableType" DataType="String" ValueRank="-1">
+    <DisplayName>PressureVariableType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=63</Reference>
+    </References>
+  </UAVariableType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:CorrectObject">
+    <DisplayName>CorrectObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: an Object whose HasTypeDefinition target is a VariableType. -->
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:MisTypedObject">
+    <DisplayName>MisTypedObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1100</Reference>
+    </References>
+  </UAObject>
+</UANodeSet>

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-031 (OPC 10000-3 section 7, HasComponent; 5.6.4) - FAIL case 1:
+  disallowed SourceNodes.
+
+  Two NodeClasses that may never own components:
+
+    * Manufacturer is a Property, a Variable reached by HasProperty rather than
+      by HasComponent, so it is not a DataVariable and section 5.6.4 does not
+      let it own components.
+    * Start is a Method. Methods are leaves of the component hierarchy; their
+      arguments are Properties, not components.
+
+  This is the half of AS-031 that needs the recursive DataVariable definition:
+  Manufacturer and the legal Pressure in pass case 2 have the same NodeClass
+  and differ only in how they are reached.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-031/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-031/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=4000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: a Property owning a component. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Manufacturer</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3001</Reference>
+    </References>
+  </UAVariable>
+
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:Detail" DataType="String" ParentNodeId="ns=1;i=3000">
+    <DisplayName>Detail</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=3000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Violation: a Method owning a component. -->
+  <UAMethod NodeId="ns=1;i=4000" BrowseName="1:Start" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Start</DisplayName>
+    <References>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=4001</Reference>
+    </References>
+  </UAMethod>
+
+  <UAVariable NodeId="ns=1;i=4001" BrowseName="1:Progress" DataType="String" ParentNodeId="ns=1;i=4000">
+    <DisplayName>Progress</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=4000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

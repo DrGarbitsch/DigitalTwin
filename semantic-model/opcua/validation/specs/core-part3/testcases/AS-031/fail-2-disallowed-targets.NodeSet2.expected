@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-031/nodei1001
+Focus Node: http://example.org/UA/AS-031/nodei1002
+Message: AS-031: http://example.org/UA/AS-031/nodei1001 is the TargetNode of a HasComponent Reference from http://example.org/UA/AS-031/nodei2000, but the TargetNode of HasComponent shall be a Variable, an Object, or a Method.
+Message: AS-031: http://example.org/UA/AS-031/nodei1002 is the TargetNode of a HasComponent Reference from http://example.org/UA/AS-031/nodei2000, but the TargetNode of HasComponent shall be a Variable, an Object, or a Method.

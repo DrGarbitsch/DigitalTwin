@@ -1,0 +1,50 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-039 -- OPC 10000-3 section 6.2.1
+#
+#   "The type of an InstanceDeclaration may be abstract, however the instance
+#    must be of a concrete type."
+#
+# An abstract type is a placeholder: it says what a family of types has in
+# common without being directly usable. Instantiating one leaves a node that
+# claims a type no Server can actually implement.
+#
+# The InstanceDeclaration exemption is the whole difficulty of this rule, and
+# it is not optional. Inside a type definition, pointing a child at an abstract
+# type is the normal, intended way to say "any subtype of this fits here", and
+# a shape without the exemption would reject a large share of the standard
+# companion specifications. InstanceDeclarations are recognised the way section
+# 6.2.1 defines them, by carrying a HasModellingRule Reference.
+#
+# base:isAbstract is compared against the plain string "true", not a typed
+# xsd:boolean: lib/nodesetparser.py copies the XML attribute through as an
+# untyped literal, so "true"^^xsd:boolean would never match. It sits on the
+# owl:Class, not on the node that defines it.
+
+base:AS039InstanceTypeNotAbstractShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-039: {$this} is an instance whose type definition {?type} is abstract. Only InstanceDeclarations, which carry a HasModellingRule, may be typed with an abstract type; an instance must name a concrete one." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?type
+            WHERE {
+                $this base:instanceOf|rdf:type ?type .
+                ?type a owl:Class ;
+                      base:isAbstract "true" .
+
+                FILTER NOT EXISTS {
+                    $this ?modellingrulereference ?modellingrule .
+                    ?modellingrulereference rdfs:subPropertyOf* opcua:HasModellingRule .
+                }
+            }
+        """ ;
+    ] .

@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-039/nodei2001
+Message: AS-039: http://example.org/UA/AS-039/nodei2001 is an instance whose type definition http://example.org/UA/AS-039/EquipmentType is abstract. Only InstanceDeclarations, which carry a HasModellingRule, may be typed with an abstract type; an instance must name a concrete one.

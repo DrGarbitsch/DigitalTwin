@@ -1,0 +1,75 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-035 -- OPC 10000-3 section 7.13
+#
+#   "If the SourceNode is an Object, then the TargetNode shall be an
+#    ObjectType; if the SourceNode is a Variable, then the TargetNode shall be
+#    a VariableType."
+#
+# This is the type-consistency half of the HasTypeDefinition rule; AS-008 is
+# the cardinality half. The two are deliberately separate shapes: a node with
+# no type definition has nothing to check the NodeClass of, and reporting one
+# defect under two rules makes a report harder to act on, not easier.
+#
+# Reading the NodeClass of a type
+# -------------------------------
+# After translation a type definition target is an owl:Class, and an owl:Class
+# carries no NodeClass of its own. The NodeClass lives on the *node that
+# defines* the class, linked by base:definesType, so the query hops from the
+# class back to its defining node and reads rdf:type there. That hop is also
+# what makes the rule checkable at all: without it, ObjectTypes and
+# VariableTypes are indistinguishable in the translated graph.
+#
+# Two node shapes rather than one with two constraints: validate.py runs each
+# sh:sparql constraint once per sh:targetClass of its shape, so a single shape
+# carrying both target classes would run the Object rule against Variables too.
+
+base:AS035ObjectTypeDefinitionNodeClassShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-035: Object {$this} has the type definition {?type}, which is defined by {?typenode}, a {?typenodeclass}. The HasTypeDefinition target of an Object shall be an ObjectType." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+            SELECT $this ?type ?typenode ?typenodeclass
+            WHERE {
+                $this base:instanceOf|rdf:type ?type .
+                ?type a owl:Class .
+
+                ?typenode base:definesType ?type ;
+                          a ?typenodeclass .
+
+                FILTER(?typenodeclass != opcua:ObjectTypeNodeClass)
+            }
+        """ ;
+    ] .
+
+base:AS035VariableTypeDefinitionNodeClassShape a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-035: Variable {$this} has the type definition {?type}, which is defined by {?typenode}, a {?typenodeclass}. The HasTypeDefinition target of a Variable shall be a VariableType." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+            SELECT $this ?type ?typenode ?typenodeclass
+            WHERE {
+                $this base:instanceOf|rdf:type ?type .
+                ?type a owl:Class .
+
+                ?typenode base:definesType ?type ;
+                          a ?typenodeclass .
+
+                FILTER(?typenodeclass != opcua:VariableTypeNodeClass)
+            }
+        """ ;
+    ] .

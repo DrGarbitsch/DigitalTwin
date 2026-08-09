@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-039 (OPC 10000-3 section 6.2.1) - PASS case 2: the InstanceDeclaration
+  exemption.
+
+  "The type of an InstanceDeclaration may be abstract, however the instance
+   must be of a concrete type."
+
+  Inside PlantType, the child Equipment is typed with the abstract
+  EquipmentType and carries HasModellingRule Mandatory. That is the intended
+  way to declare "every instance of PlantType has an Equipment, of whichever
+  concrete subtype fits", and it is legal precisely because Equipment is an
+  InstanceDeclaration rather than an instance.
+
+  The abstract VariableType case is exercised too: Measurement is typed with
+  Namespace 0's abstract BaseVariableType (i=62) and is likewise exempt.
+
+  This is the fixture that stops the rule from being implemented as a blanket
+  "no node may name an abstract type", which would reject most standard
+  companion specifications.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-039/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-039/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:EquipmentType" IsAbstract="true">
+    <DisplayName>EquipmentType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObjectType NodeId="ns=1;i=1001" BrowseName="1:PlantType">
+    <DisplayName>PlantType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1002</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1003</Reference>
+    </References>
+  </UAObjectType>
+
+  <!-- InstanceDeclaration typed with an abstract ObjectType: legal. -->
+  <UAObject NodeId="ns=1;i=1002" BrowseName="1:Equipment" ParentNodeId="ns=1;i=1001">
+    <DisplayName>Equipment</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1001</Reference>
+    </References>
+  </UAObject>
+
+  <!-- InstanceDeclaration typed with the abstract BaseVariableType: legal. -->
+  <UAVariable NodeId="ns=1;i=1003" BrowseName="1:Measurement" DataType="String" ParentNodeId="ns=1;i=1001">
+    <DisplayName>Measurement</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=62</Reference>
+      <Reference ReferenceType="HasModellingRule">i=80</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1001</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

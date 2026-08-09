@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-031/nodei3000
+Focus Node: http://example.org/UA/AS-031/nodei4000
+Message: AS-031: http://example.org/UA/AS-031/nodei3000 is the SourceNode of a HasComponent Reference to http://example.org/UA/AS-031/nodei3001, but the SourceNode of HasComponent shall be an Object, an ObjectType, a VariableType, or a DataVariable (a Variable that is itself the target of a HasComponent Reference).
+Message: AS-031: http://example.org/UA/AS-031/nodei4000 is the SourceNode of a HasComponent Reference to http://example.org/UA/AS-031/nodei4001, but the SourceNode of HasComponent shall be an Object, an ObjectType, a VariableType, or a DataVariable (a Variable that is itself the target of a HasComponent Reference).

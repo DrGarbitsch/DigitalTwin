@@ -1,0 +1,47 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-063 -- OPC 10000-3 section 7.17
+#
+#   "Starting from Node 'A' ... following References of the HasEventSource
+#    ReferenceType or of its subtypes it shall never be possible to return
+#    to 'A'."
+#
+# This is a graph property, not a shape: no bound on how many nodes a cycle may
+# run through, so no fixed number of triple patterns can express it. SPARQL 1.1
+# transitive property paths do express it, and a self-reachability query
+# ("?x path+ ?x") is exactly the cycle test.
+#
+# Event notification walks these references at runtime, so a cycle is not a
+# cosmetic defect: a Server following it forwards an Event round the loop
+# forever. Section 7.17 states the constraint unconditionally, unlike the
+# View-scoped ContainsNoLoops rule (AS-022), so it holds for every address
+# space with no opt-out. Multiple distinct paths to the same descendant stay
+# legal; only returning to the origin is forbidden.
+#
+# Known limitation: the path enumerates the two ReferenceTypes the rule is
+# about, HasEventSource and its Namespace 0 subtype HasNotifier, because a
+# SPARQL property path cannot bind its predicate to a variable and so cannot be
+# combined with the rdfs:subPropertyOf* traversal the other shapes here use. A
+# companion specification that defines a further subtype of HasEventSource has
+# to be added to the alternation. Nothing silently degrades: cycles through the
+# listed ReferenceTypes are still found, a cycle through an unlisted subtype is
+# missed, and adding one is a one-token change.
+
+base:AS063HasEventSourceAcyclicShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
+                   opcua:VariableTypeNodeClass, opcua:MethodNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-063: {$this} is reachable from itself by following HasEventSource or HasNotifier References. Event source chains shall never lead back to their origin." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+
+            SELECT $this
+            WHERE {
+                $this (opcua:HasEventSource|opcua:HasNotifier)+ $this .
+            }
+        """ ;
+    ] .

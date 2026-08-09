@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-035 (OPC 10000-3 section 7.13) - FAIL case 2: Variable typed with an
+  ObjectType.
+
+  The mirror image of fail case 1, and the direction that matters more in
+  practice: a Variable typed with an ObjectType is what happens when a
+  HasTypeDefinition is copied between sibling nodes of different NodeClasses.
+
+  Two violations, one using a locally defined ObjectType and one using
+  Namespace 0's BaseObjectType, so the check is pinned down for types defined
+  in this file and for types that only exist in the shared NS0 subset.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-035/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-035/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3001</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3002</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: Variable typed with a locally defined ObjectType. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:LocalMisTyped" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>LocalMisTyped</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Violation: Variable typed with Namespace 0's BaseObjectType. -->
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:StandardMisTyped" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>StandardMisTyped</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Correct sibling: must not be reported. -->
+  <UAVariable NodeId="ns=1;i=3002" BrowseName="1:Pressure" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Pressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>
