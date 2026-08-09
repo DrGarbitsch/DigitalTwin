@@ -1,0 +1,4 @@
+Focus Node: http://example.org/UA/AS-008/nodei1002
+Focus Node: http://example.org/UA/AS-008/nodei1003
+Message: AS-008: http://example.org/UA/AS-008/nodei1002 is an Object or Variable with 0 type definitions, but every Object and Variable shall be the SourceNode of exactly one HasTypeDefinition Reference.
+Message: AS-008: http://example.org/UA/AS-008/nodei1003 is an Object or Variable with 0 type definitions, but every Object and Variable shall be the SourceNode of exactly one HasTypeDefinition Reference.

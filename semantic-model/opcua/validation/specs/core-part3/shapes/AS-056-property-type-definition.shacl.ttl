@@ -1,0 +1,46 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-056 -- OPC 10000-3 section 5.6.3
+#
+#   "all Properties shall point to the PropertyType" (via HasTypeDefinition).
+#
+# Subtypes are accepted here, not just PropertyType itself. The catalog flags
+# this as the one open question on the rule: 5.6.3 names PropertyType without
+# the "or a subtype of it" wording that every comparable rule in Part 3 uses
+# (AS-010, AS-026, AS-044). Reading it as exact-match would make it the single
+# outlier in an otherwise uniformly subtype-permitting specification, and would
+# reject any companion specification that derives its own Property type. The
+# permissive reading is the safe one: it cannot produce a false positive on a
+# conforming model, whereas exact-match can. If the strict reading is ever
+# confirmed against the primary text, tightening this is a one-line change
+# (drop the * from rdfs:subClassOf*) plus a new fixture.
+#
+# Nodes with no type definition at all are not reported here; that is AS-008's
+# rule, and reporting it twice would make one defect look like two.
+
+base:AS056PropertyTypeDefinitionShape a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-056: {$this} is a Property (reached from {?owner}) but its HasTypeDefinition target is {?type}, which is not opcua:PropertyType or a subtype of it." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?owner ?type
+            WHERE {
+                ?owner ?ownerreference $this .
+                ?ownerreference rdfs:subPropertyOf* opcua:HasProperty .
+
+                $this base:instanceOf|rdf:type ?type .
+                ?type a owl:Class .
+
+                FILTER NOT EXISTS { ?type rdfs:subClassOf* opcua:PropertyType . }
+            }
+        """ ;
+    ] .

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-057 (OPC 10000-3 section 5.6.3, 5.6.4) - FAIL case 2: one owner, both
+  ReferenceTypes.
+
+  MachineObject reaches Temperature by HasProperty and by HasComponent at the
+  same time. This is the form the defect takes when a Variable is "promoted"
+  from Property to DataVariable and the original Reference is left behind.
+
+  The second violation uses HasOrderedComponent, a subtype of HasComponent, to
+  pin down that the rule follows the ReferenceType hierarchy rather than
+  matching HasComponent by name. Part 3 section 4.4.4 says a subtype of a
+  concrete ReferenceType counts as that ReferenceType for identification, so
+  Position is just as ambiguous as Temperature.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-057/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-057/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasOrderedComponent">i=49</Alias>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:MachineType">
+    <DisplayName>MachineType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:MachineObject">
+    <DisplayName>MachineObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3001</Reference>
+      <Reference ReferenceType="HasOrderedComponent">ns=1;i=3001</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: reached by HasProperty and HasComponent from the same owner. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:Temperature" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Temperature</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Violation: same defect, but through a subtype of HasComponent. -->
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:Position" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Position</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasOrderedComponent" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

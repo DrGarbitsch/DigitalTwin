@@ -1,0 +1,54 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-006 -- OPC 10000-3 section 4.5.2
+#
+#   A Node's Properties are identified by BrowseName, so no two Properties of
+#   the same Node may share one.
+#
+# The uniqueness is scoped to one owner: two different Objects may each have a
+# Property named "Manufacturer", and must be able to. Only siblings collide.
+#
+# BrowseNames are compared as (name, namespace) pairs, never by name alone.
+# A BrowseName is a QualifiedName, and nodeset2owl.py keeps the two halves in
+# base:hasBrowseName and base:hasBrowseNameNamespace. Two Properties named
+# "Manufacturer" in different namespaces are genuinely different BrowseNames,
+# and a shape that compared only the string would reject the standard way a
+# companion specification adds its own Property alongside an inherited one.
+#
+# The focus node is the owner rather than either colliding Property: the defect
+# is a property of the pair, and the owner is the node a modeller has to edit.
+# Part 3 section 4.4.4's opaque-URI rule applies to the namespace half -- these
+# are compared for exact equality, never normalised or case-folded, which plain
+# SPARQL term equality gives.
+
+base:AS006SiblingPropertyBrowseNamesShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
+                   opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
+                   opcua:ReferenceTypeNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-006: {$this} has more than one Property with BrowseName {?browsename}. The Properties of a Node are identified by BrowseName and must be distinct." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?browsename
+            WHERE {
+                $this ?firstreference ?firstproperty .
+                ?firstreference rdfs:subPropertyOf* opcua:HasProperty .
+
+                $this ?secondreference ?secondproperty .
+                ?secondreference rdfs:subPropertyOf* opcua:HasProperty .
+
+                FILTER(?firstproperty != ?secondproperty)
+
+                ?firstproperty base:hasBrowseName ?browsename ;
+                               base:hasBrowseNameNamespace ?namespace .
+                ?secondproperty base:hasBrowseName ?browsename ;
+                                base:hasBrowseNameNamespace ?namespace .
+            }
+        """ ;
+    ] .

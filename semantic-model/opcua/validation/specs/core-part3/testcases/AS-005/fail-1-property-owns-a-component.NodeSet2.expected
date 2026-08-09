@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-005/nodei3000
+Message: AS-005: http://example.org/UA/AS-005/nodei3000 is a Property (reached from http://example.org/UA/AS-005/nodei2000) but is the SourceNode of the hierarchical Reference http://opcfoundation.org/UA/HasComponent to http://example.org/UA/AS-005/nodei3001. Properties shall not be the SourceNode of any hierarchical Reference.

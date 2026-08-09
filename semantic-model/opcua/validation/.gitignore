@@ -1,0 +1,4 @@
+# Translated nodesets, merged data graphs and the merged shape set, all rebuilt
+# by run_suite.py from the checked-in NodeSet2 XML fixtures whenever an input
+# is newer than its output.
+.build/

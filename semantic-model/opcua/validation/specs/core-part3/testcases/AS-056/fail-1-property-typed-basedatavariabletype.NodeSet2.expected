@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-056/nodei3000
+Message: AS-056: http://example.org/UA/AS-056/nodei3000 is a Property (reached from http://example.org/UA/AS-056/nodei2000) but its HasTypeDefinition target is http://opcfoundation.org/UA/BaseDataVariableType, which is not opcua:PropertyType or a subtype of it.

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-057 (OPC 10000-3 section 5.6.3, 5.6.4) - FAIL case 1: two different owners.
+
+  SharedVariable is reached by HasProperty from PumpObject and by HasComponent
+  from ValveObject. Each owner on its own is well formed, which is what makes
+  this the realistic version of the defect: it appears when two type authors
+  reuse the same Variable Node and neither sees the other's reference.
+
+  Nothing in the model then decides whether SharedVariable is metadata about
+  its owner or a data-carrying component.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-057/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-057/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:EquipmentType">
+    <DisplayName>EquipmentType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+    </References>
+  </UAObject>
+
+  <UAObject NodeId="ns=1;i=2001" BrowseName="1:ValveObject">
+    <DisplayName>ValveObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=3000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: TargetNode of both a HasProperty and a HasComponent Reference. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:SharedVariable" DataType="String">
+    <DisplayName>SharedVariable</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=2001</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

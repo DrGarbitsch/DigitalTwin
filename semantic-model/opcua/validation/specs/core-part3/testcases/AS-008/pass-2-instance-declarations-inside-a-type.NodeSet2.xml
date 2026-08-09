@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-008 (OPC 10000-3 section 4.6.1, 7.13) - PASS case 2.
+
+  "Each Variable and each Object shall be the SourceNode of exactly one
+   HasTypeDefinition Reference."
+
+  The rule applies to InstanceDeclarations inside a type definition just as it
+  does to plain instances: the Object and Variable children of MachineType are
+  Objects and Variables, so each needs its own HasTypeDefinition. This case
+  guards against a shape that only looks at nodes outside a type hierarchy.
+  The ObjectType and VariableType nodes themselves are deliberately present and
+  deliberately have no HasTypeDefinition, because the rule must not apply to
+  them: they are types, not Objects or Variables.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-008/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-008/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:MachineType">
+    <DisplayName>MachineType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1001</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=1002</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAVariableType NodeId="ns=1;i=1100" BrowseName="1:TemperatureVariableType" DataType="String" ValueRank="-1">
+    <DisplayName>TemperatureVariableType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=63</Reference>
+    </References>
+  </UAVariableType>
+
+  <UAVariable NodeId="ns=1;i=1001" BrowseName="1:Temperature" DataType="String" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Temperature</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1100</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAVariable>
+
+  <UAVariable NodeId="ns=1;i=1002" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Manufacturer</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasModellingRule">i=80</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

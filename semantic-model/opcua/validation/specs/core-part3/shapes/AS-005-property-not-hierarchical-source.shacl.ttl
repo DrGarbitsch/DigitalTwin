@@ -1,0 +1,46 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-005 -- OPC 10000-3 section 4.5.2, 5.6.3
+#
+#   "Properties shall not be the SourceNode of any hierarchical References."
+#   "Properties may be the SourceNode of any NonHierarchical References."
+#
+# A Property is a leaf: it describes its owner and must not grow a subtree of
+# its own. NonHierarchical References out of a Property stay legal, which is
+# why this shape tests the ReferenceType against opcua:HierarchicalReferences
+# rather than simply forbidding every outgoing reference.
+#
+# This supersedes NoHasPropertyOnVariableNodeShape in
+# validation/ontology/hasProperty.shacl.ttl, which only forbids a Property
+# from being the source of HasProperty specifically. The spec's rule is the
+# wider one: HasComponent and Organizes out of a Property are equally illegal,
+# and both are missed by the narrower check.
+#
+# "Is a Property" is decided the way 5.6.3 defines it, by the incoming
+# HasProperty Reference, rather than by the node's TypeDefinition. Those two
+# can disagree, and when they do it is AS-056 and AS-057 that say so; keeping
+# this shape keyed to the reference means a fixture that trips one rule does
+# not silently trip this one as well.
+
+base:AS005PropertyNotHierarchicalSourceShape a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-005: {$this} is a Property (reached from {?owner}) but is the SourceNode of the hierarchical Reference {?reference} to {?target}. Properties shall not be the SourceNode of any hierarchical Reference." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?owner ?reference ?target
+            WHERE {
+                ?owner ?ownerreference $this .
+                ?ownerreference rdfs:subPropertyOf* opcua:HasProperty .
+
+                $this ?reference ?target .
+                ?reference rdfs:subPropertyOf* opcua:HierarchicalReferences .
+            }
+        """ ;
+    ] .

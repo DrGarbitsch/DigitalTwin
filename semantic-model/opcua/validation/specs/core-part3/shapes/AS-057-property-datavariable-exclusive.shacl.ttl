@@ -1,0 +1,47 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-057 -- OPC 10000-3 section 5.6.3, 5.6.4
+#
+#   5.6.3: "Properties ... shall not be the TargetNode of any HasComponent
+#           Reference."
+#   5.6.4: "DataVariables shall not be the TargetNode of any HasProperty
+#           References ... a HasComponent Reference pointing to a Variable Node
+#           identifies it as a DataVariable."
+#
+# The two categories of Variable are decided by the incoming reference, so a
+# Variable reached by both is neither one nor the other: nothing in the model
+# then says whether it carries data or metadata about its parent.
+#
+# The catalog records this as the sharpest form of AS-007, and as a real gap:
+# hasComponent.shacl.ttl and hasProperty.shacl.ttl each constrain their own
+# side, but neither looks at the two together, so a node reached by both slips
+# past both shapes.
+#
+# Reference subtypes are matched with rdfs:subPropertyOf*, not by name, because
+# the data carries the concrete ReferenceType actually used (HasOrderedComponent
+# is a HasComponent, and a companion specification may define more). Part 3
+# section 4.4.4 treats a subtype of a concrete ReferenceType as that
+# ReferenceType for identification purposes, which is exactly this traversal.
+
+base:AS057PropertyDataVariableExclusiveShape a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-057: Variable {$this} is the TargetNode of a HasProperty Reference from {?propertysource} and of a HasComponent Reference from {?componentsource}. A Variable is either a Property or a DataVariable, never both." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+            SELECT $this ?propertysource ?componentsource
+            WHERE {
+                ?propertysource ?propertyreference $this .
+                ?propertyreference rdfs:subPropertyOf* opcua:HasProperty .
+
+                ?componentsource ?componentreference $this .
+                ?componentreference rdfs:subPropertyOf* opcua:HasComponent .
+            }
+        """ ;
+    ] .

@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-057/nodei3000
+Message: AS-057: Variable http://example.org/UA/AS-057/nodei3000 is the TargetNode of a HasProperty Reference from http://example.org/UA/AS-057/nodei2000 and of a HasComponent Reference from http://example.org/UA/AS-057/nodei2001. A Variable is either a Property or a DataVariable, never both.

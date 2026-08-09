@@ -1,0 +1,2 @@
+Focus Node: http://example.org/UA/AS-006/nodei2000
+Message: AS-006: http://example.org/UA/AS-006/nodei2000 has more than one Property with BrowseName Manufacturer. The Properties of a Node are identified by BrowseName and must be distinct.

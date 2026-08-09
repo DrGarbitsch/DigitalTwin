@@ -1,0 +1,86 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+
+# AS-008 -- OPC 10000-3 section 4.6.1, 7.13
+#
+#   "Each Variable and each Object shall be the SourceNode of exactly one
+#    HasTypeDefinition Reference."
+#
+# How this looks after nodeset2owl.py
+# -----------------------------------
+# HasTypeDefinition is not carried over as a plain reference predicate. The
+# parser recognises it (lib/nodesetparser.py, references_ignore) and turns it
+# into a type assertion instead. Which predicate that assertion ends up on is
+# not uniform, so the query has to accept both:
+#
+#   * Objects get base:instanceOf, because utils.replace_type_of_node_iris
+#     rewrites rdf:type into base:instanceOf.
+#   * Variables keep a plain rdf:type, because that same rewrite only matches
+#     types below opcua:BaseObjectType and so never touches VariableTypes.
+#
+# Both predicates also carry other things, so "points at a type definition" is
+# pinned down by the target being declared as an owl:Class: nodeset2owl.py
+# emits `a owl:Class` for every type it creates, and never for the NodeClass
+# individuals (opcua:ObjectNodeClass and friends are declared in base.ttl,
+# which these shapes deliberately do not require). That combination --
+# base:instanceOf|rdf:type to an owl:Class -- is the vocabulary's idiom for
+# "the HasTypeDefinition target", and it recurs in the other shapes here.
+#
+# Why the query is shaped like this
+# ---------------------------------
+# "Exactly one" is violated from two sides, and the two need different
+# formulations:
+#
+#   * Zero: FILTER NOT EXISTS. It cannot be written as COUNT over an OPTIONAL,
+#     because the SPARQL engine behind validate.py counts an unbound optional
+#     variable as one match, so a node with no type definition would come back
+#     with count 1 and slip through.
+#   * More than one: a grouped subquery, which only ever sees nodes that do
+#     have a type definition and so counts correctly.
+#
+# Each UNION branch anchors $this on base:hasNodeId. A UNION branch is
+# evaluated on its own before being joined with the target-class pattern that
+# validate.py injects, so a branch consisting only of FILTER/BIND would be
+# evaluated with $this still unbound and would silently match nothing.
+# base:hasNodeId is the right anchor: lib/nodesetparser.py emits it exactly
+# once for every node it creates, whatever the NodeClass.
+
+base:AS008TypeDefinitionCardinalityShape a sh:NodeShape ;
+    sh:targetClass opcua:ObjectNodeClass, opcua:VariableNodeClass ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "AS-008: {$this} is an Object or Variable with {?count} type definitions, but every Object and Variable shall be the SourceNode of exactly one HasTypeDefinition Reference." ;
+        sh:select """
+            PREFIX base: <https://industryfusion.github.io/contexts/ontology/v0/base/>
+            PREFIX opcua: <http://opcfoundation.org/UA/>
+            PREFIX owl: <http://www.w3.org/2002/07/owl#>
+            PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+            SELECT $this ?count
+            WHERE {
+                {
+                    $this base:hasNodeId ?nodeid .
+                    FILTER NOT EXISTS {
+                        $this base:instanceOf|rdf:type ?anytype .
+                        ?anytype a owl:Class .
+                    }
+                    BIND(0 AS ?count)
+                }
+                UNION
+                {
+                    $this base:hasNodeId ?nodeid .
+                    {
+                        SELECT $this (COUNT(DISTINCT ?type) AS ?typecount)
+                        WHERE {
+                            $this base:instanceOf|rdf:type ?type .
+                            ?type a owl:Class .
+                        }
+                        GROUP BY $this
+                    }
+                    FILTER(?typecount > 1)
+                    BIND(?typecount AS ?count)
+                }
+            }
+        """ ;
+    ] .

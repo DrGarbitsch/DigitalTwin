@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-006 (OPC 10000-3 section 4.5.2) - FAIL case 1: duplicate on an instance.
+
+  PumpObject owns two distinct Property Nodes that both carry the BrowseName
+  "1:Manufacturer". A Client browsing PumpObject for that BrowseName gets two
+  answers and no rule for choosing between them, so the Property is no longer
+  addressable.
+
+  The third Property has a different BrowseName and must not be reported.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-006/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-006/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <!-- Violation: two Properties of this Node share the BrowseName 1:Manufacturer. -->
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3001</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3002</Reference>
+    </References>
+  </UAObject>
+
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Manufacturer</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Manufacturer (duplicate)</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <UAVariable NodeId="ns=1;i=3002" BrowseName="1:SerialNumber" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>SerialNumber</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

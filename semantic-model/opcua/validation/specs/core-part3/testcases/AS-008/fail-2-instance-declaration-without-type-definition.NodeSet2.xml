@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-008 (OPC 10000-3 section 4.6.1, 7.13) - FAIL case 2: inside a type.
+
+  "Each Variable and each Object shall be the SourceNode of exactly one
+   HasTypeDefinition Reference."
+
+  Fail case 1 plants the defect on free-standing instances. This one plants it
+  on InstanceDeclarations: the Object and the Variable below MachineType are
+  still Objects and Variables, so they still need their own HasTypeDefinition,
+  and forgetting it while writing a type definition is the more common
+  modelling mistake of the two. Sibling nodes at the same level are correct, so
+  a shape that reported the whole type hierarchy would fail this fixture too.
+
+  Note on the other half of "exactly one": a nodeset that carries *two*
+  HasTypeDefinition References cannot be expressed as a fixture here, because
+  nodeset2owl.py keeps only the first one and drops the rest without warning,
+  so the defect never reaches the OWL graph. The shape still checks for it, as
+  the graph can also be produced by other means.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-008/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-008/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasComponent">i=47</Alias>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasModellingRule">i=37</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:MachineType">
+    <DisplayName>MachineType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1001</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=1002</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=1003</Reference>
+    </References>
+  </UAObjectType>
+
+  <!-- Correct sibling: keeps its HasTypeDefinition. -->
+  <UAObject NodeId="ns=1;i=1001" BrowseName="1:Identification" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Identification</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: Object InstanceDeclaration with no HasTypeDefinition. -->
+  <UAObject NodeId="ns=1;i=1002" BrowseName="1:Diagnostics" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Diagnostics</DisplayName>
+    <References>
+      <Reference ReferenceType="HasModellingRule">i=80</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: Variable InstanceDeclaration with no HasTypeDefinition. -->
+  <UAVariable NodeId="ns=1;i=1003" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=1000">
+    <DisplayName>Manufacturer</DisplayName>
+    <References>
+      <Reference ReferenceType="HasModellingRule">i=78</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=1000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

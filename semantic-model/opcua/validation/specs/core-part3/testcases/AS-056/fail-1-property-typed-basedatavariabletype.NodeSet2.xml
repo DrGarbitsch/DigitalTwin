@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-056 (OPC 10000-3 section 5.6.3) - FAIL case 1: Property typed as a
+  DataVariable type.
+
+  Manufacturer is reached by HasProperty, so it is a Property, but its
+  HasTypeDefinition names BaseDataVariableType. This is the most common form of
+  the defect: the reference says "Property", the type definition says
+  "DataVariable", and the two descriptions of the same node disagree.
+
+  Note this is a different defect from AS-057's. There, a node is reached by
+  both HasProperty and HasComponent. Here the incoming references are
+  unambiguous and it is the type definition that contradicts them, so AS-057
+  is silent on this fixture and AS-056 is the rule that has to catch it.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-056/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-056/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3001</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: Property typed BaseDataVariableType. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:Manufacturer" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>Manufacturer</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+
+  <!-- Correct sibling: must not be reported. -->
+  <UAVariable NodeId="ns=1;i=3001" BrowseName="1:SerialNumber" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>SerialNumber</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AS-056 (OPC 10000-3 section 5.6.3) - FAIL case 2: a vendor VariableType
+  outside the PropertyType branch.
+
+  MeasurementVariableType is derived from BaseDataVariableType, so it is a
+  perfectly valid VariableType, just not a PropertyType. Using it for a node
+  reached by HasProperty is still a violation.
+
+  Together with pass case 2 this pins down exactly where the shape draws the
+  line: it accepts anything below PropertyType and rejects everything else,
+  rather than accepting any VariableType at all. A shape that merely checked
+  "the type is a VariableType" would pass both fixtures and catch nothing.
+-->
+<UANodeSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd">
+  <NamespaceUris>
+    <Uri>http://example.org/UA/AS-056/</Uri>
+  </NamespaceUris>
+  <Models>
+    <Model ModelUri="http://example.org/UA/AS-056/" Version="1.0.0" PublicationDate="2024-01-01T00:00:00Z">
+      <RequiredModel ModelUri="http://opcfoundation.org/UA/" Version="1.05.03" PublicationDate="2023-12-15T00:00:00Z"/>
+    </Model>
+  </Models>
+  <Aliases>
+    <Alias Alias="HasProperty">i=46</Alias>
+    <Alias Alias="HasSubtype">i=45</Alias>
+    <Alias Alias="HasTypeDefinition">i=40</Alias>
+    <Alias Alias="String">i=12</Alias>
+  </Aliases>
+
+  <UAObjectType NodeId="ns=1;i=1000" BrowseName="1:PumpType">
+    <DisplayName>PumpType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=58</Reference>
+    </References>
+  </UAObjectType>
+
+  <UAVariableType NodeId="ns=1;i=1100" BrowseName="1:MeasurementVariableType" DataType="String" ValueRank="-1">
+    <DisplayName>MeasurementVariableType</DisplayName>
+    <References>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=63</Reference>
+    </References>
+  </UAVariableType>
+
+  <UAObject NodeId="ns=1;i=2000" BrowseName="1:PumpObject">
+    <DisplayName>PumpObject</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1000</Reference>
+      <Reference ReferenceType="HasProperty">ns=1;i=3000</Reference>
+    </References>
+  </UAObject>
+
+  <!-- Violation: Property typed with a VariableType outside the PropertyType branch. -->
+  <UAVariable NodeId="ns=1;i=3000" BrowseName="1:NominalPressure" DataType="String" ParentNodeId="ns=1;i=2000">
+    <DisplayName>NominalPressure</DisplayName>
+    <References>
+      <Reference ReferenceType="HasTypeDefinition">ns=1;i=1100</Reference>
+      <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=2000</Reference>
+    </References>
+  </UAVariable>
+</UANodeSet>
