@@ -86,7 +86,7 @@ sh:datatype
 ```
 
 </td>
-<td style="font-size: 50px;color: red">&#10007;</td>
+<td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 <tr>
 <td>
@@ -384,7 +384,7 @@ sh:not
 ```
 
 </td>
-<td style="font-size: 50px;color: red">&#10007;</td>
+<td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 <tr>
 <td>
@@ -419,7 +419,7 @@ sh:or
 ```
 
 </td>
-<td style="font-size: 50px;color: red">&#10007;</td>
+<td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 <tr>
 <td>
@@ -454,7 +454,7 @@ sh:and
 ```
 
 </td>
-<td style="font-size: 50px;color: red">&#10007;</td>
+<td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 <tr>
 <td>
@@ -489,7 +489,7 @@ sh:xone
 ```
 
 </td>
-<td style="font-size: 50px;color: red">&#10007;</td>
+<td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 <tr>
 <td>
@@ -853,6 +853,60 @@ Multiplicative Expression
 <td style="font-size: 50px;color: green;">&#10003;</td>
 </tr>
 </table>
+
+## Attribute nesting depth
+
+NGSI-LD attributes may carry sub-attributes. Constraints can target them, but
+only to **one level below the attribute**:
+
+| shape | supported |
+|---|---|
+| `attribute` (e.g. `temperature`) | yes |
+| `attribute -> sub-attribute` (e.g. `assembly -> torque`) | yes |
+| `relationship -> sub-attribute` (e.g. `hasPart -> trust`) | yes |
+| `attribute -> sub -> sub-sub` (e.g. `assembly -> torque -> precision`) | **no** |
+
+A sub-attribute of a *relationship* works exactly like one of a property: the
+parent is matched on `parentId`, so the parent's own type does not matter. This
+is the usual NGSI-LD pattern of a relationship carrying metadata such as trust
+or confidence.
+
+The limit is two separate things, so raising it is not a one-line change:
+
+1. `MAX_SUBPROPERTY_DEPTH` in `lib/shacl_properties_to_sql.py` rejects deeper
+   paths during extraction.
+2. `constraint_table` has exactly two path columns (`propertyPath`,
+   `subpropertyPath`) and the generated SQL has exactly two `attributes_view`
+   joins -- one for the attribute, one for the sub-attribute. There is nowhere
+   to put a third path and no join to traverse it.
+
+Supporting arbitrary depth would mean deriving the deepest chain from the
+shapes at build time and unrolling that many path columns and joins, in the
+same way the constraint circuit is unrolled one statement per level.
+
+> **Caution:** a shape that is too deep is currently reported as a warning on
+> stdout and then skipped, and the build still succeeds. Validation therefore
+> reports *conformant* for a constraint that was never checked. Do not rely on
+> a deep shape being enforced without checking the build output.
+
+## Logical constraint components
+
+`sh:and`, `sh:or`, `sh:not` and `sh:xone` are supported both **on a property
+shape** (constraining the values of one path) and **on a node shape** (grouping
+whole shapes, so each branch may constrain a different property):
+
+```turtle
+:CutterShape a sh:NodeShape ; sh:targetClass :Cutter ;
+  sh:or ( [ sh:property [ sh:path :hasTemp   ; ... sh:maxInclusive 50 ] ]
+          [ sh:property [ sh:path :hasCoolant ; ... sh:minCount 1     ] ] ) .
+```
+
+They are compiled into a boolean circuit (`constraint_table.operation` plus the
+`constraint_combination_table` edge list) and evaluated one SQL statement per
+circuit level, so nesting is not limited to one level.
+
+**Recursive shapes are rejected at build time.** A cycle has no finite circuit,
+and Flink SQL has no fixpoint with which to evaluate one.
 
 ### Construct
 TBD
