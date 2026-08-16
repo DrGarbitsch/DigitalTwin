@@ -195,8 +195,14 @@ def main():
     print(utils.create_sql_table(table_name, sqlite_table, primary_key,
                                  utils.SQL_DIALECT.SQLITE), file=sqlitef)
     print('---', file=f)
-    yaml.dump(utils.create_yaml_view(table_name, table, ['id',
-                                                         'datasetId']), f)
+    # Pinned for the same reason as entities_view: this dedup is what turns a
+    # stream of attribute rows into a changelog, and once a key's row expires
+    # the next row for it arrives as an INSERT. The -U that would have
+    # withdrawn the previous value is never emitted, so a deleted attribute
+    # goes on being counted. One row per live attribute is the bound that
+    # matters here, not recency.
+    yaml.dump(utils.create_yaml_view(table_name, table, ['id', 'datasetId'],
+                                     ttl=configs.view_state_ttl), f)
     print(utils.create_sql_view(table_name, sqlite_table, ['id', 'datasetId']),
           file=sqlitef)
     # attributes_insert upsert-table

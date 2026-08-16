@@ -73,3 +73,14 @@ constraint_trigger_table_object_name = 'constraint-trigger-table'
 rdf_max_per_set = 1500
 max_sql_configmap_size = 200000
 flink_ttl = '{{.Values.flink.ttl}}'
+# TTL for the deduplication views that rebuild "latest row per key" (entities,
+# attributes). Separate from flink_ttl on purpose: those operators hold exactly
+# one row per live key, and expiring one turns the next UPDATE or DELETE for
+# that key into an INSERT -- silently losing the retraction that clears an
+# alert. Defaults to '0d' (never expire).
+view_state_ttl = '{{.Values.flink.viewTtl}}'
+# table.exec.state.ttl for the shacl-validation job. '0 ms' means never expire.
+# Validation state is keyed by entity and constraint identity, both of which
+# live as long as the data does, so recency is not a bound on it -- expiring it
+# only makes the job forget entities it is still responsible for.
+shacl_state_ttl = '{{.Values.flink.shaclTtl}}'

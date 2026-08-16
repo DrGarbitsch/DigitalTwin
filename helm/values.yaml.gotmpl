@@ -94,6 +94,30 @@ flink:
   idleTimeout: 1 s
   ttl: "3600 s" # Warning: if you change that value dynamically, the debezium service in kafka must be redeployed as well to fit to the Flink deployments ttl
   coreTtl: "86400 s"
+  # State TTL for the "latest row per key" deduplication views (entities,
+  # attributes). MUST stay 0d unless you know what you are trading away: these
+  # operators hold one row per live key, and once a key's row expires the next
+  # UPDATE or DELETE for it arrives as an INSERT. Nothing retracts what the old
+  # row contributed, so alerts survive the deletion of the entity they are
+  # about, and a retraction landing in a partly-rebuilt aggregate can drive a
+  # count negative. Bounded by live entity/attribute cardinality, not by time.
+  viewTtl: "0d"
+  # table.exec.state.ttl for the shacl-validation job. "0 ms" = never expire.
+  #
+  # This job used to inherit `ttl` above. Every operator in it is keyed by an
+  # entity id, an attribute id or a constraint id -- identities that live as
+  # long as the data -- so an hour of recency bounds nothing the model means.
+  # What it did instead was make the job forget entities it is still
+  # responsible for: joins stopped matching, aggregates dropped the retractions
+  # that clear an alert, and a deleted entity kept its alerts forever.
+  #
+  # The trade is state growth. It is now bounded by the number of distinct
+  # entities and attributes the job has SEEN, not by the number that are live,
+  # because a delete arrives as a row rather than as a tombstone and so never
+  # evicts its key. Bounding it by live cardinality needs the attributes topic
+  # to carry real tombstones; until then, raise this only if memory forces it,
+  # and know that doing so reintroduces the stale-alert behaviour.
+  shaclTtl: "0 ms"
   db:
     name: {{ .StateValues.flink.db.name }}
     schema: {{ .StateValues.flink.db.schema }}

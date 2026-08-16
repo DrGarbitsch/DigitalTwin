@@ -93,7 +93,20 @@ def main(output_folder='output'):
               file=sqlitef)
         print('---', file=f)
         base_entity_view_primary_key = ['id']
-        yaml.dump(utils.create_yaml_view(base_entity_tablename, base_entity_table, base_entity_view_primary_key), f)
+        # The dedup keeping the latest row per entity id must NOT expire. With
+        # no hint it inherited table.exec.state.ttl (an hour), and entities are
+        # written once at deploy time and then never touched -- so an hour in,
+        # every entity's dedup state is gone. A DELETE arriving after that is
+        # not seen as an update to a known key but as the FIRST row for an
+        # unknown one: Flink emits +I(deleted=true) instead of
+        # -U(old)/+U(new), the rows the entity contributed are never retracted,
+        # and every alert raised against it outlives it.
+        #
+        # This state is one row per LIVE entity, which is the bound we want; the
+        # hour was bounding it by wall clock instead, which is not a bound on
+        # anything the data means.
+        yaml.dump(utils.create_yaml_view(base_entity_tablename, base_entity_table, base_entity_view_primary_key,
+                                         ttl=configs.view_state_ttl), f)
         print(utils.create_sql_view(base_entity_tablename, base_entity_table, base_entity_view_primary_key),
               file=sqlitef)
         print('---', file=fk)
