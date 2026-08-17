@@ -13,7 +13,7 @@ four specifications sit together as a dependency chain, see
 The catalogs themselves:
 [Part 3](./validation-rules-part3.md) (70 rules, 9 enforced),
 [DI](./validation-rules-di.md) (12),
-[Machinery](./validation-rules-machinery.md) (10),
+[Machinery](./validation-rules-machinery.md) (25, complete pass),
 [Pumps](./validation-rules-pumps.md) (6).
 
 ---

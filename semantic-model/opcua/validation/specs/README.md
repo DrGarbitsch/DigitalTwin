@@ -7,7 +7,7 @@ containing a `spec.json`, so adding a specification needs no code change.
 specs/
   opc-10000-3-address-space/    Address Space Model            9 shapes,  70 catalogued
   opc-10000-100-devices/        Devices (DI)                   0 shapes,  12 catalogued
-  opc-40001-1-machinery/        Basic Building Blocks          0 shapes,  10 catalogued
+  opc-40001-1-machinery/        Basic Building Blocks          0 shapes,  25 catalogued
   opc-40223-pumps/              Pumps and Vacuum Pumps         0 shapes,   6 catalogued
 ```
 
@@ -57,7 +57,7 @@ discovered.
 Three things follow from the relation, and they are the reason to declare it at
 all rather than treat the four as independent suites:
 
-**1. The data graph is layered.** A fixture in `pumps/` is translated on top of
+**1. The data graph is layered.** A fixture in `opc-40223-pumps/` is translated on top of
 the nodesets `dependsOn` names, transitively and in order. Without DI underneath
 it, `nodeset2owl.py` hard-fails on the first unresolvable ReferenceType; with it,
 a pump fixture is a realistic address space rather than a fragment.
@@ -67,7 +67,7 @@ should validate every `pass-` fixture against the merged shapes of the spec *and
 all its ancestors*. `pumps:PumpType` is a subtype of `di:TopologyElementType`
 (verified in `pumps.owl.ttl`), so a pump that violates a DI FunctionalGroup rule
 is genuinely broken, and a Pumps-only shape set would never notice. Layering
-means six catalogued Pumps rules buy validation against all twenty-eight rules in
+means six catalogued Pumps rules buy validation against every rule in
 the four catalogs.
 
 > Not yet implemented. `Spec.merged_shapes()` currently merges one
@@ -115,6 +115,7 @@ the next reader does not re-derive them. See
 | `inherited` | Holds by subtyping from an ancestor spec; nothing to implement here. |
 | `advanced` | Needs a transcribed table, a recursive walk, or a cross-consistency check. |
 | `needs-verification` | Extracted from a secondary reading; re-read primary text first. |
+| `blocked` | Static and real, but `nodeset2owl.py` does not extract the Attribute it needs. |
 | `n/a` | Normative, but not a static property of one AddressSpace snapshot. |
 
 ## Where the baseline nodesets are

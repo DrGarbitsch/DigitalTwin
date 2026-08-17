@@ -2,7 +2,8 @@
   "id": "opc-40001-1-machinery",
   "title": "OPC 40001-1 - Machinery Basic Building Blocks",
   "catalog": "docs/validation-rules-machinery.md",
-  "catalogRuleCount": 10,
+  "catalogRuleCount": 25,
+  "catalogCoverage": "complete: sections 1-20 and annexes A-C all read",
   "dependsOn": ["opc-10000-100-devices"],
   "commonNodeset": "common/Opc.Ua.Machinery.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Machinery/Opc.Ua.Machinery.NodeSet2.xml",
@@ -11,24 +12,24 @@
       "id": "MA-001",
       "section": "6.3",
       "summary": "A MachineryItem supporting AddIns has a MachineryBuildingBlocks folder",
-      "status": "gap"
+      "status": "needs-verification"
     },
     {
       "id": "MA-002",
       "section": "6.3",
       "summary": "Each AddIn is referenced both directly and from MachineryBuildingBlocks",
-      "status": "gap"
+      "status": "needs-verification"
     },
     {
       "id": "MA-003",
-      "section": "9",
-      "summary": "Every machine is reachable from the Machines Object",
+      "section": "9.2",
+      "summary": "Every machine is referenced directly from the Machines Object via Organizes",
       "status": "gap"
     },
     {
       "id": "MA-004",
-      "section": "8.2",
-      "summary": "Manufacturer and SerialNumber are mandatory on MachineryItemIdentification",
+      "section": "8.3",
+      "summary": "Manufacturer and SerialNumber are present on MachineryItemIdentification",
       "status": "push-down"
     },
     {
@@ -40,8 +41,8 @@
     {
       "id": "MA-006",
       "section": "8.6",
-      "summary": "ProductInstanceUri is mandatory and read-only on a machine",
-      "status": "instance-level"
+      "summary": "ProductInstanceUri is present and read-only on a machine",
+      "status": "push-down"
     },
     {
       "id": "MA-007",
@@ -52,20 +53,110 @@
     {
       "id": "MA-008",
       "section": "11.2",
-      "summary": "All components of a machine are reachable via MachineComponentsType",
-      "status": "gap"
+      "summary": "A component carries a mandatory Identification AddIn",
+      "status": "push-down"
     },
     {
       "id": "MA-009",
-      "section": "8.5",
+      "section": "8.5, 8.6",
       "summary": "Server support for minimum string lengths and locale counts",
       "status": "n/a"
     },
     {
       "id": "MA-010",
-      "section": "6.3",
-      "summary": "The building blocks marked mandatory are referenced by every MachineryItem",
+      "section": "6.2, Table 12",
+      "summary": "The building blocks Table 12 marks mandatory are referenced",
       "status": "needs-verification"
+    },
+    {
+      "id": "MA-011",
+      "section": "3.4.3.1-3.4.3.3",
+      "summary": "Common Attributes are set as Tables 7-9 specify",
+      "status": "gap"
+    },
+    {
+      "id": "MA-012",
+      "section": "7.1",
+      "summary": "Language-neutral LocalizedText carries no locale",
+      "status": "instance-level"
+    },
+    {
+      "id": "MA-013",
+      "section": "9.2",
+      "summary": "Every Object under Machines provides the MachineIdentificationType AddIn",
+      "status": "gap"
+    },
+    {
+      "id": "MA-014",
+      "section": "9.2",
+      "summary": "The Machines Object is organized under the Objects folder",
+      "status": "gap"
+    },
+    {
+      "id": "MA-015",
+      "section": "15.2",
+      "summary": "A MachineryLifetimeCounter holds at least one lifetime variable",
+      "status": "gap"
+    },
+    {
+      "id": "MA-016",
+      "section": "16.1, 16.2",
+      "summary": "A Status Object references the state and operation-mode AddIns it has",
+      "status": "gap"
+    },
+    {
+      "id": "MA-017",
+      "section": "8.2",
+      "summary": "ProductInstanceUri is at most 255 characters",
+      "status": "instance-level"
+    },
+    {
+      "id": "MA-018",
+      "section": "14.2",
+      "summary": "Operation counters only increase and never reset",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-019",
+      "section": "7.2",
+      "summary": "An unavailable read-only optional Node is not provided",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-020",
+      "section": "7.3",
+      "summary": "Several References lead to one Node rather than duplicating it",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-021",
+      "section": "10.2",
+      "summary": "Machine vendors do not repurpose ComponentName for their own identification",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-022",
+      "section": "9.2",
+      "summary": "Clients reach the Machines Object by its standardized NodeId",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-023",
+      "section": "3.4.3.5",
+      "summary": "Methods defined by this specification are executable",
+      "status": "blocked"
+    },
+    {
+      "id": "MA-024",
+      "section": "8.2",
+      "summary": "Clients do not infer manufacturer uniqueness from ProductInstanceUri",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-025",
+      "section": "8.3, 8.4, 8.6",
+      "summary": "Nameplate Properties are used as their Interface defines them",
+      "status": "push-down"
     }
   ]
 }

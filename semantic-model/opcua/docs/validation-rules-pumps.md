@@ -59,4 +59,4 @@ That is the payoff of the dependency chain, and the argument for building it
 before writing shapes. Six catalogued rules understate what a pumps suite
 would actually check, because a pump fixture validated against the merged
 merged shape set of all four specifications is tested against all
-twenty-eight rules in the four catalogs, not against these six.
+rules in all four catalogs, not against these six.
