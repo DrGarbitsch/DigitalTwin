@@ -16,13 +16,36 @@
   "baselineNodeset": "../../../tests/nodeset2owl/Opc.Ua.NodeSet2.xml",
   "rules": [
     {
-      "@id": "rule:AS-008",
+      "@id": "rule:AS-001",
       "@type": "ValidationRule",
-      "id": "AS-008",
-      "section": "4.6.1, 7.13",
-      "summary": "Object/Variable has exactly one HasTypeDefinition",
-      "status": "implemented",
-      "shape": "shapes/AS-008-type-definition-cardinality.shacl.ttl"
+      "id": "AS-001",
+      "section": "4.4.2",
+      "summary": "Every Node's NodeClass must be one of the 8 standard NodeClasses (Object, ObjectType, Variable, VariableType, Method,...",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-002",
+      "@type": "ValidationRule",
+      "id": "AS-002",
+      "section": "4.4.4",
+      "summary": "A SourceNode must not have more than one Reference to the same TargetNode where the ReferenceTypes are \"the same for...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-003",
+      "@type": "ValidationRule",
+      "id": "AS-003",
+      "section": "4.4.3",
+      "summary": "A Node must not carry attribute-predicates outside the fixed Attribute set defined for its NodeClass (no invented/foreign...",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-004",
+      "@type": "ValidationRule",
+      "id": "AS-004",
+      "section": "4.4.3",
+      "summary": "Every mandatory Attribute for a Node's NodeClass must be present (cardinality \u2265 1).",
+      "status": "new"
     },
     {
       "@id": "rule:AS-005",
@@ -43,6 +66,402 @@
       "shape": "shapes/AS-006-sibling-property-browsenames.shacl.ttl"
     },
     {
+      "@id": "rule:AS-007",
+      "@type": "ValidationRule",
+      "id": "AS-007",
+      "section": "4.5.3, 5.6.3, 5.6.4",
+      "summary": "A Variable reached via hasComponent must be a DataVariable, and a DataVariable is only \"complex\" (allowed to itself have...",
+      "status": "implemented-outside-suite"
+    },
+    {
+      "@id": "rule:AS-008",
+      "@type": "ValidationRule",
+      "id": "AS-008",
+      "section": "4.6.1, 7.13",
+      "summary": "Object/Variable has exactly one HasTypeDefinition",
+      "status": "implemented",
+      "shape": "shapes/AS-008-type-definition-cardinality.shacl.ttl"
+    },
+    {
+      "@id": "rule:AS-009",
+      "@type": "ValidationRule",
+      "id": "AS-009",
+      "section": "4.6.4, 6.2.6",
+      "summary": "A TypeDefinitionNode, or any InstanceDeclaration anywhere within its InstanceDeclarationHierarchy (not just the root), must...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-010",
+      "@type": "ValidationRule",
+      "id": "AS-010",
+      "section": "4.6.4, 6.4.3, 6.3.3.3",
+      "summary": "An instance's HasTypeDefinition target must be the same TypeDefinitionNode as the InstanceDeclaration it derives from, or a...",
+      "status": "implemented-reasoner"
+    },
+    {
+      "@id": "rule:AS-011",
+      "@type": "ValidationRule",
+      "id": "AS-011",
+      "section": "4.6.4, 6.2.7",
+      "summary": "Instances derived from an InstanceDeclaration must keep the same BrowseName and NodeClass as that InstanceDeclaration \u2014 both...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-012",
+      "@type": "ValidationRule",
+      "id": "AS-012",
+      "section": "6.4.3",
+      "summary": "Where the type definition directly connects two InstanceDeclaration Nodes with a Reference, an instance's corresponding two...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-013",
+      "@type": "ValidationRule",
+      "id": "AS-013",
+      "section": "5.2",
+      "summary": "Base NodeClass (applies to every Node regardless of NodeClass): NodeId, NodeClass, BrowseName, DisplayName mandatory (=1...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-014",
+      "@type": "ValidationRule",
+      "id": "AS-014",
+      "section": "5.5.1",
+      "summary": "Object NodeClass: EventNotifier mandatory (=1)",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-015",
+      "@type": "ValidationRule",
+      "id": "AS-015",
+      "section": "5.5.2",
+      "summary": "ObjectType NodeClass: IsAbstract mandatory (=1)",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-016",
+      "@type": "ValidationRule",
+      "id": "AS-016",
+      "section": "5.6.2",
+      "summary": "Variable NodeClass: Value, DataType, ValueRank, AccessLevel, UserAccessLevel, Historizing mandatory (=1 each);...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-017",
+      "@type": "ValidationRule",
+      "id": "AS-017",
+      "section": "5.6.5",
+      "summary": "VariableType NodeClass: DataType, ValueRank, IsAbstract mandatory (=1 each); Value, ArrayDimensions optional (\u22641 each)",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-018",
+      "@type": "ValidationRule",
+      "id": "AS-018",
+      "section": "5.3.2",
+      "summary": "ReferenceType NodeClass: IsAbstract, Symmetric mandatory (=1 each)",
+      "status": "blocked"
+    },
+    {
+      "@id": "rule:AS-019",
+      "@type": "ValidationRule",
+      "id": "AS-019",
+      "section": "5.7.1",
+      "summary": "Method NodeClass: Executable, UserExecutable mandatory (=1 each)",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-020",
+      "@type": "ValidationRule",
+      "id": "AS-020",
+      "section": "5.7.1",
+      "summary": "If a Method has an InputArguments or OutputArguments Property, its DataType must be Argument and its ValueRank must indicate a...",
+      "status": "needs-verification"
+    },
+    {
+      "@id": "rule:AS-021",
+      "@type": "ValidationRule",
+      "id": "AS-021",
+      "section": "5.8.3, 8.32",
+      "summary": "DataType NodeClass: IsAbstract mandatory (=1)",
+      "status": "blocked"
+    },
+    {
+      "@id": "rule:AS-022",
+      "@type": "ValidationRule",
+      "id": "AS-022",
+      "section": "5.4",
+      "summary": "View NodeClass: ContainsNoLoops, EventNotifier mandatory (=1 each)",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-023",
+      "@type": "ValidationRule",
+      "id": "AS-023",
+      "section": "5.3.3.1",
+      "summary": "A ReferenceType Node, as SourceNode, may only use HasSubtype or HasProperty References \u2014 it must not be the SourceNode of any...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-024",
+      "@type": "ValidationRule",
+      "id": "AS-024",
+      "section": "5.3.3.3",
+      "summary": "Every ReferenceType Node except the root References type must have exactly one supertype; the ReferenceType hierarchy is...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-025",
+      "@type": "ValidationRule",
+      "id": "AS-025",
+      "section": "5.8.6.1",
+      "summary": "A SubtypeRestriction Object must be referenced from exactly one DataType Node via HasDataTypeRefinement; it must only be used...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-026",
+      "@type": "ValidationRule",
+      "id": "AS-026",
+      "section": "6.2.8",
+      "summary": "The DataType Attribute of a Variable/VariableType may only be overridden with a subtype of the originally-declared DataType \u2014...",
+      "status": "implemented-reasoner"
+    },
+    {
+      "@id": "rule:AS-027",
+      "@type": "ValidationRule",
+      "id": "AS-027",
+      "section": "6.2.8",
+      "summary": "The ValueRank Attribute may only be further restricted when overridden: Any\u2192anything; ScalarOrOneDimension\u2192Scalar or...",
+      "status": "implemented-outside-suite"
+    },
+    {
+      "@id": "rule:AS-028",
+      "@type": "ValidationRule",
+      "id": "AS-028",
+      "section": "6.2.8",
+      "summary": "The ArrayDimensions Attribute, when overridden, may only change a 0 entry to a concrete positive value or be newly added where...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-029",
+      "@type": "ValidationRule",
+      "id": "AS-029",
+      "section": "6.3.2",
+      "summary": "A subtype inherits all Attribute values from its supertype except NodeId (always unique per Node); other Attributes may be...",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-030",
+      "@type": "ValidationRule",
+      "id": "AS-030",
+      "section": "6.4.3",
+      "summary": "For Variables and Objects, HasTypeDefinition must point to the same TypeDefinitionNode as their InstanceDeclaration, or a...",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-031",
+      "@type": "ValidationRule",
+      "id": "AS-031",
+      "section": "7 (HasComponent), 5.6.4",
+      "summary": "HasComponent source and target NodeClasses",
+      "status": "implemented",
+      "shape": "shapes/AS-031-hascomponent-nodeclasses.shacl.ttl"
+    },
+    {
+      "@id": "rule:AS-032",
+      "@type": "ValidationRule",
+      "id": "AS-032",
+      "section": "7",
+      "summary": "HasProperty: TargetNode must be Variable NodeClass (used as a Property); SourceNode may be any NodeClass.",
+      "status": "implemented-outside-suite"
+    },
+    {
+      "@id": "rule:AS-033",
+      "@type": "ValidationRule",
+      "id": "AS-033",
+      "section": "7.10",
+      "summary": "HasSubtype: Source and Target must be the same NodeClass, one of ObjectType, VariableType, DataType, or ReferenceType.",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-034",
+      "@type": "ValidationRule",
+      "id": "AS-034",
+      "section": "7.11",
+      "summary": "Organizes: SourceNode must be Object, ObjectType, or View; TargetNode may be any NodeClass.",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-035",
+      "@type": "ValidationRule",
+      "id": "AS-035",
+      "section": "7.13",
+      "summary": "HasTypeDefinition target matches the source's NodeClass",
+      "status": "implemented",
+      "shape": "shapes/AS-035-type-definition-nodeclass.shacl.ttl"
+    },
+    {
+      "@id": "rule:AS-036",
+      "@type": "ValidationRule",
+      "id": "AS-036",
+      "section": "7.12",
+      "summary": "HasModellingRule: SourceNode must be Object, Variable, or Method; TargetNode must be an Object of ObjectType ModellingRule or...",
+      "status": "implemented-outside-suite"
+    },
+    {
+      "@id": "rule:AS-037",
+      "@type": "ValidationRule",
+      "id": "AS-037",
+      "section": "7",
+      "summary": "Remaining specialized ReferenceTypes (HasFieldDescription, HasFieldDescriptionSetMandatory, IsDisabledOptionalField,...",
+      "status": "new"
+    },
+    {
+      "@id": "rule:AS-038",
+      "@type": "ValidationRule",
+      "id": "AS-038",
+      "section": "6.2.1",
+      "summary": "Every InstanceDeclaration (an Object/Variable/Method Node with an outgoing HasModellingRule Reference) must be reachable via a...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-039",
+      "@type": "ValidationRule",
+      "id": "AS-039",
+      "section": "6.2.1",
+      "summary": "An instance's type definition is not abstract",
+      "status": "implemented",
+      "shape": "shapes/AS-039-instance-type-not-abstract.shacl.ttl"
+    },
+    {
+      "@id": "rule:AS-040",
+      "@type": "ValidationRule",
+      "id": "AS-040",
+      "section": "6.2.4, 6.3.3.3",
+      "summary": "A subtype overriding a Method InstanceDeclaration's Arguments: (a) must not remove any existing argument; (b) must not change...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-041",
+      "@type": "ValidationRule",
+      "id": "AS-041",
+      "section": "6.2.9",
+      "summary": "For TypeDefinitionNodes defined in OPC 10000-5 (the standard Information Model), the NodeIds of their InstanceDeclarations are...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-042",
+      "@type": "ValidationRule",
+      "id": "AS-042",
+      "section": "6.3.3.3",
+      "summary": "An InstanceDeclaration may only be overridden if it is directly referenced (via a forward hierarchical Reference) from the...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-043",
+      "@type": "ValidationRule",
+      "id": "AS-043",
+      "section": "6.3.3.3",
+      "summary": "When both endpoints of a hierarchical Reference are themselves overridden Nodes, the Reference between them in the subtype...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-044",
+      "@type": "ValidationRule",
+      "id": "AS-044",
+      "section": "6.3.3.3",
+      "summary": "For a single-cardinality NonHierarchical Reference (e.g",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-045",
+      "@type": "ValidationRule",
+      "id": "AS-045",
+      "section": "6.3.3.3",
+      "summary": "Every overriding InstanceDeclaration Node (i.e",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-046",
+      "@type": "ValidationRule",
+      "id": "AS-046",
+      "section": "6.4.4.2, 6.4.4.3",
+      "summary": "When a Node's ModellingRule differs from the ModellingRule on the InstanceDeclaration it was seeded from \u2014 whether via...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-047",
+      "@type": "ValidationRule",
+      "id": "AS-047",
+      "section": "6.4.4.4.1\u20136.4.4.4.5",
+      "summary": "Each of the 5 standard ModellingRules constrains how many \"similar Nodes\" (6.2.4: same BrowseName + NodeClass, and...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-048",
+      "@type": "ValidationRule",
+      "id": "AS-048",
+      "section": "4.10.2",
+      "summary": "An Object must not have a HasInterface Reference to Interface I unless the Object's own TypeDefinitionNode (its ObjectType,...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-049",
+      "@type": "ValidationRule",
+      "id": "AS-049",
+      "section": "4.10.2",
+      "summary": "When an ObjectType has a HasInterface Reference to Interface I, every Mandatory InstanceDeclaration in I's fully-inherited...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-050",
+      "@type": "ValidationRule",
+      "id": "AS-050",
+      "section": "4.10.2",
+      "summary": "HasInterface: TargetNode must be an (abstract) ObjectType that is a subtype of BaseInterfaceType",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-051",
+      "@type": "ValidationRule",
+      "id": "AS-051",
+      "section": "4.10.3",
+      "summary": "HasAddIn: TargetNode must be an instance Node (an Object of any ObjectType \u2014 no special supertype requirement, unlike...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-052",
+      "@type": "ValidationRule",
+      "id": "AS-052",
+      "section": "4.7.2",
+      "summary": "Every EventType Node must be of NodeClass ObjectType \u2014 there is no separate \"EventType\" NodeClass; EventTypes are ObjectTypes...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-053",
+      "@type": "ValidationRule",
+      "id": "AS-053",
+      "section": "4.7.2, 9",
+      "summary": "Every EventType, other than BaseEventType itself, must derive (directly or transitively via HasSubtype) from BaseEventType.",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-054",
+      "@type": "ValidationRule",
+      "id": "AS-054",
+      "section": "5.7.2",
+      "summary": "HasArgumentDescription (a subtype of HasComponent): SourceNode must be Method; TargetNode must be Variable",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-055",
+      "@type": "ValidationRule",
+      "id": "AS-055",
+      "section": "5.7.3",
+      "summary": "HasOptionalInputArgumentDescription (a subtype of HasArgumentDescription): within a Method's InputArguments array, every...",
+      "status": "gap"
+    },
+    {
       "@id": "rule:AS-056",
       "@type": "ValidationRule",
       "id": "AS-056",
@@ -61,31 +480,44 @@
       "shape": "shapes/AS-057-property-datavariable-exclusive.shacl.ttl"
     },
     {
-      "@id": "rule:AS-031",
+      "@id": "rule:AS-058",
       "@type": "ValidationRule",
-      "id": "AS-031",
-      "section": "7 (HasComponent), 5.6.4",
-      "summary": "HasComponent source and target NodeClasses",
-      "status": "implemented",
-      "shape": "shapes/AS-031-hascomponent-nodeclasses.shacl.ttl"
+      "id": "AS-058",
+      "section": "5.8.1, 5.8.4",
+      "summary": "A DataTypeEncoding Object is owned by exactly one DataType \u2014 two different DataType Nodes must never point to the same...",
+      "status": "gap"
     },
     {
-      "@id": "rule:AS-035",
+      "@id": "rule:AS-059",
       "@type": "ValidationRule",
-      "id": "AS-035",
-      "section": "7.13",
-      "summary": "HasTypeDefinition target matches the source's NodeClass",
-      "status": "implemented",
-      "shape": "shapes/AS-035-type-definition-nodeclass.shacl.ttl"
+      "id": "AS-059",
+      "section": "8.7, 8.24, 8.30, 8.33",
+      "summary": "Direct subtypes of BaseDataType, Integer, Number, and UInteger may only be defined in NamespaceIndex 0 \u2014 vendors/companion...",
+      "status": "gap"
     },
     {
-      "@id": "rule:AS-039",
+      "@id": "rule:AS-060",
       "@type": "ValidationRule",
-      "id": "AS-039",
-      "section": "6.2.1",
-      "summary": "An instance's type definition is not abstract",
-      "status": "implemented",
-      "shape": "shapes/AS-039-instance-type-not-abstract.shacl.ttl"
+      "id": "AS-060",
+      "section": "8.14",
+      "summary": "A concrete Enumeration DataType that does not directly inherit from the abstract Enumeration DataType may only restrict its...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-061",
+      "@type": "ValidationRule",
+      "id": "AS-061",
+      "section": "8.14",
+      "summary": "Every concrete Enumeration DataType must derive, directly or transitively via HasSubtype, from the abstract Enumeration DataType.",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-062",
+      "@type": "ValidationRule",
+      "id": "AS-062",
+      "section": "7.15",
+      "summary": "GeneratesEvent: SourceNode must be ObjectType, VariableType, or a Method InstanceDeclaration; TargetNode must be an ObjectType...",
+      "status": "gap"
     },
     {
       "@id": "rule:AS-063",
@@ -95,6 +527,62 @@
       "summary": "HasEventSource chains never return to their origin",
       "status": "implemented",
       "shape": "shapes/AS-063-haseventsource-acyclic.shacl.ttl"
+    },
+    {
+      "@id": "rule:AS-064",
+      "@type": "ValidationRule",
+      "id": "AS-064",
+      "section": "7.18",
+      "summary": "HasNotifier (a subtype of HasEventSource): TargetNode must be an Object that is itself a source of Event Subscriptions",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-065",
+      "@type": "ValidationRule",
+      "id": "AS-065",
+      "section": "7.16",
+      "summary": "AlwaysGeneratesEvent (a subtype of GeneratesEvent): SourceNode must be specifically a Method InstanceDeclaration (narrower...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-066",
+      "@type": "ValidationRule",
+      "id": "AS-066",
+      "section": "7.14",
+      "summary": "HasEncoding: SourceNode must be a subtype of the Structure DataType; TargetNode must be an Object of DataTypeEncodingType or a...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-067",
+      "@type": "ValidationRule",
+      "id": "AS-067",
+      "section": "7.21",
+      "summary": "IsDeprecated: SourceNode may be any NodeClass; TargetNode must be an Object representing the information-model version in...",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-068",
+      "@type": "ValidationRule",
+      "id": "AS-068",
+      "section": "7.22",
+      "summary": "HasStructuredComponent: SourceNode must be a VariableType or Variable with a Structure DataType; TargetNode must be a Variable...",
+      "status": "advanced"
+    },
+    {
+      "@id": "rule:AS-069",
+      "@type": "ValidationRule",
+      "id": "AS-069",
+      "section": "7.23",
+      "summary": "AssociatedWith: SourceNode and TargetNode must both be Objects",
+      "status": "gap"
+    },
+    {
+      "@id": "rule:AS-070",
+      "@type": "ValidationRule",
+      "id": "AS-070",
+      "section": "7.24",
+      "summary": "UsesDataTypeRefinement: SourceNode must be a Variable with a Structured DataType; TargetNode must be an Object of...",
+      "status": "advanced"
     }
   ],
   "baselineNote": "The complete published Namespace 0, not the pruned subset in common/. Validation runs on full content; whether a faster subset path is worth having is an open question."

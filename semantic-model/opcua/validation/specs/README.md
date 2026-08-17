@@ -346,6 +346,13 @@ subclause, and given a status, but not enforced. The runner skips it, and
 `--coverage` counts it in the denominator. Three of the four specifications here
 are entirely in that state.
 
+**Every catalogued rule belongs in the manifest, not only the implemented
+ones.** Part 3's manifest listed just its nine shapes for a while, leaving the
+other 61 rules alive only in the prose catalog — invisible to `rules_graph.py`,
+missing from every query, and impossible to find by looking where a reader
+would naturally look. All 147 rules across the four specifications are now
+listed.
+
 This is deliberate. Cataloguing a specification in prose is a separate, complete
 piece of work from implementing it, and it is the piece that establishes what
 *could* be checked — including the rules that turn out to be Server capabilities
@@ -357,7 +364,10 @@ the next reader does not re-derive them. See
 
 | Status | Meaning |
 |---|---|
-| `implemented` | Default when a rule has a `shape`. Enforced, with fixtures. |
+| `implemented` | Default when a rule has a `shape`. Enforced by this suite, with fixtures. |
+| `implemented-outside-suite` | Covered by an older hand-written shape in `../ontology/`, which has no fixtures here. |
+| `implemented-reasoner` | Enforced by HermiT over the Virtual-Types machinery rather than by SHACL. |
+| `new` | Named from the specification text but not yet assessed against the existing shapes. |
 | `gap` | Checkable against the translated graph today; no shape written yet. |
 | `instance-level` | Checkable, but needs a fixture that instantiates the types rather than defining them. |
 | `push-down` | A core rule surfacing in a companion spec. Implement once in the spec it really belongs to, named in the rule's catalog entry. |
