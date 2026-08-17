@@ -6,6 +6,7 @@
 3. [Mapping concept](./mapping-concept.md)
 5. [Tools](./tools.md)
 6. [Validation Rule Catalog — Part 3 (Address Space Model)](./validation-rules-part3.md)
+7. [Adding a Validation Specification](./adding-a-validation-specification.md)
 
 
 # References
