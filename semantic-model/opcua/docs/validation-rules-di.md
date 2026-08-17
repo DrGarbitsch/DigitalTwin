@@ -8,7 +8,7 @@ to hold in the AddressSpace graph.
 Source: [OPC 10000-100, Devices, v1.03](https://reference.opcfoundation.org/DI/v103/docs/),
 sections 4 (Device Model) and 5 (Communication and Network Model).
 
-Manifest: [`../validation/specs/di/spec.json`](../validation/specs/di/spec.json).
+Manifest: [`../validation/specs/opc-10000-100-devices/spec.json`](../validation/specs/opc-10000-100-devices/spec.json).
 Method and the shared vocabulary traps:
 [`adding-a-validation-specification.md`](./adding-a-validation-specification.md)
 and [`../validation/README.md`](../validation/README.md).
@@ -26,7 +26,7 @@ Shared with the Machinery and Pumps catalogs.
 |---|---|
 | **Gap** | Checkable today — the data the rule needs is already in the translated graph — but no shape exists yet. |
 | **Instance-level** | Real and checkable, but only against a nodeset that *instantiates* the types, not one that defines them. Needs an instance fixture. |
-| **Push down** | Not really a rule of this specification: it is a core (Part 3) rule surfacing here. Implement it once in `core-part3` and every companion spec inherits it. |
+| **Push down** | Not really a rule of this specification: it is a core (Part 3) rule surfacing here. Implement it once in `opc-10000-3-address-space` and every companion spec inherits it. |
 | **Advanced** | Structurally real but not a simple shape — needs a table from the spec text, a recursive walk, or a cross-consistency check. |
 | **Needs verification** | Extracted from a secondary reading of the spec text; re-read the primary subclause before writing a shape. |
 | **N/A** | Normative in the spec, but not a static property of one AddressSpace snapshot (runtime behaviour, Server capability, advisory "should"). Recorded so it is not re-derived later. |
@@ -44,7 +44,7 @@ Shared with the Machinery and Pumps catalogs.
 
 | ID | Section | Rule | Status | Notes |
 |---|---|---|---|---|
-| DI-007 | 4.7 | The Properties DeviceType declares Mandatory are present on every DeviceType instance. | Push down | DeviceType declares SerialNumber, Manufacturer, Model, DeviceManual, DeviceRevision, SoftwareRevision and HardwareRevision as mandatory. But the *obligation* is Part 3's: an instance must carry every InstanceDeclaration whose ModellingRule is `Mandatory`. Implementing it in `core-part3` covers this rule, MA-004, and the same rule in every companion specification that will ever be added. Highest-leverage shape available to the project. Note the spec's own carve-out: "vendors shall provide the following defaults" where a Property is not supported — the Property is still present, so it does not weaken the rule. |
+| DI-007 | 4.7 | The Properties DeviceType declares Mandatory are present on every DeviceType instance. | Push down | DeviceType declares SerialNumber, Manufacturer, Model, DeviceManual, DeviceRevision, SoftwareRevision and HardwareRevision as mandatory. But the *obligation* is Part 3's: an instance must carry every InstanceDeclaration whose ModellingRule is `Mandatory`. Implementing it in `opc-10000-3-address-space` covers this rule, MA-004, and the same rule in every companion specification that will ever be added. Highest-leverage shape available to the project. Note the spec's own carve-out: "vendors shall provide the following defaults" where a Property is not supported — the Property is still present, so it does not weaken the rule. |
 | DI-008 | 4.5.4 | DeviceHealth is one of the five NAMUR NE107 values (NORMAL, FAILURE, CHECK_FUNCTION, OFF_SPEC, MAINTENANCE_REQUIRED). | Instance-level | `base:hasValue` and the enum machinery (`base:hasEnumValue`, `base:hasValueList`) are all emitted by `nodeset2owl.py`, so this is checkable — but only against a fixture that carries an actual value. A type-only nodeset has nothing to test. |
 
 ## §4.9 DeviceSet — the entry point

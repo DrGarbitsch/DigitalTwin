@@ -318,12 +318,41 @@ def collect_specs(only_spec):
         if only_spec and path.name != only_spec:
             continue
         specs.append(Spec(path))
-    return specs
+    return dependency_order(specs)
+
+
+def dependency_order(specs):
+    """Sort so a specification is always listed after the ones it builds on.
+
+    Directory names sort alphabetically, which puts opc-10000-100-devices ahead
+    of the opc-10000-3-address-space it depends on -- readable output would then
+    contradict the dependency chain it is reporting. Ties keep alphabetical
+    order so a run is reproducible.
+
+    A dependency cycle, or a dependsOn naming a specification that is not
+    present (a --spec filter is enough to cause that), leaves the remaining
+    specs in alphabetical order rather than raising: ordering is presentational,
+    and refusing to run over it would be a worse failure than printing it oddly.
+    """
+    remaining = list(specs)
+    ordered = []
+    placed = set()
+    while remaining:
+        ready = [spec for spec in remaining
+                 if all(dep in placed or dep not in {s.id for s in remaining}
+                        for dep in spec.manifest.get('dependsOn') or [])]
+        if not ready:
+            ordered.extend(remaining)
+            break
+        ordered.extend(ready)
+        placed.update(spec.id for spec in ready)
+        remaining = [spec for spec in remaining if spec not in ready]
+    return ordered
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    parser.add_argument('-s', '--spec', help='Only run this specification directory, e.g. core-part3')
+    parser.add_argument('-s', '--spec', help='Only run this specification directory, e.g. opc-10000-3-address-space')
     parser.add_argument('-r', '--rule', help='Only run this rule, e.g. AS-008')
     parser.add_argument('-j', '--jobs', type=int, default=min(8, (os.cpu_count() or 2)),
                         help='Parallel test cases (default: one per core, capped at 8)')

@@ -16,7 +16,7 @@ validation/
     make_ns0_subset.py    regenerates the shared Namespace 0 subset
   ontology/               older, hand-written shapes (see "Relationship to ontology/")
   specs/
-    core-part3/           one directory per specification
+    opc-10000-3-address-space/           one directory per specification
       spec.json           manifest: which rules have a shape
       common/             the NS0 nodeset every fixture in this spec depends on
       shapes/            one *.shacl.ttl per rule
@@ -97,14 +97,14 @@ What makes a fixture pair worth having:
 
 ## Adding a new specification
 
-Copy the structure of `specs/core-part3/`:
+Copy the structure of `specs/opc-10000-3-address-space/`:
 
 1. `mkdir -p specs/<spec>/{shapes,testcases,common}`.
 2. Write `spec.json` with `id`, `title`, `catalog` (the prose rule catalog),
    `catalogRuleCount`, `commonNodeset`, and an empty `rules` list.
 3. Provide the `commonNodeset` the fixtures build on. For a companion
    specification this is that specification's own nodeset plus its
-   dependencies; `core-part3` uses a generated subset of Namespace 0 (below).
+   dependencies; `opc-10000-3-address-space` uses a generated subset of Namespace 0 (below).
 4. Add rules one at a time as above.
 
 The runner discovers any directory under `specs/` containing a `spec.json`, so a
@@ -117,7 +117,7 @@ nodeset. But they cannot be standalone either, because nearly every Part 3 rule
 is phrased in terms of Namespace 0 nodes, and `nodeset2owl.py` hard-fails on a
 DataType or ReferenceType it cannot resolve.
 
-So all fixtures in `core-part3` share one dependency:
+So all fixtures in `opc-10000-3-address-space` share one dependency:
 `common/opcua-ns0-subset.NodeSet2.xml`, 70 nodes extracted from the official
 `Opc.Ua.NodeSet2.xml` by `tools/make_ns0_subset.py`. It is generated, not
 hand-written, so NodeIds, `IsAbstract` flags and subtype hierarchies are the

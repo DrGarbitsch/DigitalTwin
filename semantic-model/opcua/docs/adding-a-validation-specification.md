@@ -58,7 +58,7 @@ validation/
   run_suite.py                    the runner; discovers any spec.json under specs/
   tools/make_ns0_subset.py        regenerates the shared Namespace 0 subset
   specs/
-    core-part3/
+    opc-10000-3-address-space/
       spec.json                   manifest: id, title, catalog, catalogRuleCount,
                                   commonNodeset, rules[{id, section, summary, shape}]
       common/                     the nodeset every fixture here depends on
@@ -179,7 +179,7 @@ Status column: **Enforceable** — the graph already carries what the rule needs
 | DI-004 | 4.3 | MethodSet is present only if it holds at least one Method | Enforceable | `FILTER NOT EXISTS` over components with `opcua:MethodNodeClass`. Note the "zero" idiom — never `COUNT` over an `OPTIONAL`. |
 | DI-005 | 5.6 | All Networks shall be components of the NetworkSet Object | Enforceable | Same shape family as DI-002, one hop instead of a path. |
 | DI-006 | 5.4 | Every ConnectionPoint shall carry the inverse `ComponentOf` Reference to its Device | Enforceable | Inverse references are materialised as forward triples on the source, so this reads as "every ConnectionPointType instance is the target of some HasComponent". |
-| DI-007 | 4.7 | The mandatory Properties of DeviceType are present on every instance | Push down | Not a DI rule at heart. It is Part 3's ModellingRule `Mandatory` obligation. Implement it *once* in `core-part3` and every companion spec inherits it. |
+| DI-007 | 4.7 | The mandatory Properties of DeviceType are present on every instance | Push down | Not a DI rule at heart. It is Part 3's ModellingRule `Mandatory` obligation. Implement it *once* in `opc-10000-3-address-space` and every companion spec inherits it. |
 | DI-008 | 4.5.4 | DeviceHealth is one of the five NAMUR NE107 values | Instance-level | `base:hasValue` and the enum machinery (`base:hasEnumValue`) are both emitted; needs a fixture carrying an actual value. |
 | DI-009 | 5.2 | A ProtocolType instance's BrowseName defines the Communication Profile | N/A | No closed vocabulary to check against. Catalog it as a non-rule so it is not re-derived. |
 
@@ -234,7 +234,7 @@ fixture.
 ### The cross check should inherit the dependency's shapes
 
 Today the cross check merges the shapes of one specification. A DI fixture is
-also a well-formed address space, so it should conform to `core-part3`'s shapes
+also a well-formed address space, so it should conform to `opc-10000-3-address-space`'s shapes
 too. Making the cross check follow the `commonNodeset` dependency chain is a
 small change to `run_suite.py`, and it doubles the value of every fixture written
 from here on: each new DI nodeset becomes another false-positive guard for all
@@ -266,16 +266,16 @@ the first three fail mysteriously.
 
 ## 6. Where to pick it up
 
-1. **Implement the Mandatory-ModellingRule shape in `core-part3`.** DI-007 and
+1. **Implement the Mandatory-ModellingRule shape in `opc-10000-3-address-space`.** DI-007 and
    MA-004 are both this rule. It is the single highest-leverage shape available,
    and it can only be written once.
 2. **Extend `SEED_BROWSE_NAMES`** in `make_ns0_subset.py` for what the companion
    specs need — `HasAddIn`, `FolderType`, `Organizes` — and regenerate.
-3. **Implement DI-001, the first shape in `specs/di/`.** The directory, manifest
+3. **Implement DI-001, the first shape in `specs/opc-10000-100-devices/`.** The directory, manifest
    and catalog exist; every rule in it is catalogued and none has a shape.
    DI-001 is the direct analog of an already-working shape (AS-006), so the first
    rule of the new spec tests the scaffolding rather than the shape. Phase 1 —
-   deciding what lands in `specs/di/common/` — has to happen first.
+   deciding what lands in `specs/opc-10000-100-devices/common/` — has to happen first.
 4. **Write the reachability shape once** and instantiate it for DI-002, MA-003
    and MA-008.
 5. **Then make the cross check follow the dependency chain**, so the DI fixtures

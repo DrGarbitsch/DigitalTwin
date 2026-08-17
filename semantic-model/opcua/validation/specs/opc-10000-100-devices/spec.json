@@ -1,9 +1,9 @@
 {
-  "id": "di",
+  "id": "opc-10000-100-devices",
   "title": "OPC UA Part 100 - Devices (DI)",
   "catalog": "docs/validation-rules-di.md",
   "catalogRuleCount": 12,
-  "dependsOn": ["core-part3"],
+  "dependsOn": ["opc-10000-3-address-space"],
   "commonNodeset": "common/Opc.Ua.Di.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
   "rules": [
@@ -47,7 +47,7 @@
       "id": "DI-007",
       "section": "4.7",
       "summary": "Mandatory Properties of DeviceType are present on every instance",
-      "status": "push-down-to-core-part3"
+      "status": "push-down"
     },
     {
       "id": "DI-008",

@@ -8,8 +8,8 @@ sections 5 (use cases), 6 (building blocks), 8 (identification), 9 (Machines),
 11 (components).
 
 Manifest:
-[`../validation/specs/machinery/spec.json`](../validation/specs/machinery/spec.json).
-Depends on `di`, which depends on `core-part3`.
+[`../validation/specs/opc-40001-1-machinery/spec.json`](../validation/specs/opc-40001-1-machinery/spec.json).
+Depends on `opc-10000-100-devices`, which depends on `opc-10000-3-address-space`.
 
 **Nothing here is enforced yet** — catalogued only, no shapes, no fixtures.
 
@@ -36,7 +36,7 @@ topology are invisible to schema validation and to most modelling tools.
 
 | ID | Section | Rule | Status | Notes |
 |---|---|---|---|---|
-| MA-004 | 8.2 | `Manufacturer` and `SerialNumber` are mandatory on MachineryItemIdentification. | Push down | Same finding as DI-007: the obligation is Part 3's Mandatory-ModellingRule rule, not a Machinery rule. Two specifications independently asking for the same shape is the signal that it belongs in `core-part3`. Implement it once there and this row closes for free. |
+| MA-004 | 8.2 | `Manufacturer` and `SerialNumber` are mandatory on MachineryItemIdentification. | Push down | Same finding as DI-007: the obligation is Part 3's Mandatory-ModellingRule rule, not a Machinery rule. Two specifications independently asking for the same shape is the signal that it belongs in `opc-10000-3-address-space`. Implement it once there and this row closes for free. |
 | MA-005 | 8.2 | `MonthOfConstruction` shall only be provided if `YearOfConstruction` is provided as well. | Gap | "The *MonthOfConstruction* shall only be provided, if the *YearOfConstruction* is provided as well." A conditional-presence constraint, a shape family the Part 3 suite has no example of yet, and an unusually good fixture: one `pass-` case provides neither Property, the other provides both, and the `fail-` case provides only the month. |
 | MA-006 | 8.6 | `ProductInstanceUri` is mandatory and read-only on a machine (as opposed to a MachineryItem generally). | Instance-level | Checkable: `base:hasAccessLevel` *is* extracted by the parser (15 occurrences across the translated DI and Machinery graphs), so the read-only half has data behind it. Confirm how `AccessLevelType` is encoded as a content class before writing the constraint — it is not a plain literal. The mandatory half is again DI-007's rule. |
 | MA-007 | 8.2 | `YearOfConstruction` shall be a four-digit number and shall never change during the life-cycle of the MachineryItem. | Instance-level (split) | Two rules wearing one sentence. "Four digits" is a value constraint, checkable on an instance fixture via `base:hasValue`. "Never changes" is temporal and belongs with the N/A entries — this pipeline validates one snapshot, not a history. Split them before implementing; do not let the temporal half justify skipping the checkable half. |

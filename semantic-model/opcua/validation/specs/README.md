@@ -5,10 +5,10 @@ containing a `spec.json`, so adding a specification needs no code change.
 
 ```
 specs/
-  core-part3/     OPC 10000-3, Address Space Model      9 shapes,  70 catalogued
-  di/             OPC 10000-100, Devices                0 shapes,  12 catalogued
-  machinery/      OPC 40001-1, Basic Building Blocks    0 shapes,  10 catalogued
-  pumps/          OPC 40223, Pumps and Vacuum Pumps     0 shapes,   6 catalogued
+  opc-10000-3-address-space/    Address Space Model            9 shapes,  70 catalogued
+  opc-10000-100-devices/        Devices (DI)                   0 shapes,  12 catalogued
+  opc-40001-1-machinery/        Basic Building Blocks          0 shapes,  10 catalogued
+  opc-40223-pumps/              Pumps and Vacuum Pumps         0 shapes,   6 catalogued
 ```
 
 Each directory has the same five parts:
@@ -29,16 +29,17 @@ chain is not invented here — it is the one `translate_default_nodesets.make`
 already uses to translate the nodesets:
 
 ```
-core-part3  <--  di  <--  machinery  <--  pumps
-                                          "pumps builds on machinery"
+opc-10000-3-address-space  <--  opc-10000-100-devices  <--  opc-40001-1-machinery  <--  opc-40223-pumps
+
+read "<--" as "is built on by": opc-40223-pumps builds on opc-40001-1-machinery
 ```
 
 | Spec | Baseline its fixtures are layered on |
 |---|---|
-| `core-part3` | a generated 70-node subset of Namespace 0 |
-| `di` | NS0 + `Opc.Ua.Di.NodeSet2.xml` |
-| `machinery` | NS0 + DI + `Opc.Ua.Machinery.NodeSet2.xml` |
-| `pumps` | NS0 + DI + Machinery + `Opc.Ua.Pumps.NodeSet2.xml` |
+| `opc-10000-3-address-space` | a generated 70-node subset of Namespace 0 |
+| `opc-10000-100-devices` | NS0 + `Opc.Ua.Di.NodeSet2.xml` |
+| `opc-40001-1-machinery` | NS0 + DI + `Opc.Ua.Machinery.NodeSet2.xml` |
+| `opc-40223-pumps` | NS0 + DI + Machinery + `Opc.Ua.Pumps.NodeSet2.xml` |
 
 **The directories stay flat.** `specs/` holds four siblings and always will; a
 specification is never nested inside the one it builds on. The chain above is a
@@ -49,7 +50,7 @@ Keeping it out of the filesystem is deliberate. Nesting would force a single
 parent per spec, and that is already wrong for the specs this project
 translates: MachineTool builds on **both** Machinery and IA, PADIM on **both**
 DI and the IRDI dictionary. `dependsOn` is a list precisely because the real
-graph is a DAG, not a tree. Nesting would also bury `core-part3` four levels
+graph is a DAG, not a tree. Nesting would also bury `opc-10000-3-address-space` four levels
 deep under its dependents, and move a directory every time a dependency is
 discovered.
 
@@ -78,7 +79,7 @@ the four catalogs.
 mandatory Properties of DeviceType) and MA-004 (Manufacturer and SerialNumber on
 MachineryItemIdentification) are the same Part 3 obligation: an instance carries
 every InstanceDeclaration whose ModellingRule is `Mandatory`. Both are marked
-`push-down-to-core-part3` rather than implemented twice. The chain is what makes
+`push-down` rather than implemented twice. The chain is what makes
 that visible; four independent suites would have grown two near-identical shapes.
 
 ## Rule IDs
@@ -110,7 +111,7 @@ the next reader does not re-derive them. See
 | `implemented` | Default when a rule has a `shape`. Enforced, with fixtures. |
 | `gap` | Checkable against the translated graph today; no shape written yet. |
 | `instance-level` | Checkable, but needs a fixture that instantiates the types rather than defining them. |
-| `push-down-to-core-part3` | A core rule surfacing in a companion spec. Implement once in the ancestor. |
+| `push-down` | A core rule surfacing in a companion spec. Implement once in the spec it really belongs to, named in the rule's catalog entry. |
 | `inherited` | Holds by subtyping from an ancestor spec; nothing to implement here. |
 | `advanced` | Needs a transcribed table, a recursive walk, or a cross-consistency check. |
 | `needs-verification` | Extracted from a secondary reading; re-read primary text first. |
@@ -118,7 +119,7 @@ the next reader does not re-derive them. See
 
 ## Where the baseline nodesets are
 
-`core-part3/common/` holds a checked-in, generated 20 KB subset of Namespace 0.
+`opc-10000-3-address-space/common/` holds a checked-in, generated 20 KB subset of Namespace 0.
 The companion specs do not have their nodesets checked in — see the `.gitignore`
 in each `common/` directory. Deciding what lands there (the whole published
 nodeset, or a generated subset in the style of `tools/make_ns0_subset.py`) is

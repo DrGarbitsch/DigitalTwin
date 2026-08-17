@@ -6,8 +6,9 @@ First pass over the Pumps companion specification. Same conventions as the
 Source: [OPC 40223, v1.00](https://reference.opcfoundation.org/Pumps/v100/docs/),
 sections 6 (information model overview and extension rules) and 7 (ObjectTypes).
 
-Manifest: [`../validation/specs/pumps/spec.json`](../validation/specs/pumps/spec.json).
-Depends on `machinery` → `di` → `core-part3`; Pumps sits at the end of the
+Manifest: [`../validation/specs/opc-40223-pumps/spec.json`](../validation/specs/opc-40223-pumps/spec.json).
+Depends on `opc-40001-1-machinery` → `opc-10000-100-devices` →
+`opc-10000-3-address-space`; Pumps sits at the end of the
 longest dependency chain in the suite.
 
 **Nothing here is enforced yet** — catalogued only, no shapes, no fixtures.
@@ -44,7 +45,7 @@ rule needing an instance fixture rather than a type fixture.
 
 | ID | Section | Rule | Status | Notes |
 |---|---|---|---|---|
-| PU-006 | 7.1 | `PumpType` is a subtype of DI's `TopologyElementType`, so every rule that holds for a TopologyElement holds for a pump. | Inherited | Verified locally rather than from the spec text: `pumps.owl.ttl` carries `pumps:PumpType rdfs:subClassOf di:TopologyElementType`. Not a rule to implement — a rule to *inherit*. It is the reason the `pumps` spec declares `dependsOn: machinery` (and transitively `di`), and the reason the cross check has to merge shapes up the dependency chain: a pump fixture that violates DI-001 or DI-004 is a genuine failure, and a Pumps-only shape set would never see it. |
+| PU-006 | 7.1 | `PumpType` is a subtype of DI's `TopologyElementType`, so every rule that holds for a TopologyElement holds for a pump. | Inherited | Verified locally rather than from the spec text: `pumps.owl.ttl` carries `pumps:PumpType rdfs:subClassOf di:TopologyElementType`. Not a rule to implement — a rule to *inherit*. It is the reason the `opc-40223-pumps` spec declares `dependsOn: opc-40001-1-machinery` (and transitively `opc-10000-100-devices`), and the reason the cross check has to merge shapes up the dependency chain: a pump fixture that violates DI-001 or DI-004 is a genuine failure, and a Pumps-only shape set would never see it. |
 
 ## What this catalog says about the suite
 
@@ -55,7 +56,7 @@ TopologyElement, so DI's FunctionalGroup, ParameterSet and DeviceSet rules apply
 to pumps unchanged.
 
 That is the payoff of the dependency chain, and the argument for building it
-before writing shapes. Six catalogued rules understate what a `pumps` suite
+before writing shapes. Six catalogued rules understate what a pumps suite
 would actually check, because a pump fixture validated against the merged
-`core-part3 + di + machinery + pumps` shape set is tested against all
+merged shape set of all four specifications is tested against all
 twenty-eight rules in the four catalogs, not against these six.

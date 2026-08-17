@@ -1,9 +1,9 @@
 {
-  "id": "pumps",
+  "id": "opc-40223-pumps",
   "title": "OPC 40223 - Pumps and Vacuum Pumps",
   "catalog": "docs/validation-rules-pumps.md",
   "catalogRuleCount": 6,
-  "dependsOn": ["machinery"],
+  "dependsOn": ["opc-40001-1-machinery"],
   "commonNodeset": "common/Opc.Ua.Pumps.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Pumps/Opc.Ua.Pumps.NodeSet2.xml",
   "rules": [
