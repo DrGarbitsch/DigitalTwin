@@ -1,0 +1,151 @@
+#
+# Minimal reproduction: the rdf self-join misses a row whose subject equals its
+# object, in streaming but not in batch.
+#
+# The StateValueShape constraint asks whether a state value is permitted on an
+# entity's type:
+#
+#     FILTER NOT EXISTS { ?value iffBaseKnowledge:isValidFor ?subtype .
+#                         ?type   rdfs:subClassOf*          ?subtype . }
+#
+# which compiles to a self-join of the rdf table. For an entity of type Machine
+# with state_ON (isValidFor Machine) the match is the reflexive triple
+# <Machine> subClassOf <Machine>, i.e. subject = object. The SQLite translation
+# of the same statement finds it; Flink does not, and raises a violation that
+# never retracts.
+#
+# The probes below strip everything else away - no entities, no attributes, no
+# anti-join, no alerting - leaving only the self-join over rdf.
+#
+#   E  the reflexive triple exists at all            expect 1
+#   C  all Machine subClassOf rows                   expect 2  (Entity, Machine)
+#   D  the isValidFor row for state_ON               expect 1
+#   A  self-join, reflexive   (Machine  -> Machine)  expect 1  <-- suspect
+#   B  self-join, one hop     (Filter   -> Machine)  expect 1  <-- control
+#
+# A probe that matches nothing emits no row at all, so an absent A alongside a
+# present B, C, D and E is the reproduction. C, D and E double as liveness
+# checks: if they are missing the job simply is not running.
+#
+# Purely additive - it reads the existing rdf table and writes to its own topic.
+# Remove with:
+#   kubectl delete -f antijoin-reflexive.yaml -n iff
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: iff.debug.antijoin
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact
+---
+apiVersion: industry-fusion.com/v1alpha3
+kind: BeamSqlTable
+metadata:
+  name: antijoin-result
+spec:
+  name: antijoin_result
+  connector: upsert-kafka
+  fields:
+  - test: STRING
+  - cnt: BIGINT
+  kafka:
+    topic: iff.debug.antijoin
+    properties:
+      bootstrap.servers: my-cluster-kafka-bootstrap:9092
+    key.format: json
+  value:
+    format: json
+    json.fail-on-missing-field: false
+    json.ignore-parse-errors: true
+  primaryKey:
+  - test
+---
+apiVersion: industry-fusion.com/v1alpha4
+kind: BeamSqlStatementSet
+metadata:
+  name: antijoin-repro
+spec:
+  tables:
+  - rdf
+  - antijoin-result
+  views: []
+  sqlsettings:
+  - table.exec.sink.upsert-materialize: auto
+  - parallelism.default: '1'
+  updateStrategy: none
+  sqlstatements:
+  # E: the reflexive triple, on its own.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'E_reflexive_row_exists' AS `test` FROM rdf WHERE `subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND `predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND `object` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>') GROUP BY `test`;
+  # C: every subClassOf row for Machine.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'C_machine_subclassof_rows' AS `test` FROM rdf WHERE `subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND `predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>') GROUP BY `test`;
+  # D: the isValidFor row the join has to match against.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'D_state_ON_isvalidfor_rows' AS `test` FROM rdf WHERE `subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_ON>' AND `predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>') GROUP BY `test`;
+  # A: the suspect - self-join where the matching row has subject = object.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'A_selfjoin_reflexive_Machine' AS `test` FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND t.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_ON>' AND v.`object` =
+    t.`object`) GROUP BY `test`;
+  # B: control - identical shape, but the matching row has subject != object.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'B_selfjoin_onehop_Filter' AS `test` FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Filter>' AND t.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_ON>' AND v.`object` =
+    t.`object`) GROUP BY `test`;
+  # F: the real shape - correlated NOT EXISTS, valid case. A row here means a
+  # violation was found where none exists, i.e. the bug. Both correlation values
+  # are taken from data rather than written as literals, so the optimiser cannot
+  # fold them away and the correlation stays real. Expect NO row.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'F_notexists_valid_reflexive' AS `test` FROM (SELECT a.`subject` AS typ, b.`subject` AS val FROM rdf AS a
+    JOIN rdf AS b ON b.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE a.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND a.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND a.`object` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND b.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_ON>') AS o WHERE NOT EXISTS
+    (SELECT 1 FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` = o.typ
+    AND t.`predicate` = '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` = o.val AND
+    v.`object` = t.`object`)) GROUP BY `test`;
+  # G: positive control for the same anti-join - state_CLEANING is valid only
+  # for Filter, so on a Machine it genuinely is a violation. Expect one row; if
+  # this is absent the anti-join never fires and F proves nothing.
+  - >
+    INSERT INTO antijoin_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'G_notexists_invalid_control' AS `test` FROM (SELECT a.`subject` AS typ, b.`subject` AS val FROM rdf AS a
+    JOIN rdf AS b ON b.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE a.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND a.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND a.`object` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND b.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_CLEANING>') AS o WHERE NOT
+    EXISTS (SELECT 1 FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` = o.typ
+    AND t.`predicate` = '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` = o.val AND
+    v.`object` = t.`object`)) GROUP BY `test`;
