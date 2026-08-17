@@ -25,7 +25,11 @@
       "id": "PU-001",
       "section": "6.2.3",
       "summary": "A FunctionalGroup that would be empty is not instantiated",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "TypeModel",
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-002",
@@ -33,7 +37,10 @@
       "id": "PU-002",
       "section": "6.2.2",
       "summary": "An EngineeringUnits Property without a value is absent or Null-valued",
-      "status": "instance-level"
+      "status": "instance-level",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-003",
@@ -41,7 +48,10 @@
       "id": "PU-003",
       "section": "6.2.2",
       "summary": "The EngineeringUnits defaults named by the specification are used",
-      "status": "n/a"
+      "status": "n/a",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-004",
@@ -49,7 +59,10 @@
       "id": "PU-004",
       "section": "6.3",
       "summary": "Manufacturer extensions are organized by some FunctionalGroup",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-005",
@@ -57,7 +70,10 @@
       "id": "PU-005",
       "section": "6.3",
       "summary": "An extension does not redefine a BrowseName the specification already provides",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-006",
@@ -65,7 +81,10 @@
       "id": "PU-006",
       "section": "7.1",
       "summary": "PumpType is a TopologyElementType, so every DI TopologyElement rule applies",
-      "status": "inherited"
+      "status": "inherited",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-007",
@@ -73,7 +92,10 @@
       "id": "PU-007",
       "section": "3.3.3.3, 3.3.3.4",
       "summary": "A ValueRank above zero requires ArrayDimensions to be specified",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-008",
@@ -81,7 +103,10 @@
       "id": "PU-008",
       "section": "3.3.3.1-3.3.3.3",
       "summary": "Common Attributes are set as Tables 4-6 specify",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-009",
@@ -89,7 +114,10 @@
       "id": "PU-009",
       "section": "3.3.3.5",
       "summary": "Methods defined by this specification are executable",
-      "status": "blocked"
+      "status": "blocked",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-010",
@@ -97,7 +125,10 @@
       "id": "PU-010",
       "section": "7.36",
       "summary": "An In Port connects only to an Out or InOut Port",
-      "status": "instance-level"
+      "status": "instance-level",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-011",
@@ -105,7 +136,10 @@
       "id": "PU-011",
       "section": "7",
       "summary": "34 Pumps ObjectTypes are FunctionalGroups, so DI's group rules govern them",
-      "status": "inherited"
+      "status": "inherited",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-012",
@@ -113,7 +147,10 @@
       "id": "PU-012",
       "section": "7.4",
       "summary": "PumpIdentificationType is a MachineIdentificationType, inheriting its rules",
-      "status": "inherited"
+      "status": "inherited",
+      "appliesTo": [
+        "TypeModel"
+      ]
     },
     {
       "@id": "rule:PU-013",
@@ -121,7 +158,10 @@
       "id": "PU-013",
       "section": "7",
       "summary": "Mandatory components of the 51 ObjectTypes are present on every instance",
-      "status": "push-down"
+      "status": "push-down",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-014",
@@ -129,7 +169,10 @@
       "id": "PU-014",
       "section": "8",
       "summary": "A Variable typed by an enumeration carries a value that enumeration defines",
-      "status": "push-down"
+      "status": "push-down",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-015",
@@ -137,7 +180,10 @@
       "id": "PU-015",
       "section": "10.2",
       "summary": "Nodes this specification does not define stay out of the standard namespaces",
-      "status": "gap"
+      "status": "gap",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     },
     {
       "@id": "rule:PU-016",
@@ -145,7 +191,10 @@
       "id": "PU-016",
       "section": "10.2",
       "summary": "The standard namespaces carry fixed namespace indices",
-      "status": "n/a"
+      "status": "n/a",
+      "appliesTo": [
+        "InstanceModel"
+      ]
     }
   ]
 }

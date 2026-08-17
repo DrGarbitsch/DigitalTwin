@@ -194,15 +194,42 @@ class Rule:
         self.iri = entry.get('@id')
         self.shape = spec.root / entry['shape'] if entry.get('shape') else None
         self.testcases = spec.root / 'testcases' / self.id
+        # Which model kind(s) the rule constrains: the specification's own type
+        # definitions, a model that instantiates them, or both. Empty means
+        # unclassified, which the fixture layout then treats as "one set".
+        self.applies_to = entry.get('appliesTo') or []
 
     @property
     def implemented(self):
         return self.shape is not None
 
-    def fixtures(self):
+    def fixture_sets(self):
+        """Fixtures grouped by the model kind they exercise.
+
+        A rule constraining both kinds needs two fixture sets, because the two
+        are different graphs: a TypeModel fixture defines ObjectTypes and
+        InstanceDeclarations, an InstanceModel fixture instantiates them. They
+        cannot share a nodeset and they cannot share a shape either -- one
+        targets InstanceDeclarations, the other has to exclude them.
+
+        So such a rule lays its fixtures out per kind:
+
+            testcases/PU-001/TypeModel/pass-1-....NodeSet2.xml
+            testcases/PU-001/InstanceModel/fail-1-....NodeSet2.xml
+
+        A rule constraining one kind keeps the flat layout, which is every rule
+        in the suite today.
+        """
         if not self.testcases.is_dir():
-            return []
-        return sorted(self.testcases.glob('*.NodeSet2.xml'))
+            return {}
+        subdirectories = [path for path in sorted(self.testcases.iterdir()) if path.is_dir()]
+        if subdirectories:
+            return {path.name: sorted(path.glob('*.NodeSet2.xml')) for path in subdirectories}
+        flat = sorted(self.testcases.glob('*.NodeSet2.xml'))
+        return {'': flat} if flat else {}
+
+    def fixtures(self):
+        return [path for paths in self.fixture_sets().values() for path in paths]
 
     def check_identity(self):
         """Enforce the URN scheme: a shape names itself, and names its rule.
@@ -254,18 +281,41 @@ class Rule:
         return problems
 
     def check_fixture_counts(self):
-        """Enforce the suite's contract: two passing and two failing nodesets."""
-        names = [path.name for path in self.fixtures()]
-        passes = [name for name in names if name.startswith(PASS_PREFIX)]
-        fails = [name for name in names if name.startswith(FAIL_PREFIX)]
+        """Enforce the suite's contract: two passing and two failing nodesets.
+
+        Per model kind, not in total. A rule constraining both kinds with four
+        fixtures between them has covered neither properly, and totalling them
+        would hide that.
+        """
         problems = []
-        if len(passes) < 2:
-            problems.append(f'{self.id}: expected at least 2 "{PASS_PREFIX}" nodesets, found {len(passes)}')
-        if len(fails) < 2:
-            problems.append(f'{self.id}: expected at least 2 "{FAIL_PREFIX}" nodesets, found {len(fails)}')
-        for name in names:
-            if not name.startswith((PASS_PREFIX, FAIL_PREFIX)):
-                problems.append(f'{self.id}: fixture "{name}" must start with "{PASS_PREFIX}" or "{FAIL_PREFIX}"')
+        sets = self.fixture_sets()
+
+        declared = set(self.applies_to)
+        if declared and len(declared) > 1:
+            missing = declared - set(sets)
+            if missing:
+                problems.append(
+                    f'{self.id}: appliesTo names {", ".join(sorted(declared))} but there is no '
+                    f'testcases/{self.id}/{"/, ".join(sorted(missing))}/ directory')
+        for kind in sets:
+            if kind and declared and kind not in declared:
+                problems.append(
+                    f'{self.id}: fixture directory "{kind}" is not in appliesTo '
+                    f'({", ".join(sorted(declared)) or "unset"})')
+
+        for kind, paths in sorted(sets.items()):
+            where = f'{self.id}/{kind}' if kind else self.id
+            names = [path.name for path in paths]
+            passes = [name for name in names if name.startswith(PASS_PREFIX)]
+            fails = [name for name in names if name.startswith(FAIL_PREFIX)]
+            if len(passes) < 2:
+                problems.append(f'{where}: expected at least 2 "{PASS_PREFIX}" nodesets, found {len(passes)}')
+            if len(fails) < 2:
+                problems.append(f'{where}: expected at least 2 "{FAIL_PREFIX}" nodesets, found {len(fails)}')
+            for name in names:
+                if not name.startswith((PASS_PREFIX, FAIL_PREFIX)):
+                    problems.append(
+                        f'{where}: fixture "{name}" must start with "{PASS_PREFIX}" or "{FAIL_PREFIX}"')
         return problems
 
 

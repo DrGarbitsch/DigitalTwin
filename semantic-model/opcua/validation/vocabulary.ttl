@@ -111,6 +111,24 @@ opcv:specSection a owl:DatatypeProperty ;
     rdfs:range xsd:string ;
     rdfs:comment "The subclause the rule was derived from, as written in the catalog." .
 
+opcv:ModelKind a owl:Class ;
+    rdfs:label "Model kind" ;
+    rdfs:comment "What a rule constrains: the specification's own type definitions, or a model that instantiates them. The two are validated against different graphs by shapes with different targets, so a rule that applies to both needs two shapes." .
+
+opcv:TypeModel a opcv:ModelKind ;
+    rdfs:label "Type model" ;
+    rdfs:comment "The specification's own nodeset -- its ObjectTypes, VariableTypes and InstanceDeclarations. A violation here is a defect in the standard, or in this project's reading of it." .
+
+opcv:InstanceModel a opcv:ModelKind ;
+    rdfs:label "Instance model" ;
+    rdfs:comment "A vendor or Server model that instantiates the specification. A violation here is a defect in that product, not in the standard." .
+
+opcv:appliesTo a owl:ObjectProperty ;
+    rdfs:label "applies to" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range opcv:ModelKind ;
+    rdfs:comment "Which model kind(s) the rule constrains. Absent means it has not been classified yet, which is not the same as applying to neither." .
+
 opcv:status a owl:DatatypeProperty ;
     rdfs:label "status" ;
     rdfs:domain opcv:ValidationRule ;

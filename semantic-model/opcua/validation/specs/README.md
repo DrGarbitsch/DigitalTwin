@@ -134,6 +134,99 @@ returns DI-015, DI-017, MA-023 and PU-009 — every rule blocked on an
 unextracted Attribute anywhere in the tree. Reading that out of four Markdown
 catalogs by hand is how it was done before.
 
+## Two populations: the specification, and models that use it
+
+A companion specification is validated twice over, against two different
+things, and conflating them is the easiest way to write a shape that is wrong
+half the time.
+
+| | **TypeModel** | **InstanceModel** |
+|---|---|---|
+| What is under test | the specification's own nodeset | a vendor or Server model that instantiates it |
+| A violation means | the standard is defective, or our reading of it is | that product is defective |
+| Nodes the shape targets | ObjectTypes, VariableTypes, InstanceDeclarations | Objects and Variables that are *not* InstanceDeclarations |
+| The fixture | defines types | instantiates them, with the CS underneath |
+
+Every rule declares which it constrains, with `appliesTo` in the manifest:
+
+```json
+{ "@id": "rule:PU-001", "id": "PU-001", "status": "gap",
+  "appliesTo": ["TypeModel", "InstanceModel"] }
+```
+
+Pumps is classified: 6 rules are TypeModel, 9 are InstanceModel, and one is
+both. That split is itself informative — a companion specification's §3
+conventions constrain its own nodeset, while everything operational constrains
+the products built on it.
+
+### Worked example: PU-001, the rule that is both
+
+OPC 40223 §6.2.3: *"A FunctionalGroup that would have no Variables, Objects, or
+Methods if instantiated shall not be instantiated."*
+
+"if instantiated" is doing a lot of work in that sentence, and it is why one
+sentence produces two obligations that cannot share a shape:
+
+- **TypeModel** — the specification must not *define* a FunctionalGroup type
+  whose instantiation would necessarily be empty. Target: ObjectTypes that are
+  subtypes of `di:FunctionalGroupType`, with no InstanceDeclaration beneath
+  them and no inherited member.
+- **InstanceModel** — a Server must not *instantiate* a FunctionalGroup that
+  ends up empty. Target: Objects whose type definition derives from
+  `di:FunctionalGroupType` and that carry no `HasModellingRule` (Part 3's test
+  for "is an instance, not an InstanceDeclaration" — see AS-039). A type may
+  legitimately be empty in the abstract while every instance of it is
+  populated, and vice versa, so neither shape implies the other.
+
+The `<part>` slot in the shape IRI, which already distinguishes shapes split by
+target class, carries the model kind:
+
+```
+urn:opcua:validation:rule:40223:PU-001                  the rule -- one requirement
+urn:opcua:validation:shape:40223:PU-001:TypeModel       enforces it against the CS
+urn:opcua:validation:shape:40223:PU-001:InstanceModel   enforces it against a model
+```
+
+Both shapes assert `opcv:implementsRule <urn:opcua:validation:rule:40223:PU-001>`,
+so a report naming either resolves back to one rule, one subclause, one status.
+
+Fixtures split the same way, and `run_suite.py` requires two passing and two
+failing nodesets **per kind**, not four in total — four between them would
+cover neither properly:
+
+```
+shapes/
+  PU-001-empty-functionalgroup.shacl.ttl     both node shapes, one file
+testcases/PU-001/
+  TypeModel/
+    pass-1-group-with-mandatory-member.NodeSet2.xml
+    pass-2-group-populated-by-supertype.NodeSet2.xml
+    fail-1-type-with-no-members.NodeSet2.xml
+    fail-1-type-with-no-members.NodeSet2.expected
+    fail-2-...
+  InstanceModel/
+    pass-1-populated-pump-group.NodeSet2.xml
+    pass-2-group-with-only-optional-members-present.NodeSet2.xml
+    fail-1-instantiated-empty-group.NodeSet2.xml
+    fail-1-instantiated-empty-group.NodeSet2.expected
+    fail-2-...
+```
+
+A rule constraining one kind keeps the flat `testcases/<ID>/` layout — which is
+every rule implemented today. The subdirectory appears only when `appliesTo`
+names both, and the runner cross-checks the two against each other: a
+directory not in `appliesTo`, or an `appliesTo` kind with no directory, fails.
+
+### What this does not change
+
+The dependency chain, the IRI scheme and the merged shape set all work
+unaltered. An InstanceModel fixture for Pumps layers on NS0 + DI + Machinery +
+Pumps exactly as `dependsOn` already says; the only difference is that the
+fixture instantiates what the layers beneath it define, rather than adding more
+definitions. TypeModel shapes still run against that fixture too, and still
+pass, because the CS nodeset in its data graph is unchanged — which is a free
+regression check on the standard every time an instance fixture is added.
+
 ## Catalogued is a real state, not a to-do
 
 A rule in `spec.jsonld` without a `shape` key is catalogued: named, sourced to a

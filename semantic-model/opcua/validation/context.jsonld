@@ -19,6 +19,10 @@
     "section": "opcv:specSection",
     "summary": "rdfs:label",
     "status": "opcv:status",
-    "shape": "opcv:shapeFile"
+    "shape": "opcv:shapeFile",
+
+    "appliesTo": { "@id": "opcv:appliesTo", "@type": "@vocab", "@container": "@set" },
+    "TypeModel": "opcv:TypeModel",
+    "InstanceModel": "opcv:InstanceModel"
   }
 }
