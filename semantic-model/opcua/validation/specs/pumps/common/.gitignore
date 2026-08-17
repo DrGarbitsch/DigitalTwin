@@ -1,0 +1,5 @@
+# Fetched, not checked in -- see ../spec.json's commonNodesetSource and the
+# note in ../../di/common/.gitignore. Pumps sits at the bottom of the longest
+# chain in the suite: its data graph needs NS0, DI and Machinery underneath it,
+# in that order, before its own nodeset.
+*.NodeSet2.xml

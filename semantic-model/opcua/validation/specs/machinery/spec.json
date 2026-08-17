@@ -1,0 +1,71 @@
+{
+  "id": "machinery",
+  "title": "OPC 40001-1 - Machinery Basic Building Blocks",
+  "catalog": "docs/validation-rules-machinery.md",
+  "catalogRuleCount": 10,
+  "dependsOn": ["di"],
+  "commonNodeset": "common/Opc.Ua.Machinery.NodeSet2.xml",
+  "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Machinery/Opc.Ua.Machinery.NodeSet2.xml",
+  "rules": [
+    {
+      "id": "MA-001",
+      "section": "6.3",
+      "summary": "A MachineryItem supporting AddIns has a MachineryBuildingBlocks folder",
+      "status": "gap"
+    },
+    {
+      "id": "MA-002",
+      "section": "6.3",
+      "summary": "Each AddIn is referenced both directly and from MachineryBuildingBlocks",
+      "status": "gap"
+    },
+    {
+      "id": "MA-003",
+      "section": "9",
+      "summary": "Every machine is reachable from the Machines Object",
+      "status": "gap"
+    },
+    {
+      "id": "MA-004",
+      "section": "8.2",
+      "summary": "Manufacturer and SerialNumber are mandatory on MachineryItemIdentification",
+      "status": "push-down-to-core-part3"
+    },
+    {
+      "id": "MA-005",
+      "section": "8.2",
+      "summary": "MonthOfConstruction only appears alongside YearOfConstruction",
+      "status": "gap"
+    },
+    {
+      "id": "MA-006",
+      "section": "8.6",
+      "summary": "ProductInstanceUri is mandatory and read-only on a machine",
+      "status": "instance-level"
+    },
+    {
+      "id": "MA-007",
+      "section": "8.2",
+      "summary": "YearOfConstruction is a four-digit number",
+      "status": "instance-level"
+    },
+    {
+      "id": "MA-008",
+      "section": "11.2",
+      "summary": "All components of a machine are reachable via MachineComponentsType",
+      "status": "gap"
+    },
+    {
+      "id": "MA-009",
+      "section": "8.5",
+      "summary": "Server support for minimum string lengths and locale counts",
+      "status": "n/a"
+    },
+    {
+      "id": "MA-010",
+      "section": "6.3",
+      "summary": "The building blocks marked mandatory are referenced by every MachineryItem",
+      "status": "needs-verification"
+    }
+  ]
+}

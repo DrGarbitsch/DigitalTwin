@@ -347,17 +347,32 @@ def main():
             report_coverage(spec)
         return 0
 
+    # Asked for one rule: it lives in exactly one specification, so "absent from
+    # this spec" is the normal case and only "absent from all of them" is an
+    # error. Checking up front keeps the per-spec loop below free of it.
+    if args.rule and not any(rule.id == args.rule
+                             for spec in specs for rule in spec.implemented_rules):
+        print(f'No implemented rule {args.rule} in ' + ', '.join(spec.id for spec in specs))
+        return 1
+
     failures = []
     checks = 0
     for spec in specs:
-        rules = [rule for rule in spec.rules if rule.implemented]
+        rules = spec.implemented_rules
         if args.rule:
             rules = [rule for rule in rules if rule.id == args.rule]
-            if not rules:
-                print(f'No implemented rule {args.rule} in {spec.id}')
-                return 1
 
         print(f'=== {spec.title} ({spec.id}) ===')
+
+        # A specification whose rules are all catalogued but unimplemented is a
+        # first-class state, not a broken directory: the prose catalog and the
+        # manifest exist, no shape does yet. Stop before common_ttl(), which
+        # would otherwise demand a baseline nodeset that phase 1 has not
+        # materialised.
+        if not rules:
+            print(f'  --    {len(spec.rules)} rule(s) catalogued, none implemented yet\n')
+            continue
+
         # Kept per rule rather than thrown straight onto `failures`, so a rule
         # missing a fixture is shown as FAIL on its own line instead of only in
         # the summary, where it reads as a failure of some other rule.
@@ -427,6 +442,8 @@ def report_coverage(spec):
 
     print(f'=== {spec.title} ({spec.id}) ===')
     print(f'  catalog           : {spec.manifest.get("catalog", "(none)")}')
+    depends = spec.manifest.get('dependsOn') or []
+    print(f'  builds on         : {", ".join(depends) if depends else "(nothing)"}')
     if total:
         print(f'  rules enforced    : {len(implemented)} of {total}')
     else:

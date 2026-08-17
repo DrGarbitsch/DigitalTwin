@@ -3,6 +3,7 @@
   "title": "OPC UA Part 3 - Address Space Model",
   "catalog": "docs/validation-rules-part3.md",
   "catalogRuleCount": 70,
+  "dependsOn": [],
   "commonNodeset": "common/opcua-ns0-subset.NodeSet2.xml",
   "rules": [
     {

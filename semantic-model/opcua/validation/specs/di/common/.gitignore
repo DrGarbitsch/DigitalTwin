@@ -1,0 +1,10 @@
+# The DI nodeset is fetched, not checked in: it is ~1 MB of content the OPC
+# Foundation already publishes under a stable, versioned URL (see
+# commonNodesetSource in ../spec.json), and a copy here could drift from the
+# NODESET_VERSION the rest of the pipeline translates.
+#
+# Phase 1 of adding this specification is deciding what actually lands here: the
+# whole nodeset, or a generated subset in the style of
+# tools/make_ns0_subset.py. Until then no rule in this spec has a shape, so the
+# runner skips it and nothing needs this file to exist.
+*.NodeSet2.xml

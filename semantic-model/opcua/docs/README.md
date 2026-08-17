@@ -7,6 +7,9 @@
 5. [Tools](./tools.md)
 6. [Validation Rule Catalog — Part 3 (Address Space Model)](./validation-rules-part3.md)
 7. [Adding a Validation Specification](./adding-a-validation-specification.md)
+8. [Validation Rule Catalog — DI (OPC 10000-100)](./validation-rules-di.md)
+9. [Validation Rule Catalog — Machinery (OPC 40001-1)](./validation-rules-machinery.md)
+10. [Validation Rule Catalog — Pumps (OPC 40223)](./validation-rules-pumps.md)
 
 
 # References

@@ -6,9 +6,15 @@ companion specification — worked through with candidate rules extracted from D
 
 This document is the *method*. For the mechanics of writing a single shape —
 directory layout, the runner's flags, and the vocabulary traps in the translated
-graph — see [`../validation/README.md`](../validation/README.md). For the Part 3
-rules themselves, see
-[`validation-rules-part3.md`](./validation-rules-part3.md).
+graph — see [`../validation/README.md`](../validation/README.md). For how the
+four specifications sit together as a dependency chain, see
+[`../validation/specs/README.md`](../validation/specs/README.md).
+
+The catalogs themselves:
+[Part 3](./validation-rules-part3.md) (70 rules, 9 enforced),
+[DI](./validation-rules-di.md) (12),
+[Machinery](./validation-rules-machinery.md) (10),
+[Pumps](./validation-rules-pumps.md) (6).
 
 ---
 
@@ -265,9 +271,11 @@ the first three fail mysteriously.
    and it can only be written once.
 2. **Extend `SEED_BROWSE_NAMES`** in `make_ns0_subset.py` for what the companion
    specs need — `HasAddIn`, `FolderType`, `Organizes` — and regenerate.
-3. **Stand up `specs/di/` with DI-001.** It is the direct analog of an
-   already-working shape, so the first rule of the new spec tests the scaffolding
-   rather than the shape.
+3. **Implement DI-001, the first shape in `specs/di/`.** The directory, manifest
+   and catalog exist; every rule in it is catalogued and none has a shape.
+   DI-001 is the direct analog of an already-working shape (AS-006), so the first
+   rule of the new spec tests the scaffolding rather than the shape. Phase 1 —
+   deciding what lands in `specs/di/common/` — has to happen first.
 4. **Write the reachability shape once** and instantiate it for DI-002, MA-003
    and MA-008.
 5. **Then make the cross check follow the dependency chain**, so the DI fixtures

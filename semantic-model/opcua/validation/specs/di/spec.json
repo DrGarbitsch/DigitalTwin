@@ -1,0 +1,83 @@
+{
+  "id": "di",
+  "title": "OPC UA Part 100 - Devices (DI)",
+  "catalog": "docs/validation-rules-di.md",
+  "catalogRuleCount": 12,
+  "dependsOn": ["core-part3"],
+  "commonNodeset": "common/Opc.Ua.Di.NodeSet2.xml",
+  "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
+  "rules": [
+    {
+      "id": "DI-001",
+      "section": "4.4.1",
+      "summary": "BrowseNames of Nodes organized by one FunctionalGroup are unique",
+      "status": "gap"
+    },
+    {
+      "id": "DI-002",
+      "section": "4.9",
+      "summary": "DeviceSet hierarchically reaches every ComponentType instance",
+      "status": "gap"
+    },
+    {
+      "id": "DI-003",
+      "section": "4.9",
+      "summary": "Only the root instance of a complex Device hangs off DeviceSet",
+      "status": "gap"
+    },
+    {
+      "id": "DI-004",
+      "section": "4.3",
+      "summary": "MethodSet is present only if it holds at least one Method",
+      "status": "gap"
+    },
+    {
+      "id": "DI-005",
+      "section": "5.6",
+      "summary": "Every Network is a component of NetworkSet",
+      "status": "gap"
+    },
+    {
+      "id": "DI-006",
+      "section": "5.4",
+      "summary": "Every ConnectionPoint is a component of its Device",
+      "status": "gap"
+    },
+    {
+      "id": "DI-007",
+      "section": "4.7",
+      "summary": "Mandatory Properties of DeviceType are present on every instance",
+      "status": "push-down-to-core-part3"
+    },
+    {
+      "id": "DI-008",
+      "section": "4.5.4",
+      "summary": "DeviceHealth is one of the five NAMUR NE107 values",
+      "status": "instance-level"
+    },
+    {
+      "id": "DI-009",
+      "section": "5.2",
+      "summary": "A ProtocolType instance's BrowseName defines the Communication Profile",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-010",
+      "section": "4.3, 5.3",
+      "summary": "Clients use LockingServices for multi-step consistent changes",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-011",
+      "section": "4.4.2",
+      "summary": "Well-known BrowseNames for standard FunctionalGroups",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-012",
+      "section": "4.4.1",
+      "summary": "A hideable FunctionalGroup carries an appropriate ModellingRule",
+      "status": "advanced"
+    }
+  ]
+}

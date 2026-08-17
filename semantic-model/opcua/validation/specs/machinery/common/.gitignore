@@ -1,0 +1,5 @@
+# Fetched, not checked in -- see ../spec.json's commonNodesetSource and the
+# note in ../../di/common/.gitignore. The Machinery data graph is layered on
+# the DI one (dependsOn), so materialising this nodeset alone is not enough:
+# the DI nodeset has to sit underneath it.
+*.NodeSet2.xml
