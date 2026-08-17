@@ -129,6 +129,23 @@ opcv:appliesTo a owl:ObjectProperty ;
     rdfs:range opcv:ModelKind ;
     rdfs:comment "Which model kind(s) the rule constrains. Absent means it has not been classified yet, which is not the same as applying to neither." .
 
+opcv:Representation a owl:Class ;
+    rdfs:label "Representation" ;
+    rdfs:comment "A translated form of an address space, and therefore a vocabulary a shape can be written against. Orthogonal to opcv:ModelKind: the model kind says what a rule is about, the representation says which graph a shape matches. A rule that has to hold in two representations needs two shapes with no SPARQL in common." .
+
+opcv:OpcUaOwl a opcv:Representation ;
+    rdfs:label "OPC UA OWL" ;
+    rdfs:comment "The output of nodeset2owl.py: opcua: and base: terms, one node per Node, References as predicates. Validated with validate.py -m ontology. Every shape in the suite today is written against this." .
+
+opcv:NgsiLd a opcv:Representation ;
+    rdfs:label "NGSI-LD" ;
+    rdfs:comment "The output of owl2instances.py: NGSI-LD entities, whose Properties, ListProperties and Relationships carry values rather than the Node/Reference structure the OWL form keeps. Validated with validate.py -m instance. Nothing about a shape for this form transfers from the OWL form -- not the target class, not the predicates, not the traversal." .
+
+opcv:representation a owl:ObjectProperty ;
+    rdfs:label "representation" ;
+    rdfs:range opcv:Representation ;
+    rdfs:comment "Asserted by a SHACL shape about the translated form it matches. Declared on the shape and not on the rule, because the rule is representation-neutral: it is a sentence in a specification, and which encodings it gets checked in is this project's decision, not the standard's." .
+
 opcv:status a owl:DatatypeProperty ;
     rdfs:label "status" ;
     rdfs:domain opcv:ValidationRule ;

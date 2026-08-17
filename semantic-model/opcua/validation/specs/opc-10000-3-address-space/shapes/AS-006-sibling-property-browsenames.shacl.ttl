@@ -26,6 +26,7 @@
 
 <urn:opcua:validation:shape:10000-3:AS-006> a sh:NodeShape ;
     opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-006> ;
+    opcv:representation opcv:OpcUaOwl ;
     sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
                    opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
                    opcua:ReferenceTypeNodeClass ;

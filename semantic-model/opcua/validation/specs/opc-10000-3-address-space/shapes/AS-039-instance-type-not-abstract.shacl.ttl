@@ -26,6 +26,7 @@
 
 <urn:opcua:validation:shape:10000-3:AS-039> a sh:NodeShape ;
     opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-039> ;
+    opcv:representation opcv:OpcUaOwl ;
     sh:targetClass opcua:ObjectNodeClass, opcua:VariableNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;

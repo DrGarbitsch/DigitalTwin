@@ -105,10 +105,18 @@ Built from `documentNumber` in the manifest, never hand-written twice —
 match. The scheme, and why it is a URN carrying no organisation name, is
 documented in [`../vocabulary.ttl`](../vocabulary.ttl).
 
-Rule and shape are separate identities because they are one-to-many: a shape
-carrying constraints that need different target classes has to be split, since
-every constraint in a node shape runs against every target class of that shape.
-Nine Part 3 rules are eleven node shapes today.
+Rule and shape are separate identities because they are one-to-many, and for
+three independent reasons. A shape carrying constraints that need different
+target classes has to be split, since every constraint in a node shape runs
+against every target class of that shape. A rule constraining both model kinds
+needs one shape per kind. And a rule checked in more than one translated form
+needs one shape per form. Nine Part 3 rules are eleven node shapes today, all
+from the first reason alone.
+
+The `<part>` slot carries whatever distinguishes a shape from its siblings —
+`source`/`target` for a target-class split, a model kind, a representation, or
+a combination. It is a readable name, not a parsed structure: the authority is
+the RDF each shape declares, and `run_suite.py` checks the declarations.
 
 **The manifest is the graph.** `spec.jsonld` is JSON-LD, so `run_suite.py`
 reads it as plain JSON — `json.load`, no context resolution — and rdflib reads
@@ -216,6 +224,60 @@ A rule constraining one kind keeps the flat `testcases/<ID>/` layout — which i
 every rule implemented today. The subdirectory appears only when `appliesTo`
 names both, and the runner cross-checks the two against each other: a
 directory not in `appliesTo`, or an `appliesTo` kind with no directory, fails.
+
+### The second axis: which translated form the shape is written against
+
+Model kind says what a rule is *about*. It says nothing about which graph a
+shape *matches*, and in this pipeline those are two different questions,
+because an address space is translated two different ways:
+
+| | **`opcv:OpcUaOwl`** | **`opcv:NgsiLd`** |
+|---|---|---|
+| Produced by | `nodeset2owl.py` | `owl2instances.py` |
+| Vocabulary | `opcua:` / `base:` — one node per Node, References as predicates | NGSI-LD entities — `Property`, `ListProperty`, `Relationship`, carrying values |
+| Validated with | `validate.py -m ontology` | `validate.py -m instance` |
+
+A shape written for one shares **nothing** with a shape written for the other —
+not the target class, not the predicates, not the traversal. "MonthOfConstruction
+only alongside YearOfConstruction" is a walk over `opcua:HasProperty` plus
+`base:hasBrowseName` in the OWL form, and a presence test on two NGSI-LD
+Properties of one entity in the other. Same sentence in the specification, two
+unrelated SPARQL queries.
+
+So every node shape declares which form it matches:
+
+```turtle
+<urn:opcua:validation:shape:40223:PU-001:InstanceModel> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:40223:PU-001> ;
+    opcv:representation opcv:OpcUaOwl ;
+```
+
+Declared on the **shape**, not the rule. The rule is a sentence in a
+specification and is representation-neutral; which encodings this project
+chooses to check it in is our decision, not the standard's. All eleven shapes
+today declare `opcv:OpcUaOwl`.
+
+**The runner refuses to run a shape it cannot build.** Only `opcv:OpcUaOwl` has
+a pipeline here, so a shape declaring `opcv:NgsiLd` fails the identity check
+rather than being quietly validated against an OWL graph it was never written
+for — which is the exact mistake this facet exists to prevent. A shape with no
+declaration at all fails too. (`owl2instances.py` is not on this branch, which
+is the immediate reason the NGSI-LD pipeline is declared and not built.)
+
+Three facts follow for anyone adding the NGSI-LD side later:
+
+- **The fixture is still a NodeSet2.** Both pipelines start from the same
+  nodeset; they diverge after translation. So one `InstanceModel` fixture can
+  feed both an `OpcUaOwl` shape and an `NgsiLd` shape, which is a real saving
+  and keeps the two honest against each other.
+- **The expectations cannot be shared.** Different vocabularies mean different
+  focus nodes and different messages, so a fixture validated in two forms needs
+  two recorded results: `fail-1-x.NodeSet2.expected` stays the `OpcUaOwl` one,
+  and the other form adds `fail-1-x.NodeSet2.NgsiLd.expected`. The twenty
+  existing expectation files are all verified and do not move.
+- **`owl2instances.py` needs `-n <namespace>` and a root type**, so an NGSI-LD
+  fixture carries more build configuration than an OWL one. That belongs in the
+  manifest next to the rule, not hard-coded in the runner.
 
 ### What this does not change
 

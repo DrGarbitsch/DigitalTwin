@@ -72,6 +72,22 @@ BUILD_DIR = HERE / '.build'
 # there is no generated copy of the catalog to fall out of date.
 MANIFEST_NAME = 'spec.jsonld'
 
+# Translated forms a shape can be written against. A shape declares its own with
+# opcv:representation; see validation/vocabulary.ttl.
+#
+# Only OpcUaOwl has a pipeline here. NgsiLd fixtures would go through
+# owl2instances.py and be validated with `validate.py -m instance` against
+# NGSI-LD entities, whose Properties and ListParameters carry values instead of
+# the Node-and-Reference structure the OWL form keeps -- so a shape written for
+# one form shares nothing with a shape written for the other, not even its
+# target class. owl2instances.py is not on this branch, which is the immediate
+# reason the pipeline is declared rather than built.
+KNOWN_REPRESENTATIONS = {
+    'opcv:OpcUaOwl': 'nodeset2owl.py output, validated with validate.py -m ontology',
+    'opcv:NgsiLd': 'owl2instances.py output, validated with validate.py -m instance',
+}
+RUNNABLE_REPRESENTATIONS = {'opcv:OpcUaOwl'}
+
 # Fixture filenames declare their own expectation, so a case can never be
 # silently mis-filed: the prefix is the assertion.
 PASS_PREFIX = 'pass-'
@@ -278,6 +294,27 @@ class Rule:
             problems.append(
                 f'{self.id}: {self.shape.name} never links itself to its rule with '
                 f'opcv:implementsRule {expected_rule}')
+
+        # Every node shape says which translated form it matches, and there is
+        # one declaration per shape. A shape without one would be run against
+        # whatever the runner happens to build, which is the mistake this whole
+        # facet exists to prevent.
+        declared = re.findall(r'opcv:representation\s+(\S+?)\s*[;.]', text)
+        if len(declared) != len(subjects):
+            problems.append(
+                f'{self.id}: {self.shape.name} declares {len(subjects)} node shape(s) but '
+                f'{len(declared)} opcv:representation -- one is needed per shape')
+        for representation in set(declared):
+            if representation not in KNOWN_REPRESENTATIONS:
+                problems.append(
+                    f'{self.id}: unknown opcv:representation {representation}; '
+                    f'known: {", ".join(sorted(KNOWN_REPRESENTATIONS))}')
+            elif representation not in RUNNABLE_REPRESENTATIONS:
+                problems.append(
+                    f'{self.id}: {self.shape.name} is written for {representation} '
+                    f'({KNOWN_REPRESENTATIONS[representation]}), which this runner cannot build. '
+                    f'Refusing to validate it against an {"/".join(sorted(RUNNABLE_REPRESENTATIONS))} '
+                    f'graph, which is what running it anyway would do.')
         return problems
 
     def check_fixture_counts(self):
