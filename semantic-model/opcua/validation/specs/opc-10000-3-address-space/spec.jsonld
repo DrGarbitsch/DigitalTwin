@@ -1,5 +1,13 @@
 {
-  "id": "opc-10000-3-address-space",
+  "@context": [
+    "../../context.jsonld",
+    {
+      "rule": "urn:opcua:validation:rule:10000-3:",
+      "shape": "urn:opcua:validation:shape:10000-3:"
+    }
+  ],
+  "@id": "spec:10000-3",
+  "@type": "Specification",
   "title": "OPC UA Part 3 - Address Space Model",
   "documentNumber": "10000-3",
   "catalog": "docs/validation-rules-part3.md",
@@ -8,57 +16,84 @@
   "commonNodeset": "common/opcua-ns0-subset.NodeSet2.xml",
   "rules": [
     {
+      "@id": "rule:AS-008",
+      "@type": "ValidationRule",
       "id": "AS-008",
       "section": "4.6.1, 7.13",
       "summary": "Object/Variable has exactly one HasTypeDefinition",
+      "status": "implemented",
       "shape": "shapes/AS-008-type-definition-cardinality.shacl.ttl"
     },
     {
+      "@id": "rule:AS-005",
+      "@type": "ValidationRule",
       "id": "AS-005",
       "section": "4.5.2, 5.6.3",
       "summary": "Property is not the source of any hierarchical Reference",
+      "status": "implemented",
       "shape": "shapes/AS-005-property-not-hierarchical-source.shacl.ttl"
     },
     {
+      "@id": "rule:AS-006",
+      "@type": "ValidationRule",
       "id": "AS-006",
       "section": "4.5.2",
       "summary": "Properties of one Node have distinct BrowseNames",
+      "status": "implemented",
       "shape": "shapes/AS-006-sibling-property-browsenames.shacl.ttl"
     },
     {
+      "@id": "rule:AS-056",
+      "@type": "ValidationRule",
       "id": "AS-056",
       "section": "5.6.3",
       "summary": "Property's HasTypeDefinition is PropertyType",
+      "status": "implemented",
       "shape": "shapes/AS-056-property-type-definition.shacl.ttl"
     },
     {
+      "@id": "rule:AS-057",
+      "@type": "ValidationRule",
       "id": "AS-057",
       "section": "5.6.3, 5.6.4",
       "summary": "Property and DataVariable are mutually exclusive",
+      "status": "implemented",
       "shape": "shapes/AS-057-property-datavariable-exclusive.shacl.ttl"
     },
     {
+      "@id": "rule:AS-031",
+      "@type": "ValidationRule",
       "id": "AS-031",
       "section": "7 (HasComponent), 5.6.4",
       "summary": "HasComponent source and target NodeClasses",
+      "status": "implemented",
       "shape": "shapes/AS-031-hascomponent-nodeclasses.shacl.ttl"
     },
     {
+      "@id": "rule:AS-035",
+      "@type": "ValidationRule",
       "id": "AS-035",
       "section": "7.13",
       "summary": "HasTypeDefinition target matches the source's NodeClass",
+      "status": "implemented",
       "shape": "shapes/AS-035-type-definition-nodeclass.shacl.ttl"
     },
     {
+      "@id": "rule:AS-039",
+      "@type": "ValidationRule",
       "id": "AS-039",
       "section": "6.2.1",
       "summary": "An instance's type definition is not abstract",
+      "status": "implemented",
       "shape": "shapes/AS-039-instance-type-not-abstract.shacl.ttl"
     },
     {
+      "@id": "rule:AS-063",
+      "@type": "ValidationRule",
       "id": "AS-063",
       "section": "7.17",
       "summary": "HasEventSource chains never return to their origin",
+      "status": "implemented",
       "shape": "shapes/AS-063-haseventsource-acyclic.shacl.ttl"
     }
   ]

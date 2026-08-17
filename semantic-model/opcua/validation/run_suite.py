@@ -67,6 +67,11 @@ VALIDATE = OPCUA_DIR / 'validate.py'
 SPECS_DIR = HERE / 'specs'
 BUILD_DIR = HERE / '.build'
 
+# The manifest is a JSON-LD document. It is the single source for both readers:
+# this runner loads it as JSON, and rdflib loads the same bytes as RDF, so
+# there is no generated copy of the catalog to fall out of date.
+MANIFEST_NAME = 'spec.jsonld'
+
 # Fixture filenames declare their own expectation, so a case can never be
 # silently mis-filed: the prefix is the assertion.
 PASS_PREFIX = 'pass-'
@@ -183,6 +188,10 @@ class Rule:
         self.section = entry.get('section', '')
         self.summary = entry.get('summary', '')
         self.status = entry.get('status', 'implemented')
+        # Compact IRI as written in the manifest, e.g. "rule:AS-039". Kept so
+        # check_identity can confirm it agrees with the id beside it -- the one
+        # place the JSON-LD form repeats itself.
+        self.iri = entry.get('@id')
         self.shape = spec.root / entry['shape'] if entry.get('shape') else None
         self.testcases = spec.root / 'testcases' / self.id
 
@@ -205,16 +214,25 @@ class Rule:
 
         See validation/vocabulary.ttl for the scheme.
         """
-        if self.shape is None or not self.shape.is_file():
-            return []
         if self.spec.document is None:
-            return [f'{self.id}: spec.json has no documentNumber, so shape IRIs cannot be checked']
+            return [f'{self.id}: {MANIFEST_NAME} has no documentNumber, so IRIs cannot be checked']
+
+        problems = []
+        # "rule:AS-039" against the id "AS-039" beside it. JSON-LD cannot build
+        # an @id from two sibling fields, and relative IRIs do not resolve
+        # against a urn: base, so the rule ID is written twice in one object.
+        # Cheap to write, cheap to check, and this is the check.
+        if self.iri != f'rule:{self.id}':
+            problems.append(
+                f'{self.id}: manifest @id is "{self.iri}", expected "rule:{self.id}"')
+
+        if self.shape is None or not self.shape.is_file():
+            return problems
 
         text = self.shape.read_text()
         expected_prefix = f'urn:opcua:validation:shape:{self.spec.document}:{self.id}'
         expected_rule = f'<urn:opcua:validation:rule:{self.spec.document}:{self.id}>'
 
-        problems = []
         subjects = re.findall(r'^<([^>]+)>\s+a\s+sh:NodeShape', text, re.MULTILINE)
         if not subjects:
             problems.append(
@@ -256,8 +274,15 @@ class Spec:
 
     def __init__(self, root):
         self.root = root
-        self.manifest = json.loads((root / 'spec.json').read_text())
-        self.id = self.manifest['id']
+        # A JSON-LD document, and plain JSON at the same time: this reads it as
+        # a dict and never resolves the @context, while rdflib reads the same
+        # file as a graph. Terms the context does not map -- commonNodeset,
+        # catalogCoverage and the rest -- are build inputs and are invisible to
+        # the RDF reader by design.
+        self.manifest = json.loads((root / MANIFEST_NAME).read_text())
+        # The directory name is the id; the manifest no longer repeats it,
+        # because "id" in this document means opcv:ruleId.
+        self.id = root.name
         self.title = self.manifest.get('title', self.id)
         # OPC document number: the stable half of a specification's identity,
         # and what every rule and shape IRI is built from. Directory names and
@@ -270,6 +295,27 @@ class Spec:
     @property
     def implemented_rules(self):
         return [rule for rule in self.rules if rule.implemented]
+
+    def check_identity(self):
+        """Check this specification's own IRI, and every rule's -- implemented
+        or not.
+
+        A catalogued rule has no shape to disagree with, but its @id can still
+        be wrong, and it would then be wrong for however long it takes someone
+        to implement it. Three of four specifications here are entirely
+        catalogued, so checking only implemented rules would check almost
+        nothing.
+        """
+        problems = []
+        expected = f'spec:{self.document}'
+        if self.document is None:
+            problems.append(f'{self.id}: {MANIFEST_NAME} has no documentNumber')
+        elif self.manifest.get('@id') != expected:
+            problems.append(
+                f'{self.id}: manifest @id is "{self.manifest.get("@id")}", expected "{expected}"')
+        for rule in self.rules:
+            problems.extend(rule.check_identity())
+        return problems
 
     def common_ttl(self):
         """Translate (once) the shared NS0 subset every fixture is layered on."""
@@ -357,34 +403,12 @@ def check_cross(spec, rule, fixture, all_shapes):
 def collect_specs(only_spec):
     specs = []
     for path in sorted(SPECS_DIR.iterdir()):
-        if not (path / 'spec.json').is_file():
+        if not (path / MANIFEST_NAME).is_file():
             continue
         if only_spec and path.name != only_spec:
             continue
         specs.append(Spec(path))
     return dependency_order(specs)
-
-
-def warn_if_rules_graph_stale():
-    """Say so if rules.ttl no longer matches the manifests it is generated from.
-
-    A warning rather than a failure: the graph is a derived view, and a stale
-    view should not stop anyone running the shapes. But it goes unnoticed
-    otherwise, because nothing else in the suite reads it.
-    """
-    graph = HERE / 'rules.ttl'
-    manifests = sorted(SPECS_DIR.glob('*/spec.json'))
-    if not manifests:
-        return
-    if not graph.exists():
-        print(f'note: {graph.name} has not been generated '
-              f'-- run validation/tools/make_rules_graph.py\n')
-        return
-    stale = [path for path in manifests if path.stat().st_mtime > graph.stat().st_mtime]
-    if stale:
-        names = ', '.join(path.parent.name for path in stale)
-        print(f'note: {graph.name} is older than {names} '
-              f'-- run validation/tools/make_rules_graph.py\n')
 
 
 def dependency_order(specs):
@@ -400,18 +424,24 @@ def dependency_order(specs):
     specs in alphabetical order rather than raising: ordering is presentational,
     and refusing to run over it would be a worse failure than printing it oddly.
     """
+    # dependsOn holds compact spec IRIs ("spec:10000-3"), not directory names,
+    # so that the same field is a real RDF link. Resolve through the document
+    # number rather than the directory, which is exactly what changed last time.
+    def iri_of(spec):
+        return f'spec:{spec.document}'
+
     remaining = list(specs)
     ordered = []
     placed = set()
     while remaining:
         ready = [spec for spec in remaining
-                 if all(dep in placed or dep not in {s.id for s in remaining}
+                 if all(dep in placed or dep not in {iri_of(s) for s in remaining}
                         for dep in spec.manifest.get('dependsOn') or [])]
         if not ready:
             ordered.extend(remaining)
             break
         ordered.extend(ready)
-        placed.update(spec.id for spec in ready)
+        placed.update(iri_of(spec) for spec in ready)
         remaining = [spec for spec in remaining if spec not in ready]
     return ordered
 
@@ -437,8 +467,6 @@ def main():
         print(f'No specification found under {SPECS_DIR}' + (f' named {args.spec}' if args.spec else ''))
         return 1
 
-    warn_if_rules_graph_stale()
-
     if args.coverage:
         for spec in specs:
             report_coverage(spec)
@@ -461,6 +489,14 @@ def main():
 
         print(f'=== {spec.title} ({spec.id}) ===')
 
+        # Identity is checked for the whole specification, before the shapes
+        # and independently of them: three of the four specifications here have
+        # no implemented rule at all, and their IRIs still have to be right.
+        identity_problems = spec.check_identity()
+        if identity_problems:
+            print(f'  FAIL  identity: {len(identity_problems)} problem(s)')
+            failures.extend(identity_problems)
+
         # A specification whose rules are all catalogued but unimplemented is a
         # first-class state, not a broken directory: the prose catalog and the
         # manifest exist, no shape does yet. Stop before common_ttl(), which
@@ -473,8 +509,8 @@ def main():
         # Kept per rule rather than thrown straight onto `failures`, so a rule
         # missing a fixture is shown as FAIL on its own line instead of only in
         # the summary, where it reads as a failure of some other rule.
-        count_problems = {rule.id: rule.check_fixture_counts() + rule.check_identity()
-                          for rule in rules}
+        # Identity was already checked for every rule above, implemented or not.
+        count_problems = {rule.id: rule.check_fixture_counts() for rule in rules}
 
         # Warm the shared artefacts before fanning out, so parallel workers
         # never race to build the same NS0 translation.

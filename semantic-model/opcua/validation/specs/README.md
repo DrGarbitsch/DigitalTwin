@@ -1,7 +1,7 @@
 # The specification tree
 
 One directory per specification. `run_suite.py` discovers any directory here
-containing a `spec.json`, so adding a specification needs no code change.
+containing a `spec.jsonld`, so adding a specification needs no code change.
 
 ```
 specs/
@@ -15,11 +15,11 @@ Each directory has the same five parts:
 
 ```
 <spec>/
-  spec.json       the manifest: identity, dependencies, baseline nodeset, rules
+  spec.jsonld     the manifest: identity, dependencies, baseline nodeset, rules
   common/         the nodeset(s) every fixture in this spec is layered on
   shapes/         one <RULE-ID>-<slug>.shacl.ttl per implemented rule
   testcases/      one directory per rule: two pass- and two fail- fixtures
-  (catalog)       the prose rule catalog, in ../../docs/, named by spec.json
+  (catalog)       the prose rule catalog, in ../../docs/, named by the manifest
 ```
 
 ## They are a chain, not four islands
@@ -44,7 +44,7 @@ read "<--" as "is built on by": opc-40223-pumps builds on opc-40001-1-machinery
 **The directories stay flat.** `specs/` holds four siblings and always will; a
 specification is never nested inside the one it builds on. The chain above is a
 *relation between manifests*, declared by the `dependsOn` field in each
-`spec.json` and read by the runner — not a location on disk.
+`spec.jsonld` and read by the runner — not a location on disk.
 
 Keeping it out of the filesystem is deliberate. Nesting would force a single
 parent per spec, and that is already wrong for the specs this project
@@ -110,9 +110,17 @@ carrying constraints that need different target classes has to be split, since
 every constraint in a node shape runs against every target class of that shape.
 Nine Part 3 rules are eleven node shapes today.
 
-`../rules.ttl` is the whole catalog as a graph — generated from the manifests by
-`../tools/make_rules_graph.py`, so it is a derived view and never edited. It
-exists to make the catalog queryable:
+**The manifest is the graph.** `spec.jsonld` is JSON-LD, so `run_suite.py`
+reads it as plain JSON — `json.load`, no context resolution — and rdflib reads
+the same bytes as RDF. There is no generated copy of the catalog and therefore
+nothing to fall out of date. Terms the shared
+[`../context.jsonld`](../context.jsonld) does not map (`commonNodeset`,
+`catalogCoverage`, and the other build inputs) are simply invisible to the RDF
+reader, which is the intended split: they are instructions to the runner, not
+statements about the specification.
+
+`../tools/rules_graph.py` collects the four manifests into one graph, so the
+catalog is queryable:
 
 ```sparql
 PREFIX opcv: <urn:opcua:validation:vocab:>
@@ -128,7 +136,7 @@ catalogs by hand is how it was done before.
 
 ## Catalogued is a real state, not a to-do
 
-A rule in `spec.json` without a `shape` key is catalogued: named, sourced to a
+A rule in `spec.jsonld` without a `shape` key is catalogued: named, sourced to a
 subclause, and given a status, but not enforced. The runner skips it, and
 `--coverage` counts it in the denominator. Three of the four specifications here
 are entirely in that state.

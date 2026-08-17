@@ -1,0 +1,24 @@
+{
+  "@context": {
+    "opcv": "urn:opcua:validation:vocab:",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+
+    "spec": "urn:opcua:validation:spec:",
+
+    "Specification": "opcv:Specification",
+    "ValidationRule": "opcv:ValidationRule",
+
+    "title": "rdfs:label",
+    "documentNumber": "opcv:documentNumber",
+    "dependsOn": { "@id": "opcv:buildsOn", "@type": "@id" },
+
+    "rules": { "@reverse": "opcv:definedBy" },
+
+    "id": "opcv:ruleId",
+    "section": "opcv:specSection",
+    "summary": "rdfs:label",
+    "status": "opcv:status",
+    "shape": "opcv:shapeFile"
+  }
+}

@@ -7,7 +7,7 @@ recorded below with the reason it does not.
 Source: [OPC 40223, v1.00](https://reference.opcfoundation.org/Pumps/v100/docs/).
 
 Manifest:
-[`../validation/specs/opc-40223-pumps/spec.json`](../validation/specs/opc-40223-pumps/spec.json).
+[`../validation/specs/opc-40223-pumps/spec.jsonld`](../validation/specs/opc-40223-pumps/spec.jsonld).
 Depends on `opc-40001-1-machinery` → `opc-10000-100-devices` →
 `opc-10000-3-address-space`. Pumps sits at the end of the longest dependency
 chain in the suite, and — as the inheritance rules below show — that is where
@@ -155,7 +155,7 @@ a modality-sensitive reading at all.
 
 **PU-002 got stronger**, from a half-advisory disjunction to a real constraint.
 
-**Only six rules are checkable here, against seventeen in DI and seven in
+**Only six rules are checkable here, against twenty-one in DI and seven in
 Machinery — and that is the correct result, not a disappointment.** Pumps is a
 thin specification over a deep stack. Four of its sixteen rules are inheritance
 facts, and they are the interesting ones: `PumpType` is a DI TopologyElement,

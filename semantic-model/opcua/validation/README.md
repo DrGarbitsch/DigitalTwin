@@ -17,7 +17,7 @@ validation/
   ontology/               older, hand-written shapes (see "Relationship to ontology/")
   specs/
     opc-10000-3-address-space/           one directory per specification
-      spec.json           manifest: which rules have a shape
+      spec.jsonld           manifest: which rules have a shape
       common/             the NS0 nodeset every fixture in this spec depends on
       shapes/            one *.shacl.ttl per rule
       testcases/
@@ -72,7 +72,7 @@ guards. Every fixture added for a new rule strengthens all the older ones.
 1. **Write the shape** in `specs/<spec>/shapes/AS-NNN-<slug>.shacl.ttl`. Read
    "Writing shapes against the translated graph" below first; the vocabulary has
    several traps.
-2. **Register it** in `specs/<spec>/spec.json` with its section reference and a
+2. **Register it** in `specs/<spec>/spec.jsonld` with its section reference and a
    one-line summary.
 3. **Write four fixtures** in `specs/<spec>/testcases/AS-NNN/`. Two `pass-` and
    two `fail-` NodeSet2 XML files; the runner enforces the count.
@@ -100,14 +100,14 @@ What makes a fixture pair worth having:
 Copy the structure of `specs/opc-10000-3-address-space/`:
 
 1. `mkdir -p specs/<spec>/{shapes,testcases,common}`.
-2. Write `spec.json` with `id`, `title`, `catalog` (the prose rule catalog),
+2. Write `spec.jsonld` with `id`, `title`, `catalog` (the prose rule catalog),
    `catalogRuleCount`, `commonNodeset`, and an empty `rules` list.
 3. Provide the `commonNodeset` the fixtures build on. For a companion
    specification this is that specification's own nodeset plus its
    dependencies; `opc-10000-3-address-space` uses a generated subset of Namespace 0 (below).
 4. Add rules one at a time as above.
 
-The runner discovers any directory under `specs/` containing a `spec.json`, so a
+The runner discovers any directory under `specs/` containing a `spec.jsonld`, so a
 new specification needs no code change.
 
 ### The shared NS0 subset
@@ -205,7 +205,7 @@ translation normalises the defect away before it reaches the graph. AS-008's
 drops the rest without warning. Keep the check in the shape -- the graph can be
 produced by other means -- and say so in the fixture comment, as
 `AS-008/fail-2` does. A rule that cannot be fixtured at all belongs in the
-catalog as a gap, not in `spec.json`.
+catalog as a gap, not in `spec.jsonld`.
 
 ## Relationship to `ontology/`
 

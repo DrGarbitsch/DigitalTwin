@@ -55,11 +55,11 @@ correct siblings         real CLI           core nodes      .expected file
 
 ```
 validation/
-  run_suite.py                    the runner; discovers any spec.json under specs/
+  run_suite.py                    the runner; discovers any spec.jsonld under specs/
   tools/make_ns0_subset.py        regenerates the shared Namespace 0 subset
   specs/
     opc-10000-3-address-space/
-      spec.json                   manifest: id, title, catalog, catalogRuleCount,
+      spec.jsonld                   manifest: id, title, catalog, catalogRuleCount,
                                   commonNodeset, rules[{id, section, summary, shape}]
       common/                     the nodeset every fixture here depends on
       shapes/AS-NNN-<slug>.shacl.ttl
@@ -134,7 +134,7 @@ own published nodeset plus its dependencies — which for Machinery means NS0, D
 
 ### Phase 2 — One rule at a time, five steps, no shortcuts
 
-Write the shape → register it in `spec.json` with section and one-line summary →
+Write the shape → register it in `spec.jsonld` with section and one-line summary →
 write two `pass-` and two `fail-` fixtures → generate and *read* the expectations
 → run the whole suite so the cross check sees the new fixtures.
 
@@ -150,9 +150,9 @@ What makes a fixture pair worth having:
 
 ### Phase 3 — Wire it in and let the catalog track itself
 
-The runner discovers any directory under `specs/` containing a `spec.json`, so a
+The runner discovers any directory under `specs/` containing a `spec.jsonld`, so a
 new specification needs no code change. `--coverage` reports enforced-versus-
-catalogued. The catalog's status column and `spec.json` are the two ends of the
+catalogued. The catalog's status column and `spec.jsonld` are the two ends of the
 same thread; keep them consistent and "what is actually enforced" is never a
 guess.
 
@@ -207,7 +207,7 @@ Status column: **Enforceable** — the graph already carries what the rule needs
 
 **Confidence.** Section numbers for the DI and Machinery candidates above are as
 reported by `reference.opcfoundation.org` and should be re-verified against
-primary text before any rule is registered in a `spec.json` — the same discipline
+primary text before any rule is registered in a `spec.jsonld` — the same discipline
 the Part 3 catalog applies to itself.
 
 ## 5. What changes for a companion specification
@@ -228,7 +228,7 @@ Some rules constrain the companion nodeset itself (type-level: MA-001's
 ObjectType obligation). Others constrain models that *implement* it
 (instance-level: MA-006, DI-008). A type-level fixture defines types; an
 instance-level fixture instantiates them. Worth a `kind` field on each rule in
-`spec.json`, because it decides what a reviewer should expect to see in the
+`spec.jsonld`, because it decides what a reviewer should expect to see in the
 fixture.
 
 ### The cross check should inherit the dependency's shapes

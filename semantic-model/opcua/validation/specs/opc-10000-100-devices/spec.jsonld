@@ -1,225 +1,307 @@
 {
-  "id": "opc-10000-100-devices",
+  "@context": [
+    "../../context.jsonld",
+    {
+      "rule": "urn:opcua:validation:rule:10000-100:",
+      "shape": "urn:opcua:validation:shape:10000-100:"
+    }
+  ],
+  "@id": "spec:10000-100",
+  "@type": "Specification",
   "title": "OPC UA Part 100 - Devices (DI)",
   "documentNumber": "10000-100",
   "catalog": "docs/validation-rules-di.md",
   "catalogRuleCount": 36,
   "catalogCoverage": "sections 1-12 and annexes A-C read; 8.5, 8.6 and 8.7 not reached",
-  "dependsOn": ["opc-10000-3-address-space"],
+  "dependsOn": [
+    "spec:10000-3"
+  ],
   "commonNodeset": "common/Opc.Ua.Di.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
   "rules": [
     {
+      "@id": "rule:DI-001",
+      "@type": "ValidationRule",
       "id": "DI-001",
       "section": "4.4.1",
       "summary": "BrowseNames of Nodes organized by one FunctionalGroup are unique",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-002",
+      "@type": "ValidationRule",
       "id": "DI-002",
       "section": "4.9",
       "summary": "DeviceSet hierarchically reaches every ComponentType instance",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-003",
+      "@type": "ValidationRule",
       "id": "DI-003",
       "section": "4.9",
       "summary": "Only the root instance of a complex Device hangs off DeviceSet",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-004",
+      "@type": "ValidationRule",
       "id": "DI-004",
       "section": "4.3",
       "summary": "MethodSet is present only if it holds at least one Method",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-005",
+      "@type": "ValidationRule",
       "id": "DI-005",
       "section": "5.6",
       "summary": "Every Network is a component of NetworkSet",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-006",
+      "@type": "ValidationRule",
       "id": "DI-006",
       "section": "5.4",
       "summary": "Every ConnectionPoint is a component of its Device",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-007",
+      "@type": "ValidationRule",
       "id": "DI-007",
       "section": "4.7",
       "summary": "Mandatory Properties of DeviceType are present on every instance",
       "status": "push-down"
     },
     {
+      "@id": "rule:DI-008",
+      "@type": "ValidationRule",
       "id": "DI-008",
       "section": "4.5.4",
       "summary": "DeviceHealth is one of the five NAMUR NE107 values",
       "status": "instance-level"
     },
     {
+      "@id": "rule:DI-009",
+      "@type": "ValidationRule",
       "id": "DI-009",
       "section": "5.2",
       "summary": "A ProtocolType instance's BrowseName defines the Communication Profile",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-010",
+      "@type": "ValidationRule",
       "id": "DI-010",
       "section": "4.3, 5.3",
       "summary": "Clients use LockingServices for multi-step consistent changes",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-011",
+      "@type": "ValidationRule",
       "id": "DI-011",
       "section": "4.4.2",
       "summary": "Well-known BrowseNames for standard FunctionalGroups",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-012",
+      "@type": "ValidationRule",
       "id": "DI-012",
       "section": "4.4.1",
       "summary": "A hideable FunctionalGroup carries an appropriate ModellingRule",
       "status": "advanced"
     },
     {
+      "@id": "rule:DI-013",
+      "@type": "ValidationRule",
       "id": "DI-013",
       "section": "3.3.3.1-3.3.3.3",
       "summary": "Common Attributes are set as Tables 7-9 specify",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-014",
+      "@type": "ValidationRule",
       "id": "DI-014",
       "section": "3.3.3.3, 3.3.3.4",
       "summary": "A ValueRank above zero requires ArrayDimensions to be specified",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-015",
+      "@type": "ValidationRule",
       "id": "DI-015",
       "section": "3.3.3.5",
       "summary": "Methods defined by this specification are executable",
       "status": "blocked"
     },
     {
+      "@id": "rule:DI-016",
+      "@type": "ValidationRule",
       "id": "DI-016",
       "section": "3.3.1.1",
       "summary": "References between two exposed Nodes are exposed as well",
       "status": "advanced"
     },
     {
+      "@id": "rule:DI-017",
+      "@type": "ValidationRule",
       "id": "DI-017",
       "section": "3.3.3.1",
       "summary": "Non-server-specific Attributes and the NodeId are not writable",
       "status": "blocked"
     },
     {
+      "@id": "rule:DI-018",
+      "@type": "ValidationRule",
       "id": "DI-018",
       "section": "4.5.5",
       "summary": "Operation counters only increase over the Device lifetime",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-019",
+      "@type": "ValidationRule",
       "id": "DI-019",
       "section": "6.3.2",
       "summary": "Both ends of an IsOnline Reference are the same ComponentType subtype",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-020",
+      "@type": "ValidationRule",
       "id": "DI-020",
       "section": "6.3.2",
       "summary": "A Device is the source of at most one IsOnline Reference",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-021",
+      "@type": "ValidationRule",
       "id": "DI-021",
       "section": "6.4.3",
       "summary": "The TransferServices container has the BrowseName Transfer",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-022",
+      "@type": "ValidationRule",
       "id": "DI-022",
       "section": "6.4.1, 6.4.2",
       "summary": "Transfer Methods require a prior lock and return defined StatusCodes",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-023",
+      "@type": "ValidationRule",
       "id": "DI-023",
       "section": "7.3",
       "summary": "The LockingServices Object is a component or AddIn of its lock owner",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-024",
+      "@type": "ValidationRule",
       "id": "DI-024",
       "section": "7.4",
       "summary": "MaxInactiveLockTime is added to the ServerCapabilities Object",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-025",
+      "@type": "ValidationRule",
       "id": "DI-025",
       "section": "7.2, 7.4",
       "summary": "Locking Methods return defined StatusCodes and RenewLock resets the timer",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-026",
+      "@type": "ValidationRule",
       "id": "DI-026",
       "section": "8.3.11",
       "summary": "A SoftwareUpdate AddIn attaches to an IVendorNameplateType implementer",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-027",
+      "@type": "ValidationRule",
       "id": "DI-027",
       "section": "8.3.11",
       "summary": "The SoftwareUpdate AddIn uses the fixed BrowseName SoftwareUpdate",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-028",
+      "@type": "ValidationRule",
       "id": "DI-028",
       "section": "8.3.11",
       "summary": "The nameplate Interface supplies the four Variables the update model needs",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-029",
+      "@type": "ValidationRule",
       "id": "DI-029",
       "section": "8.4.1.2",
       "summary": "The Loading Object is present for every variation of software installation",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-030",
+      "@type": "ValidationRule",
       "id": "DI-030",
       "section": "8.3.4.2, 8.4.3.3.2, 8.4.5.3, 8.4.7.2, 8.4.8.1, 8.4.9.4",
       "summary": "Client obligations and Method-return semantics across the update model",
       "status": "n/a"
     },
     {
+      "@id": "rule:DI-031",
+      "@type": "ValidationRule",
       "id": "DI-031",
       "section": "9.2.1",
       "summary": "A configurable Object holds a SupportedTypes folder organizing its Types",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-032",
+      "@type": "ValidationRule",
       "id": "DI-032",
       "section": "9.2.1",
       "summary": "Configured instances are components of the configurable Object",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-033",
+      "@type": "ValidationRule",
       "id": "DI-033",
       "section": "10.2",
       "summary": "Lifetime bound Properties share the DataType of the Variable's Value",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-034",
+      "@type": "ValidationRule",
       "id": "DI-034",
       "section": "10.2",
       "summary": "WarningValues lie between StartValue and LimitValue",
       "status": "instance-level"
     },
     {
+      "@id": "rule:DI-035",
+      "@type": "ValidationRule",
       "id": "DI-035",
       "section": "12.2",
       "summary": "Nodes this specification does not define stay out of the standard namespaces",
       "status": "gap"
     },
     {
+      "@id": "rule:DI-036",
+      "@type": "ValidationRule",
       "id": "DI-036",
       "section": "12.2",
       "summary": "The standard namespaces carry fixed namespace indices",

@@ -7,13 +7,13 @@ recorded below with the reason it does not.
 Source: [OPC 10000-100, Devices, v1.03](https://reference.opcfoundation.org/DI/v103/docs/).
 
 Manifest:
-[`../validation/specs/opc-10000-100-devices/spec.json`](../validation/specs/opc-10000-100-devices/spec.json).
+[`../validation/specs/opc-10000-100-devices/spec.jsonld`](../validation/specs/opc-10000-100-devices/spec.jsonld).
 Depends on `opc-10000-3-address-space`. Method and the shared vocabulary traps:
 [`adding-a-validation-specification.md`](./adding-a-validation-specification.md)
 and [`../validation/README.md`](../validation/README.md).
 
 **Nothing here is enforced yet** — catalogued only, no shapes, no fixtures.
-36 rules, of which 17 are checkable against the translated graph today. DI is the
+36 rules, of which 21 are checkable against the translated graph today. DI is the
 richest of the three companion specifications catalogued so far, and by some
 distance: it carries more enforceable structural rules than Machinery and Pumps
 combined.
@@ -229,7 +229,7 @@ DI-based specification — it is the OPC Foundation's own version of the advice 
 Twelve rules became thirty-six, and the shape of the specification looks
 different from what the partial pass suggested.
 
-**Seventeen rules are checkable today**, against seven in Machinery and three in
+**Twenty-one rules are checkable today**, against seven in Machinery and six in
 Pumps. The partial catalog found six of them. Everything in §6, §7, §9 and §10 —
 eleven rules, nine of them enforceable — was missed entirely, because the partial
 pass had prioritised the sections whose *names* sounded structural (Device model,
@@ -251,7 +251,7 @@ could extract more" from an observation into a work item.
 (DI-035). None has an analogue in the Part 3 suite, so each is a genuine
 extension of what the runner has been shown to handle.
 
-**Eleven rules are N/A**, concentrated in §8, where an entire large section of a
+**Eight rules are N/A**, concentrated in §8, where an entire large section of a
 specification turns out to be almost entirely Client behaviour and Method
 semantics. Recording that is what stops the next reader spending a day in §8
 looking for shapes.

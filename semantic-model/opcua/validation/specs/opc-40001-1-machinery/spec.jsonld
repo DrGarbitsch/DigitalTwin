@@ -1,159 +1,219 @@
 {
-  "id": "opc-40001-1-machinery",
+  "@context": [
+    "../../context.jsonld",
+    {
+      "rule": "urn:opcua:validation:rule:40001-1:",
+      "shape": "urn:opcua:validation:shape:40001-1:"
+    }
+  ],
+  "@id": "spec:40001-1",
+  "@type": "Specification",
   "title": "OPC 40001-1 - Machinery Basic Building Blocks",
   "documentNumber": "40001-1",
   "catalog": "docs/validation-rules-machinery.md",
   "catalogRuleCount": 25,
   "catalogCoverage": "complete: sections 1-20 and annexes A-C all read",
-  "dependsOn": ["opc-10000-100-devices"],
+  "dependsOn": [
+    "spec:10000-100"
+  ],
   "commonNodeset": "common/Opc.Ua.Machinery.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Machinery/Opc.Ua.Machinery.NodeSet2.xml",
   "rules": [
     {
+      "@id": "rule:MA-001",
+      "@type": "ValidationRule",
       "id": "MA-001",
       "section": "6.3",
       "summary": "A MachineryItem supporting AddIns has a MachineryBuildingBlocks folder",
       "status": "needs-verification"
     },
     {
+      "@id": "rule:MA-002",
+      "@type": "ValidationRule",
       "id": "MA-002",
       "section": "6.3",
       "summary": "Each AddIn is referenced both directly and from MachineryBuildingBlocks",
       "status": "needs-verification"
     },
     {
+      "@id": "rule:MA-003",
+      "@type": "ValidationRule",
       "id": "MA-003",
       "section": "9.2",
       "summary": "Every machine is referenced directly from the Machines Object via Organizes",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-004",
+      "@type": "ValidationRule",
       "id": "MA-004",
       "section": "8.3",
       "summary": "Manufacturer and SerialNumber are present on MachineryItemIdentification",
       "status": "push-down"
     },
     {
+      "@id": "rule:MA-005",
+      "@type": "ValidationRule",
       "id": "MA-005",
       "section": "8.2",
       "summary": "MonthOfConstruction only appears alongside YearOfConstruction",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-006",
+      "@type": "ValidationRule",
       "id": "MA-006",
       "section": "8.6",
       "summary": "ProductInstanceUri is present and read-only on a machine",
       "status": "push-down"
     },
     {
+      "@id": "rule:MA-007",
+      "@type": "ValidationRule",
       "id": "MA-007",
       "section": "8.2",
       "summary": "YearOfConstruction is a four-digit number",
       "status": "instance-level"
     },
     {
+      "@id": "rule:MA-008",
+      "@type": "ValidationRule",
       "id": "MA-008",
       "section": "11.2",
       "summary": "A component carries a mandatory Identification AddIn",
       "status": "push-down"
     },
     {
+      "@id": "rule:MA-009",
+      "@type": "ValidationRule",
       "id": "MA-009",
       "section": "8.5, 8.6",
       "summary": "Server support for minimum string lengths and locale counts",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-010",
+      "@type": "ValidationRule",
       "id": "MA-010",
       "section": "6.2, Table 12",
       "summary": "The building blocks Table 12 marks mandatory are referenced",
       "status": "needs-verification"
     },
     {
+      "@id": "rule:MA-011",
+      "@type": "ValidationRule",
       "id": "MA-011",
       "section": "3.4.3.1-3.4.3.3",
       "summary": "Common Attributes are set as Tables 7-9 specify",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-012",
+      "@type": "ValidationRule",
       "id": "MA-012",
       "section": "7.1",
       "summary": "Language-neutral LocalizedText carries no locale",
       "status": "instance-level"
     },
     {
+      "@id": "rule:MA-013",
+      "@type": "ValidationRule",
       "id": "MA-013",
       "section": "9.2",
       "summary": "Every Object under Machines provides the MachineIdentificationType AddIn",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-014",
+      "@type": "ValidationRule",
       "id": "MA-014",
       "section": "9.2",
       "summary": "The Machines Object is organized under the Objects folder",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-015",
+      "@type": "ValidationRule",
       "id": "MA-015",
       "section": "15.2",
       "summary": "A MachineryLifetimeCounter holds at least one lifetime variable",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-016",
+      "@type": "ValidationRule",
       "id": "MA-016",
       "section": "16.1, 16.2",
       "summary": "A Status Object references the state and operation-mode AddIns it has",
       "status": "gap"
     },
     {
+      "@id": "rule:MA-017",
+      "@type": "ValidationRule",
       "id": "MA-017",
       "section": "8.2",
       "summary": "ProductInstanceUri is at most 255 characters",
       "status": "instance-level"
     },
     {
+      "@id": "rule:MA-018",
+      "@type": "ValidationRule",
       "id": "MA-018",
       "section": "14.2",
       "summary": "Operation counters only increase and never reset",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-019",
+      "@type": "ValidationRule",
       "id": "MA-019",
       "section": "7.2",
       "summary": "An unavailable read-only optional Node is not provided",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-020",
+      "@type": "ValidationRule",
       "id": "MA-020",
       "section": "7.3",
       "summary": "Several References lead to one Node rather than duplicating it",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-021",
+      "@type": "ValidationRule",
       "id": "MA-021",
       "section": "10.2",
       "summary": "Machine vendors do not repurpose ComponentName for their own identification",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-022",
+      "@type": "ValidationRule",
       "id": "MA-022",
       "section": "9.2",
       "summary": "Clients reach the Machines Object by its standardized NodeId",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-023",
+      "@type": "ValidationRule",
       "id": "MA-023",
       "section": "3.4.3.5",
       "summary": "Methods defined by this specification are executable",
       "status": "blocked"
     },
     {
+      "@id": "rule:MA-024",
+      "@type": "ValidationRule",
       "id": "MA-024",
       "section": "8.2",
       "summary": "Clients do not infer manufacturer uniqueness from ProductInstanceUri",
       "status": "n/a"
     },
     {
+      "@id": "rule:MA-025",
+      "@type": "ValidationRule",
       "id": "MA-025",
       "section": "8.3, 8.4, 8.6",
       "summary": "Nameplate Properties are used as their Interface defines them",

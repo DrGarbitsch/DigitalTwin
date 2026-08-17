@@ -8,7 +8,7 @@ or is recorded below with the reason it does not. Same conventions as the
 Source: [OPC 40001-1, v1.03](https://reference.opcfoundation.org/Machinery/v103/docs/).
 
 Manifest:
-[`../validation/specs/opc-40001-1-machinery/spec.json`](../validation/specs/opc-40001-1-machinery/spec.json).
+[`../validation/specs/opc-40001-1-machinery/spec.jsonld`](../validation/specs/opc-40001-1-machinery/spec.jsonld).
 Depends on `opc-10000-100-devices`, which depends on
 `opc-10000-3-address-space`.
 
@@ -240,7 +240,7 @@ DI-007 next door, all close when the Mandatory-ModellingRule shape is written.
 The partial catalog found two of them. The case for writing that shape first
 strengthens with every specification read.
 
-**Nine rules are N/A, and finding them is the point.** Client behaviour (MA-022,
+**Seven rules are N/A, and finding them is the point.** Client behaviour (MA-022,
 MA-024), Server capability (MA-009), monotonicity over time (MA-018, and MA-007's
 second half), facts not in the graph (MA-019, MA-021), advisory language
 (MA-020). A suite that had gone straight to implementation would have discovered
