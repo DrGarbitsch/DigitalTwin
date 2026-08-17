@@ -112,21 +112,40 @@ new specification needs no code change.
 
 ### The shared NS0 subset
 
-Fixtures must be hermetic: no downloads, no dependency on the 3.6 MB core
-nodeset. But they cannot be standalone either, because nearly every Part 3 rule
-is phrased in terms of Namespace 0 nodes, and `nodeset2owl.py` hard-fails on a
-DataType or ReferenceType it cannot resolve.
-
-So all fixtures in `opc-10000-3-address-space` share one dependency:
-`common/opcua-ns0-subset.NodeSet2.xml`, 70 nodes extracted from the official
+A fixture cannot be standalone: nearly every Part 3 rule is phrased in terms of
+Namespace 0 nodes, and `nodeset2owl.py` hard-fails on a DataType or
+ReferenceType it cannot resolve. So all fixtures in
+`opc-10000-3-address-space` share one dependency:
+`common/opcua-ns0-subset.NodeSet2.xml`, 71 nodes extracted from the official
 `Opc.Ua.NodeSet2.xml` by `tools/make_ns0_subset.py`. It is generated, not
 hand-written, so NodeIds, `IsAbstract` flags and subtype hierarchies are the
 spec's own and cannot drift. To add a node, extend `SEED_BROWSE_NAMES` in the
 tool and re-run it.
 
-The subset is merged into the data graph of every test case, which means the
-real (if pruned) Namespace 0 content is held to the same shapes as the fixtures.
-A shape that false-positives on the spec's own nodes fails the suite.
+**What the subset buys is speed, and speed is not a currency a validation suite
+should spend correctness on.** Measured on one fixture: conversion against the
+30 KB subset takes 1.9 s, against the full translated NS0 8.6 s — 4.4x, over 36
+fixtures, before the far larger cost of running SPARQL over a graph a hundred
+times bigger. That is the honest reason the subset exists.
+
+Two earlier justifications for it do not survive checking, and are recorded
+here so nobody leans on them again:
+
+- **It is not needed for hermeticity.** The full `Opc.Ua.NodeSet2.xml` is
+  already checked in at `tests/nodeset2owl/`. Using it costs no download.
+- **It does not hold NS0 to the same shapes.** The subset deliberately prunes
+  forward hierarchical References, keeping only supertypes, `HasTypeDefinition`
+  targets and DataTypes. Pruned content cannot violate anything: AS-005, AS-006
+  and AS-063 are all structurally incapable of firing against the subset's NS0
+  nodes, because the References they test were removed. An earlier version of
+  this section claimed the opposite.
+
+The residual risk is asymmetric, which is what makes it tolerable rather than
+harmless. A `fail-` fixture whose shape under-fires because the subset lacks a
+node is caught immediately — the suite requires it to violate, and it would
+conform. A `pass-` fixture whose shape under-fires for the same reason passes
+for the wrong reason, silently. That is the one hole, and it is only closed by
+running the same fixtures against the complete nodeset.
 
 ## Writing shapes against the translated graph
 
