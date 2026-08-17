@@ -1,0 +1,136 @@
+#
+# Does state TTL swallow the retraction? (FLINK-29225, unresolved)
+#
+# antijoin-reflexive.yaml showed that probe F - the correlated NOT EXISTS for a
+# case that is genuinely valid - emits a spurious violation while state is still
+# building and then retracts it to a tombstone. Correct final answer.
+#
+# In production the same shape settles on `warning` and stays there. The
+# difference this file tests is state TTL. FLINK-29225 reports that
+# SinkUpsertMaterializer ignores a DELETE when the interval between a row and
+# its deletion exceeds the configured TTL, leaving stale data in the sink
+# permanently. The shacl-validation job runs table.exec.state.ttl = 3600 s.
+#
+# Here the TTL is 60 s, so any retraction arriving more than a minute after its
+# insert lands in exactly that window.
+#
+#   C  liveness - all Machine subClassOf rows            expect 2
+#   F  NOT EXISTS, valid case                            expect NO row / tombstone
+#   G  NOT EXISTS, invalid case (positive control)       expect 1
+#
+# WHAT THIS ACTUALLY REPRODUCES
+#
+# Not F - the anti-join keeps getting the right answer. C does. Run the job,
+# wait past the TTL, then re-emit ONE of the two <Machine> subClassOf rows to
+# iff.rdf with an unchanged value - the same idempotent upsert the periodic
+# refresh performs - and C drops from 2 to 1 and stays there. Batch says 2.
+#
+#   before refresh:  C=2  F=TOMBSTONE  G=1     (agrees with the oracle)
+#   after  refresh:  C=1  F=TOMBSTONE  G=1     (C now permanently wrong)
+#
+# So a value-preserving upsert arriving after its own state has expired
+# permanently corrupts a downstream aggregate. The retraction half of the
+# changelog update is applied against state that is no longer there; the insert
+# half does not restore it. Nothing re-triggers, so the wrong answer is final.
+#
+# That is the shape of the production symptom. There the TTL is 3600 s and the
+# RDF refresh is 2400 s, so rdf itself never expires - but the entity and
+# attribute rows behind a constraint can sit untouched for hours, and the next
+# refresh then delivers an upsert into operators whose counterpart state has
+# gone. Compare FLINK-29225 (unresolved), and FLIP-544 / FLIP-558, which
+# redesign SinkUpsertMaterializer for precisely this class of defect.
+#
+# Note the sqlsettings below: under AUTO these probes get no materializer at all
+# and every one of them passes. Compare antijoin-reflexive.yaml, which is this
+# file with AUTO and no TTL, and which passes. Remove with:
+#   kubectl delete -f antijoin-ttl.yaml -n iff
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: iff.debug.antijointtl
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact
+---
+apiVersion: industry-fusion.com/v1alpha3
+kind: BeamSqlTable
+metadata:
+  name: antijointtl-result
+spec:
+  name: antijointtl_result
+  connector: upsert-kafka
+  fields:
+  - test: STRING
+  - cnt: BIGINT
+  kafka:
+    topic: iff.debug.antijointtl
+    properties:
+      bootstrap.servers: my-cluster-kafka-bootstrap:9092
+    key.format: json
+  value:
+    format: json
+    json.fail-on-missing-field: false
+    json.ignore-parse-errors: true
+  primaryKey:
+  - test
+---
+apiVersion: industry-fusion.com/v1alpha4
+kind: BeamSqlStatementSet
+metadata:
+  name: antijointtl-repro
+spec:
+  tables:
+  - rdf
+  - antijointtl-result
+  views: []
+  sqlsettings:
+  # FORCE, not AUTO. Under AUTO these probes get no SinkUpsertMaterializer at
+  # all - their sink primary key is exactly the GROUP BY key, so Flink deduces
+  # none is needed, and the probes then pass whatever the TTL. The
+  # shacl-validation job carries 11 of them, because alerts_bulk's primary key
+  # (resource, event, environment) is not the upstream upsert key. Forcing the
+  # operator in is what puts the suspect under test.
+  - table.exec.sink.upsert-materialize: force
+  - table.exec.state.ttl: 60 s
+  - parallelism.default: '1'
+  updateStrategy: none
+  sqlstatements:
+  # C: liveness.
+  - >
+    INSERT INTO antijointtl_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'C_machine_subclassof_rows' AS `test` FROM rdf WHERE `subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND `predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>') GROUP BY `test`;
+  # F: the valid case. A surviving cnt=1 here is the swallowed retraction.
+  - >
+    INSERT INTO antijointtl_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'F_notexists_valid_reflexive' AS `test` FROM (SELECT a.`subject` AS typ, b.`subject` AS val FROM rdf AS a
+    JOIN rdf AS b ON b.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE a.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND a.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND a.`object` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND b.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_ON>') AS o WHERE NOT EXISTS
+    (SELECT 1 FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` = o.typ
+    AND t.`predicate` = '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` = o.val AND
+    v.`object` = t.`object`)) GROUP BY `test`;
+  # G: positive control.
+  - >
+    INSERT INTO antijointtl_result SELECT `test`, COUNT(*) AS `cnt` FROM (SELECT
+    'G_notexists_invalid_control' AS `test` FROM (SELECT a.`subject` AS typ, b.`subject` AS val FROM rdf AS a
+    JOIN rdf AS b ON b.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE a.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND a.`predicate` =
+    '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND a.`object` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_entities/Machine>' AND b.`subject` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/state_CLEANING>') AS o WHERE NOT
+    EXISTS (SELECT 1 FROM rdf AS t JOIN rdf AS v ON v.`predicate` =
+    '<https://industryfusion.github.io/contexts/example/v0/base_knowledge/isValidFor>' WHERE t.`subject` = o.typ
+    AND t.`predicate` = '<http://www.w3.org/2000/01/rdf-schema#subClassOf>' AND v.`subject` = o.val AND
+    v.`object` = t.`object`)) GROUP BY `test`;
