@@ -888,5 +888,85 @@ class TestHelpers(TestCase):
 
         target.refresh_state(body, patchx, Logger())
         self.assertEqual("UNKNOWN", patchx.status.get('state'))
+
+
+# The generator stamps this literal; see semantic-model/shacl2flink/tests/
+# test_statementmap_checksum.py, which asserts the same value. The two hash
+# implementations cannot import each other, so this is what keeps them
+# byte-compatible.
+GOLDEN_CHECKSUM = \
+    'dfba9700ee3500fb876db8e5b09d3b62d416ba61e5e0c39869ac5ee1d486ad89'
+GOLDEN_STATEMENTS = ['INSERT INTO alerts SELECT * FROM a;',
+                     'INSERT INTO alerts SELECT * FROM b;']
+
+
+def statementmap_body(checksum):
+    """a statement set naming one configmap, annotated or not"""
+    metadata = {'annotations': {'checksum/statementmaps': checksum}} \
+        if checksum is not None else {}
+    return {'metadata': metadata}
+
+
+def statementmap_index(statements):
+    """mock for the kopf configmaps index
+
+    ConfigMap keys are strings and the API server collates them as strings, so
+    they are stored here the way they come back: '0', '1', '10', '2', ...
+    """
+    data = {str(index): value for index, value in enumerate(statements)}
+    data = dict(sorted(data.items(), key=lambda item: item[0]))
+    return {('iff', 'cm1'): [{'data': data}]}
+
+
+class TestStatementmapChecksum(TestCase):
+    """the SQL submitted must be the SQL the statement set was stamped with
+
+    A statement set points at its SQL by ConfigMap name and the operator
+    reconciles on the statement set, not on the ConfigMaps - those are only
+    indexed. So the index can still hold the previous generation's SQL when the
+    statement-set event that triggered a redeployment arrives. Deploying it
+    anyway would leave the job running stale SQL with the statement set looking
+    entirely up to date, and nothing would ever trigger a correction.
+    """
+
+    def test_checksum_matches_the_generator_implementation(self):
+        """both sides must derive the same digest from the same statements"""
+        self.assertEqual(GOLDEN_CHECKSUM,
+                         target.statementmap_checksum(GOLDEN_STATEMENTS))
+
+    def test_checksum_ignores_configmap_key_collation(self):
+        """'10' sorts before '2', so arrival order is not generation order"""
+        statements = [f'INSERT INTO alerts SELECT {i};' for i in range(12)]
+        collated = list(statementmap_index(statements)[('iff', 'cm1')]
+                        [0]['data'].values())
+        self.assertNotEqual(statements, collated)
+        self.assertEqual(target.statementmap_checksum(statements),
+                         target.statementmap_checksum(collated))
+
+    def test_matching_checksum_returns_the_statements(self):
+        spec = {'sqlstatementmaps': ['iff/cm1']}
+        result = target.create_statementmaps(
+            statementmap_index(GOLDEN_STATEMENTS), spec,
+            statementmap_body(GOLDEN_CHECKSUM), 'iff', 'name', Logger())
+        self.assertEqual(GOLDEN_STATEMENTS, result)
+
+    def test_stale_configmap_is_refused(self):
+        """the regression: stale SQL must not be deployed silently"""
+        spec = {'sqlstatementmaps': ['iff/cm1']}
+        stale = ['INSERT INTO alerts SELECT * FROM previous_generation;']
+        with self.assertRaises(kopf.TemporaryError):
+            target.create_statementmaps(
+                statementmap_index(stale), spec,
+                statementmap_body(GOLDEN_CHECKSUM), 'iff', 'name', Logger())
+
+    def test_unannotated_statementset_is_accepted(self):
+        """statement sets from an older generator carry no annotation"""
+        spec = {'sqlstatementmaps': ['iff/cm1']}
+        result = target.create_statementmaps(
+            statementmap_index(GOLDEN_STATEMENTS), spec,
+            statementmap_body(None), 'iff', 'name', Logger())
+        self.assertEqual(GOLDEN_STATEMENTS, result)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import hashlib
 import os
 import re
 import rdflib
@@ -506,20 +507,58 @@ def create_sql_view(table_name, table, primary_key=None,
     return sqlstatement
 
 
-def create_configmap(object_name, sqlstatementset, labels=None):
+# A BeamSqlStatementSet points at its SQL by ConfigMap *name*, and the operator
+# only reconciles on changes to the statement set itself: ConfigMaps are a
+# kopf.index (a lookup table), never a trigger. So regenerating the model
+# rewrites the ConfigMap while leaving the statement set byte-identical,
+# Kubernetes records no diff, no update event fires, and the running job keeps
+# executing the SQL it was submitted with - indefinitely, and silently.
+#
+# Stamping a hash of the statements onto both objects makes the statement set a
+# function of the content it references, so a model change necessarily becomes a
+# statement-set change. The annotation is metadata only: it never reaches Flink,
+# and an operator that does not know about it simply ignores it.
+STATEMENTMAP_CHECKSUM_ANNOTATION = 'checksum/statementmaps'
+
+
+def statementmap_checksum(sqlstatements):
+    """Checksum of the SQL statements shipped in a statement set.
+
+    Sorted, not taken in list order. ConfigMap data keys are strings, so the
+    API server returns them collated as strings - '0', '1', '10', '11', '2' -
+    and the operator reassembles the statements in that order rather than the
+    order they were generated in. Sorting the statements themselves is the one
+    ordering both sides can agree on without sharing the splitting logic.
+
+    The cost is that permuting an otherwise unchanged set of statements does not
+    change the checksum; the content of every statement still does.
+    """
+    digest = hashlib.sha256()
+    for statement in sorted(sqlstatements):
+        digest.update(statement.encode('utf-8'))
+        # Separator, so that ['ab', 'c'] and ['a', 'bc'] cannot collide.
+        digest.update(b'\x00')
+    return digest.hexdigest()
+
+
+def create_configmap(object_name, sqlstatementset, labels=None, checksum=None):
     data = {}
     for index, value in enumerate(sqlstatementset):
         data[index] = value
-    return create_configmap_generic(object_name, data, labels)
+    return create_configmap_generic(object_name, data, labels, checksum)
 
 
-def create_configmap_generic(object_name, data, labels=None):
+def create_configmap_generic(object_name, data, labels=None, checksum=None):
     yaml_cm = {}
     yaml_cm['apiVersion'] = 'v1'
     yaml_cm['kind'] = 'ConfigMap'
     metadata = {}
     if labels is not None:
         metadata['labels'] = labels
+    # Annotation rather than a data key: the operator executes every value under
+    # 'data' as SQL, so a checksum there would be submitted to Flink.
+    if checksum is not None:
+        metadata['annotations'] = {STATEMENTMAP_CHECKSUM_ANNOTATION: checksum}
     yaml_cm['metadata'] = metadata
     metadata['name'] = object_name
     yaml_cm['data'] = data
@@ -528,13 +567,18 @@ def create_configmap_generic(object_name, data, labels=None):
 
 def create_statementmap(object_name, table_object_names,
                         view_object_names, ttl, statementmaps, enable_checkpointing=False, refresh_interval=None,
-                        use_rocksdb=True):
+                        use_rocksdb=True, checksum=None):
     yaml_bsqls = {}
     yaml_bsqls['apiVersion'] = 'industry-fusion.com/v1alpha4'
     yaml_bsqls['kind'] = 'BeamSqlStatementSet'
     metadata = {}
     yaml_bsqls['metadata'] = metadata
     metadata['name'] = object_name
+    # Without this the object never changes when the model does, and the
+    # operator - which watches this object, not the ConfigMaps it names - has
+    # nothing to react to. See STATEMENTMAP_CHECKSUM_ANNOTATION.
+    if checksum is not None:
+        metadata['annotations'] = {STATEMENTMAP_CHECKSUM_ANNOTATION: checksum}
 
     spec = {}
     yaml_bsqls['spec'] = spec

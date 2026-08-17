@@ -185,15 +185,18 @@ def main(knowledgefile, namespace, output_folder='output', create_yaml_statement
         num = 0
         statementmap = []
         if create_yaml_statementsets:
+            checksum = utils.statementmap_checksum(sqlstatementsets)
             for statementset in sqlstatementsets:
                 num += 1
                 fm.write("---\n")
                 configmapname = 'rdf-configmap' + str(num)
-                yaml.dump(utils.create_configmap(configmapname, [statementset], {'shacl-data': 'rdf-configmap'}), fm)
+                yaml.dump(utils.create_configmap(configmapname, [statementset], {'shacl-data': 'rdf-configmap'},
+                                                 checksum=checksum), fm)
                 statementmap.append(f'{namespace}/{configmapname}')
             fp.write("---\n")
             yaml.dump(utils.create_statementmap('rdf-statements', [table_name],
-                                                [], None, statementmap, use_rocksdb=False), fp)
+                                                [], None, statementmap, use_rocksdb=False,
+                                                checksum=checksum), fp)
         if create_kafka_topic:
             fk.write("---\n")
             yaml.dump(utils.create_kafka_topic(utils.class_to_obj_name(configs.rdf_topic),

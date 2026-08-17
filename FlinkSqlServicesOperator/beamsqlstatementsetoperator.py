@@ -18,6 +18,7 @@
 import time
 import datetime
 
+import hashlib
 import os
 from enum import Enum
 from pytimeparse.timeparse import timeparse
@@ -86,6 +87,14 @@ UPDATE_STRATEGY = "updateStrategy"
 UPDATE_STRATEGY_SAVEPOINT = "savepoint"
 UPDATE_STRATEGY_NONE = "none"
 UPDATEDON = "updatedOn"
+# Set by the generator on both the statement set and the ConfigMaps it names,
+# from a hash of the SQL statements. ConfigMaps are only indexed here, not
+# watched, so the index can lag the statement-set event that a redeployment
+# rides on: without this check the operator would submit the previous
+# generation's SQL and, the statement set now being up to date, nothing would
+# ever trigger a correction. Absent on objects from older generators, in which
+# case the check is skipped.
+STATEMENTMAP_CHECKSUM_ANNOTATION = "checksum/statementmaps"
 
 @kopf.on.create("industry-fusion.com", "v1alpha4", "beamsqlstatementsets")
 # pylint: disable=unused-argument
@@ -612,6 +621,22 @@ def add_message(logger, body, patch, reason, mtype):
     patch.status[MESSAGES] = messages
 
 
+def statementmap_checksum(sqlstatements):
+    """Checksum of a set of SQL statements.
+
+    Must stay byte-compatible with statementmap_checksum in shacl2flink's
+    lib/utils.py, which produces the annotation this is compared against.
+    Sorted because ConfigMap data keys collate as strings ('0', '1', '10', '2'),
+    so the order statements arrive in here is not the order they were generated
+    in.
+    """
+    digest = hashlib.sha256()
+    for statement in sorted(sqlstatements):
+        digest.update(statement.encode('utf-8'))
+        digest.update(b'\x00')
+    return digest.hexdigest()
+
+
 def create_statementmaps(configmaps, spec, body, namespace, name, logger):
     """create statements from configmap
     """
@@ -622,4 +647,22 @@ def create_statementmaps(configmaps, spec, body, namespace, name, logger):
         cfm = configmaps[(map_namespace, map_name)]
         for dat in list(list(cfm)[0].get('data').values()):
             result.append(dat)
+
+    # The statement set is what triggered this reconciliation; the ConfigMaps
+    # were read from an index that may not have caught up with them yet.
+    # Deploying anyway would submit the previous generation's SQL and leave the
+    # statement set looking correct, so nothing would ever retrigger. Retrying
+    # is the only safe response.
+    expected = (body['metadata'].get('annotations') or {}).get(
+        STATEMENTMAP_CHECKSUM_ANNOTATION)
+    if expected is not None:
+        actual = statementmap_checksum(result)
+        if actual != expected:
+            message = ("Statement maps of "
+                       f"{namespace}/{name} are out of date: expected checksum "
+                       f"{expected}, read {actual}. Waiting for the ConfigMaps "
+                       "to catch up.")
+            logger.warning(message)
+            raise kopf.TemporaryError(message,
+                                      timer_backoff_temp_failure_seconds)
     return result

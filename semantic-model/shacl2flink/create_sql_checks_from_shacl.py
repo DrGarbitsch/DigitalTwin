@@ -112,14 +112,19 @@ accessible: {e}")
 
         num = 0
         statementmap = []
+        # Flattened from the split rather than from the source lists, so it is
+        # by construction the sequence the operator reassembles from the
+        # ConfigMaps it is pointed at.
+        checksum = utils.statementmap_checksum([statement for group in split_statementsets for statement in group])
         for statementset_map in split_statementsets:
             num += 1
             fm.write("---\n")
             configmapname = 'shacl-validation-configmap' + str(num)
-            yaml.dump(utils.create_configmap(configmapname, statementset_map), fm)
+            yaml.dump(utils.create_configmap(configmapname, statementset_map, checksum=checksum), fm)
             statementmap.append(f'{maps_namespace}/{configmapname}')
         yaml.dump(utils.create_statementmap('shacl-validation', tables, views, ttl,
-                                            statementmap, enable_checkpointing, use_rocksdb=(not disable_rocksdb)), f)
+                                            statementmap, enable_checkpointing, use_rocksdb=(not disable_rocksdb),
+                                            checksum=checksum), f)
 
     with open(os.path.join(output_folder, "shacl-validation.sqlite"), "w") as sqlitef, \
             open(os.path.join(output_folder, "shacl-constraints.postgres"), "w") as postgresf:
@@ -131,14 +136,16 @@ accessible: {e}")
 
         num = 0
         statementmap = []
+        checksum = utils.statementmap_checksum([statement for group in split_constraints for statement in group])
         for statementset_map in split_constraints:
             num += 1
             fm.write("---\n")
             configmapname = 'shacl-constraints-configmap' + str(num)
-            yaml.dump(utils.create_configmap(configmapname, statementset_map), fm)
+            yaml.dump(utils.create_configmap(configmapname, statementset_map, checksum=checksum), fm)
             statementmap.append(f'{maps_namespace}/{configmapname}')
         yaml.dump(utils.create_statementmap('shacl-constraints', tables, views, ttl,
-                                            statementmap, enable_checkpointing=False, use_rocksdb=False), f)
+                                            statementmap, enable_checkpointing=False, use_rocksdb=False,
+                                            checksum=checksum), f)
 
 
 if __name__ == '__main__':
