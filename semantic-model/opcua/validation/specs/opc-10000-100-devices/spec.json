@@ -2,7 +2,8 @@
   "id": "opc-10000-100-devices",
   "title": "OPC UA Part 100 - Devices (DI)",
   "catalog": "docs/validation-rules-di.md",
-  "catalogRuleCount": 12,
+  "catalogRuleCount": 36,
+  "catalogCoverage": "sections 1-12 and annexes A-C read; 8.5, 8.6 and 8.7 not reached",
   "dependsOn": ["opc-10000-3-address-space"],
   "commonNodeset": "common/Opc.Ua.Di.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
@@ -78,6 +79,150 @@
       "section": "4.4.1",
       "summary": "A hideable FunctionalGroup carries an appropriate ModellingRule",
       "status": "advanced"
+    },
+    {
+      "id": "DI-013",
+      "section": "3.3.3.1-3.3.3.3",
+      "summary": "Common Attributes are set as Tables 7-9 specify",
+      "status": "gap"
+    },
+    {
+      "id": "DI-014",
+      "section": "3.3.3.3, 3.3.3.4",
+      "summary": "A ValueRank above zero requires ArrayDimensions to be specified",
+      "status": "gap"
+    },
+    {
+      "id": "DI-015",
+      "section": "3.3.3.5",
+      "summary": "Methods defined by this specification are executable",
+      "status": "blocked"
+    },
+    {
+      "id": "DI-016",
+      "section": "3.3.1.1",
+      "summary": "References between two exposed Nodes are exposed as well",
+      "status": "advanced"
+    },
+    {
+      "id": "DI-017",
+      "section": "3.3.3.1",
+      "summary": "Non-server-specific Attributes and the NodeId are not writable",
+      "status": "blocked"
+    },
+    {
+      "id": "DI-018",
+      "section": "4.5.5",
+      "summary": "Operation counters only increase over the Device lifetime",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-019",
+      "section": "6.3.2",
+      "summary": "Both ends of an IsOnline Reference are the same ComponentType subtype",
+      "status": "gap"
+    },
+    {
+      "id": "DI-020",
+      "section": "6.3.2",
+      "summary": "A Device is the source of at most one IsOnline Reference",
+      "status": "gap"
+    },
+    {
+      "id": "DI-021",
+      "section": "6.4.3",
+      "summary": "The TransferServices container has the BrowseName Transfer",
+      "status": "gap"
+    },
+    {
+      "id": "DI-022",
+      "section": "6.4.1, 6.4.2",
+      "summary": "Transfer Methods require a prior lock and return defined StatusCodes",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-023",
+      "section": "7.3",
+      "summary": "The LockingServices Object is a component or AddIn of its lock owner",
+      "status": "gap"
+    },
+    {
+      "id": "DI-024",
+      "section": "7.4",
+      "summary": "MaxInactiveLockTime is added to the ServerCapabilities Object",
+      "status": "gap"
+    },
+    {
+      "id": "DI-025",
+      "section": "7.2, 7.4",
+      "summary": "Locking Methods return defined StatusCodes and RenewLock resets the timer",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-026",
+      "section": "8.3.11",
+      "summary": "A SoftwareUpdate AddIn attaches to an IVendorNameplateType implementer",
+      "status": "gap"
+    },
+    {
+      "id": "DI-027",
+      "section": "8.3.11",
+      "summary": "The SoftwareUpdate AddIn uses the fixed BrowseName SoftwareUpdate",
+      "status": "gap"
+    },
+    {
+      "id": "DI-028",
+      "section": "8.3.11",
+      "summary": "The nameplate Interface supplies the four Variables the update model needs",
+      "status": "gap"
+    },
+    {
+      "id": "DI-029",
+      "section": "8.4.1.2",
+      "summary": "The Loading Object is present for every variation of software installation",
+      "status": "gap"
+    },
+    {
+      "id": "DI-030",
+      "section": "8.3.4.2, 8.4.3.3.2, 8.4.5.3, 8.4.7.2, 8.4.8.1, 8.4.9.4",
+      "summary": "Client obligations and Method-return semantics across the update model",
+      "status": "n/a"
+    },
+    {
+      "id": "DI-031",
+      "section": "9.2.1",
+      "summary": "A configurable Object holds a SupportedTypes folder organizing its Types",
+      "status": "gap"
+    },
+    {
+      "id": "DI-032",
+      "section": "9.2.1",
+      "summary": "Configured instances are components of the configurable Object",
+      "status": "gap"
+    },
+    {
+      "id": "DI-033",
+      "section": "10.2",
+      "summary": "Lifetime bound Properties share the DataType of the Variable's Value",
+      "status": "gap"
+    },
+    {
+      "id": "DI-034",
+      "section": "10.2",
+      "summary": "WarningValues lie between StartValue and LimitValue",
+      "status": "instance-level"
+    },
+    {
+      "id": "DI-035",
+      "section": "12.2",
+      "summary": "Nodes this specification does not define stay out of the standard namespaces",
+      "status": "gap"
+    },
+    {
+      "id": "DI-036",
+      "section": "12.2",
+      "summary": "The standard namespaces carry fixed namespace indices",
+      "status": "n/a"
     }
   ]
 }

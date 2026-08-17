@@ -6,7 +6,7 @@ containing a `spec.json`, so adding a specification needs no code change.
 ```
 specs/
   opc-10000-3-address-space/    Address Space Model            9 shapes,  70 catalogued
-  opc-10000-100-devices/        Devices (DI)                   0 shapes,  12 catalogued
+  opc-10000-100-devices/        Devices (DI)                   0 shapes,  36 catalogued
   opc-40001-1-machinery/        Basic Building Blocks          0 shapes,  25 catalogued
   opc-40223-pumps/              Pumps and Vacuum Pumps         0 shapes,   6 catalogued
 ```
