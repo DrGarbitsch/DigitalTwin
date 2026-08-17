@@ -23,8 +23,8 @@ pass and two that must fail. This script turns that tree into a test run.
 
 Per test case it does what a user would do by hand:
 
-    nodeset2owl.py <case>.NodeSet2.xml -i <ns0-subset>.ttl -o <case>.owl.ttl
-    validate.py -m ontology -ni -s <rule>.shacl.ttl <case+ns0 merged>.ttl
+    nodeset2owl.py <case>.NodeSet2.xml -i <baseline>.ttl -o <case>.owl.ttl
+    validate.py -m ontology -ni -s <rule>.shacl.ttl <case+baseline merged>.ttl
 
 so the suite exercises the real translation and the real CLI, not a
 reimplementation of either. Nothing is downloaded except the OPC UA Types XSD
@@ -45,10 +45,13 @@ one rule immediately becomes a false-positive guard for every rule already in
 the suite, so the corpus gets better at catching regressions as it grows. Skip
 it with --no-cross when iterating on a single rule.
 
-The data graph under validation is the NS0 subset *plus* the fixture, because
-almost every Part 3 rule is phrased in terms of NS0 nodes. That means the real
-(if pruned) Namespace 0 content is held to the same shapes as the fixtures --
-a shape that false-positives on the spec's own nodes fails the suite.
+The data graph under validation is the specification's **complete** baseline
+nodeset plus the fixture, because almost every Part 3 rule is phrased in terms
+of Namespace 0 nodes. Complete, not pruned: an extract is faster, but it also
+strips the References some shapes exist to test, and a shape that cannot fire
+against the content it is meant to check is worse than a slow one. The whole of
+Namespace 0 is therefore held to the same shapes as the fixtures, and a shape
+that false-positives on the specification's own 4957 nodes fails the suite.
 """
 
 import argparse
@@ -389,7 +392,7 @@ class Spec:
         # and what every rule and shape IRI is built from. Directory names and
         # titles in this tree have both changed once; 10000-3 has not.
         self.document = self.manifest.get('documentNumber')
-        self.common_nodeset = root / self.manifest['commonNodeset']
+        self.baseline_nodeset = root / self.manifest['baselineNodeset']
         self.rules = [Rule(self, entry) for entry in self.manifest['rules']]
         self.build = BUILD_DIR / self.id
 
@@ -419,10 +422,19 @@ class Spec:
         return problems
 
     def common_ttl(self):
-        """Translate (once) the shared NS0 subset every fixture is layered on."""
-        target = self.build / 'common' / 'ns0-subset.ttl'
-        if is_stale(target, self.common_nodeset):
-            convert(self.common_nodeset, target, prefix='opcua')
+        """Translate (once) the baseline nodeset every fixture is layered on.
+
+        The complete published nodeset, not a pruned extract. A subset would be
+        faster and would also make a shape unable to fire against the very
+        content it is meant to be checked against -- the pruned NS0 removes the
+        forward hierarchical References that AS-005, AS-006 and AS-063 test, so
+        those three could not have caught a defect there however hard they
+        tried. Speed is a later question; correctness is not negotiable in a
+        validation suite.
+        """
+        target = self.build / 'common' / 'baseline.ttl'
+        if is_stale(target, self.baseline_nodeset):
+            convert(self.baseline_nodeset, target, prefix='opcua')
         return target
 
     def merged_shapes(self):

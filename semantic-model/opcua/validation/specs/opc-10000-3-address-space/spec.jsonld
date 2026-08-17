@@ -13,7 +13,7 @@
   "catalog": "docs/validation-rules-part3.md",
   "catalogRuleCount": 70,
   "dependsOn": [],
-  "commonNodeset": "common/opcua-ns0-subset.NodeSet2.xml",
+  "baselineNodeset": "../../../tests/nodeset2owl/Opc.Ua.NodeSet2.xml",
   "rules": [
     {
       "@id": "rule:AS-008",
@@ -96,5 +96,6 @@
       "status": "implemented",
       "shape": "shapes/AS-063-haseventsource-acyclic.shacl.ttl"
     }
-  ]
+  ],
+  "baselineNote": "The complete published Namespace 0, not the pruned subset in common/. Validation runs on full content; whether a faster subset path is worth having is an open question."
 }

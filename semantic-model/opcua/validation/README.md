@@ -13,12 +13,12 @@ fixture rather than as a silent behaviour change discovered months later.
 validation/
   run_suite.py            the runner
   tools/
-    make_ns0_subset.py    regenerates the shared Namespace 0 subset
+    make_ns0_subset.py    generates a pruned NS0 extract (unused by the runner)
   ontology/               older, hand-written shapes (see "Relationship to ontology/")
   specs/
     opc-10000-3-address-space/           one directory per specification
       spec.jsonld           manifest: which rules have a shape
-      common/             the NS0 nodeset every fixture in this spec depends on
+      common/             companion-spec nodesets fixtures depend on
       shapes/            one *.shacl.ttl per rule
       testcases/
         AS-008/           one directory per rule
@@ -43,8 +43,8 @@ python3 validation/run_suite.py --no-cross      # skip the cross check while ite
 Each test case is executed the way a user would run it by hand:
 
 ```bash
-nodeset2owl.py <case>.NodeSet2.xml -i <ns0-subset>.ttl -o <case>.owl.ttl
-validate.py -m ontology -ni -s <rule>.shacl.ttl <ns0-subset + case merged>.ttl
+nodeset2owl.py <case>.NodeSet2.xml -i <baseline>.ttl -o <case>.owl.ttl
+validate.py -m ontology -ni -s <rule>.shacl.ttl <baseline + case merged>.ttl
 ```
 
 so the suite exercises the real translation and the real CLI. Intermediate files
@@ -101,51 +101,49 @@ Copy the structure of `specs/opc-10000-3-address-space/`:
 
 1. `mkdir -p specs/<spec>/{shapes,testcases,common}`.
 2. Write `spec.jsonld` with `id`, `title`, `catalog` (the prose rule catalog),
-   `catalogRuleCount`, `commonNodeset`, and an empty `rules` list.
-3. Provide the `commonNodeset` the fixtures build on. For a companion
+   `catalogRuleCount`, `baselineNodeset`, and an empty `rules` list.
+3. Provide the `baselineNodeset` the fixtures build on. For a companion
    specification this is that specification's own nodeset plus its
-   dependencies; `opc-10000-3-address-space` uses a generated subset of Namespace 0 (below).
+   dependencies; `opc-10000-3-address-space` uses the complete Namespace 0 (below).
 4. Add rules one at a time as above.
 
 The runner discovers any directory under `specs/` containing a `spec.jsonld`, so a
 new specification needs no code change.
 
-### The shared NS0 subset
+### The shared baseline nodeset
 
 A fixture cannot be standalone: nearly every Part 3 rule is phrased in terms of
 Namespace 0 nodes, and `nodeset2owl.py` hard-fails on a DataType or
-ReferenceType it cannot resolve. So all fixtures in
-`opc-10000-3-address-space` share one dependency:
-`common/opcua-ns0-subset.NodeSet2.xml`, 71 nodes extracted from the official
-`Opc.Ua.NodeSet2.xml` by `tools/make_ns0_subset.py`. It is generated, not
-hand-written, so NodeIds, `IsAbstract` flags and subtype hierarchies are the
-spec's own and cannot drift. To add a node, extend `SEED_BROWSE_NAMES` in the
-tool and re-run it.
+ReferenceType it cannot resolve. So every fixture is layered on the
+specification's `baselineNodeset` — for `opc-10000-3-address-space`, the
+complete official `Opc.Ua.NodeSet2.xml`, all 4957 nodes of it, already checked
+in under `tests/nodeset2owl/`.
 
-**What the subset buys is speed, and speed is not a currency a validation suite
-should spend correctness on.** Measured on one fixture: conversion against the
-30 KB subset takes 1.9 s, against the full translated NS0 8.6 s — 4.4x, over 36
-fixtures, before the far larger cost of running SPARQL over a graph a hundred
-times bigger. That is the honest reason the subset exists.
+**Complete, not pruned, and this is a correctness decision rather than a
+preference.** An extract is much faster: 1.9 s per fixture conversion against a
+71-node subset, 8.6 s against the whole nodeset, over 36 fixtures. But the
+subset only stays small by pruning forward hierarchical References, and those
+are exactly what AS-005, AS-006 and AS-063 test. Against a pruned NS0 those
+three shapes are structurally incapable of firing, so they could not have
+caught a defect there however hard they tried. A validation suite does not buy
+speed with that.
 
-Two earlier justifications for it do not survive checking, and are recorded
-here so nobody leans on them again:
+The risk being avoided is asymmetric, which is why it is easy to miss. A
+`fail-` fixture whose shape under-fires for want of a baseline node is caught
+at once — the suite requires it to violate, and it would conform. A `pass-`
+fixture whose shape under-fires passes *for the wrong reason*, and nothing
+notices.
 
-- **It is not needed for hermeticity.** The full `Opc.Ua.NodeSet2.xml` is
-  already checked in at `tests/nodeset2owl/`. Using it costs no download.
-- **It does not hold NS0 to the same shapes.** The subset deliberately prunes
-  forward hierarchical References, keeping only supertypes, `HasTypeDefinition`
-  targets and DataTypes. Pruned content cannot violate anything: AS-005, AS-006
-  and AS-063 are all structurally incapable of firing against the subset's NS0
-  nodes, because the References they test were removed. An earlier version of
-  this section claimed the opposite.
+Running the whole of Namespace 0 through the shapes also produced a result
+worth having on its own: **the published nodeset conforms to all nine.** That
+is a far stronger statement than the subset could support.
 
-The residual risk is asymmetric, which is what makes it tolerable rather than
-harmless. A `fail-` fixture whose shape under-fires because the subset lacks a
-node is caught immediately — the suite requires it to violate, and it would
-conform. A `pass-` fixture whose shape under-fires for the same reason passes
-for the wrong reason, silently. That is the one hole, and it is only closed by
-running the same fixtures against the complete nodeset.
+The suite takes about three minutes this way. Whether a faster path is worth
+having — and how to keep it honest if so — is deliberately left open.
+
+`tools/make_ns0_subset.py` and its output remain in the tree, unused by the
+runner. They are kept because the question above is open, not because anything
+depends on them today.
 
 ## Writing shapes against the translated graph
 

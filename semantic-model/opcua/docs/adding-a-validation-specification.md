@@ -46,7 +46,7 @@ Each test case runs the way a person would run it by hand, which is why the
 suite catches translator regressions and not just shape typos:
 
 ```
-fixture.NodeSet2.xml  →  nodeset2owl.py  →  + NS0 subset  →  validate.py -s <shape>
+fixture.NodeSet2.xml  →  nodeset2owl.py  →  + full NS0    →  validate.py -s <shape>
 one planted defect,      real translator,   70 generated    diffed against the
 correct siblings         real CLI           core nodes      .expected file
 ```
@@ -90,7 +90,7 @@ afterwards. Nine rules with four fixtures each are not nine tests; they are nine
 detection tests and eighteen shared false-positive guards, and the eighteen grow
 every time anyone adds a rule.
 
-The NS0 subset is merged into the data graph of every case, so the
+The complete baseline nodeset is merged into the data graph of every case, so the
 specification's own nodes are held to the same shapes. A shape that
 false-positives on the OPC Foundation's own definitions fails the suite before it
 ever reaches a customer model.
@@ -126,7 +126,7 @@ worse than one that admits it.
 
 ### Phase 1 — Fix the baseline graph the fixtures will stand on
 
-Decide `commonNodeset`. Fixtures must be hermetic but cannot be standalone,
+Decide `baselineNodeset`. Fixtures must be hermetic but cannot be standalone,
 because `nodeset2owl.py` hard-fails on a DataType or ReferenceType it cannot
 resolve. Part 3 uses the generated NS0 subset. A companion specification uses its
 own published nodeset plus its dependencies — which for Machinery means NS0, DI,
@@ -235,7 +235,7 @@ fixture.
 
 Today the cross check merges the shapes of one specification. A DI fixture is
 also a well-formed address space, so it should conform to `opc-10000-3-address-space`'s shapes
-too. Making the cross check follow the `commonNodeset` dependency chain is a
+too. Making the cross check follow the `baselineNodeset` dependency chain is a
 small change to `run_suite.py`, and it doubles the value of every fixture written
 from here on: each new DI nodeset becomes another false-positive guard for all
 nine Part 3 rules.

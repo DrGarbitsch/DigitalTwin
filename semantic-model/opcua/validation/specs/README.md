@@ -36,7 +36,7 @@ read "<--" as "is built on by": opc-40223-pumps builds on opc-40001-1-machinery
 
 | Spec | Baseline its fixtures are layered on |
 |---|---|
-| `opc-10000-3-address-space` | a generated 70-node subset of Namespace 0 |
+| `opc-10000-3-address-space` | the complete `Opc.Ua.NodeSet2.xml`, all 4957 nodes |
 | `opc-10000-100-devices` | NS0 + `Opc.Ua.Di.NodeSet2.xml` |
 | `opc-40001-1-machinery` | NS0 + DI + `Opc.Ua.Machinery.NodeSet2.xml` |
 | `opc-40223-pumps` | NS0 + DI + Machinery + `Opc.Ua.Pumps.NodeSet2.xml` |
@@ -122,7 +122,7 @@ the RDF each shape declares, and `run_suite.py` checks the declarations.
 reads it as plain JSON — `json.load`, no context resolution — and rdflib reads
 the same bytes as RDF. There is no generated copy of the catalog and therefore
 nothing to fall out of date. Terms the shared
-[`../context.jsonld`](../context.jsonld) does not map (`commonNodeset`,
+[`../context.jsonld`](../context.jsonld) does not map (`baselineNodeset`,
 `catalogCoverage`, and the other build inputs) are simply invisible to the RDF
 reader, which is the intended split: they are instructions to the runner, not
 statements about the specification.
@@ -369,9 +369,15 @@ the next reader does not re-derive them. See
 
 ## Where the baseline nodesets are
 
-`opc-10000-3-address-space/common/` holds a checked-in, generated 20 KB subset of Namespace 0.
-The companion specs do not have their nodesets checked in — see the `.gitignore`
-in each `common/` directory. Deciding what lands there (the whole published
-nodeset, or a generated subset in the style of `tools/make_ns0_subset.py`) is
-phase 1 of implementing each of them, and it is not started. Until a rule in
-those specs has a shape, the runner never looks for the file.
+`opc-10000-3-address-space` points its `baselineNodeset` at the complete
+official `Opc.Ua.NodeSet2.xml` already checked in under `tests/nodeset2owl/` —
+all 4957 nodes, not an extract. `common/` still holds a generated 20 KB subset,
+which the runner no longer uses; see
+[`../README.md`](../README.md#the-shared-baseline-nodeset) for why validation
+runs on complete content and why the subset was kept rather than deleted.
+
+The companion specs do not have their nodesets checked in — see the
+`.gitignore` in each `common/` directory. What lands there is the whole
+published nodeset of that specification, for the same reason. That is phase 1
+of implementing each of them and is not started; until a rule in those specs
+has a shape, the runner never looks for the file.

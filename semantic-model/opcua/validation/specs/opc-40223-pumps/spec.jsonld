@@ -16,8 +16,8 @@
   "dependsOn": [
     "spec:40001-1"
   ],
-  "commonNodeset": "common/Opc.Ua.Pumps.NodeSet2.xml",
-  "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Pumps/Opc.Ua.Pumps.NodeSet2.xml",
+  "baselineNodeset": "common/Opc.Ua.Pumps.NodeSet2.xml",
+  "baselineNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Pumps/Opc.Ua.Pumps.NodeSet2.xml",
   "rules": [
     {
       "@id": "rule:PU-001",
