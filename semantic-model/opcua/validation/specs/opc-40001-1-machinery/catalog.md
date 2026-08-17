@@ -3,12 +3,12 @@
 Complete first pass over the Machinery companion specification: every section
 from §1 to §20 and the three annexes was read, and each one either yields rules
 or is recorded below with the reason it does not. Same conventions as the
-[DI catalog](./validation-rules-di.md).
+[DI catalog](../opc-10000-100-devices/catalog.md).
 
 Source: [OPC 40001-1, v1.03](https://reference.opcfoundation.org/Machinery/v103/docs/).
 
 Manifest:
-[`../validation/specs/opc-40001-1-machinery/spec.jsonld`](../validation/specs/opc-40001-1-machinery/spec.jsonld).
+[`../validation/specs/opc-40001-1-machinery/spec.jsonld`](./spec.jsonld).
 Depends on `opc-10000-100-devices`, which depends on
 `opc-10000-3-address-space`.
 
@@ -17,7 +17,7 @@ Depends on `opc-10000-100-devices`, which depends on
 
 ## Status legend
 
-Extends the [DI catalog's legend](./validation-rules-di.md#status-legend) with
+Extends the [DI catalog's legend](../opc-10000-100-devices/catalog.md#status-legend) with
 one value Part 3 also uses:
 
 | Status | Meaning |

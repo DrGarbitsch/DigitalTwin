@@ -7,10 +7,10 @@ recorded below with the reason it does not.
 Source: [OPC 10000-100, Devices, v1.03](https://reference.opcfoundation.org/DI/v103/docs/).
 
 Manifest:
-[`../validation/specs/opc-10000-100-devices/spec.jsonld`](../validation/specs/opc-10000-100-devices/spec.jsonld).
+[`../validation/specs/opc-10000-100-devices/spec.jsonld`](./spec.jsonld).
 Depends on `opc-10000-3-address-space`. Method and the shared vocabulary traps:
-[`adding-a-validation-specification.md`](./adding-a-validation-specification.md)
-and [`../validation/README.md`](../validation/README.md).
+[`adding-a-validation-specification.md`](../../../docs/adding-a-validation-specification.md)
+and [`../validation/README.md`](../../README.md).
 
 **Nothing here is enforced yet** — catalogued only, no shapes, no fixtures.
 36 rules, of which 21 are checkable against the translated graph today. DI is the

@@ -10,7 +10,7 @@
   "@type": "Specification",
   "title": "OPC 40001-1 - Machinery Basic Building Blocks",
   "documentNumber": "40001-1",
-  "catalog": "docs/validation-rules-machinery.md",
+  "catalog": "catalog.md",
   "catalogRuleCount": 25,
   "catalogCoverage": "complete: sections 1-20 and annexes A-C all read",
   "dependsOn": [

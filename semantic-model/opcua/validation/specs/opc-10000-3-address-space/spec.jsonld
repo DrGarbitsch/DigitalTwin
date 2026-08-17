@@ -10,7 +10,7 @@
   "@type": "Specification",
   "title": "OPC UA Part 3 - Address Space Model",
   "documentNumber": "10000-3",
-  "catalog": "docs/validation-rules-part3.md",
+  "catalog": "catalog.md",
   "catalogRuleCount": 70,
   "dependsOn": [],
   "baselineNodeset": "../../../tests/nodeset2owl/Opc.Ua.NodeSet2.xml",

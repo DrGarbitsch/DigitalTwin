@@ -16,10 +16,10 @@ Each directory has the same five parts:
 ```
 <spec>/
   spec.jsonld     the manifest: identity, dependencies, baseline nodeset, rules
+  catalog.md      the prose rule catalog -- every rule, sourced to a subclause
   common/         the nodeset(s) every fixture in this spec is layered on
   shapes/         one <RULE-ID>-<slug>.shacl.ttl per implemented rule
   testcases/      one directory per rule: two pass- and two fail- fixtures
-  (catalog)       the prose rule catalog, in ../../docs/, named by the manifest
 ```
 
 ## They are a chain, not four islands

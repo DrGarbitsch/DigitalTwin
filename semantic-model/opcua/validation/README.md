@@ -1,6 +1,6 @@
 # OPC UA validation-rule suites
 
-This directory turns rule catalogs like [`docs/validation-rules-part3.md`](../docs/validation-rules-part3.md)
+This directory turns rule catalogs like [`specs/opc-10000-3-address-space/catalog.md`](specs/opc-10000-3-address-space/catalog.md)
 into something executable: a SHACL shape per rule, a corpus of NodeSet2 fixtures
 that must pass and must fail, and a runner that checks both.
 

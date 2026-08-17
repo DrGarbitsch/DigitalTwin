@@ -5,11 +5,17 @@
 3. [Building Companion Specifications](./building-companion-specifications.md)
 3. [Mapping concept](./mapping-concept.md)
 5. [Tools](./tools.md)
-6. [Validation Rule Catalog — Part 3 (Address Space Model)](./validation-rules-part3.md)
-7. [Adding a Validation Specification](./adding-a-validation-specification.md)
-8. [Validation Rule Catalog — DI (OPC 10000-100)](./validation-rules-di.md)
-9. [Validation Rule Catalog — Machinery (OPC 40001-1)](./validation-rules-machinery.md)
-10. [Validation Rule Catalog — Pumps (OPC 40223)](./validation-rules-pumps.md)
+6. [Adding a Validation Specification](./adding-a-validation-specification.md)
+
+# Validation Rule Catalogs
+
+Each lives beside the manifest, shapes and fixtures of the specification it
+describes, in [`../validation/specs/`](../validation/specs/README.md):
+
+- [Part 3 — Address Space Model](../validation/specs/opc-10000-3-address-space/catalog.md) (70 rules)
+- [DI — OPC 10000-100](../validation/specs/opc-10000-100-devices/catalog.md) (36)
+- [Machinery — OPC 40001-1](../validation/specs/opc-40001-1-machinery/catalog.md) (25)
+- [Pumps — OPC 40223](../validation/specs/opc-40223-pumps/catalog.md) (16)
 
 
 # References

@@ -10,7 +10,7 @@
   "@type": "Specification",
   "title": "OPC UA Part 100 - Devices (DI)",
   "documentNumber": "10000-100",
-  "catalog": "docs/validation-rules-di.md",
+  "catalog": "catalog.md",
   "catalogRuleCount": 36,
   "catalogCoverage": "sections 1-12 and annexes A-C read; 8.5, 8.6 and 8.7 not reached",
   "dependsOn": [

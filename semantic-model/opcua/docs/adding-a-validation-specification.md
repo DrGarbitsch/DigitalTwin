@@ -11,10 +11,10 @@ four specifications sit together as a dependency chain, see
 [`../validation/specs/README.md`](../validation/specs/README.md).
 
 The catalogs themselves:
-[Part 3](./validation-rules-part3.md) (70 rules, 9 enforced),
-[DI](./validation-rules-di.md) (36, near-complete pass),
-[Machinery](./validation-rules-machinery.md) (25, complete pass),
-[Pumps](./validation-rules-pumps.md) (16, complete pass).
+[Part 3](../validation/specs/opc-10000-3-address-space/catalog.md) (70 rules, 9 enforced),
+[DI](../validation/specs/opc-10000-100-devices/catalog.md) (36, near-complete pass),
+[Machinery](../validation/specs/opc-40001-1-machinery/catalog.md) (25, complete pass),
+[Pumps](../validation/specs/opc-40223-pumps/catalog.md) (16, complete pass).
 
 ---
 

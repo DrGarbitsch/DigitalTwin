@@ -7,7 +7,7 @@ recorded below with the reason it does not.
 Source: [OPC 40223, v1.00](https://reference.opcfoundation.org/Pumps/v100/docs/).
 
 Manifest:
-[`../validation/specs/opc-40223-pumps/spec.jsonld`](../validation/specs/opc-40223-pumps/spec.jsonld).
+[`../validation/specs/opc-40223-pumps/spec.jsonld`](./spec.jsonld).
 Depends on `opc-40001-1-machinery` → `opc-10000-100-devices` →
 `opc-10000-3-address-space`. Pumps sits at the end of the longest dependency
 chain in the suite, and — as the inheritance rules below show — that is where
@@ -16,7 +16,7 @@ most of its validation comes from.
 **Nothing here is enforced yet** — catalogued only, no shapes, no fixtures.
 16 rules, of which 6 are checkable against the translated graph today.
 
-Status legend: as in the [DI catalog](./validation-rules-di.md#status-legend).
+Status legend: as in the [DI catalog](../opc-10000-100-devices/catalog.md#status-legend).
 
 ## Confidence and coverage
 
