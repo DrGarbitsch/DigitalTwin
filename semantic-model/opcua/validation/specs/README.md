@@ -29,23 +29,37 @@ chain is not invented here — it is the one `translate_default_nodesets.make`
 already uses to translate the nodesets:
 
 ```
-core-part3          baseline: a generated 70-node subset of Namespace 0
-    |
-    +-- di          baseline: NS0 + Opc.Ua.Di.NodeSet2.xml
-          |
-          +-- machinery     baseline: NS0 + DI + Opc.Ua.Machinery.NodeSet2.xml
-                |
-                +-- pumps   baseline: NS0 + DI + Machinery + Opc.Ua.Pumps.NodeSet2.xml
+core-part3  <--  di  <--  machinery  <--  pumps
+                                          "pumps builds on machinery"
 ```
 
-`spec.json` declares its position with `dependsOn`. Three things follow from it,
-and they are the whole reason to organise the tree this way rather than as four
-independent suites:
+| Spec | Baseline its fixtures are layered on |
+|---|---|
+| `core-part3` | a generated 70-node subset of Namespace 0 |
+| `di` | NS0 + `Opc.Ua.Di.NodeSet2.xml` |
+| `machinery` | NS0 + DI + `Opc.Ua.Machinery.NodeSet2.xml` |
+| `pumps` | NS0 + DI + Machinery + `Opc.Ua.Pumps.NodeSet2.xml` |
+
+**The directories stay flat.** `specs/` holds four siblings and always will; a
+specification is never nested inside the one it builds on. The chain above is a
+*relation between manifests*, declared by the `dependsOn` field in each
+`spec.json` and read by the runner — not a location on disk.
+
+Keeping it out of the filesystem is deliberate. Nesting would force a single
+parent per spec, and that is already wrong for the specs this project
+translates: MachineTool builds on **both** Machinery and IA, PADIM on **both**
+DI and the IRDI dictionary. `dependsOn` is a list precisely because the real
+graph is a DAG, not a tree. Nesting would also bury `core-part3` four levels
+deep under its dependents, and move a directory every time a dependency is
+discovered.
+
+Three things follow from the relation, and they are the reason to declare it at
+all rather than treat the four as independent suites:
 
 **1. The data graph is layered.** A fixture in `pumps/` is translated on top of
-its ancestors' nodesets, in order. Without DI underneath it, `nodeset2owl.py`
-hard-fails on the first unresolvable ReferenceType; with it, a pump fixture is a
-realistic address space rather than a fragment.
+the nodesets `dependsOn` names, transitively and in order. Without DI underneath
+it, `nodeset2owl.py` hard-fails on the first unresolvable ReferenceType; with it,
+a pump fixture is a realistic address space rather than a fragment.
 
 **2. The shape set is layered too — this is the part that pays.** The cross check
 should validate every `pass-` fixture against the merged shapes of the spec *and
