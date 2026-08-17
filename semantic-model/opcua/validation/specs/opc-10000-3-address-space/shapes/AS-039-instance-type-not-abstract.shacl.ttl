@@ -1,6 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
 @prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
 
 # AS-039 -- OPC 10000-3 section 6.2.1
 #
@@ -23,7 +24,8 @@
 # untyped literal, so "true"^^xsd:boolean would never match. It sits on the
 # owl:Class, not on the node that defines it.
 
-base:AS039InstanceTypeNotAbstractShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-039> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-039> ;
     sh:targetClass opcua:ObjectNodeClass, opcua:VariableNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;

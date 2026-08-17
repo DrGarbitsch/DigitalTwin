@@ -1,6 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
 @prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
 
 # AS-035 -- OPC 10000-3 section 7.13
 #
@@ -26,7 +27,8 @@
 # sh:sparql constraint once per sh:targetClass of its shape, so a single shape
 # carrying both target classes would run the Object rule against Variables too.
 
-base:AS035ObjectTypeDefinitionNodeClassShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-035:object> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-035> ;
     sh:targetClass opcua:ObjectNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;
@@ -50,7 +52,8 @@ base:AS035ObjectTypeDefinitionNodeClassShape a sh:NodeShape ;
         """ ;
     ] .
 
-base:AS035VariableTypeDefinitionNodeClassShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-035:variable> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-035> ;
     sh:targetClass opcua:VariableNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;

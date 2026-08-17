@@ -83,13 +83,48 @@ every InstanceDeclaration whose ModellingRule is `Mandatory`. Both are marked
 `push-down` rather than implemented twice. The chain is what makes
 that visible; four independent suites would have grown two near-identical shapes.
 
-## Rule IDs
+## Rule IDs and IRIs
 
-Namespaced per specification and stable forever: `AS-` for Part 3 (address
-space), `DI-`, `MA-`, `PU-`. They are referenced from the prose catalogs, from
-shape filenames, from `testcases/` directory names and from commit messages, so
-they are renumbered under no circumstances. A rule that turns out not to be a
-rule keeps its ID and gets status `n/a`.
+Rule IDs are namespaced per specification and stable forever: `AS-` for Part 3
+(address space), `DI-`, `MA-`, `PU-`. They are referenced from the prose
+catalogs, from shape filenames, from `testcases/` directory names and from
+commit messages, so they are renumbered under no circumstances. A rule that
+turns out not to be a rule keeps its ID and gets status `n/a`.
+
+Every rule, specification and shape also has a URN, so that a validation report
+identifies what it violated rather than only where the file sat:
+
+```
+urn:opcua:validation:spec:10000-3
+urn:opcua:validation:rule:10000-3:AS-039
+urn:opcua:validation:shape:10000-3:AS-031:source
+```
+
+Built from `documentNumber` in the manifest, never hand-written twice —
+`run_suite.py` fails a rule whose shape file declares an IRI that does not
+match. The scheme, and why it is a URN carrying no organisation name, is
+documented in [`../vocabulary.ttl`](../vocabulary.ttl).
+
+Rule and shape are separate identities because they are one-to-many: a shape
+carrying constraints that need different target classes has to be split, since
+every constraint in a node shape runs against every target class of that shape.
+Nine Part 3 rules are eleven node shapes today.
+
+`../rules.ttl` is the whole catalog as a graph — generated from the manifests by
+`../tools/make_rules_graph.py`, so it is a derived view and never edited. It
+exists to make the catalog queryable:
+
+```sparql
+PREFIX opcv: <urn:opcua:validation:vocab:>
+SELECT ?id WHERE {
+  ?spec opcv:buildsOn+ <urn:opcua:validation:spec:10000-3> .
+  ?rule opcv:definedBy ?spec ; opcv:ruleId ?id ; opcv:status "blocked" .
+}
+```
+
+returns DI-015, DI-017, MA-023 and PU-009 — every rule blocked on an
+unextracted Attribute anywhere in the tree. Reading that out of four Markdown
+catalogs by hand is how it was done before.
 
 ## Catalogued is a real state, not a to-do
 

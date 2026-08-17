@@ -1,6 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
 @prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
 
 # AS-057 -- OPC 10000-3 section 5.6.3, 5.6.4
 #
@@ -25,7 +26,8 @@
 # section 4.4.4 treats a subtype of a concrete ReferenceType as that
 # ReferenceType for identification purposes, which is exactly this traversal.
 
-base:AS057PropertyDataVariableExclusiveShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-057> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-057> ;
     sh:targetClass opcua:VariableNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;

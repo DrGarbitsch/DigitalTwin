@@ -1,6 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
 @prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
 
 # AS-031 -- OPC 10000-3 section 7 (HasComponent), 5.6.4
 #
@@ -24,7 +25,8 @@
 # ontology these shapes do not load, so targeting it would silently match
 # nothing.
 
-base:AS031HasComponentSourceShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-031:source> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-031> ;
     sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
                    opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
                    opcua:ReferenceTypeNodeClass ;
@@ -53,7 +55,8 @@ base:AS031HasComponentSourceShape a sh:NodeShape ;
         """ ;
     ] .
 
-base:AS031HasComponentTargetShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-031:target> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-031> ;
     sh:targetClass opcua:ObjectNodeClass, opcua:ObjectTypeNodeClass, opcua:VariableNodeClass,
                    opcua:VariableTypeNodeClass, opcua:MethodNodeClass, opcua:DataTypeNodeClass,
                    opcua:ReferenceTypeNodeClass ;

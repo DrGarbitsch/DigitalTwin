@@ -1,6 +1,7 @@
 {
   "id": "opc-10000-3-address-space",
   "title": "OPC UA Part 3 - Address Space Model",
+  "documentNumber": "10000-3",
   "catalog": "docs/validation-rules-part3.md",
   "catalogRuleCount": 70,
   "dependsOn": [],

@@ -195,6 +195,46 @@ class Rule:
             return []
         return sorted(self.testcases.glob('*.NodeSet2.xml'))
 
+    def check_identity(self):
+        """Enforce the URN scheme: a shape names itself, and names its rule.
+
+        Shape files are edited by hand while the manifest is edited separately,
+        so the two drift unless something compares them. Checked textually
+        rather than by parsing RDF, because the runner otherwise needs no graph
+        library and shells out for everything that does.
+
+        See validation/vocabulary.ttl for the scheme.
+        """
+        if self.shape is None or not self.shape.is_file():
+            return []
+        if self.spec.document is None:
+            return [f'{self.id}: spec.json has no documentNumber, so shape IRIs cannot be checked']
+
+        text = self.shape.read_text()
+        expected_prefix = f'urn:opcua:validation:shape:{self.spec.document}:{self.id}'
+        expected_rule = f'<urn:opcua:validation:rule:{self.spec.document}:{self.id}>'
+
+        problems = []
+        subjects = re.findall(r'^<([^>]+)>\s+a\s+sh:NodeShape', text, re.MULTILINE)
+        if not subjects:
+            problems.append(
+                f'{self.id}: {self.shape.name} declares no sh:NodeShape with an absolute IRI '
+                f'subject. Shapes used to mint names in the base: vocabulary namespace; they '
+                f'now carry their own URN.')
+        for subject in subjects:
+            # A rule needing several target classes is split across node shapes,
+            # so a ":<part>" suffix is expected -- anything else is a typo or a
+            # shape filed under the wrong rule.
+            if subject != expected_prefix and not subject.startswith(expected_prefix + ':'):
+                problems.append(
+                    f'{self.id}: shape IRI <{subject}> does not match '
+                    f'<{expected_prefix}> or <{expected_prefix}:PART>')
+        if expected_rule not in text:
+            problems.append(
+                f'{self.id}: {self.shape.name} never links itself to its rule with '
+                f'opcv:implementsRule {expected_rule}')
+        return problems
+
     def check_fixture_counts(self):
         """Enforce the suite's contract: two passing and two failing nodesets."""
         names = [path.name for path in self.fixtures()]
@@ -219,6 +259,10 @@ class Spec:
         self.manifest = json.loads((root / 'spec.json').read_text())
         self.id = self.manifest['id']
         self.title = self.manifest.get('title', self.id)
+        # OPC document number: the stable half of a specification's identity,
+        # and what every rule and shape IRI is built from. Directory names and
+        # titles in this tree have both changed once; 10000-3 has not.
+        self.document = self.manifest.get('documentNumber')
         self.common_nodeset = root / self.manifest['commonNodeset']
         self.rules = [Rule(self, entry) for entry in self.manifest['rules']]
         self.build = BUILD_DIR / self.id
@@ -321,6 +365,28 @@ def collect_specs(only_spec):
     return dependency_order(specs)
 
 
+def warn_if_rules_graph_stale():
+    """Say so if rules.ttl no longer matches the manifests it is generated from.
+
+    A warning rather than a failure: the graph is a derived view, and a stale
+    view should not stop anyone running the shapes. But it goes unnoticed
+    otherwise, because nothing else in the suite reads it.
+    """
+    graph = HERE / 'rules.ttl'
+    manifests = sorted(SPECS_DIR.glob('*/spec.json'))
+    if not manifests:
+        return
+    if not graph.exists():
+        print(f'note: {graph.name} has not been generated '
+              f'-- run validation/tools/make_rules_graph.py\n')
+        return
+    stale = [path for path in manifests if path.stat().st_mtime > graph.stat().st_mtime]
+    if stale:
+        names = ', '.join(path.parent.name for path in stale)
+        print(f'note: {graph.name} is older than {names} '
+              f'-- run validation/tools/make_rules_graph.py\n')
+
+
 def dependency_order(specs):
     """Sort so a specification is always listed after the ones it builds on.
 
@@ -371,6 +437,8 @@ def main():
         print(f'No specification found under {SPECS_DIR}' + (f' named {args.spec}' if args.spec else ''))
         return 1
 
+    warn_if_rules_graph_stale()
+
     if args.coverage:
         for spec in specs:
             report_coverage(spec)
@@ -405,7 +473,8 @@ def main():
         # Kept per rule rather than thrown straight onto `failures`, so a rule
         # missing a fixture is shown as FAIL on its own line instead of only in
         # the summary, where it reads as a failure of some other rule.
-        count_problems = {rule.id: rule.check_fixture_counts() for rule in rules}
+        count_problems = {rule.id: rule.check_fixture_counts() + rule.check_identity()
+                          for rule in rules}
 
         # Warm the shared artefacts before fanning out, so parallel workers
         # never race to build the same NS0 translation.

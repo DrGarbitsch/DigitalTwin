@@ -1,0 +1,118 @@
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
+
+# Vocabulary for OPC UA validation-rule suites.
+#
+# Small on purpose: enough to say what a rule is, which specification states it,
+# which subclause it came from, what state it is in, and which SHACL shape (if
+# any) enforces it. Everything else is borrowed from rdfs.
+#
+#
+# The URN scheme
+# --------------
+# Four kinds of thing get an identifier, and they are deliberately distinct:
+#
+#   urn:opcua:validation:vocab:<term>
+#   urn:opcua:validation:spec:<doc>
+#   urn:opcua:validation:rule:<doc>:<rule-id>
+#   urn:opcua:validation:shape:<doc>:<rule-id>[:<part>]
+#
+# The scheme carries no organisation name. These identifiers describe OPC UA
+# specifications, and the catalogs they identify are the kind of artefact that
+# could reasonably be contributed to standardization work rather than kept as
+# one vendor's internal notes; a company token in the IRI would have to be
+# renamed the moment that happened.
+#
+# <doc> is the OPC document number of the specification -- 10000-3, 10000-100,
+# 40001-1, 40223 -- taken from `documentNumber` in the spec's manifest. It is
+# the one part of a specification's identity that the OPC Foundation controls
+# and that does not change; this project's directory names and titles have both
+# changed once already.
+#
+# <rule-id> is the catalog ID: AS-039, DI-014, MA-005, PU-001. It is redundant
+# with <doc> -- the prefix already names the specification -- and that is
+# intentional. The IDs appear in prose catalogs, shape filenames, testcases/
+# directory names and commit messages, so an IRI a reader could not map back to
+# a rule ID by eye would be a step backwards.
+#
+# <part> distinguishes the shapes of a rule that needs more than one. This is
+# not hypothetical: a shape carrying constraints that need different target
+# classes has to be split, because every constraint in a node shape runs
+# against every target class of that shape. AS-031 and AS-035 are each two node
+# shapes today -- nine rules, eleven shapes. Rule and shape are therefore
+# one-to-many, which is the whole reason they get separate IRIs.
+#
+#
+# Why URNs
+# --------
+# These identifiers name a *reading* of a specification -- which subclause was
+# treated as a rule, and how -- not the specification itself. A urn: makes no
+# location claim and no authorship claim, which is the honest status for a
+# catalog derived from a published standard by someone who did not write it.
+#
+# The trade-off, stated so nobody discovers it later: `opcua` is not an
+# IANA-registered URN namespace identifier (RFC 8141), so these IRIs are
+# conformant in syntax but informal in status, and they do not dereference.
+# Formalising would mean either registering the namespace or moving to an
+# OPC Foundation http namespace such as http://opcfoundation.org/UA/Validation/.
+# Either is a find-and-replace: the structure above is unaffected.
+#
+# What these IRIs replaced: every shape used to declare itself in the `base:`
+# namespace (base:AS039InstanceTypeNotAbstractShape and ten others), asserting
+# new resources into a published vocabulary that the shapes only import terms
+# from.
+
+<urn:opcua:validation:vocab:> a owl:Ontology ;
+    rdfs:label "OPC UA validation-rule vocabulary" ;
+    rdfs:comment "Terms for identifying validation rules, the specifications that state them, and the SHACL shapes that enforce them." .
+
+opcv:Specification a owl:Class ;
+    rdfs:label "Specification" ;
+    rdfs:comment "An OPC UA specification document that has been catalogued." .
+
+opcv:ValidationRule a owl:Class ;
+    rdfs:label "Validation rule" ;
+    rdfs:comment "One checkable requirement derived from a specification subclause. Exists whether or not a shape enforces it -- a catalogued rule with status n/a is still a rule, and recording it is what stops it being re-derived." .
+
+opcv:definedBy a owl:ObjectProperty ;
+    rdfs:label "defined by" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range opcv:Specification ;
+    rdfs:comment "The specification that states this rule." .
+
+opcv:buildsOn a owl:ObjectProperty ;
+    rdfs:label "builds on" ;
+    rdfs:domain opcv:Specification ;
+    rdfs:range opcv:Specification ;
+    rdfs:comment "A specification this one depends on. Mirrors dependsOn in the manifest; a list, not a single parent, because the real dependency graph is a DAG." .
+
+opcv:implementsRule a owl:ObjectProperty ;
+    rdfs:label "implements rule" ;
+    rdfs:range opcv:ValidationRule ;
+    rdfs:comment "Asserted by a SHACL shape about the rule it enforces. Many-to-one: a rule needing different target classes is split across several node shapes." .
+
+opcv:documentNumber a owl:DatatypeProperty ;
+    rdfs:label "document number" ;
+    rdfs:domain opcv:Specification ;
+    rdfs:range xsd:string ;
+    rdfs:comment "OPC document number, e.g. 10000-3 or 40223." .
+
+opcv:ruleId a owl:DatatypeProperty ;
+    rdfs:label "rule id" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The catalog ID, e.g. AS-039. Stable forever; a rule that turns out not to be a rule keeps its ID and gets status n/a." .
+
+opcv:specSection a owl:DatatypeProperty ;
+    rdfs:label "specification section" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The subclause the rule was derived from, as written in the catalog." .
+
+opcv:status a owl:DatatypeProperty ;
+    rdfs:label "status" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range xsd:string ;
+    rdfs:comment "implemented, gap, instance-level, push-down, inherited, advanced, needs-verification, blocked, or n/a. Defined in validation/specs/README.md." .

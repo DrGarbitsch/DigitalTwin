@@ -1,6 +1,7 @@
 {
   "id": "opc-40223-pumps",
   "title": "OPC 40223 - Pumps and Vacuum Pumps",
+  "documentNumber": "40223",
   "catalog": "docs/validation-rules-pumps.md",
   "catalogRuleCount": 16,
   "catalogCoverage": "sections 1-10 and annexes A-C read; section 7 covered structurally via pumps.owl.ttl, its prose sampled at 3 of 51 subsections",

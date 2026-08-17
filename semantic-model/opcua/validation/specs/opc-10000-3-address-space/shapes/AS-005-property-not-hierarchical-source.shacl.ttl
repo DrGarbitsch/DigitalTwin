@@ -1,6 +1,7 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
 @prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix opcv: <urn:opcua:validation:vocab:> .
 
 # AS-005 -- OPC 10000-3 section 4.5.2, 5.6.3
 #
@@ -24,7 +25,8 @@
 # this shape keyed to the reference means a fixture that trips one rule does
 # not silently trip this one as well.
 
-base:AS005PropertyNotHierarchicalSourceShape a sh:NodeShape ;
+<urn:opcua:validation:shape:10000-3:AS-005> a sh:NodeShape ;
+    opcv:implementsRule <urn:opcua:validation:rule:10000-3:AS-005> ;
     sh:targetClass opcua:VariableNodeClass ;
     sh:sparql [
         a sh:SPARQLConstraint ;
