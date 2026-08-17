@@ -8,7 +8,7 @@ specs/
   opc-10000-3-address-space/    Address Space Model            9 shapes,  70 catalogued
   opc-10000-100-devices/        Devices (DI)                   0 shapes,  36 catalogued
   opc-40001-1-machinery/        Basic Building Blocks          0 shapes,  25 catalogued
-  opc-40223-pumps/              Pumps and Vacuum Pumps         0 shapes,   6 catalogued
+  opc-40223-pumps/              Pumps and Vacuum Pumps         0 shapes,  16 catalogued
 ```
 
 Each directory has the same five parts:
@@ -67,8 +67,9 @@ should validate every `pass-` fixture against the merged shapes of the spec *and
 all its ancestors*. `pumps:PumpType` is a subtype of `di:TopologyElementType`
 (verified in `pumps.owl.ttl`), so a pump that violates a DI FunctionalGroup rule
 is genuinely broken, and a Pumps-only shape set would never notice. Layering
-means six catalogued Pumps rules buy validation against every rule in
-the four catalogs.
+means the 16 catalogued Pumps rules buy validation against all 147 rules in the
+four catalogs — and Pumps needs it more than any of them, since four of its 16
+rules are inheritance facts rather than rules of its own.
 
 > Not yet implemented. `Spec.merged_shapes()` currently merges one
 > specification's shapes. Following `dependsOn` is a small change and is the

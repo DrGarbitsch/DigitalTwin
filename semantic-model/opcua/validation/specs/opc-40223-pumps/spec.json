@@ -2,7 +2,8 @@
   "id": "opc-40223-pumps",
   "title": "OPC 40223 - Pumps and Vacuum Pumps",
   "catalog": "docs/validation-rules-pumps.md",
-  "catalogRuleCount": 6,
+  "catalogRuleCount": 16,
+  "catalogCoverage": "sections 1-10 and annexes A-C read; section 7 covered structurally via pumps.owl.ttl, its prose sampled at 3 of 51 subsections",
   "dependsOn": ["opc-40001-1-machinery"],
   "commonNodeset": "common/Opc.Ua.Pumps.NodeSet2.xml",
   "commonNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Pumps/Opc.Ua.Pumps.NodeSet2.xml",
@@ -16,14 +17,14 @@
     {
       "id": "PU-002",
       "section": "6.2.2",
-      "summary": "An inapplicable EngineeringUnits Property is absent or Null-valued",
+      "summary": "An EngineeringUnits Property without a value is absent or Null-valued",
       "status": "instance-level"
     },
     {
       "id": "PU-003",
       "section": "6.2.2",
       "summary": "The EngineeringUnits defaults named by the specification are used",
-      "status": "advanced"
+      "status": "n/a"
     },
     {
       "id": "PU-004",
@@ -42,6 +43,66 @@
       "section": "7.1",
       "summary": "PumpType is a TopologyElementType, so every DI TopologyElement rule applies",
       "status": "inherited"
+    },
+    {
+      "id": "PU-007",
+      "section": "3.3.3.3, 3.3.3.4",
+      "summary": "A ValueRank above zero requires ArrayDimensions to be specified",
+      "status": "gap"
+    },
+    {
+      "id": "PU-008",
+      "section": "3.3.3.1-3.3.3.3",
+      "summary": "Common Attributes are set as Tables 4-6 specify",
+      "status": "gap"
+    },
+    {
+      "id": "PU-009",
+      "section": "3.3.3.5",
+      "summary": "Methods defined by this specification are executable",
+      "status": "blocked"
+    },
+    {
+      "id": "PU-010",
+      "section": "7.36",
+      "summary": "An In Port connects only to an Out or InOut Port",
+      "status": "instance-level"
+    },
+    {
+      "id": "PU-011",
+      "section": "7",
+      "summary": "34 Pumps ObjectTypes are FunctionalGroups, so DI's group rules govern them",
+      "status": "inherited"
+    },
+    {
+      "id": "PU-012",
+      "section": "7.4",
+      "summary": "PumpIdentificationType is a MachineIdentificationType, inheriting its rules",
+      "status": "inherited"
+    },
+    {
+      "id": "PU-013",
+      "section": "7",
+      "summary": "Mandatory components of the 51 ObjectTypes are present on every instance",
+      "status": "push-down"
+    },
+    {
+      "id": "PU-014",
+      "section": "8",
+      "summary": "A Variable typed by an enumeration carries a value that enumeration defines",
+      "status": "push-down"
+    },
+    {
+      "id": "PU-015",
+      "section": "10.2",
+      "summary": "Nodes this specification does not define stay out of the standard namespaces",
+      "status": "gap"
+    },
+    {
+      "id": "PU-016",
+      "section": "10.2",
+      "summary": "The standard namespaces carry fixed namespace indices",
+      "status": "n/a"
     }
   ]
 }

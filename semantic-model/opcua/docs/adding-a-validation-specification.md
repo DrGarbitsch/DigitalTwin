@@ -14,7 +14,7 @@ The catalogs themselves:
 [Part 3](./validation-rules-part3.md) (70 rules, 9 enforced),
 [DI](./validation-rules-di.md) (36, near-complete pass),
 [Machinery](./validation-rules-machinery.md) (25, complete pass),
-[Pumps](./validation-rules-pumps.md) (6).
+[Pumps](./validation-rules-pumps.md) (16, complete pass).
 
 ---
 
