@@ -379,15 +379,18 @@ the next reader does not re-derive them. See
 
 ## Where the baseline nodesets are
 
-`opc-10000-3-address-space` points its `baselineNodeset` at the complete
-official `Opc.Ua.NodeSet2.xml` already checked in under `tests/nodeset2owl/` —
-all 4957 nodes, not an extract. `common/` still holds a generated 20 KB subset,
-which the runner no longer uses; see
+All four specifications are public, so all four point `baselineNodeset` at the
+official published nodeset by URL, pinned to the `UA-1.05.03-2023-12-15` release
+tag — the same version `translate_default_nodesets.make` uses. Nothing is
+checked in and nothing can drift from what the OPC Foundation ships. A relative
+path into `common/` is the fallback, for a specification that is private or not
+yet published.
+
+This also removes what used to be phase 1 of adding a specification: there is no
+longer a decision about what lands in `common/`, because the answer is the
+published nodeset and the manifest simply names it.
+
+`opc-10000-3-address-space/common/` still holds a generated 20 KB NS0 subset
+that the runner no longer uses; see
 [`../README.md`](../README.md#the-shared-baseline-nodeset) for why validation
 runs on complete content and why the subset was kept rather than deleted.
-
-The companion specs do not have their nodesets checked in — see the
-`.gitignore` in each `common/` directory. What lands there is the whole
-published nodeset of that specification, for the same reason. That is phase 1
-of implementing each of them and is not started; until a rule in those specs
-has a shape, the runner never looks for the file.

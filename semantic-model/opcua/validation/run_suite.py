@@ -144,14 +144,18 @@ def is_stale(target, *sources):
 
 
 def convert(nodeset, output, prefix, inputs=()):
-    """Translate a NodeSet2 XML fixture to OWL Turtle via nodeset2owl.py."""
+    """Translate a NodeSet2 source to OWL Turtle via nodeset2owl.py.
+
+    `nodeset` is a local path or a published URL; nodeset2owl.py takes either.
+    """
     output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [python_exe(), NODESET2OWL, nodeset, '-p', prefix, '-o', output]
     for item in inputs:
         cmd += ['-i', str(item)]
     code, out = run(cmd, cwd=OPCUA_DIR)
     if code != 0:
-        raise TestFailure(f'nodeset2owl.py failed for {nodeset.name}:\n{out}')
+        name = nodeset.name if isinstance(nodeset, Path) else nodeset
+        raise TestFailure(f'nodeset2owl.py failed for {name}:\n{out}')
     return output
 
 
@@ -392,7 +396,17 @@ class Spec:
         # and what every rule and shape IRI is built from. Directory names and
         # titles in this tree have both changed once; 10000-3 has not.
         self.document = self.manifest.get('documentNumber')
-        self.baseline_nodeset = root / self.manifest['baselineNodeset']
+        # The official published nodeset, by URL, wherever the specification is
+        # public: the suite then validates against what the OPC Foundation
+        # actually ships rather than against a copy of it that can drift. A
+        # relative path is the fallback for a private or unpublished
+        # specification, and is resolved against this directory.
+        #
+        # nodeset2owl.py accepts either -- translate_default_nodesets.make has
+        # always passed it URLs -- so nothing has to fetch anything here.
+        baseline = self.manifest['baselineNodeset']
+        self.baseline_is_url = baseline.startswith(('http://', 'https://'))
+        self.baseline_nodeset = baseline if self.baseline_is_url else root / baseline
         self.rules = [Rule(self, entry) for entry in self.manifest['rules']]
         self.build = BUILD_DIR / self.id
 
@@ -433,7 +447,15 @@ class Spec:
         validation suite.
         """
         target = self.build / 'common' / 'baseline.ttl'
-        if is_stale(target, self.baseline_nodeset):
+        if self.baseline_is_url:
+            # A published nodeset URL is pinned to a release tag, so its content
+            # cannot change under us and there is no mtime to compare against.
+            # Build once and reuse: the suite then needs the network only on a
+            # cold .build and runs offline after that. Delete .build to refetch.
+            stale = not target.exists()
+        else:
+            stale = is_stale(target, self.baseline_nodeset)
+        if stale:
             convert(self.baseline_nodeset, target, prefix='opcua')
         return target
 

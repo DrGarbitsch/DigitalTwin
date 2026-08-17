@@ -16,8 +16,7 @@
   "dependsOn": [
     "spec:10000-3"
   ],
-  "baselineNodeset": "common/Opc.Ua.Di.NodeSet2.xml",
-  "baselineNodesetSource": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
+  "baselineNodeset": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/DI/Opc.Ua.Di.NodeSet2.xml",
   "rules": [
     {
       "@id": "rule:DI-001",

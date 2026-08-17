@@ -1,5 +1,7 @@
-# Fetched, not checked in -- see ../spec.json's commonNodesetSource and the
-# note in ../../di/common/.gitignore. Pumps sits at the bottom of the longest
-# chain in the suite: its data graph needs NS0, DI and Machinery underneath it,
-# in that order, before its own nodeset.
+# Empty by design. This specification is public, so its baselineNodeset in
+# ../spec.jsonld is the official published nodeset URL, pinned to a release tag,
+# and nodeset2owl.py reads it straight from there.
+#
+# This directory is the fallback location for a nodeset that cannot be named by
+# URL -- a private or not-yet-published specification. Nothing lands here today.
 *.NodeSet2.xml

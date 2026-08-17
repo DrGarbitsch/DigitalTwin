@@ -1,10 +1,7 @@
-# The DI nodeset is fetched, not checked in: it is ~1 MB of content the OPC
-# Foundation already publishes under a stable, versioned URL (see
-# commonNodesetSource in ../spec.json), and a copy here could drift from the
-# NODESET_VERSION the rest of the pipeline translates.
+# Empty by design. This specification is public, so its baselineNodeset in
+# ../spec.jsonld is the official published nodeset URL, pinned to a release tag,
+# and nodeset2owl.py reads it straight from there.
 #
-# Phase 1 of adding this specification is deciding what actually lands here: the
-# whole nodeset, or a generated subset in the style of
-# tools/make_ns0_subset.py. Until then no rule in this spec has a shape, so the
-# runner skips it and nothing needs this file to exist.
+# This directory is the fallback location for a nodeset that cannot be named by
+# URL -- a private or not-yet-published specification. Nothing lands here today.
 *.NodeSet2.xml

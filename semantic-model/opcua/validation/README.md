@@ -115,12 +115,37 @@ new specification needs no code change.
 A fixture cannot be standalone: nearly every Part 3 rule is phrased in terms of
 Namespace 0 nodes, and `nodeset2owl.py` hard-fails on a DataType or
 ReferenceType it cannot resolve. So every fixture is layered on the
-specification's `baselineNodeset` — for `opc-10000-3-address-space`, the
-complete official `Opc.Ua.NodeSet2.xml`, all 4957 nodes of it, already checked
-in under `tests/nodeset2owl/`.
+specification's `baselineNodeset`.
+
+**That is the official published nodeset, by URL, wherever the specification is
+public:**
+
+```json
+"baselineNodeset": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Schema/Opc.Ua.NodeSet2.xml"
+```
+
+The suite then validates against what the OPC Foundation actually ships, not
+against a copy of it that can drift — and a copy is exactly what a checked-in
+nodeset becomes the moment the pinned version moves. `nodeset2owl.py` accepts a
+URL wherever it accepts a path; `translate_default_nodesets.make` has always
+passed it URLs, so nothing here fetches anything itself.
+
+The tag in the URL is `UA-1.05.03-2023-12-15`, the same `NODESET_VERSION` the
+makefile pins. Those must move together: a suite validating against a different
+release from the one the pipeline translates would be testing a different
+specification.
+
+A **relative path** is the fallback, for a specification that is private or not
+yet published — resolved against the spec directory, typically into `common/`.
+
+Because the URL is pinned to a release tag its content cannot change, so the
+translated baseline is built once into `.build/` and reused. The suite needs
+the network only on a cold `.build` and runs offline afterwards; delete
+`.build` to refetch.
 
 **Complete, not pruned, and this is a correctness decision rather than a
-preference.** An extract is much faster: 1.9 s per fixture conversion against a
+preference.** For Part 3 that means all 4957 nodes of Namespace 0. An extract
+is much faster: 1.9 s per fixture conversion against a
 71-node subset, 8.6 s against the whole nodeset, over 36 fixtures. But the
 subset only stays small by pruning forward hierarchical References, and those
 are exactly what AS-005, AS-006 and AS-063 test. Against a pruned NS0 those

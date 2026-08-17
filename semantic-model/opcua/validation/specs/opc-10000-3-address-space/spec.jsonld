@@ -13,7 +13,7 @@
   "catalog": "catalog.md",
   "catalogRuleCount": 70,
   "dependsOn": [],
-  "baselineNodeset": "../../../tests/nodeset2owl/Opc.Ua.NodeSet2.xml",
+  "baselineNodeset": "https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/UA-1.05.03-2023-12-15/Schema/Opc.Ua.NodeSet2.xml",
   "rules": [
     {
       "@id": "rule:AS-001",
@@ -584,6 +584,5 @@
       "summary": "UsesDataTypeRefinement: SourceNode must be a Variable with a Structured DataType; TargetNode must be an Object of...",
       "status": "advanced"
     }
-  ],
-  "baselineNote": "The complete published Namespace 0, not the pruned subset in common/. Validation runs on full content; whether a faster subset path is worth having is an open question."
+  ]
 }
