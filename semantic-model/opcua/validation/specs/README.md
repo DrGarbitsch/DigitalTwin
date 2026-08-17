@@ -83,6 +83,43 @@ every InstanceDeclaration whose ModellingRule is `Mandatory`. Both are marked
 `push-down` rather than implemented twice. The chain is what makes
 that visible; four independent suites would have grown two near-identical shapes.
 
+## Where the short names come from
+
+Four different names stand for one specification, and until now only one of them
+had a stated origin. They are declared explicitly in every manifest:
+
+| | Example (OPC 40001-1) | Who decides it |
+|---|---|---|
+| `namespaceUri` | `http://opcfoundation.org/UA/Machinery/` | **The OPC Foundation.** Declared by the nodeset itself. The root authority. |
+| `ontologyPrefix` | `machinery` | `nodeset2owl.py`, via the `-p` flag in `translate_default_nodesets.make`. |
+| `rulePrefix` | `MA-` | This project. Pure convention. |
+| directory name | `opc-40001-1-machinery` | This project. A human-readable label. |
+
+**`ontologyPrefix` is the one that can break something.** It is the prefix a
+shape must write to match the translated graph, so a shape saying
+`machinery:MachineIdentificationType` against a graph translated with `-p mach`
+matches nothing — for ever, silently, with every `pass-` fixture passing for the
+wrong reason. `run_suite.py` therefore derives it from the namespace URI and
+fails a manifest that disagrees:
+
+> lower-cased last segment of `namespaceUri` — `Machinery/` → `machinery`,
+> `DI/` → `di`, `Pumps/` → `pumps` — with exactly one exception: the core
+> namespace `http://opcfoundation.org/UA/` is bound to `opcua`, not `ua`.
+
+The check cannot reach into the makefile, so keeping `ontologyPrefix` and the
+makefile's `-p` in step is still a human obligation; the derivation rule is what
+makes it hard to get wrong in the first place.
+
+`rulePrefix` is checked too — every rule ID must start with it — because IDs
+appear in shape filenames, `testcases/` directory names, recorded expectations
+and commit messages, and a stray prefix would scatter them.
+
+**The directory name is deliberately not derived from any of these.** Two of the
+four would have to be renamed if it were: `opc-10000-3-address-space` would
+become `opc-10000-3-opcua` and `opc-10000-100-devices` would become
+`opc-10000-100-di`. The slug is a label for people, the prefix is an identifier
+for machines, and forcing them to be the same word makes the label worse.
+
 ## Rule IDs and IRIs
 
 Rule IDs are namespaced per specification and stable forever: `AS-` for Part 3

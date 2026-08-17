@@ -431,8 +431,54 @@ class Spec:
         elif self.manifest.get('@id') != expected:
             problems.append(
                 f'{self.id}: manifest @id is "{self.manifest.get("@id")}", expected "{expected}"')
+
+        problems.extend(self.check_short_names())
         for rule in self.rules:
             problems.extend(rule.check_identity())
+        return problems
+
+    def check_short_names(self):
+        """Tie the specification's short names back to something authoritative.
+
+        Three different short names are in play and only one of them is ours:
+
+        * ``namespaceUri`` is the OPC Foundation's, declared by the nodeset.
+        * ``ontologyPrefix`` is what nodeset2owl.py binds that namespace to, so
+          it is the prefix every shape has to write. Getting it wrong does not
+          raise -- the shape simply matches nothing, for ever, silently.
+        * ``rulePrefix`` is the catalog ID prefix, and is purely a convention.
+
+        The directory name is deliberately *not* checked against any of them: it
+        is a human-readable label, and "address-space" reads better than the
+        "opcua" the derivation would demand.
+        """
+        problems = []
+        uri = self.manifest.get('namespaceUri')
+        prefix = self.manifest.get('ontologyPrefix')
+        rule_prefix = self.manifest.get('rulePrefix')
+
+        for field, value in (('namespaceUri', uri), ('ontologyPrefix', prefix),
+                             ('rulePrefix', rule_prefix)):
+            if not value:
+                problems.append(f'{self.id}: {MANIFEST_NAME} declares no "{field}"')
+        if not (uri and prefix and rule_prefix):
+            return problems
+
+        # Machinery/ -> machinery, DI/ -> di. The core namespace is the one
+        # documented exception: .../UA/ is bound to opcua, not ua.
+        segment = uri.rstrip('/').rsplit('/', 1)[-1].lower()
+        derived = 'opcua' if uri.rstrip('/').endswith('/UA') else segment
+        if prefix != derived:
+            problems.append(
+                f'{self.id}: ontologyPrefix "{prefix}" does not follow from namespaceUri '
+                f'{uri} (expected "{derived}"). It must also match the -p value '
+                f'translate_default_nodesets.make uses, or shapes silently match nothing.')
+
+        wrong = [rule.id for rule in self.rules if not rule.id.startswith(rule_prefix)]
+        if wrong:
+            problems.append(
+                f'{self.id}: {len(wrong)} rule id(s) do not start with rulePrefix '
+                f'"{rule_prefix}": {", ".join(wrong[:5])}')
         return problems
 
     def common_ttl(self):

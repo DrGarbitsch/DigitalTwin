@@ -93,6 +93,24 @@ opcv:implementsRule a owl:ObjectProperty ;
     rdfs:range opcv:ValidationRule ;
     rdfs:comment "Asserted by a SHACL shape about the rule it enforces. Many-to-one: a rule needing different target classes is split across several node shapes." .
 
+opcv:namespaceUri a owl:DatatypeProperty ;
+    rdfs:label "namespace URI" ;
+    rdfs:domain opcv:Specification ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The OPC UA namespace URI the specification declares in its own nodeset, e.g. http://opcfoundation.org/UA/Machinery/. The OPC Foundation controls it, so it is the root authority for every short name below." .
+
+opcv:ontologyPrefix a owl:DatatypeProperty ;
+    rdfs:label "ontology prefix" ;
+    rdfs:domain opcv:Specification ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The prefix nodeset2owl.py binds the namespace to, and therefore the prefix every shape must write to match the translated graph. Lower-cased last segment of the namespace URI -- Machinery becomes machinery -- with one exception: the core namespace http://opcfoundation.org/UA/ is bound to opcua rather than ua. Must equal the -p value translate_default_nodesets.make translates that specification with; disagreeing means shapes silently match nothing." .
+
+opcv:rulePrefix a owl:DatatypeProperty ;
+    rdfs:label "rule prefix" ;
+    rdfs:domain opcv:Specification ;
+    rdfs:range xsd:string ;
+    rdfs:comment "The catalog ID prefix every rule of this specification carries, e.g. MA-. Chosen once and never changed, because rule IDs appear in shape filenames, testcases/ directory names, recorded expectations and commit messages." .
+
 opcv:documentNumber a owl:DatatypeProperty ;
     rdfs:label "document number" ;
     rdfs:domain opcv:Specification ;

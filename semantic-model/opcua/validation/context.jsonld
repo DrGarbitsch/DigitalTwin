@@ -11,6 +11,9 @@
 
     "title": "rdfs:label",
     "documentNumber": "opcv:documentNumber",
+    "namespaceUri": "opcv:namespaceUri",
+    "ontologyPrefix": "opcv:ontologyPrefix",
+    "rulePrefix": "opcv:rulePrefix",
     "dependsOn": { "@id": "opcv:buildsOn", "@type": "@id" },
 
     "rules": { "@reverse": "opcv:definedBy" },
