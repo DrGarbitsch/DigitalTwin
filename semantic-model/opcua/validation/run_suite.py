@@ -85,6 +85,7 @@ MANIFEST_NAME = 'spec.jsonld'
 KNOWN_REPRESENTATIONS = {
     'opcv:OpcUaOwl': 'nodeset2owl.py output, validated with validate.py -m ontology',
     'opcv:NgsiLd': 'owl2instances.py output, validated with validate.py -m instance',
+    'opcv:NgsiLdTemporal': 'NGSI-LD carrying per-instance ngsild:observedAt -- time as ordinary data',
 }
 RUNNABLE_REPRESENTATIONS = {'opcv:OpcUaOwl'}
 
@@ -214,6 +215,11 @@ class Rule:
         # definitions, a model that instantiates them, or both. Empty means
         # unclassified, which the fixture layout then treats as "one set".
         self.applies_to = entry.get('appliesTo') or []
+        # Representations in which the rule is answerable at all. Stated only
+        # where that is representation-dependent -- a rule about change over
+        # time is unanswerable against a NodeSet2 and routine against NGSI-LD
+        # with observedAt. Absent means the status holds everywhere.
+        self.checkable_in = entry.get('checkableIn') or []
 
     @property
     def implemented(self):
@@ -268,6 +274,14 @@ class Rule:
         if self.iri != f'rule:{self.id}':
             problems.append(
                 f'{self.id}: manifest @id is "{self.iri}", expected "rule:{self.id}"')
+
+        # checkableIn names representations, and a typo here would quietly claim
+        # a rule is answerable somewhere that does not exist.
+        for representation in self.checkable_in:
+            if f'opcv:{representation}' not in KNOWN_REPRESENTATIONS:
+                problems.append(
+                    f'{self.id}: checkableIn names unknown representation "{representation}"; '
+                    f'known: {", ".join(sorted(k.split(":")[1] for k in KNOWN_REPRESENTATIONS))}')
 
         if self.shape is None or not self.shape.is_file():
             return problems

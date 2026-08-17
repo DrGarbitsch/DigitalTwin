@@ -73,7 +73,11 @@
       "id": "MA-007",
       "section": "8.2",
       "summary": "YearOfConstruction is a four-digit number",
-      "status": "instance-level"
+      "status": "instance-level",
+      "checkableIn": [
+        "NgsiLd",
+        "NgsiLdTemporal"
+      ]
     },
     {
       "@id": "rule:MA-008",
@@ -161,7 +165,10 @@
       "id": "MA-018",
       "section": "14.2",
       "summary": "Operation counters only increase and never reset",
-      "status": "n/a"
+      "status": "gap",
+      "checkableIn": [
+        "NgsiLdTemporal"
+      ]
     },
     {
       "@id": "rule:MA-019",

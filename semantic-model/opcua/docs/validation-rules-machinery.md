@@ -179,7 +179,7 @@ carry the same behavioural constraint.
 
 | ID | Section | Rule | Status | Notes |
 |---|---|---|---|---|
-| MA-018 | 14.2 | These counter values shall only increase during the life-cycle of the MachineryItem and shall not be reset when it is restarted. | N/A | Monotonicity over time. This pipeline validates one snapshot, and no single snapshot can be non-monotonic — the same reasoning that excludes Part 3's ModelChangeEvent/NodeVersion rule and MA-007's "never changes" half. Worth recording precisely because it *reads* like a strong constraint. |
+| MA-018 | 14.2 | These counter values shall only increase during the life-cycle of the MachineryItem and shall not be reset when it is restarted. | Gap, `checkableIn: NgsiLdTemporal` | **Reclassified from N/A.** Monotonicity is unanswerable against a NodeSet2, which has no time axis — but it is ordinary SHACL against the NGSI-LD temporal representation, where each attribute instance carries its own `ngsild:observedAt`. The shape is a self-join with `FILTER(?earlier < ?later && ?valueEarlier > ?valueLater)`. Not hypothetical in this codebase: `lib/sparql_to_sql.py` already translates SPARQL over `ngsild:observedAt`, and `create_ngsild_models.py` already orders by it. What was mistaken for a limit of the stack was a limit of one representation. |
 
 ## §15 Lifetime Counter — 1 rule
 
@@ -240,7 +240,7 @@ DI-007 next door, all close when the Mandatory-ModellingRule shape is written.
 The partial catalog found two of them. The case for writing that shape first
 strengthens with every specification read.
 
-**Seven rules are N/A, and finding them is the point.** Client behaviour (MA-022,
+**Six rules are N/A, and finding them is the point.** Client behaviour (MA-022,
 MA-024), Server capability (MA-009), monotonicity over time (MA-018, and MA-007's
 second half), facts not in the graph (MA-019, MA-021), advisory language
 (MA-020). A suite that had gone straight to implementation would have discovered

@@ -23,6 +23,11 @@
 
     "appliesTo": { "@id": "opcv:appliesTo", "@type": "@vocab", "@container": "@set" },
     "TypeModel": "opcv:TypeModel",
-    "InstanceModel": "opcv:InstanceModel"
+    "InstanceModel": "opcv:InstanceModel",
+
+    "checkableIn": { "@id": "opcv:checkableIn", "@type": "@vocab", "@container": "@set" },
+    "OpcUaOwl": "opcv:OpcUaOwl",
+    "NgsiLd": "opcv:NgsiLd",
+    "NgsiLdTemporal": "opcv:NgsiLdTemporal"
   }
 }

@@ -98,7 +98,7 @@ of it is definition tables.
 | ID | Section | Rule | Status | Notes |
 |---|---|---|---|---|
 | DI-008 | 4.5.4 | DeviceHealth is one of the five NAMUR NE107 values (NORMAL, FAILURE, CHECK_FUNCTION, OFF_SPEC, MAINTENANCE_REQUIRED). | Instance-level | `base:hasValue` and the enum machinery (`base:hasEnumValue`, `base:hasValueList`) are all emitted, so this is checkable — but only against a fixture carrying an actual value. §4.5.4 additionally says the DeviceHealthAlarms folder *should* be used for Alarm instances: advisory, not a rule. |
-| DI-018 | 4.5.5 | `PowerOnDuration`, `OperationDuration` and `OperationCycleCounter` shall only increase during the lifetime of the Device. | N/A | Monotonicity over time. One snapshot cannot be non-monotonic. Identical to Machinery's MA-018 — the same Interface, catalogued twice because both specifications restate it, which is itself a small argument that DI is where it belongs. |
+| DI-018 | 4.5.5 | `PowerOnDuration`, `OperationDuration` and `OperationCycleCounter` shall only increase during the lifetime of the Device. | Gap, `checkableIn: NgsiLdTemporal` | **Reclassified from N/A.** Unanswerable against a NodeSet2, which carries no time; ordinary SHACL against the NGSI-LD temporal representation, where each attribute instance has its own `ngsild:observedAt`. Identical to Machinery's MA-018 — the same Interface, catalogued twice because both specifications restate it, which is a small argument that DI is where the shape belongs. |
 
 ### §4.6–4.9 ComponentType, DeviceType, SoftwareType, DeviceSet
 
@@ -251,7 +251,7 @@ could extract more" from an observation into a work item.
 (DI-035). None has an analogue in the Part 3 suite, so each is a genuine
 extension of what the runner has been shown to handle.
 
-**Eight rules are N/A**, concentrated in §8, where an entire large section of a
+**Seven rules are N/A**, concentrated in §8, where an entire large section of a
 specification turns out to be almost entirely Client behaviour and Method
 semantics. Recording that is what stops the next reader spending a day in §8
 looking for shapes.

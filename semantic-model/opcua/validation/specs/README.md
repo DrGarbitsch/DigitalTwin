@@ -229,13 +229,23 @@ directory not in `appliesTo`, or an `appliesTo` kind with no directory, fails.
 
 Model kind says what a rule is *about*. It says nothing about which graph a
 shape *matches*, and in this pipeline those are two different questions,
-because an address space is translated two different ways:
+because an address space is translated more than one way:
 
 | | **`opcv:OpcUaOwl`** | **`opcv:NgsiLd`** |
 |---|---|---|
 | Produced by | `nodeset2owl.py` | `owl2instances.py` |
 | Vocabulary | `opcua:` / `base:` — one node per Node, References as predicates | NGSI-LD entities — `Property`, `ListProperty`, `Relationship`, carrying values |
 | Validated with | `validate.py -m ontology` | `validate.py -m instance` |
+
+A third, `opcv:NgsiLdTemporal`, is NGSI-LD carrying more than one instance of an
+attribute, each with its own `ngsild:observedAt`. It matters far more than a
+third serialisation normally would, because **it is the difference between a
+graph with no time axis and a graph where time is ordinary data.** A rule about
+change over time — a counter that may only increase, a Property that may never
+change — is unanswerable against a NodeSet2 and is a routine self-join with
+`FILTER(?earlier < ?later)` here. Rules say where they are answerable with
+`opcv:checkableIn`; MA-018, DI-018 and MA-007 carry it today, having been
+reclassified out of N/A once this was noticed.
 
 A shape written for one shares **nothing** with a shape written for the other —
 not the target class, not the predicates, not the traversal. "MonthOfConstruction
@@ -278,6 +288,46 @@ Three facts follow for anyone adding the NGSI-LD side later:
 - **`owl2instances.py` needs `-n <namespace>` and a root type**, so an NGSI-LD
   fixture carries more build configuration than an OWL one. That belongs in the
   manifest next to the rule, not hard-coded in the runner.
+
+### When one query is not enough
+
+Some rules do not fit a single SPARQL query. That is a fact about one query, not
+about the stack, and the difference matters: the answer is more declarative
+steps, never a procedural check written in Python.
+
+The reason is not purity. A rule expressed as SHACL and SPARQL is *data* — it
+carries an IRI, it says which specification subclause it came from, it can be
+queried, diffed and reasoned over, and `rules_graph.py` can count it. A rule
+expressed as a Python function is none of those things: it is opaque to every
+tool here, and the catalog would go back to being a list of filenames with
+prose beside them.
+
+Three declarative escapes, in order of preference:
+
+1. **Entailment.** `rdfs:subPropertyOf` is core RDFS entailment. Materialising
+   it means every subtype of a ReferenceType already appears under the
+   supertype's predicate, and a fixed property path then does what a variable
+   predicate could not. This project already runs a reasoner: two Part 3 rules
+   are enforced by HermiT over the Virtual-Types machinery rather than by SHACL,
+   which is the precedent.
+2. **Materialisation before validation.** A SHACL-AF `sh:rule`, or a plain
+   SPARQL `CONSTRUCT`, writes the derived triples the shape needs, and the shape
+   runs against the enlarged graph. Two declarative steps, both inspectable,
+   both versioned next to the rule.
+3. **Chained construction to a fixpoint** for the genuinely recursive cases —
+   Part 3's structural-correspondence rules (AS-011, AS-012) are the example.
+   The iteration needs a driver, but the driver only decides *when to stop*; the
+   logic stays in SPARQL.
+
+**AS-063 is the worked case, and it is not the limit it looks like.** Its shape
+enumerates `HasEventSource|HasNotifier` in the property path, because a SPARQL
+property path cannot bind its predicate to a variable and so cannot itself
+follow `rdfs:subPropertyOf*`. Left there, a companion specification defining a
+further subtype would need adding to the alternation by hand. With escape 1 the
+enumeration disappears entirely — under RDFS entailment the subtypes *are*
+`opcua:HasEventSource` triples, and the path needs no alternation at all. The
+shape's header records the enumeration as a limitation of how it is written
+today, not of what SHACL can express.
 
 ### What this does not change
 

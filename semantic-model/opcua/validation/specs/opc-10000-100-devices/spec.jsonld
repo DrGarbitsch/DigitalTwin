@@ -161,7 +161,10 @@
       "id": "DI-018",
       "section": "4.5.5",
       "summary": "Operation counters only increase over the Device lifetime",
-      "status": "n/a"
+      "status": "gap",
+      "checkableIn": [
+        "NgsiLdTemporal"
+      ]
     },
     {
       "@id": "rule:DI-019",

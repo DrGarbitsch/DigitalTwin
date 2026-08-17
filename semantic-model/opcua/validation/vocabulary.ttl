@@ -141,6 +141,16 @@ opcv:NgsiLd a opcv:Representation ;
     rdfs:label "NGSI-LD" ;
     rdfs:comment "The output of owl2instances.py: NGSI-LD entities, whose Properties, ListProperties and Relationships carry values rather than the Node/Reference structure the OWL form keeps. Validated with validate.py -m instance. Nothing about a shape for this form transfers from the OWL form -- not the target class, not the predicates, not the traversal." .
 
+opcv:NgsiLdTemporal a opcv:Representation ;
+    rdfs:label "NGSI-LD temporal representation" ;
+    rdfs:comment "NGSI-LD entities carrying more than one instance of an attribute, each with its own ngsild:observedAt. The distinction from opcv:NgsiLd is not cosmetic: it is the difference between a graph with no time axis and a graph where time is ordinary data, and it decides whether a rule about change over time is checkable at all. sparql_to_sql.py already translates SPARQL over ngsild:observedAt, and create_ngsild_models.py already orders by it." .
+
+opcv:checkableIn a owl:ObjectProperty ;
+    rdfs:label "checkable in" ;
+    rdfs:domain opcv:ValidationRule ;
+    rdfs:range opcv:Representation ;
+    rdfs:comment "Representations in which this rule could be validated at all, whether or not a shape exists. Distinct from opcv:representation, which a shape asserts about itself: this one says where a rule is even answerable. Stated only where the answer is representation-dependent -- absent means the rule's status holds everywhere." .
+
 opcv:representation a owl:ObjectProperty ;
     rdfs:label "representation" ;
     rdfs:range opcv:Representation ;
