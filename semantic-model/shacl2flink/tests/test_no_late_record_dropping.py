@@ -116,3 +116,61 @@ def test_alerts_bulk_keeps_its_watermark():
     """
     tables = _core_tables()
     assert 'watermark' in _field_names(tables['alerts_bulk'])
+
+
+def _view_statements(document):
+    """{view spec name: sqlstatement} from a generated table document."""
+    views = {}
+    try:
+        for section in ruamel.yaml.YAML(typ='safe').load_all(document):
+            if not section or 'spec' not in section:
+                continue
+            spec = section['spec']
+            if 'sqlstatement' in spec:
+                views[spec.get('name')] = spec['sqlstatement']
+    except ruamel.yaml.YAMLError:
+        pass
+    return views
+
+
+def test_attributes_table_exposes_the_kafka_offset():
+    """The dedup needs an arrival order to break ties on."""
+    tables = _core_tables()
+    assert 'offset' in _field_names(tables['attributes'])
+
+
+def test_attributes_view_breaks_ties_by_offset():
+    """The regression: a delete that ties on ts must still win.
+
+    debeziumBridge stamps a delete with the timestamp of the value it deletes,
+    deliberately the same one, so the two tie. That relied on the tie being
+    broken by arrival, which held while this compiled into Flink's Deduplicate.
+    Without the watermark it is a general Rank, and Rank keeps the INCUMBENT on
+    a tie -- so the delete lost and the attribute stayed live indefinitely.
+
+    Measured: urn:filter:1's hasXXXWorkpiece was deleted in Scorpio, the delete
+    published, and the job went on counting it until the same delete was
+    republished with a strictly greater timestamp.
+    """
+    create_core_tables.main()
+    statement = _view_statements(pathlib.Path('output/core.yaml').read_text())['attributes_view']
+    assert 'ORDER BY ts DESC, `offset` DESC' in statement
+
+
+def test_a_view_without_an_offset_column_still_orders_by_ts_alone(tmp_path):
+    """entities has no offset metadata, so the tie-break must not be emitted."""
+    create_ngsild_tables.main(output_folder=str(tmp_path))
+    views = _view_statements((tmp_path / 'ngsild.yaml').read_text())
+    entities = [s for name, s in views.items() if name and 'entities' in name]
+    assert entities, 'no entities view generated'
+    for statement in entities:
+        assert '`offset`' not in statement
+        assert 'ORDER BY ts DESC' in statement
+
+
+def test_the_offset_is_not_exposed_by_the_view():
+    """It is an ordering key, not part of the view's schema."""
+    create_core_tables.main()
+    statement = _view_statements(pathlib.Path('output/core.yaml').read_text())['attributes_view']
+    header = statement.split('FROM (')[0]
+    assert '`offset`' not in header

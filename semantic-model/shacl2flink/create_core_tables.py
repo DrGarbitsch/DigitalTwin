@@ -176,7 +176,13 @@ def main():
         # These are entity-state tables, not windowed analytics -- nothing in
         # the circuit windows over them, and alerts_bulk keeps its own watermark
         # for the alerting path.
-        {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"}
+        {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"},
+        # Arrival order, for attributes_view to break ties on. A delete carries
+        # the timestamp of the value it deletes -- deliberately the same one --
+        # so the two tie on `ts` and the dedup needs something else to separate
+        # them. Declared on the Flink table only: SQLite has no such metadata
+        # and orders by rowid, which is its equivalent.
+        {'offset': 'BIGINT METADATA VIRTUAL'}
     ]
     sqlite_table = [
         {'id': 'TEXT'},
