@@ -427,13 +427,32 @@ sql_check_relationship_property_class = """
 # '@none' for the default instance, so no such row exists today and no fixture
 # produces one -- which is precisely why it would have gone unnoticed until it
 # did. NULL means the default instance, exactly as '@none' does.
+#
+# STATE_TTL('A1' = '0d') pins the aggregate, and only the aggregate. Measured on
+# a cluster: the snapshot published exactly one row for urn:plasmacutter:1
+# hasFilter, datasetId '@none', while the job -- running this very COUNT
+# DISTINCT -- reported 2. With a single distinct value entering it, the count
+# cannot legitimately be 2, so the surplus was in accumulated state. Expiry is
+# what lets it drift: a count over a changelog is maintained incrementally
+# across several state structures, TTL expires those independently, and once
+# they disagree nothing brings them back -- republishing the same value
+# increments a counter that is already inconsistent. Compare FLINK-29225, still
+# open, and FLIP-544, which says plainly that per-element TTL "only works well
+# for non degenerated cases".
+#
+# A hint rather than the job-wide table.exec.state.ttl, because the two states
+# are nothing alike. This one holds an accumulator per (entity, constraint):
+# measured at 7 entities and 53 constraints, a few hundred rows, bounded by the
+# MODEL. The attribute and entity dedup views hold a row per attribute ever
+# seen and grow with churn, so they keep their TTL. Flink 1.19 added STATE_TTL
+# for group aggregations and accepts a query block alias such as A1 as the key.
 sql_check_relationship_property_count = """
             {%- set instance_count %}COUNT(DISTINCT CASE WHEN NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN COALESCE(`index`, '@none') ELSE NULL END){% endset %}
             {% set constraint_cond %}
             ({{ instance_count }} > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
                                             OR {{ instance_count }} < SQL_DIALECT_CAST(`minCount` AS INTEGER))
             {% endset %}
-            SELECT this AS resource,
+            SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
                 'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
                 `constraint_id` as constraint_id,
                 true as triggered,
@@ -530,7 +549,7 @@ sql_check_property_count = """
     ({{ instance_count }} > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
                                     OR {{ instance_count }} < SQL_DIALECT_CAST(`minCount` AS INTEGER))
 {% endset %}
-SELECT this AS resource,
+SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
     'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
     `constraint_id` as constraint_id,
     true as triggered,

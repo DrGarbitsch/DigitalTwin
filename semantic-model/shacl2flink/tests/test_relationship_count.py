@@ -150,6 +150,27 @@ def test_relationship_and_property_counts_agree():
     'sql_check_relationship_property_count',
     'sql_check_property_count',
 ])
+def test_the_count_aggregate_state_never_expires(template_name):
+    """The accumulator must not be allowed to drift.
+
+    A count over a changelog is maintained incrementally across several state
+    structures; state TTL expires those independently, and once they disagree
+    nothing reconciles them -- republishing a value increments a counter that is
+    already inconsistent. Measured on a cluster: one row published for
+    urn:plasmacutter:1 hasFilter, datasetId '@none', counted as 2.
+
+    Pinned per operator rather than job-wide: this state is one accumulator per
+    (entity, constraint) and bounded by the model, while the dedup views grow
+    with churn and keep their TTL.
+    """
+    template = getattr(props, template_name)
+    assert "STATE_TTL('A1' = '0d')" in template
+
+
+@pytest.mark.parametrize('template_name', [
+    'sql_check_relationship_property_count',
+    'sql_check_property_count',
+])
 def test_count_is_used_everywhere_in_the_template(template_name):
     """Message and both HAVING comparisons must use the same expression.
 
