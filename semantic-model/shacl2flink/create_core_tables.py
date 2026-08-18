@@ -158,7 +158,24 @@ def main():
         {'lang': 'STRING'},
         {'deleted': 'BOOLEAN'},
         {'synced': 'BOOLEAN'},
-        {'watermark': 'FOR `ts` AS `ts`'},
+        # No WATERMARK. `ts` is the Kafka record timestamp, and the bridge
+        # stamps attribute records with their observedAt -- event times that
+        # span years, not arrival times. Declaring ts a rowtime turns the
+        # attributes_view dedup into an EVENT-TIME Deduplicate, and with zero
+        # lateness the first record of a snapshot burst carrying a recent
+        # observedAt drives the watermark to now; every remaining record in the
+        # burst with an older observedAt is then late and silently dropped.
+        # Measured: 753 records into the dedup, 4 out, joins downstream starved,
+        # and every constraint over them reporting "Found 0" for attributes that
+        # demonstrably exist. Republishing one value with a CURRENT timestamp
+        # made it visible within seconds, which is the same effect seen from the
+        # other side.
+        #
+        # Without the declaration ts is an ordinary column: ORDER BY ts DESC
+        # still picks the right winner, but nothing is discarded for being late.
+        # These are entity-state tables, not windowed analytics -- nothing in
+        # the circuit windows over them, and alerts_bulk keeps its own watermark
+        # for the alerting path.
         {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"}
     ]
     sqlite_table = [
@@ -175,7 +192,6 @@ def main():
         {'lang': 'TEXT'},
         {'deleted': 'BOOLEAN'},
         {'synced': 'BOOLEAN'},
-        {'watermark': 'FOR `ts` AS `ts`'},
         {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"}
     ]
     primary_key = None
