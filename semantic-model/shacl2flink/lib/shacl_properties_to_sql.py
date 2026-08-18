@@ -455,17 +455,18 @@ sql_check_relationship_property_count = """
             SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
                 'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
                 `constraint_id` as constraint_id,
-                true as triggered,
+                {{ constraint_cond }} as triggered,
                 `severity` AS severity,
+               CASE WHEN {{ constraint_cond }} THEN
                'Model validation for relationship ' || `propertyPath` || ' failed for ' || this || '. Found ' ||
                             SQL_DIALECT_CAST({{ instance_count }} AS STRING) || ' relationships instead of [' || IFNULL(`minCount`, '0') || ', ' || IFNULL(`maxCount`, '*') || ']!'
+               ELSE NULL END
                     as `text`
                 {%- if sqlite %}
                 ,CURRENT_TIMESTAMP
                 {%- endif %}
             FROM A1 WHERE `minCount` is NOT NULL or `maxCount` is NOT NULL
             GROUP BY this, propertyPath, maxCount, minCount, severity, constraint_id, parentPath
-            HAVING {{ constraint_cond }}
 """  # noqa: E501
 
 sql_check_relationship_nodeType = """
@@ -552,17 +553,18 @@ sql_check_property_count = """
 SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
     'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
     `constraint_id` as constraint_id,
-    true as triggered,
+    {{ constraint_cond }} as triggered,
     `severity` AS severity,
+   CASE WHEN {{ constraint_cond }} THEN
    'Model validation for Property ' || `propertyPath` || ' failed for ' || this || '. Found ' ||
                             SQL_DIALECT_CAST({{ instance_count }} AS STRING) || ' properties instead of [' || IFNULL(`minCount`, '0') || ', ' || IFNULL(`maxCount`, '*') || ']!'
+   ELSE NULL END
         as `text`
         {% if sqlite %}
         ,CURRENT_TIMESTAMP
         {% endif %}
 FROM A1  WHERE `minCount` is NOT NULL or `maxCount` is NOT NULL
 GROUP BY this, typ, propertyPath, minCount, maxCount, severity, constraint_id, parentPath
-HAVING {{ constraint_cond }}
 """  # noqa: E501
 
 sql_check_property_iri_class = """

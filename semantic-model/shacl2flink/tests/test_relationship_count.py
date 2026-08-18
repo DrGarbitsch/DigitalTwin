@@ -150,6 +150,31 @@ def test_relationship_and_property_counts_agree():
     'sql_check_relationship_property_count',
     'sql_check_property_count',
 ])
+def test_a_verdict_is_emitted_even_when_the_constraint_holds(template_name):
+    """"Not violated" must be a row, not the absence of one.
+
+    These statements used to filter with HAVING, so a constraint that stopped
+    being violated simply stopped producing a row and the only signal was a
+    retraction. Measured on a cluster: after a redeploy the job wrote nothing at
+    all for two constraints it had evaluated as satisfied, and the alerts they
+    had raised stayed open in Alerta indefinitely, because nothing ever said
+    they had cleared.
+
+    Emitting `triggered` as the condition means a satisfied constraint states so
+    explicitly, which survives state expiry in a way a missing row cannot. The
+    cost is a row per (entity, constraint) rather than per violation.
+    """
+    template = getattr(props, template_name)
+    assert '{{ constraint_cond }} as triggered' in template
+    assert 'true as triggered' not in template
+    assert 'HAVING' not in template, \
+        'filtering with HAVING makes "not violated" indistinguishable from silence'
+
+
+@pytest.mark.parametrize('template_name', [
+    'sql_check_relationship_property_count',
+    'sql_check_property_count',
+])
 def test_the_count_aggregate_state_never_expires(template_name):
     """The accumulator must not be allowed to drift.
 

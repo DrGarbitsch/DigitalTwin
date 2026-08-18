@@ -148,9 +148,12 @@ def test_count_checks_do_not_group_by_edeleted():
     accumulator was rebuilt from fewer rows is what produced "-1".
     """
     for name, sql in _generated_checks().items():
-        clauses = re.findall(r'GROUP\s+BY\s(.*?)\sHAVING', sql,
-                             re.IGNORECASE | re.DOTALL)
-        assert clauses, f'{name}: no GROUP BY ... HAVING found to check'
+        # Terminated by HAVING, the next statement, or the end of the SQL --
+        # the count checks no longer use HAVING at all, since a satisfied
+        # constraint now emits `triggered = false` rather than no row.
+        clauses = re.findall(r'GROUP\s+BY\s(.*?)(?:\sHAVING\s|\sUNION\s+ALL\s|;|$)',
+                             sql, re.IGNORECASE | re.DOTALL)
+        assert clauses, f'{name}: no GROUP BY found to check'
         for group_by in clauses:
             assert 'edeleted' not in group_by.lower(), \
                 f'{name}: edeleted is a grouping key again in {group_by.strip()}'
