@@ -406,10 +406,32 @@ sql_check_relationship_property_class = """
 # Deleted entities are filtered out of A1 instead, so deleting one EMPTIES the
 # group and Flink retracts the alert as it does for any group that ceases to
 # exist.
+#
+# The count is over DISTINCT datasetIds, matching sql_check_property_count. It
+# used to sum one per row, which counts the same relationship twice whenever two
+# rows for it reach the aggregate. That is not hypothetical: attributes_view
+# deduplicates on (id, datasetId) under a state TTL, and a relationship that is
+# deleted stops being republished by the periodic snapshot -- it no longer
+# exists to snapshot -- so its key is the one key guaranteed to expire.
+# Recreating it later then arrives as an INSERT rather than an update, the -U
+# withdrawing the old row is never emitted, and both rows are summed. Measured:
+# hasFilter on urn:plasmacutter:1, deleted 18:17:26 and recreated 05:37:32,
+# reported as "Found 2 relationships instead of [1, 1]!" while the store held
+# exactly one. datasetId is what distinguishes instances of a multi-attribute,
+# so counting distinct values of it is both the correct cardinality and immune
+# to a duplicate row -- the same reasoning that already applies to properties.
+#
+# COALESCE, because COUNT(DISTINCT ...) skips NULLs: a matched row whose
+# datasetId is NULL would otherwise count zero where the previous row-count
+# counted one, turning a satisfied constraint into "Found 0". The bridge writes
+# '@none' for the default instance, so no such row exists today and no fixture
+# produces one -- which is precisely why it would have gone unnoticed until it
+# did. NULL means the default instance, exactly as '@none' does.
 sql_check_relationship_property_count = """
+            {%- set instance_count %}COUNT(DISTINCT CASE WHEN NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN COALESCE(`index`, '@none') ELSE NULL END){% endset %}
             {% set constraint_cond %}
-            (SUM(CASE WHEN NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN 1 ELSE 0 END) > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
-                                            OR SUM(CASE WHEN NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN 1 ELSE 0 END) < SQL_DIALECT_CAST(`minCount` AS INTEGER))
+            ({{ instance_count }} > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
+                                            OR {{ instance_count }} < SQL_DIALECT_CAST(`minCount` AS INTEGER))
             {% endset %}
             SELECT this AS resource,
                 'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
@@ -417,7 +439,7 @@ sql_check_relationship_property_count = """
                 true as triggered,
                 `severity` AS severity,
                'Model validation for relationship ' || `propertyPath` || ' failed for ' || this || '. Found ' ||
-                            SQL_DIALECT_CAST(SUM(CASE WHEN NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN 1 ELSE 0 END) AS STRING) || ' relationships instead of [' || IFNULL(`minCount`, '0') || ', ' || IFNULL(`maxCount`, '*') || ']!'
+                            SQL_DIALECT_CAST({{ instance_count }} AS STRING) || ' relationships instead of [' || IFNULL(`minCount`, '0') || ', ' || IFNULL(`maxCount`, '*') || ']!'
                     as `text`
                 {%- if sqlite %}
                 ,CURRENT_TIMESTAMP
@@ -503,7 +525,7 @@ WITH A1 AS (SELECT /*+ STATE_TTL('D' = '0d', 'C' = '0d') */ A.id as this,
 # absorb: one attribute matched by several sub-property joins still counts
 # once.
 sql_check_property_count = """
-{%- set instance_count %}COUNT(DISTINCT CASE WHEN NOT COALESCE(adeleted, FALSE) and attr_typ IS NOT NULL THEN `index` ELSE NULL END){% endset %}
+{%- set instance_count %}COUNT(DISTINCT CASE WHEN NOT COALESCE(adeleted, FALSE) and attr_typ IS NOT NULL THEN COALESCE(`index`, '@none') ELSE NULL END){% endset %}
 {% set constraint_cond%}
     ({{ instance_count }} > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
                                     OR {{ instance_count }} < SQL_DIALECT_CAST(`minCount` AS INTEGER))
