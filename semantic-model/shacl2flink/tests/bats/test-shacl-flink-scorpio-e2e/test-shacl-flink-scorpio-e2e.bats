@@ -56,6 +56,11 @@ LINKED_TYPE=${E2E}/E2ELinkedMachine
 CARTRIDGE_TYPE=${E2E}/E2ECartridge
 CARTRIDGE_REL=${E2E}/hasE2ECartridge
 
+# The constraint components as they appear in an alert's event field, which is
+# where a shacl alert says which check it came from.
+COUNT_CONSTRAINT=CountConstraintComponent
+CLASS_CONSTRAINT=ClassConstraintComponent
+
 # A fresh id per run. Alerts are keyed by resource, and a resource that already
 # carries a closed alert from an earlier run would let a test pass on history
 # rather than on what this run produced.
@@ -125,9 +130,20 @@ delete_entity() {
         -H "Authorization: Bearer $(get_token)" "${NGSILD_URL}/entities/$1"
 }
 
+# open_alerts_for <resource> [event-substring]
+#
+# Counting every alert on a resource would let an unrelated violation stand in
+# for the one under test, and a shape usually constrains more than one path, so
+# there is generally one available to do it. The event names the constraint
+# component and the path it fired on, so naming it is what makes the assertion
+# specific. Leave it out only where the claim really is "nothing at all is open
+# on this resource" -- which is exactly the claim to make about an entity that
+# has been deleted.
 open_alerts_for() {
     curl -s -H "Authorization: Key ${ALERTA_KEY}" "${ALERTA_URL}/alerts?status=open" \
-        | jq --arg r "$1" '[.alerts[] | select(.resource == $r)] | length'
+        | jq --arg r "$1" --arg e "${2:-}" \
+            '[.alerts[] | select(.resource == $r)
+                        | select($e == "" or (.event | contains($e)))] | length'
 }
 
 # Every open alert on a resource, one per line, for failure diagnostics.
@@ -136,43 +152,30 @@ alert_texts_for() {
         | jq -r --arg r "$1" '.alerts[] | select(.resource == $r) | "\(.event): \(.text)"'
 }
 
-wait_for_alert() {
-    local resource=$1 timeout=$2 waited=0
-    while [ "${waited}" -lt "${timeout}" ]; do
-        [ "$(open_alerts_for "${resource}")" -gt 0 ] && return 0
-        sleep "${POLL}"
-        waited=$((waited + POLL))
-    done
-    return 1
-}
-
-wait_for_no_alert() {
-    local resource=$1 timeout=$2 waited=0
-    while [ "${waited}" -lt "${timeout}" ]; do
-        [ "$(open_alerts_for "${resource}")" -eq 0 ] && return 0
-        sleep "${POLL}"
-        waited=$((waited + POLL))
-    done
-    return 1
-}
-
-# Assert an alert shows up, printing what Alerta holds if it does not.
+# Assert a matching alert shows up, printing what Alerta holds if none does.
 assert_alert() {
-    run wait_for_alert "$1" "${TIMEOUT}"
-    if [ "$status" -ne 0 ]; then
-        echo "# no alert on $1 within ${TIMEOUT}s" >&3
-    fi
-    [ "$status" -eq 0 ]
+    local resource=$1 event=${2:-} waited=0
+    while [ "${waited}" -lt "${TIMEOUT}" ]; do
+        [ "$(open_alerts_for "${resource}" "${event}")" -gt 0 ] && return 0
+        sleep "${POLL}"
+        waited=$((waited + POLL))
+    done
+    echo "# no ${event:-shacl} alert on ${resource} within ${TIMEOUT}s; open now:" >&3
+    alert_texts_for "${resource}" | sed 's/^/#   /' >&3 || true
+    return 1
 }
 
-# Assert every alert on a resource closes -- the assertion this file exists for.
+# Assert the matching alerts close -- the assertion this file exists for.
 assert_no_alert() {
-    run wait_for_no_alert "$1" "${TIMEOUT}"
-    if [ "$status" -ne 0 ]; then
-        echo "# alerts on $1 still open after ${TIMEOUT}s:" >&3
-        alert_texts_for "$1" | sed 's/^/#   /' >&3
-    fi
-    [ "$status" -eq 0 ]
+    local resource=$1 event=${2:-} waited=0
+    while [ "${waited}" -lt "${TIMEOUT}" ]; do
+        [ "$(open_alerts_for "${resource}" "${event}")" -eq 0 ] && return 0
+        sleep "${POLL}"
+        waited=$((waited + POLL))
+    done
+    echo "# alerts on ${resource} still open after ${TIMEOUT}s:" >&3
+    alert_texts_for "${resource}" | sed 's/^/#   /' >&3
+    return 1
 }
 
 @test "scorpio and alerta are reachable with the platform credentials" {
@@ -194,7 +197,7 @@ assert_no_alert() {
     code=$(create_entity "${TEST_MISSING}" "${MACHINE_TYPE}")
     [ "${code}" = "201" ]
     echo "# created ${TEST_MISSING} without its mandatory attribute" >&3
-    assert_alert "${TEST_MISSING}"
+    assert_alert "${TEST_MISSING}" "${COUNT_CONSTRAINT}"
 
     code=$(delete_entity "${TEST_MISSING}")
     [ "${code}" = "204" ]
@@ -216,7 +219,7 @@ assert_no_alert() {
     # resolves, and it must be reported against the entity that still exists.
     code=$(delete_entity "${TEST_TARGET}")
     [ "${code}" = "204" ]
-    assert_alert "${TEST_LINKED}"
+    assert_alert "${TEST_LINKED}" "${CLASS_CONSTRAINT}"
 
     # Putting the target back has to retract it again. An alert that survives
     # the condition that raised it is the failure this suite is here to catch.
@@ -233,7 +236,7 @@ assert_no_alert() {
     # Recreating the same id has to raise the alert again.
     code=$(create_entity "${TEST_RECREATE}" "${MACHINE_TYPE}")
     [ "${code}" = "201" ]
-    assert_alert "${TEST_RECREATE}"
+    assert_alert "${TEST_RECREATE}" "${COUNT_CONSTRAINT}"
 
     code=$(delete_entity "${TEST_RECREATE}")
     [ "${code}" = "204" ]
@@ -243,5 +246,5 @@ assert_no_alert() {
     code=$(create_entity "${TEST_RECREATE}" "${MACHINE_TYPE}")
     [ "${code}" = "201" ]
     echo "# recreated ${TEST_RECREATE} under the same id" >&3
-    assert_alert "${TEST_RECREATE}"
+    assert_alert "${TEST_RECREATE}" "${COUNT_CONSTRAINT}"
 }
