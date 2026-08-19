@@ -134,6 +134,33 @@ make flink-deploy
 make flink-undeploy
 ```
 
+## A deleted entity only clears its alert inside the state ttl window
+
+Deleting an entity retracts its alerts only while the state that produced the
+verdict still exists. Once `table.exec.state.ttl` has expired it, the operator
+no longer knows it ever reported a violation, so the deletion produces no
+retraction: `constraint_trigger_table` keeps the stale verdict, nothing
+recomputes a verdict for an entity that is no longer there, and the alert stays
+open in Alerta for good. Nothing in the logs marks this, and a stale alert
+looks exactly like a live one.
+
+Measured against the deployed 3600 s ttl: an entity deleted immediately clears
+in about five seconds; the same entity deleted after 70 minutes does not clear
+at all. The boundary follows the setting rather than the elapsed time -- at
+`table.exec.state.ttl = 300 s` a 60 s soak clears and a 420 s soak does not,
+and with the ttl disabled entirely that same 420 s soak clears again.
+
+To see it on a running cluster in about a quarter of an hour:
+
+```bash
+tools/ttl_retraction_repro.sh [namespace]
+```
+
+It shrinks the ttl, runs one cycle on each side of it, and restores the
+original setting on the way out. Raising the ttl moves the boundary but does
+not remove it: alerta remembers alerts indefinitely while flink's state does
+not, so any finite ttl eventually drops a retraction.
+
 # References
 
 [RDF] RDF
