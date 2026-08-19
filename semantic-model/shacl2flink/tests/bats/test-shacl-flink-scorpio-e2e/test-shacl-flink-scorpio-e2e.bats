@@ -60,6 +60,17 @@ CARTRIDGE_REL=${E2E}/hasE2ECartridge
 # where a shacl alert says which check it came from.
 COUNT_CONSTRAINT=CountConstraintComponent
 CLASS_CONSTRAINT=ClassConstraintComponent
+SPARQL_CONSTRAINT=SPARQLConstraintComponent
+
+# The knowledge-backed state, and two values from tests/e2e-kms/knowledge.ttl:
+# e2e_state_GOOD is isValidForE2E the focus class, e2e_state_ELSEWHERE only an
+# unrelated one. Deciding which is which means walking rdfs:subClassOf* through
+# the rdf table, so this pair is the only thing in the suite that reaches the
+# knowledge at all.
+KNOWN_STATE_PROP=${E2E}/hasE2EKnownState
+KNOWLEDGE_TYPE=${E2E}/E2EKnowledgeMachine
+STATE_GOOD=${E2E}/e2e_state_GOOD
+STATE_ELSEWHERE=${E2E}/e2e_state_ELSEWHERE
 
 # A fresh id per run. Alerts are keyed by resource, and a resource that already
 # carries a closed alert from an earlier run would let a test pass on history
@@ -79,6 +90,7 @@ TEST_MISSING="urn:e2e-scorpio-missing:${RUN_ID}"
 TEST_LINKED="urn:e2e-scorpio-linked:${RUN_ID}"
 TEST_TARGET="urn:e2e-scorpio-target:${RUN_ID}"
 TEST_RECREATE="urn:e2e-scorpio-recreate:${RUN_ID}"
+TEST_SPARQL="urn:e2e-scorpio-sparql:${RUN_ID}"
 
 # On an idle cluster an alert appears about five seconds after the create and
 # closes about five seconds after the delete. The timeout is set two orders of
@@ -94,7 +106,7 @@ setup() {
 
 teardown() {
     for id in "${TEST_MISSING}" "${TEST_LINKED}" "${TEST_TARGET}" "${TEST_RECREATE}" \
-              ${CYCLE_IDS}; do
+              "${TEST_SPARQL}" ${CYCLE_IDS}; do
         delete_entity "${id}" >/dev/null 2>&1 || true
     done
 }
@@ -134,6 +146,23 @@ create_entity() {
 # A relationship to <target>, as the extra member of a create_entity body.
 relationship_json() {
     printf '"%s":{"type":"Relationship","object":"%s"}' "$1" "$2"
+}
+
+# A Property whose value is an IRI, which is what a knowledge lookup needs: the
+# SPARQL constraint resolves the value against the ontology, and a literal
+# could never match.
+iri_property_json() {
+    printf '"%s":{"type":"Property","value":{"@id":"%s"}}' "$1" "$2"
+}
+
+# Replace the default instance of an attribute on an existing entity.
+set_iri_property() {
+    local id=$1 prop=$2 value=$3
+    printf '{"@context":"%s",%s}' "${CONTEXT}" "$(iri_property_json "${prop}" "${value}")" \
+        | curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $(get_token)" \
+            -H 'Content-Type: application/ld+json' \
+            --data-binary @- "${NGSILD_URL}/entities/${id}/attrs"
 }
 
 delete_entity() {
@@ -302,6 +331,33 @@ assert_no_alert() {
     [ "${code}" = "201" ]
     echo "# restored ${TEST_TARGET}" >&3
     assert_no_alert "${TEST_LINKED}"
+}
+
+@test "a sparql constraint reads the knowledge, and clears when the value becomes valid" {
+    # The production KMS carries four sh:sparql constraints and this suite
+    # carried none, so no e2e test had ever run one against Flink -- they were
+    # exercised offline against the SQLite oracle only. That gap hides a whole
+    # class of divergence, because a SPARQL constraint reaches the ontology
+    # through the `rdf` table, and in Flink that is join STATE rather than a
+    # table that is simply there. State can go away; a table cannot. The oracle
+    # cannot tell the difference and will happily keep agreeing with itself.
+    #
+    # e2e_state_ELSEWHERE is isValidForE2E E2ECartridge, not the focus class,
+    # so a machine carrying it violates -- and deciding that requires walking
+    # rdfs:subClassOf* through the knowledge rather than reading an attribute.
+    code=$(create_entity "${TEST_SPARQL}" "${KNOWLEDGE_TYPE}" \
+        "$(iri_property_json "${KNOWN_STATE_PROP}" "${STATE_ELSEWHERE}")")
+    [ "${code}" = "201" ]
+    echo "# ${TEST_SPARQL} carries a state valid only for another class" >&3
+    assert_alert "${TEST_SPARQL}" "${SPARQL_CONSTRAINT}"
+
+    # Swapping in a state that IS valid for this class has to retract it. This
+    # half is what fails if the knowledge has gone out of the join: with no rdf
+    # rows to match, the constraint answers the same way whatever the value is.
+    code=$(set_iri_property "${TEST_SPARQL}" "${KNOWN_STATE_PROP}" "${STATE_GOOD}")
+    [ "${code}" = "204" ]
+    echo "# swapped it for a state that is valid" >&3
+    assert_no_alert "${TEST_SPARQL}" "${SPARQL_CONSTRAINT}"
 }
 
 @test "the model instance survives being deployed, deleted and deployed again" {
