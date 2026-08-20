@@ -95,13 +95,13 @@ spec:
     - lang: STRING
     - deleted: BOOLEAN
     - synced: BOOLEAN
-    # No WATERMARK. `ts` is the Kafka record timestamp and the bridge stamps
-    # attribute records with their observedAt -- event times spanning years,
-    # not arrival times. As a rowtime it turns the attributes_view dedup into
-    # an event-time Deduplicate: the first record of a snapshot burst carrying
-    # a recent observedAt drives the watermark to now, and every remaining
-    # record in the burst with an older observedAt is late and silently
-    # dropped. See create_core_tables.py, which this file must mirror.
+    # No WATERMARK. Nothing windows over this table, and only time-based
+    # operators consume a watermark. What the declaration would change is which
+    # operator backs the attributes_view dedup -- a rowtime Deduplicate accepts
+    # a later row of EQUAL ts, a general Rank keeps the incumbent -- and a
+    # delete is stamped with the ts of the value it deletes, so those two tie
+    # exactly. The `offset` column below settles that explicitly rather than
+    # leaving it to operator choice. Mirrors create_core_tables.py.
     - 'ts': TIMESTAMP(3) METADATA FROM 'timestamp'
     - 'offset': BIGINT METADATA VIRTUAL
   kafka:
