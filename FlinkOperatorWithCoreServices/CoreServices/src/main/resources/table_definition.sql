@@ -13,6 +13,17 @@ CREATE TABLE attributes (
     `deleted` BOOLEAN,
     `synced` BOOLEAN,
     `ts` TIMESTAMP(3) METADATA FROM 'timestamp' VIRTUAL,
+    -- Arrival order, to break ties on `ts`. debeziumBridge stamps a DELETE
+    -- with the timestamp of the value it deletes -- deliberately the same one,
+    -- so that a re-creation observed at the same instant can still win. Event
+    -- time therefore cannot separate a value from its own delete, and neither
+    -- can it separate the two re-emissions a snapshot produces. The offset is
+    -- strictly monotonic per partition, so it settles exactly those ties and
+    -- nothing else: `ts` stays the primary ordering, this is only the
+    -- tiebreaker beneath it.
+    `offset` BIGINT METADATA VIRTUAL,
+    -- The WATERMARK stays. Unlike the shacl tables, this one IS windowed:
+    -- sql_statements.sql tumbles over it, and a window needs a rowtime.
     WATERMARK FOR ts AS ts
 ) WITH (
   'connector' = 'kafka',
@@ -93,7 +104,10 @@ SELECT
 `ts` FROM (
   SELECT *,
 ROW_NUMBER() OVER (PARTITION BY `id`, `datasetId`
-ORDER BY ts DESC) AS rownum
+-- ts first, offset only to settle a tie. A value and its delete carry the
+-- SAME ts by design, so without this the winner is whichever the operator
+-- happened to keep. Mirrors attributes_view in the sql-core chart.
+ORDER BY ts DESC, `offset` DESC) AS rownum
 FROM `attributes` )
 WHERE rownum = 1;
 

@@ -58,7 +58,16 @@ FROM (
         *,
         ROW_NUMBER() OVER (
           PARTITION BY entityId, name, datasetId, window_start, window_end
-          ORDER BY ts DESC
+          /* The window is one millisecond and `ts` is its descriptor, so every
+             row in a window shares the same ts and ORDER BY ts alone is a
+             TOTAL tie for a key -- the winner was whichever row the operator
+             happened to hold. That matters most for the case this pipeline
+             exists to carry: a value and its delete are stamped with the same
+             timestamp on purpose, so they land in the SAME window and the
+             writeback picked between them arbitrarily. The offset is strictly
+             monotonic per partition, so it resolves the tie by arrival without
+             disturbing the event-time ordering above it. */
+          ORDER BY ts DESC, `offset` DESC
         ) AS row_num
       FROM TABLE(
         TUMBLE(
