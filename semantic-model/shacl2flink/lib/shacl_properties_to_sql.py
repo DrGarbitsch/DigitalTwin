@@ -444,13 +444,29 @@ sql_check_relationship_property_class = """
 # relationships that exist exactly once -- measured on hasCartridge, hasFilter
 # and hasXXXWorkpiece, where tsdb held a single row per attribute. A count must
 # count live data only.
+#
+# STATE_TTL('A1' = '0d') pins the ACCUMULATOR, and it is load-bearing. Without
+# it the aggregate inherits table.exec.state.ttl, and once an accumulator has
+# expired the next input for that group is a RETRACTION with nothing to subtract
+# from, so it is dropped in silence: the constraint can then neither fire nor
+# clear, for the life of the job.
+#
+# Measured with per-vertex counters on the same verified delete, fresh job
+# versus one past the TTL, everything upstream byte-identical:
+#
+#   GlobalGroupAggregate[269]   fresh: in+1 out+1     aged: in+1 out+0
+#
+# numRestarts was 0, so this is expiry and not a crash. Pinning the join inputs
+# alone (D, C) does not help -- they are a different piece of state. Note the
+# aggregate is only WRITTEN on a genuine change, so the kafka-connect cron that
+# keeps entities_view and attributes_view alive cannot reach it.
 sql_check_relationship_property_count = """
             {% set constraint_cond %}
             (MAX(CASE WHEN edeleted THEN 1 ELSE 0 END) = 0 AND
             (SUM(CASE WHEN NOT edeleted AND NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN 1 ELSE 0 END) > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
                                             OR SUM(CASE WHEN NOT edeleted AND NOT COALESCE(adeleted, FALSE) AND link IS NOT NULL THEN 1 ELSE 0 END) < SQL_DIALECT_CAST(`minCount` AS INTEGER)))
             {% endset %}
-            SELECT this AS resource,
+            SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
                 'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
                 `constraint_id` as constraint_id,
                 true as triggered,
@@ -547,7 +563,7 @@ sql_check_property_count = """
     ({{ instance_count }} > SQL_DIALECT_CAST(`maxCount` AS INTEGER)
                                     OR {{ instance_count }} < SQL_DIALECT_CAST(`minCount` AS INTEGER)))
 {% endset %}
-SELECT this AS resource,
+SELECT /*+ STATE_TTL('A1' = '0d') */ this AS resource,
     'CountConstraintComponent(' || `parentPath` || `propertyPath` || ')' AS event,
     `constraint_id` as constraint_id,
     true as triggered,
