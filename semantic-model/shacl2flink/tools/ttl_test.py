@@ -552,6 +552,59 @@ def event_time_check(stats, token, key, fam, phase):
     stats.snap(f'{phase}:eventtime:after')
 
 
+def watch_resync_cadence(fam, namespace, ttl, wake):
+    """While idling, verify the platform's re-feed actually happens.
+
+    Unpinned join state only survives because the kafka-connect-restart cron
+    forces a Debezium re-snapshot every TTL/2, republishing every entity.
+    Watch iff.ngsild.entities during the idle window and assert that each
+    family entity keeps arriving with gaps of at most TTL/2 plus latency
+    slack -- a mistuned cron then fails HERE, not two phases later as an
+    inexplicable join silence."""
+    topic = 'iff.ngsild.entities'
+
+    def end_offset():
+        out = sh(f"kubectl -n {namespace} exec my-cluster-nodes-0 -- sh -c"
+                 f" \"KAFKA_HEAP_OPTS='-Xmx192M' bin/kafka-get-offsets.sh"
+                 f" --bootstrap-server localhost:9092 --topic {topic}\" 2>/dev/null")
+        try:
+            return int(out.rsplit(':', 1)[1])
+        except Exception:
+            return None
+
+    last_seen = {eid: time.time() for eid in fam.all}
+    gaps = {eid: 0.0 for eid in fam.all}
+    pos = end_offset()
+    while time.time() < wake:
+        time.sleep(min(60, max(1, wake - time.time())))
+        now = time.time()
+        end = end_offset()
+        if pos is None or end is None:
+            pos = end
+            continue
+        if end > pos:
+            n = end - pos
+            recs = sh(f"kubectl -n {namespace} exec my-cluster-nodes-0 -- sh -c"
+                      f" \"KAFKA_HEAP_OPTS='-Xmx192M' bin/kafka-console-consumer.sh"
+                      f" --bootstrap-server localhost:9092 --topic {topic} --partition 0"
+                      f" --offset {pos} --max-messages {n} --timeout-ms 15000\" 2>/dev/null")
+            for eid in fam.all:
+                if eid in recs:
+                    gaps[eid] = max(gaps[eid], now - last_seen[eid])
+                    last_seen[eid] = now
+            pos = end
+    now = time.time()
+    for eid in fam.all:
+        gaps[eid] = max(gaps[eid], now - last_seen[eid])
+    worst = max(gaps.values())
+    # allowed: TTL/2 target + one cron slot + restart-to-snapshot latency +
+    # the one-minute sampling of this watcher
+    allowed = ttl / 2 + 240
+    ok = worst <= allowed
+    detail = f"worst republication gap {worst:.0f}s (allowed {allowed:.0f}s, ttl {ttl}s)"
+    record('ttl', 'resync-cadence', ok, detail)
+
+
 def reset_family(token, fam):
     """Force complete re-publication: delete + recreate one attribute per
     entity (the bridge only re-emits the entity record when an attribute is
@@ -627,8 +680,7 @@ def main():
         idle = ttl * args.idle_factor
         wake = last_write + idle
         log(f"=== phase TTL: idling {idle:.0f}s ({args.idle_factor:.1f} x {ttl}s TTL) ===")
-        while time.time() < wake:
-            time.sleep(min(60, max(1, wake - time.time())))
+        watch_resync_cadence(fam, args.namespace, ttl, wake)
         log(f"idle over ({idle:.0f}s since last family write); re-running triggers")
         stats.snap('postttl:baseline')
         sparql_checks(stats, token, key, fam, 'postttl')
