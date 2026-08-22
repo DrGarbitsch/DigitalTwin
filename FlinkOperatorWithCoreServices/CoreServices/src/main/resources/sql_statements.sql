@@ -19,9 +19,13 @@ FROM (
 
       /* build the JSON fragment for this attribute */
       '{'
+      /* The EVENT time. This used to read `ts`, which was observedAt only
+         because the bridge put it in the record stamp. `ts` is the write time
+         now, so reading it here would stamp every attribute written back to
+         Scorpio with the moment we happened to forward it. */
       || '"observedAt":"' 
-         || DATE_FORMAT(ts, 'yyyy-MM-dd''T''HH:mm:ss.') 
-         || CAST(EXTRACT(MILLISECOND FROM ts) AS STRING) || 'Z",'
+         || DATE_FORMAT(COALESCE(`observedAt`, `ts`), 'yyyy-MM-dd''T''HH:mm:ss.') 
+         || CAST(EXTRACT(MILLISECOND FROM COALESCE(`observedAt`, `ts`)) AS STRING) || 'Z",'
       || '"type":"' || type || '",'
       || '"datasetId":"' 
          || IF(datasetId IS NOT NULL, datasetId, '@none') || '"'
@@ -67,7 +71,7 @@ FROM (
              writeback picked between them arbitrarily. The offset is strictly
              monotonic per partition, so it resolves the tie by arrival without
              disturbing the event-time ordering above it. */
-          ORDER BY ts DESC, `offset` DESC
+          ORDER BY COALESCE(`observedAt`, `ts`) DESC, `offset` DESC
         ) AS row_num
       FROM TABLE(
         TUMBLE(

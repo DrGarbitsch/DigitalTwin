@@ -182,6 +182,11 @@ def main():
         # old-observedAt records to be "dropped as late". That was wrong. A
         # keyed dedup discards an older-rowtime row for a key because of
         # ORDERING, not lateness, and it does so with or without a watermark.
+        # The EVENT time, carried in the payload by debeziumBridge as epoch
+        # millis. `ts` below is now the WRITE time -- kept for debugging, and
+        # nothing orders by it. See lib/utils.py create_yaml_view for why the
+        # two were separated.
+        {'observedAt': 'TIMESTAMP(3)'},
         {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"},
         # Arrival order, for attributes_view to break ties on. A delete carries
         # the timestamp of the value it deletes -- deliberately the same one --
@@ -204,6 +209,7 @@ def main():
         {'lang': 'TEXT'},
         {'deleted': 'BOOLEAN'},
         {'synced': 'BOOLEAN'},
+        {'observedAt': 'TIMESTAMP(3)'},
         {'ts': "TIMESTAMP(3) METADATA FROM 'timestamp'"}
     ]
     primary_key = None
