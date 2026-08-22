@@ -29,7 +29,7 @@ skeletons are word-for-word identical; this fixture is what pins that down —
 any future *real* divergence between the oracle and the deployed SQL shows up
 here as a one-line diff.
 
-## The two models
+## The three models
 
 `model1` is the model as shipped: the healthy baseline, where
 `StateOnCutterShape` is `ok`.
@@ -40,13 +40,24 @@ cutter keeps running. The two expected outputs differ in exactly one line:
     -'urn:plasmacutter:1','SPARQLConstraintComponent(StateOnCutterShape)','ok'
     +'urn:plasmacutter:1','SPARQLConstraintComponent(StateOnCutterShape)','critical'
 
-Everything else is identical, so a regression in that rule cannot hide behind
-unrelated noise.
+`model3` is the shipped model with `urn:plasmacutter:1` idling at `state_ON`
+while the filter keeps running — the trigger for `StateOnFilterShape`
+(*"Filter running without running assigned machine"*). Again one line:
 
-`model2` is a static file rather than a symlink, since it has to differ from the
-shipped model. If `model-instance.jsonld` gains or loses attributes, `model2`
-and both `_result` files need regenerating — and the one-line diff above is the
-check that it still isolates what it is meant to.
+    -'urn:filter:1','SPARQLConstraintComponent(StateOnFilterShape)','ok'
+    +'urn:filter:1','SPARQLConstraintComponent(StateOnFilterShape)','warning'
+
+That rule could never fire before 2026-08-22: it asked for `?pc a
+Plasmacutter` while the instance types the cutter as `Cutter`, and its FILTER
+compared against the typo `iffBaseEntities:state_PROCESSING`. `model3` is the
+regression guard for that fix — everything else in each diff is identical, so
+a regression in one rule cannot hide behind unrelated noise.
+
+`model2` and `model3` are static files rather than symlinks, since they have
+to differ from the shipped model. If `model-instance.jsonld` gains or loses
+attributes, both need regenerating along with all `_result` files — and the
+one-line diffs above are the check that they still isolate what they are
+meant to.
 
 The `CountConstraintComponent(hasState[0] ==> hasXXXWorkpiece)` warnings on
 `urn:cutter:1` and `urn:filter:1` in both models are correct: the shape requires
