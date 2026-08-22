@@ -112,8 +112,27 @@ def attribute_level_context(filter_deleted=False):
         f"{dataset_index(f'{aliases[level]}.`datasetId`')} || '] ==> ' END"
         for level in range(len(columns) - 1))
 
+    def ttl_pin(alias_names):
+        pins = ', '.join(f"'{a}' = '0d'" for a in alias_names)
+        return f"/*+ STATE_TTL({pins}) */"
+
     return {
         'attribute_joins': '\n            '.join(joins),
+        # Pin EVERY side of the base join, not just the constraint table.
+        # The inputs are deduplicated changelogs -- one live row per key --
+        # so this state is bounded by the number of live attributes, not by
+        # stream length. Left unpinned it expires under
+        # table.exec.state.ttl, and an expired join is dead for good:
+        # measured with per-vertex counters, a full debezium re-snapshot
+        # (~560 records) flowed into the expired joins and they emitted
+        # nothing, because the dedup rank folds identical re-publications
+        # into no-ops that never refresh downstream state.
+        # Aliases differ per base: the relationship base reads the entity
+        # class check as C and the subclass closure as G; the property base
+        # reads rdf as C. A hint naming an alias absent from the block is
+        # rejected by Flink, so each base gets exactly its own list.
+        'relationship_ttl_hint': ttl_pin(['A', 'D', 'C', 'G'] + list(aliases)),
+        'property_ttl_hint': ttl_pin(['A', 'D', 'C'] + list(aliases)),
         'deepest': deepest,
         'effective_path': effective_path,
         'parent_path': parent_path,
@@ -346,7 +365,7 @@ order by ?inheritedTargetclass
 sql_check_relationship_base = """
             INSERT {% if sqlite %}OR REPlACE{% endif %} INTO {{alerts_bulk_table}}
             WITH A1 as (
-                    SELECT /*+ STATE_TTL('D' = '0d') */ A.id AS this,
+                    SELECT {{ relationship_ttl_hint }} A.id AS this,
                         A.`type` as typ,
                         -- Deleted entities stay in A1 and carry the flag, so
                         -- that a count of zero can be told apart from an
@@ -501,7 +520,7 @@ sql_check_relationship_nodeType = """
 
 sql_check_property_iri_base = """
 INSERT {% if sqlite %} OR REPlACE{% endif %} INTO {{alerts_bulk_table}}
-WITH A1 AS (SELECT /*+ STATE_TTL('D' = '0d', 'C' = '0d') */ A.id as this,
+WITH A1 AS (SELECT {{ property_ttl_hint }} A.id as this,
                    A.`type` as typ,
                    -- Carried, not filtered; see sql_check_relationship_base.
                    IFNULL(A.`deleted`, false) as edeleted,
