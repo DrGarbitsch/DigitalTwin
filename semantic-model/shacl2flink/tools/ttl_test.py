@@ -123,17 +123,38 @@ def sh(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()
 
 
-def get_token(namespace, user, client_id, password):
-    if password is None:
-        password = sh(f"kubectl -n {namespace} get secret/credential-iff-realm-user-iff"
-                      " -o jsonpath='{.data.password}' | base64 -d")
-    form = urllib.parse.urlencode({'client_id': client_id, 'username': user,
-                                   'password': password,
-                                   'grant_type': 'password'}).encode()
-    req = urllib.request.Request(f'{KEYCLOAK}/{namespace}/protocol/openid-connect/token',
-                                 data=form, method='POST')
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())['access_token']
+class Token:
+    """Auto-refreshing bearer token.
+
+    Keycloak access tokens live ~5 minutes; a full run takes over an hour.
+    The first live run silently 401'd every write after minute five and the
+    post-TTL phases tested nothing -- hence: refresh proactively and pass
+    THIS object (not a string) everywhere."""
+
+    def __init__(self, namespace, user, client_id, password):
+        self.namespace = namespace
+        self.user = user
+        self.client_id = client_id
+        self.password = password or sh(
+            f"kubectl -n {namespace} get secret/credential-iff-realm-user-iff"
+            " -o jsonpath='{.data.password}' | base64 -d")
+        self.value = None
+        self.expires = 0.0
+
+    def get(self):
+        if time.time() > self.expires - 60:
+            form = urllib.parse.urlencode({'client_id': self.client_id,
+                                           'username': self.user,
+                                           'password': self.password,
+                                           'grant_type': 'password'}).encode()
+            req = urllib.request.Request(
+                f'{KEYCLOAK}/{self.namespace}/protocol/openid-connect/token',
+                data=form, method='POST')
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload = json.loads(resp.read())
+            self.value = payload['access_token']
+            self.expires = time.time() + float(payload.get('expires_in', 300))
+        return self.value
 
 
 def discover_ttl(namespace):
@@ -296,24 +317,34 @@ class Family:
         ]
 
 
+def _check_write(code, what):
+    """Every silent write failure voids whatever the test asserts next --
+    the first live run 401'd for an hour without anyone noticing."""
+    if code not in (200, 201, 204, 207):
+        log(f"   WRITE FAILED ({code}): {what}")
+    return code
+
+
 def upsert(token, entities):
-    return _req(f'{NGSILD}/entityOperations/upsert', 'POST', token, entities)
+    code, body = _req(f'{NGSILD}/entityOperations/upsert', 'POST', token.get(), entities)
+    _check_write(code, f'upsert of {len(entities)} entities')
+    return code, body
 
 
 def post_attr(token, eid, short, fragment):
     body = {'@context': CONTEXT, f'iffBaseEntities:{short}': fragment}
-    code, _ = _req(f'{NGSILD}/entities/{eid}/attrs', 'POST', token, body)
-    return code
+    code, _ = _req(f'{NGSILD}/entities/{eid}/attrs', 'POST', token.get(), body)
+    return _check_write(code, f'POST {short} on {eid}')
 
 
 def del_attr(token, eid, short):
     enc = urllib.parse.quote(f'{ENT}/{short}', safe='')
-    code, _ = _req(f'{NGSILD}/entities/{eid}/attrs/{enc}', 'DELETE', token)
-    return code
+    code, _ = _req(f'{NGSILD}/entities/{eid}/attrs/{enc}', 'DELETE', token.get())
+    return _check_write(code, f'DELETE {short} on {eid}')
 
 
 def del_entity(token, eid):
-    code, _ = _req(f'{NGSILD}/entities/{eid}', 'DELETE', token)
+    code, _ = _req(f'{NGSILD}/entities/{eid}', 'DELETE', token.get())
     return code
 
 
@@ -552,7 +583,7 @@ def main():
 
     run = args.run_id or uuid.uuid4().hex[:8]
     fam = Family(run)
-    token = get_token(args.namespace, args.user, args.client_id, args.password)
+    token = Token(args.namespace, args.user, args.client_id, args.password)
     key = alerta_key(args.namespace)
 
     if args.teardown:
