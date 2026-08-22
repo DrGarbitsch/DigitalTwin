@@ -60,12 +60,12 @@ The Flink REST API is reached on --flink-rest (default http://localhost:8081)
 and falls back to kubectl exec into the jobmanager pod.
 
 Usage:
-    python3 tools/release_test.py                      # full run (~3xTTL + 30 min)
-    python3 tools/release_test.py --phase fresh        # only the t=0 checks
-    python3 tools/release_test.py --phase ttl          # create, idle 3xTTL, retest
-    python3 tools/release_test.py --idle-factor 1      # shorten the idle wait
-    python3 tools/release_test.py --keep               # leave the family behind
-    python3 tools/release_test.py --teardown --run-id ab12cd34
+    python3 tools/ttl_test.py                      # full run (~3xTTL + 30 min)
+    python3 tools/ttl_test.py --phase fresh        # only the t=0 checks
+    python3 tools/ttl_test.py --phase ttl          # create, idle 3xTTL, retest
+    python3 tools/ttl_test.py --idle-factor 1      # shorten the idle wait
+    python3 tools/ttl_test.py --keep               # leave the family behind
+    python3 tools/ttl_test.py --teardown --run-id ab12cd34
 """
 
 import argparse
@@ -561,7 +561,7 @@ def main():
         return 0
 
     ttl = discover_ttl(args.namespace)
-    statsfile = args.stats_file or f'/tmp/release_test.{run}.stats.jsonl'
+    statsfile = args.stats_file or f'/tmp/ttl_test.{run}.stats.jsonl'
     stats = PlanStats(args.namespace, args.flink_rest, statsfile)
     log(f"run id {run}, deployed table.exec.state.ttl = {ttl} s, stats -> {statsfile}")
     if ttl is None:
