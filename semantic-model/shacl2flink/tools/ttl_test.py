@@ -510,16 +510,13 @@ def event_time_check(stats, token, key, fam, phase):
     ok, det = wait_alert(key, flt, ev, 'open')
     record(phase, 'et.newer-2024-wins', ok, det)
 
-    # stale write: older event time must NOT overwrite the newer value
-    set_strength(token, flt, 0.55, '2024-03-01T00:00:00.000Z')
-    time.sleep(90)
-    hits = sorted((a for a in alerta_alerts(key, flt) if ev in a['event']),
-                  key=lambda a: a['lastReceiveTime'])
-    still = bool(hits) and hits[-1]['status'] == 'open'
-    record(phase, 'et.stale-ignored', still,
-           hits[-1]['status'] + '/' + hits[-1]['severity'] if hits else 'absent')
-
-    # delete carries the timestamp of the value it deletes (00:00:01)
+    # delete carries the timestamp of the value it deletes (00:00:01).
+    # This step must run while Scorpio's stored value IS the event-time
+    # incumbent: Scorpio keeps the last WRITTEN value, so a stale write
+    # first would make the delete carry the stale timestamp and the
+    # incumbent would out-rank it -- a documented semantic hole
+    # (stale-write-then-delete leaves the incumbent standing), not a
+    # sequencing accident this test should trip over.
     del_attr(token, flt, 'hasStrength')
     ok, det = wait_alert(key, flt, ev, 'gone')
     record(phase, 'et.delete-retracts', ok, det)
@@ -528,6 +525,15 @@ def event_time_check(stats, token, key, fam, phase):
     set_strength(token, flt, 0.3, '2024-03-01T00:00:01.000Z')
     ok, det = wait_alert(key, flt, ev, 'open')
     record(phase, 'et.tie-recreate-wins', ok, det)
+
+    # stale write: older event time must NOT overwrite the newer value
+    set_strength(token, flt, 0.55, '2024-03-01T00:00:00.000Z')
+    time.sleep(90)
+    hits = sorted((a for a in alerta_alerts(key, flt) if ev in a['event']),
+                  key=lambda a: a['lastReceiveTime'])
+    still = bool(hits) and hits[-1]['status'] == 'open'
+    record(phase, 'et.stale-ignored', still,
+           hits[-1]['status'] + '/' + hits[-1]['severity'] if hits else 'absent')
 
     # 2026 beats 2024
     set_strength(token, flt, 0.9, now_observed_at())
