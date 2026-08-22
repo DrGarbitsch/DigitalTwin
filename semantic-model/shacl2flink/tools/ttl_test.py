@@ -59,10 +59,19 @@ the usual local ingress names (ngsild.local, keycloak.local, alerta.local).
 The Flink REST API is reached on --flink-rest (default http://localhost:8081)
 and falls back to kubectl exec into the jobmanager pod.
 
+  * State growth     -- the growth phase drives tools/loadgen.py churn while
+                        sampling the per-operator RocksDB directories on the
+                        taskmanager: after a warmup that lets the new keys
+                        populate every join, sustained updates must leave the
+                        pinned join state on a plateau (updates replace rows,
+                        never append them), while the attributes topic offset
+                        proves the churn actually flowed.
+
 Usage:
-    python3 tools/ttl_test.py                      # full run (~3xTTL + 30 min)
+    python3 tools/ttl_test.py                      # full run (~3xTTL + 30 min + growth)
     python3 tools/ttl_test.py --phase fresh        # only the t=0 checks
     python3 tools/ttl_test.py --phase ttl          # create, idle 3xTTL, retest
+    python3 tools/ttl_test.py --phase growth       # loadgen churn + state plateau
     python3 tools/ttl_test.py --idle-factor 1      # shorten the idle wait
     python3 tools/ttl_test.py --keep               # leave the family behind
     python3 tools/ttl_test.py --teardown --run-id ab12cd34
@@ -71,6 +80,7 @@ Usage:
 import argparse
 import datetime
 import json
+import os
 import re
 import subprocess
 import sys
@@ -619,6 +629,106 @@ def reset_family(token, fam):
     upsert(token, fam.entities())
 
 
+# --------------------------------------------------------------------------- growth
+
+def rocksdb_sizes(namespace):
+    """(total_kb, join_kb, top_join_dirs) of the running job's RocksDB dirs.
+
+    du of a live RocksDB fluctuates with WAL and compaction churn, so callers
+    compare samples with slack rather than exactly."""
+    pod = sh(f"kubectl -n {namespace} get pods --no-headers"
+             " -o custom-columns=:metadata.name | grep -m1 taskmanager")
+    out = sh(f"kubectl -n {namespace} exec {pod} -c flink-main-container --"
+             " sh -c \"du -sk /tmp/rocksdb/* 2>/dev/null\"")
+    total = joins = 0
+    top = []
+    for line in out.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) != 2 or not parts[0].isdigit():
+            continue
+        kb, path = int(parts[0]), parts[1]
+        total += kb
+        if 'StreamingJoinOperator' in path:
+            joins += kb
+            top.append((kb, path.rsplit('_op_', 1)[-1][:44]))
+    return total, joins, sorted(top, reverse=True)
+
+
+def attributes_end(namespace):
+    out = sh(f"kubectl -n {namespace} exec my-cluster-nodes-0 -- sh -c"
+             " \"KAFKA_HEAP_OPTS='-Xmx192M' bin/kafka-get-offsets.sh"
+             " --bootstrap-server localhost:9092 --topic iff.ngsild.attributes\" 2>/dev/null")
+    try:
+        return int(out.rsplit(':', 1)[1])
+    except Exception:
+        return None
+
+
+def growth_phase(args, token):
+    """Churn the pipeline with loadgen and assert the pinned join state
+    PLATEAUS: updates must replace rows, never append them.
+
+    The warmup sample is taken after the loadgen entities exist and their
+    keys have populated every join, so the assertion isolates growth caused
+    by UPDATES from the legitimate one-time step of new keys."""
+    ns = args.namespace
+    here = os.path.dirname(os.path.abspath(__file__))
+    loadgen = os.path.join(here, 'loadgen.py')
+    env = dict(os.environ, LOADGEN_PASSWORD=token.password)
+
+    def run_loadgen(extra):
+        cmd = [sys.executable, loadgen, '--namespace', ns,
+               '--entities', str(args.growth_entities)] + extra
+        return subprocess.run(cmd, env=env, capture_output=True, text=True)
+
+    log(f"=== phase GROWTH: {args.growth_entities} entities, "
+        f"{args.growth_rate}/s for {args.growth_duration:.0f}s ===")
+    r = run_loadgen(['--setup'])
+    log('   loadgen setup: ' + (r.stdout.strip() or r.stderr.strip())[:120])
+    log(f"   warmup {args.growth_warmup:.0f}s (new keys populate the joins)")
+    time.sleep(args.growth_warmup)
+
+    total_w, joins_w, _ = rocksdb_sizes(ns)
+    a0 = attributes_end(ns)
+    log(f"   warm sample: joins {joins_w} KB, all state {total_w} KB, attributes offset {a0}")
+
+    proc = subprocess.Popen(
+        [sys.executable, loadgen, '--namespace', ns,
+         '--entities', str(args.growth_entities),
+         '--rate', str(args.growth_rate),
+         '--duration', str(args.growth_duration)],
+        env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    samples = []
+    while proc.poll() is None:
+        time.sleep(180)
+        total_i, joins_i, _ = rocksdb_sizes(ns)
+        samples.append(joins_i)
+        log(f"   sample: joins {joins_i} KB (all state {total_i} KB)")
+    tail = (proc.stdout.read() or '').strip().splitlines()
+    log('   loadgen: ' + (tail[-1] if tail else 'no output'))
+
+    time.sleep(60)
+    total_e, joins_e, top = rocksdb_sizes(ns)
+    a1 = attributes_end(ns)
+    log(f"   end sample: joins {joins_e} KB, all state {total_e} KB, attributes offset {a1}")
+    for kb, name in top[:5]:
+        log(f"      {kb:>7} KB  {name}")
+
+    sent = (a1 - a0) if a0 is not None and a1 is not None else None
+    expect = args.growth_rate * args.growth_duration * 0.5
+    record('growth', 'updates-flowed', bool(sent and sent >= expect),
+           f"{sent} attribute records during churn (expected >= {expect:.0f})")
+
+    allowed = max(2048, int(joins_w * 0.05))
+    grew = joins_e - joins_w
+    record('growth', 'join-plateau', grew <= allowed,
+           f"join state {joins_w} -> {joins_e} KB (delta {grew} KB, allowed {allowed} KB); "
+           f"samples {samples}")
+
+    r = run_loadgen(['--teardown'])
+    log('   loadgen teardown: ' + (r.stdout.strip() or r.stderr.strip())[:120])
+
+
 # --------------------------------------------------------------------------- main
 
 def main():
@@ -629,9 +739,15 @@ def main():
     ap.add_argument('--client-id', default='scorpio')
     ap.add_argument('--password', default=None)
     ap.add_argument('--flink-rest', default='http://localhost:8081')
-    ap.add_argument('--phase', choices=['all', 'fresh', 'ttl'], default='all')
+    ap.add_argument('--phase', choices=['all', 'fresh', 'ttl', 'growth'], default='all')
     ap.add_argument('--idle-factor', type=float, default=3.0,
                     help='idle for this multiple of the deployed TTL (default 3)')
+    ap.add_argument('--growth-entities', type=int, default=50)
+    ap.add_argument('--growth-rate', type=float, default=10.0,
+                    help='loadgen updates per second during the growth phase')
+    ap.add_argument('--growth-duration', type=float, default=1800.0)
+    ap.add_argument('--growth-warmup', type=float, default=240.0,
+                    help='seconds between loadgen setup and the warm state sample')
     ap.add_argument('--settle', type=float, default=90.0,
                     help='seconds to wait after family creation')
     ap.add_argument('--run-id', default=None, help='reuse an existing family')
@@ -657,6 +773,17 @@ def main():
     if ttl is None:
         log('could not discover the TTL; aborting')
         return 2
+
+    # the growth phase drives its own loadgen entities; no family needed
+    if args.phase == 'growth':
+        growth_phase(args, token)
+        log('=== RESULTS ===')
+        fails = 0
+        for r in RESULTS:
+            fails += 0 if r['ok'] else 1
+            log(f"  {'PASS' if r['ok'] else 'FAIL'}  {r['phase']:>8}/{r['name']:<28} {r['detail'][:100]}")
+        log(f"{len(RESULTS) - fails}/{len(RESULTS)} checks passed")
+        return 1 if fails else 0
 
     log('creating family ' + ', '.join(fam.all))
     code, body = upsert(token, fam.entities())
@@ -692,6 +819,9 @@ def main():
             reset_family(token, fam)
             time.sleep(45)
             sparql_checks(stats, token, key, fam, 'reset')
+
+    if args.phase == 'all':
+        growth_phase(args, token)
 
     if not args.keep:
         for eid in fam.all:
