@@ -14,12 +14,20 @@ shape files. So the one mechanism that can tell "this constraint was satisfied"
 apart from "this constraint never ran" was never pointed at the production
 shapes.
 
-That gap hid a real divergence. With the cutter PROCESSING and its filter not
-ON, `StateOnCutterShape` — *"Cutter running without running filter"* — raises
-`critical` in SQLite and stays **silent on Flink**, on a job minutes old with
-every condition verified in the broker. Same shapes, same data, opposite
-answers. Because SQLite agrees with the rule, the compiled SQL is right and the
-divergence is on the Flink side.
+The gap first surfaced as an apparent divergence: with the cutter PROCESSING
+and its filter not ON, `StateOnCutterShape` — *"Cutter running without running
+filter"* — raised `critical` in SQLite while Flink appeared silent. The
+divergence turned out to be in the observer, not the engine: the SPARQL
+statements write straight to the alerts sink (never to
+`constraint_trigger_table`, where the property and count checks report), and
+the test writes had typed `hasState` as a Relationship (`{"object": ...}`)
+where the model types it as a Property with an IRI value — a row the rule's
+`type = 'Property'` join predicate correctly refuses. With a correctly typed
+flip, Flink raises the same `critical` within seconds and retracts it on
+recovery. The two dialects compile from the same templates and their join
+skeletons are word-for-word identical; this fixture is what pins that down —
+any future *real* divergence between the oracle and the deployed SQL shows up
+here as a one-line diff.
 
 ## The two models
 
