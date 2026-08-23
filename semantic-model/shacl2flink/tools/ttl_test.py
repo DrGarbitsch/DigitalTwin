@@ -59,6 +59,14 @@ the usual local ingress names (ngsild.local, keycloak.local, alerta.local).
 The Flink REST API is reached on --flink-rest (default http://localhost:8081)
 and falls back to kubectl exec into the jobmanager pod.
 
+  * Trigger latency  -- raise/restore cycles timed from the Kafka record
+                        timestamps themselves (no polling error): Scorpio
+                        write -> attributes record -> alert record ->
+                        visible in Alerta, reported as min/median/p90/max
+                        per stage. p90 of the pipeline's own reaction
+                        (write to alert record) gates against
+                        --latency-target (default 2 s). Runs in 'all',
+                        'fresh' and standalone as --phase latency.
   * State growth     -- the growth phase drives tools/loadgen.py churn while
                         sampling the per-operator RocksDB directories on the
                         taskmanager: after a warmup that lets the new keys
@@ -72,6 +80,7 @@ Usage:
     python3 tools/ttl_test.py --phase fresh        # only the t=0 checks
     python3 tools/ttl_test.py --phase ttl          # create, idle 3xTTL, retest
     python3 tools/ttl_test.py --phase growth       # loadgen churn + state plateau
+    python3 tools/ttl_test.py --phase latency      # per-stage trigger latency stats
     python3 tools/ttl_test.py --idle-factor 1      # shorten the idle wait
     python3 tools/ttl_test.py --keep               # leave the family behind
     python3 tools/ttl_test.py --teardown --run-id ab12cd34
