@@ -629,6 +629,137 @@ def reset_family(token, fam):
     upsert(token, fam.entities())
 
 
+# --------------------------------------------------------------------------- latency
+
+def topic_end(namespace, topic):
+    out = sh(f"kubectl -n {namespace} exec my-cluster-nodes-0 -- sh -c"
+             f" \"KAFKA_HEAP_OPTS='-Xmx192M' bin/kafka-get-offsets.sh"
+             f" --bootstrap-server localhost:9092 --topic {topic}\" 2>/dev/null")
+    try:
+        return int(out.rsplit(':', 1)[1])
+    except Exception:
+        return None
+
+
+def topic_read(namespace, topic, offset, count):
+    """[(create_time_ms, payload_json_or_None), ...] from offset, count records."""
+    if count <= 0:
+        return []
+    out = sh(f"kubectl -n {namespace} exec my-cluster-nodes-0 -- sh -c"
+             f" \"KAFKA_HEAP_OPTS='-Xmx256M' bin/kafka-console-consumer.sh"
+             f" --bootstrap-server localhost:9092 --topic {topic} --partition 0"
+             f" --offset {offset} --max-messages {count} --timeout-ms 15000"
+             f" --property print.timestamp=true\" 2>/dev/null")
+    recs = []
+    for line in out.splitlines():
+        m = re.match(r'CreateTime:(\d+)\s+(.*)', line)
+        if not m:
+            continue
+        try:
+            payload = json.loads(m.group(2))
+        except Exception:
+            payload = None
+        recs.append((int(m.group(1)), payload))
+    return recs
+
+
+def pctl(sorted_vals, q):
+    return sorted_vals[min(len(sorted_vals) - 1, int(len(sorted_vals) * q))]
+
+
+def latency_phase(args, token, key, fam):
+    """Per-stage trigger latency from Kafka broker timestamps.
+
+    A validation platform whose alert arrives a minute late is useless, and
+    the ordinary checks cannot see the difference: they poll alerta every
+    6 s. This phase drives one rule through raise/restore cycles and takes
+    the timestamps from the records themselves -- everything runs on one
+    host, so the clocks agree:
+
+        t1  attribute record lands in iff.ngsild.attributes
+            (Scorpio commit + Debezium CDC + bridge)
+        t2  alert record lands in iff.alerts.bulk (Flink evaluation)
+        t3  alert visible via the Alerta API (bridge + alerta ingest),
+            measured by fast polling (0.25 s), so an upper bound
+
+    The pass/fail criterion is t2 -- the pipeline's own reaction time; the
+    alerta hop is reported alongside because it is a consumer like any
+    other."""
+    ns = args.namespace
+    ev = 'SPARQLConstraintComponent(StateOnCutterShape)'
+    raises = []
+    retracts = []
+
+    def fast_wait(resource, want, timeout=30):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            hits = [a for a in alerta_alerts(key, resource) if ev in a['event']]
+            is_open = bool(hits) and hits[-1]['status'] == 'open' \
+                and hits[-1]['severity'] != 'ok'
+            if (want == 'open') == is_open:
+                return time.time()
+            time.sleep(0.25)
+        return None
+
+    log(f"=== phase LATENCY: {args.latency_samples} raise/restore cycles on StateOnCutterShape ===")
+    set_state(token, fam.filter, 'state_ON')
+    fast_wait(fam.cutter, 'gone')
+    for i in range(args.latency_samples):
+        time.sleep(3)
+        attr0 = topic_end(ns, 'iff.ngsild.attributes')
+        bulk0 = topic_end(ns, 'iff.alerts.bulk')
+        t0 = time.time()
+        set_state(token, fam.filter, 'state_OFF')
+        t3 = fast_wait(fam.cutter, 'open')
+        t1 = t2 = None
+        for ts, d in topic_read(ns, 'iff.ngsild.attributes', attr0,
+                                (topic_end(ns, 'iff.ngsild.attributes') or attr0) - attr0):
+            if d and d.get('entityId') == fam.filter and 'hasState' in str(d.get('name')):
+                t1 = ts / 1000.0
+                break
+        for ts, d in topic_read(ns, 'iff.alerts.bulk', bulk0,
+                                (topic_end(ns, 'iff.alerts.bulk') or bulk0) - bulk0):
+            if d and d.get('resource') == fam.cutter and ev in str(d.get('event')) \
+                    and d.get('severity') != 'ok':
+                t2 = ts / 1000.0
+                break
+        raises.append({'attr': t1 - t0 if t1 else None,
+                       'flink': t2 - t0 if t2 else None,
+                       'alerta': t3 - t0 if t3 else None})
+        r0 = time.time()
+        set_state(token, fam.filter, 'state_ON')
+        r3 = fast_wait(fam.cutter, 'gone')
+        retracts.append(r3 - r0 if r3 else None)
+        log(f"   sample {i + 1}: attr {fmt(raises[-1]['attr'])}, flink {fmt(raises[-1]['flink'])},"
+            f" alerta {fmt(raises[-1]['alerta'])}, retract {fmt(retracts[-1])}")
+
+    def dist(vals):
+        vals = sorted(v for v in vals if v is not None)
+        if not vals:
+            return 'no data', None
+        return (f"min {vals[0]:.2f}s median {pctl(vals, .5):.2f}s"
+                f" p90 {pctl(vals, .9):.2f}s max {vals[-1]:.2f}s"), pctl(vals, .9)
+
+    for stage in ('attr', 'flink', 'alerta'):
+        text, _ = dist([s[stage] for s in raises])
+        log(f"   raise->{stage:<6}: {text}")
+    rtext, _ = dist(retracts)
+    log(f"   retract(alerta): {rtext}")
+
+    _, p90_flink = dist([s['flink'] for s in raises])
+    record('latency', 'flink-p90',
+           p90_flink is not None and p90_flink <= args.latency_target,
+           f"p90 write->alert-record {p90_flink and f'{p90_flink:.2f}'}s"
+           f" (target {args.latency_target:.1f}s)")
+    _, p90_e2e = dist([s['alerta'] for s in raises])
+    record('latency', 'alerta-e2e-p90', p90_e2e is not None,
+           f"p90 write->alerta-visible {p90_e2e and f'{p90_e2e:.2f}'}s (informational)")
+
+
+def fmt(v):
+    return f'{v:.2f}s' if v is not None else '-'
+
+
 # --------------------------------------------------------------------------- growth
 
 def rocksdb_sizes(namespace):
@@ -739,7 +870,11 @@ def main():
     ap.add_argument('--client-id', default='scorpio')
     ap.add_argument('--password', default=None)
     ap.add_argument('--flink-rest', default='http://localhost:8081')
-    ap.add_argument('--phase', choices=['all', 'fresh', 'ttl', 'growth'], default='all')
+    ap.add_argument('--phase', choices=['all', 'fresh', 'ttl', 'growth', 'latency'],
+                    default='all')
+    ap.add_argument('--latency-samples', type=int, default=10)
+    ap.add_argument('--latency-target', type=float, default=2.0,
+                    help='p90 write-to-alert-record budget in seconds')
     ap.add_argument('--idle-factor', type=float, default=3.0,
                     help='idle for this multiple of the deployed TTL (default 3)')
     ap.add_argument('--growth-entities', type=int, default=50)
@@ -795,12 +930,16 @@ def main():
     stats.snap('baseline')
     last_write = time.time()
 
+    if args.phase == 'latency':
+        latency_phase(args, token, key, fam)
+
     if args.phase in ('all', 'fresh'):
         log('=== phase FRESH: full checks right after creation ===')
         sparql_checks(stats, token, key, fam, 'fresh')
         class_check(stats, token, key, fam, 'fresh')
         count_churn(stats, token, key, fam, args.namespace, 'fresh')
         event_time_check(stats, token, key, fam, 'fresh')
+        latency_phase(args, token, key, fam)
         last_write = time.time()
 
     if args.phase in ('all', 'ttl'):
