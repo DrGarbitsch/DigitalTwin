@@ -197,7 +197,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
+                {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},
@@ -228,7 +228,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
+                {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},
@@ -261,7 +261,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
+                {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},

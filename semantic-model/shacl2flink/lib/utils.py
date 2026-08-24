@@ -619,9 +619,8 @@ def create_statementmap(object_name, table_object_names,
         # previous one, and the trigger topic took ~670 writes/s without it).
         # All three keys are required for it to take effect.
         #
-        # Requires Flink >= 2.0.3 / 2.1.3 / 2.2.2 / 2.3.0. Two independent
-        # bugs killed mini-batch on the 1.x line, and neither has a 1.x
-        # backport:
+        # DISABLED -- mini-batch loses verdict retractions on every Flink
+        # version tested so far, each for a different reason:
         #
         #  * 1.19.1: the MiniBatchAssigner nodes dropped the alias-keyed
         #    STATE_TTL hints on their way to the joins (FLINK-36238 /
@@ -629,16 +628,22 @@ def create_statementmap(object_name, table_object_names,
         #    every join-based rule died for good once its state passed
         #    table.exec.state.ttl.
         #  * 1.20.4: mini-batch bundles that contain retraction-only keys
-        #    silently drop records (FLINK-35661 and related mini-batch
-        #    operator bugs) -- measured with tools/ttl_test.py: verdict
-        #    retractions were lost under delete/insert churn and event-time
-        #    overrides, and all join-based rules died after a 3x TTL idle,
-        #    while the same suite passes with mini-batch off.
+        #    silently drop records (FLINK-35661, fixed only in 2.x) --
+        #    measured: retractions lost under churn and event-time
+        #    overrides, all four SPARQL rules dead after a 3x TTL idle.
+        #  * 2.3.0: the ON CONFLICT DO DEDUPLICATE sink materializer
+        #    (FLIP-558) swallows ok-verdicts for keys that flip
+        #    warning->ok quickly when mini-batch batches the changelog:
+        #    measured with tools/ttl_test.py, the ok records never reach
+        #    the alerts_bulk topic (StateValueShape restore, count-churn
+        #    re-insert), while every upstream operator forwards them and
+        #    the identical SQL passes with mini-batch off.
         #
-        # Re-enabled with the Flink 2.3.0 port. Rerun
-        # tools/ttl_test.py --phase all after any Flink version change
-        # before trusting this flag.
-        {"table.exec.mini-batch.enabled": "true"},
+        # Re-test with tools/ttl_test.py --phase all on every Flink bump
+        # before flipping this on; the trigger-topic write rate without
+        # mini-batch is ~670/s under churn (76% of verdict changes land
+        # within 2ms of the previous one).
+        {"table.exec.mini-batch.enabled": "false"},
         {"table.exec.mini-batch.allow-latency": "100 ms"},
         {"table.exec.mini-batch.size": "1000"},
         {"execution.savepoint.ignore-unclaimed-state": "true"},
