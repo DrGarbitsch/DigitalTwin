@@ -602,3 +602,44 @@ def test_add_table_values():
         sqlsettings = result['spec']['sqlsettings']
         assert not any("state.backend.type" in s for s in sqlsettings)
         assert not any("execution.checkpointing.interval" in s for s in sqlsettings)
+
+
+def test_add_on_conflict():
+    # keyed sink gets the explicit clause Flink >= 2.3 demands
+    stmt = 'INSERT INTO constraint_trigger_table\nSELECT a, b, c FROM x'
+    out = utils.add_on_conflict(stmt)
+    assert out.endswith('\nON CONFLICT DO DEDUPLICATE')
+    assert out.startswith('INSERT INTO constraint_trigger_table')
+
+    # backticked names and lowercase keywords are still recognised
+    assert utils.add_on_conflict('insert into `alerts_bulk` select 1').endswith(
+        'ON CONFLICT DO DEDUPLICATE')
+
+    # stray ';\n;' terminators are fully removed before the clause
+    out = utils.add_on_conflict('INSERT INTO alerts_bulk SELECT 1 FROM x;\n;')
+    assert out == 'INSERT INTO alerts_bulk SELECT 1 FROM x\nON CONFLICT DO DEDUPLICATE'
+
+    # a sink without a primary key is left alone
+    stmt = 'INSERT INTO alerts SELECT a FROM x'
+    assert utils.add_on_conflict(stmt) == stmt
+
+    # an explicit clause is not duplicated
+    stmt = 'INSERT INTO alerts_bulk SELECT 1 ON CONFLICT DO NOTHING'
+    assert utils.add_on_conflict(stmt) == stmt
+
+    # non-INSERT statements are untouched
+    stmt = 'CREATE VIEW v AS SELECT * FROM constraint_trigger_table'
+    assert utils.add_on_conflict(stmt) == stmt
+
+    # a table whose name merely starts with a keyed name is not matched
+    stmt = 'INSERT INTO rdf_extra SELECT 1'
+    assert utils.add_on_conflict(stmt) == stmt
+
+
+def test_create_configmap_applies_on_conflict():
+    cm = utils.create_configmap('cm', [
+        'INSERT INTO constraint_trigger_table SELECT 1',
+        'INSERT INTO alerts SELECT 1',
+    ])
+    assert cm['data'][0].endswith('ON CONFLICT DO DEDUPLICATE')
+    assert cm['data'][1] == 'INSERT INTO alerts SELECT 1'

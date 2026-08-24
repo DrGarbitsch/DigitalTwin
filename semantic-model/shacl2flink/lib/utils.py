@@ -539,10 +539,39 @@ def create_sql_view(table_name, table, primary_key=None,
     return sqlstatement
 
 
+# Sinks with a primary key. Since Flink 2.3 (FLIP-558) an INSERT whose query
+# has an upsert key differing from the sink's primary key fails planning
+# unless it carries an explicit ON CONFLICT clause. DO DEDUPLICATE is the
+# exact behaviour the implicit SinkUpsertMaterializer applied on 1.x.
+_upsert_sinks_with_primary_key = [
+    'constraint_trigger_table',
+    'constraint_table',
+    'constraint_combination_table',
+    'alerts_bulk',
+    'attributes_insert',
+    'rdf',
+]
+_insert_re = re.compile(
+    r'^\s*INSERT\s+INTO\s+`?(' + '|'.join(_upsert_sinks_with_primary_key) + r')`?\b',
+    re.IGNORECASE)
+
+
+def add_on_conflict(statement):
+    """Append ON CONFLICT DO DEDUPLICATE to a Flink INSERT into a keyed sink."""
+    if _insert_re.match(statement) and 'ON CONFLICT' not in statement.upper():
+        # some generated statements end in stray ';\n;' sequences -- the
+        # clause must come before any terminator, so drop them all
+        stripped = statement.rstrip()
+        while stripped.endswith(';'):
+            stripped = stripped[:-1].rstrip()
+        return stripped + '\nON CONFLICT DO DEDUPLICATE'
+    return statement
+
+
 def create_configmap(object_name, sqlstatementset, labels=None):
     data = {}
     for index, value in enumerate(sqlstatementset):
-        data[index] = value
+        data[index] = add_on_conflict(value)
     return create_configmap_generic(object_name, data, labels)
 
 

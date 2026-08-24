@@ -140,4 +140,11 @@ from
                 ts,
                 INTERVAL '0.001' SECOND
             )
-    );
+    )
+/* The window columns are projected away, so the query reaches the sink with
+   no upsert key while the sink is keyed on (id, datasetId). Flink 1.x
+   silently inserted a SinkUpsertMaterializer here. Since Flink 2.3
+   (FLIP-558) that choice must be explicit, and DO DEDUPLICATE is exactly
+   the 1.x materializer behaviour. NOTE: the runner splits this file on
+   every semicolon, so no comment in here may contain one. */
+on conflict do deduplicate;
