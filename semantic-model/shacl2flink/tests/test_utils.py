@@ -197,6 +197,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
+                {"table.exec.sink.upsert-materialize-strategy.type": "LEGACY"},
                 {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
@@ -228,6 +229,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
+                {"table.exec.sink.upsert-materialize-strategy.type": "LEGACY"},
                 {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
@@ -261,6 +263,7 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
+                {"table.exec.sink.upsert-materialize-strategy.type": "LEGACY"},
                 {"table.exec.mini-batch.enabled": "false"},  # DO DEDUPLICATE + mini-batch drops ok-verdicts on 2.3.0
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},

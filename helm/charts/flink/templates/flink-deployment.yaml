@@ -15,6 +15,10 @@ spec:
     web.submit.enable:  "true"
     web.cancel.enable:  "true"
     taskmanager.numberOfTaskSlots: "3"
+    # Flink 2.3's rewritten sink materializer (FLIP-544/558) loses
+    # ok-verdicts on fast warning->ok flips; LEGACY is the proven 1.x
+    # implementation. Cluster-wide so the CoreServices job gets it too.
+    table.exec.sink.upsert-materialize-strategy.type: LEGACY
     #jobmanager.rpc.address: flink-jobmanager
     pipeline.max-parallelism: 4
     blob.server.port: 6124

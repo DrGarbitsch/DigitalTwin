@@ -613,6 +613,14 @@ def create_statementmap(object_name, table_object_names,
         # then had to absorb downstream. Suppressing at the sink keeps those
         # records out of Kafka entirely.
         {"table.exec.sink.upsert-materialize": "auto"},
+        # Flink 2.3 rewrote the sink materializer (FLIP-544/558); the new
+        # default strategy loses ok-verdicts for keys that flip
+        # warning->ok in quick succession (measured with tools/ttl_test.py:
+        # retract checks fail nondeterministically, the ok records never
+        # reach the alerts_bulk topic). LEGACY selects the 1.x
+        # implementation, which the whole validation pipeline is proven
+        # against.
+        {"table.exec.sink.upsert-materialize-strategy.type": "LEGACY"},
         # Mini-batch buffers changelog records per key and emits once per
         # window, collapsing the convergence churn of a multi-level constraint
         # circuit (measured: 76% of verdict changes land within 2ms of the
@@ -631,13 +639,15 @@ def create_statementmap(object_name, table_object_names,
         #    silently drop records (FLINK-35661, fixed only in 2.x) --
         #    measured: retractions lost under churn and event-time
         #    overrides, all four SPARQL rules dead after a 3x TTL idle.
-        #  * 2.3.0: the ON CONFLICT DO DEDUPLICATE sink materializer
-        #    (FLIP-558) swallows ok-verdicts for keys that flip
-        #    warning->ok quickly when mini-batch batches the changelog:
-        #    measured with tools/ttl_test.py, the ok records never reach
-        #    the alerts_bulk topic (StateValueShape restore, count-churn
-        #    re-insert), while every upstream operator forwards them and
-        #    the identical SQL passes with mini-batch off.
+        #  * 2.3.0: the rewritten sink materializer (FLIP-544/558)
+        #    nondeterministically swallows ok-verdicts for keys that flip
+        #    warning->ok quickly -- with AND without mini-batch; mini-batch
+        #    only makes it more frequent. Measured with tools/ttl_test.py:
+        #    the ok records never reach the alerts_bulk topic while every
+        #    upstream operator forwards its records. Worked around by
+        #    pinning table.exec.sink.upsert-materialize-strategy.type to
+        #    LEGACY (the proven 1.x implementation) below; mini-batch on
+        #    top of LEGACY has not been re-validated yet.
         #
         # Re-test with tools/ttl_test.py --phase all on every Flink bump
         # before flipping this on; the trigger-topic write rate without
@@ -688,6 +698,7 @@ def create_statementset(object_name, table_object_names,
             {"state.backend.rocksdb.use-bloom-filter": "true"},
             {"execution.checkpointing.interval": "{{ .Values.flink.checkpointInterval }}"},
             {"table.exec.sink.upsert-materialize": "none"},
+            {"table.exec.sink.upsert-materialize-strategy.type": "LEGACY"},
             {"state.backend.type": "rocksdb"},
             {"execution.savepoint.ignore-unclaimed-state": "true"},
             {"pipeline.object-reuse": "true"},
