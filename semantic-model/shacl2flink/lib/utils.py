@@ -590,8 +590,9 @@ def create_statementmap(object_name, table_object_names,
         # previous one, and the trigger topic took ~670 writes/s without it).
         # All three keys are required for it to take effect.
         #
-        # DISABLED until Flink >= 2.0.3 / 2.1.3 / 2.2.2 / 2.3.0. Two
-        # independent bugs killed it on 1.x, and neither has a 1.x backport:
+        # Requires Flink >= 2.0.3 / 2.1.3 / 2.2.2 / 2.3.0. Two independent
+        # bugs killed mini-batch on the 1.x line, and neither has a 1.x
+        # backport:
         #
         #  * 1.19.1: the MiniBatchAssigner nodes dropped the alias-keyed
         #    STATE_TTL hints on their way to the joins (FLINK-36238 /
@@ -600,14 +601,15 @@ def create_statementmap(object_name, table_object_names,
         #    table.exec.state.ttl.
         #  * 1.20.4: mini-batch bundles that contain retraction-only keys
         #    silently drop records (FLINK-35661 and related mini-batch
-        #    operator bugs, fixed only in the 2.x line) -- measured with
-        #    tools/ttl_test.py: verdict retractions were lost under
-        #    delete/insert churn and event-time overrides (alerts stuck
-        #    open), while the same suite passes with mini-batch off.
+        #    operator bugs) -- measured with tools/ttl_test.py: verdict
+        #    retractions were lost under delete/insert churn and event-time
+        #    overrides, and all join-based rules died after a 3x TTL idle,
+        #    while the same suite passes with mini-batch off.
         #
-        # Rerun tools/ttl_test.py --phase all after any Flink version bump
-        # before flipping this back on.
-        {"table.exec.mini-batch.enabled": "false"},
+        # Re-enabled with the Flink 2.3.0 port. Rerun
+        # tools/ttl_test.py --phase all after any Flink version change
+        # before trusting this flag.
+        {"table.exec.mini-batch.enabled": "true"},
         {"table.exec.mini-batch.allow-latency": "100 ms"},
         {"table.exec.mini-batch.size": "1000"},
         {"execution.savepoint.ignore-unclaimed-state": "true"},
@@ -616,7 +618,8 @@ def create_statementmap(object_name, table_object_names,
         {"table.exec.source.idle-timeout": "{{ .Values.flink.idleTimeout }}"}
     ]
     if use_rocksdb:
-        spec['sqlsettings'].append({"state.backend": "rocksdb"})
+        # 'state.backend' was removed in Flink 2.0; the key is now 'state.backend.type'
+        spec['sqlsettings'].append({"state.backend.type": "rocksdb"})
         spec['sqlsettings'].append({"state.backend.rocksdb.writebuffer.size": "64 kb"})
         spec['sqlsettings'].append({"state.backend.rocksdb.use-bloom-filter": "true"})
         spec['sqlsettings'].append({"state.backend.rocksdb.predefined-options": "SPINNING_DISK_OPTIMIZED_HIGH_MEM"})
@@ -651,7 +654,7 @@ def create_statementset(object_name, table_object_names,
             {"state.backend.rocksdb.use-bloom-filter": "true"},
             {"execution.checkpointing.interval": "{{ .Values.flink.checkpointInterval }}"},
             {"table.exec.sink.upsert-materialize": "none"},
-            {"state.backend": "rocksdb"},
+            {"state.backend.type": "rocksdb"},
             {"execution.savepoint.ignore-unclaimed-state": "true"},
             {"pipeline.object-reuse": "true"},
             {"state.backend.rocksdb.predefined-options": "SPINNING_DISK_OPTIMIZED_HIGH_MEM"},

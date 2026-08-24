@@ -8,7 +8,7 @@ metadata:
   name: flink-deployment
 spec:
   image: {{ .Values.mainRegistry }}/{{ .Values.mainRepo }}/flink-sql-gateway:{{ .Values.mainVersion }}
-  flinkVersion: v1_20
+  flinkVersion: v2_2
   flinkConfiguration:
     env.java.opts.jobmanager: "-DKAFKA_BOOTSTRAP={{.Values.kafka.bootstrapServer}}"
     env.java.opts.taskmanager: "-DKAFKA_BOOTSTRAP={{.Values.kafka.bootstrapServer}}"
@@ -21,7 +21,6 @@ spec:
     jobmanager.rpc.port: 6123
     taskmanager.rpc.port: 6122
 
-    queryable-state.proxy.ports: 6125
     jobmanager.memory.process.size: 1000m
     taskmanager.memory.process.size: 2500m
 
@@ -81,9 +80,9 @@ spec:
 
     state.checkpoints.dir: s3://{{ .Values.flink.bucket }}/{{ .Values.flink.checkpointDir }}
     state.savepoints.dir: s3://{{ .Values.flink.bucket }}/{{ .Values.flink.savepointDir }}
-    high-availability: kubernetes
+    high-availability.type: kubernetes
     high-availability.storageDir: s3://{{ .Values.flink.bucket }}/{{ .Values.flink.haDir }}
-    restart-strategy: exponential-delay
+    restart-strategy.type: exponential-delay
     restart-strategy.exponential-delay.max-backoff: 2 min
     process.working-dir: /tmp/process
   serviceAccount: flink

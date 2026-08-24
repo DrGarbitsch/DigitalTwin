@@ -1,9 +1,9 @@
 package org.industryfusion;
 
+import org.apache.flink.api.common.functions.OpenContext;
 import org.apache.flink.api.common.functions.RichFilterFunction;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
-import org.apache.flink.configuration.Configuration;
 
 @SuppressWarnings("PMD.AtLeastOneConstructor")
 public class AlertsFilter extends  RichFilterFunction<KeyValueRecord> {
@@ -11,7 +11,7 @@ public class AlertsFilter extends  RichFilterFunction<KeyValueRecord> {
     private transient ValueState<String> lastText;
 
     @Override
-    public void open(final Configuration parameters) {
+    public void open(final OpenContext openContext) {
         // initialize per-key state to hold the previous severity
         lastSeverity = getRuntimeContext().getState(
             new ValueStateDescriptor<>("lastSeverity", String.class)

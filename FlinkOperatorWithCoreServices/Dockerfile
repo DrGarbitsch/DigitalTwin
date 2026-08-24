@@ -5,6 +5,6 @@ RUN mvn dependency:go-offline test -B -Pcluster
 COPY CoreServices/src ./src
 COPY CoreServices/config ./config
 RUN mvn package verify test -B -Pcluster
-FROM apache/flink-kubernetes-operator:1.11.0
+FROM apache/flink-kubernetes-operator:1.14.0
 WORKDIR /app
 COPY --from=build /app/target/CoreServices*.jar ./CoreServices.jar

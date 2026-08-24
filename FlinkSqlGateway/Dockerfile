@@ -1,4 +1,4 @@
-FROM python:3.8 as plint
+FROM python:3.11 as plint
 ADD submitjob/ submitjob
 RUN pip3 install flake8 && flake8 submitjob/job.py
 
@@ -11,7 +11,12 @@ ADD .eslintrc.json .eslintrc.json
 WORKDIR /
 RUN npm install && npm run lint && npm run test
 
-FROM flink:1.20.4
+FROM flink:2.3.0
+
+# flink:2.x images build as a non-root user; the 1.x images built as root
+# with HOME=/ and the nvm paths below (/.nvm) depend on that.
+USER root
+ENV HOME=/
 
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 ENV NVM_DIR="$HOME/.nvm"
@@ -28,7 +33,7 @@ COPY --from=nodelint gateway.js gateway.js
 ADD package.json package.json
 ADD lib/ lib
 COPY --from=plint submitjob submitjob
-RUN mkdir jars && cd jars && wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.3.0-1.20/flink-sql-connector-kafka-3.3.0-1.20.jar
+RUN mkdir jars && cd jars && wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/5.0.0-2.2/flink-sql-connector-kafka-5.0.0-2.2.jar
 #RUN mkdir -p jars && cd jars && wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/1.16.1/flink-sql-connector-kafka-1.16.1.jar
 RUN . $HOME/.nvm/nvm.sh && npm install --production
 ADD sql-client-defaults.yaml /opt/flink/conf/
@@ -36,22 +41,22 @@ ADD sql-client-defaults.yaml /opt/flink/conf/
 
 RUN apt-get update -y && \
 apt-get install -y build-essential libssl-dev zlib1g-dev libbz2-dev libffi-dev liblzma-dev zip && \
-wget https://www.python.org/ftp/python/3.8.20/Python-3.8.20.tgz && \
-tar -xvf Python-3.8.20.tgz && \
-cd Python-3.8.20 && \
+wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tgz && \
+tar -xvf Python-3.11.9.tgz && \
+cd Python-3.11.9 && \
 ./configure --without-tests --enable-shared && \
 make -j6 && \
 make install && \
 ldconfig /usr/local/lib && \
-cd .. && rm -f Python-3.8.20.tgz && rm -rf Python-3.8.20 && \
+cd .. && rm -f Python-3.11.9.tgz && rm -rf Python-3.11.9 && \
 ln -s /usr/local/bin/python3 /usr/local/bin/python && \
 apt-get clean && \
 rm -rf /var/lib/apt/lists/*
 
 # install PyFlink
-RUN pip3 install --no-cache-dir apache-flink==1.20.4
+RUN pip3 install --no-cache-dir apache-flink==2.3.0
 RUN mkdir -p /opt/flink/plugins/s3 && cp /opt/flink/opt/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3
-RUN wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-postgres-cdc/3.4.0/flink-sql-connector-postgres-cdc-3.4.0.jar -P /opt/flink/lib
+RUN wget https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-postgres-cdc/3.6.0-2.2/flink-sql-connector-postgres-cdc-3.6.0-2.2.jar -P /opt/flink/lib
 
 USER 9999
 ENTRYPOINT [ "node ./gateway.js" ]

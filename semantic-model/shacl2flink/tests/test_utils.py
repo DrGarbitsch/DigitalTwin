@@ -197,14 +197,14 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "false"},  # FLINK-35661: minibatch drops retractions on 1.x
+                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},
                 {"pipeline.object-reuse": "true"},
                 {"parallelism.default": "{{ .Values.flink.defaultParalellism }}"},
                 {"table.exec.source.idle-timeout": "{{ .Values.flink.idleTimeout }}"},
-                {"state.backend": "rocksdb"},
+                {"state.backend.type": "rocksdb"},
                 {"state.backend.rocksdb.writebuffer.size": "64 kb"},
                 {"state.backend.rocksdb.use-bloom-filter": "true"},
                 {"state.backend.rocksdb.predefined-options": "SPINNING_DISK_OPTIMIZED_HIGH_MEM"}
@@ -228,14 +228,14 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "false"},  # FLINK-35661: minibatch drops retractions on 1.x
+                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},
                 {"pipeline.object-reuse": "true"},
                 {"parallelism.default": "{{ .Values.flink.defaultParalellism }}"},
                 {"table.exec.source.idle-timeout": "{{ .Values.flink.idleTimeout }}"},
-                {"state.backend": "rocksdb"},
+                {"state.backend.type": "rocksdb"},
                 {"state.backend.rocksdb.writebuffer.size": "64 kb"},
                 {"state.backend.rocksdb.use-bloom-filter": "true"},
                 {"state.backend.rocksdb.predefined-options": "SPINNING_DISK_OPTIMIZED_HIGH_MEM"},
@@ -261,14 +261,14 @@ def test_create_statementmap():
             'views': 'view',
             'sqlsettings': [
                 {"table.exec.sink.upsert-materialize": "auto"},
-                {"table.exec.mini-batch.enabled": "false"},  # FLINK-35661: minibatch drops retractions on 1.x
+                {"table.exec.mini-batch.enabled": "true"},  # fixed in Flink 2.3.0 (FLINK-35661)
                 {"table.exec.mini-batch.allow-latency": "100 ms"},
                 {"table.exec.mini-batch.size": "1000"},
                 {"execution.savepoint.ignore-unclaimed-state": "true"},
                 {"pipeline.object-reuse": "true"},
                 {"parallelism.default": "{{ .Values.flink.defaultParalellism }}"},
                 {"table.exec.source.idle-timeout": "{{ .Values.flink.idleTimeout }}"},
-                {"state.backend": "rocksdb"},
+                {"state.backend.type": "rocksdb"},
                 {"state.backend.rocksdb.writebuffer.size": "64 kb"},
                 {"state.backend.rocksdb.use-bloom-filter": "true"},
                 {"state.backend.rocksdb.predefined-options": "SPINNING_DISK_OPTIMIZED_HIGH_MEM"},
@@ -573,7 +573,7 @@ def test_add_table_values():
             enable_checkpointing=True, use_rocksdb=True
         )
         sqlsettings = result['spec']['sqlsettings']
-        assert any("state.backend" in s for s in sqlsettings)
+        assert any("state.backend.type" in s for s in sqlsettings)
         assert any("execution.checkpointing.interval" in s for s in sqlsettings)
 
         # Test with use_rocksdb=False and enable_checkpointing=True
@@ -582,7 +582,7 @@ def test_add_table_values():
             enable_checkpointing=True, use_rocksdb=False
         )
         sqlsettings = result['spec']['sqlsettings']
-        assert not any("state.backend" in s for s in sqlsettings)
+        assert not any("state.backend.type" in s for s in sqlsettings)
         assert any("execution.checkpointing.interval" in s for s in sqlsettings)
 
         # Test with use_rocksdb=True and enable_checkpointing=False
@@ -591,7 +591,7 @@ def test_add_table_values():
             enable_checkpointing=False, use_rocksdb=True
         )
         sqlsettings = result['spec']['sqlsettings']
-        assert any("state.backend" in s for s in sqlsettings)
+        assert any("state.backend.type" in s for s in sqlsettings)
         assert not any("execution.checkpointing.interval" in s for s in sqlsettings)
 
         # Test with use_rocksdb=False and enable_checkpointing=False
@@ -600,5 +600,5 @@ def test_add_table_values():
             enable_checkpointing=False, use_rocksdb=False
         )
         sqlsettings = result['spec']['sqlsettings']
-        assert not any("state.backend" in s for s in sqlsettings)
+        assert not any("state.backend.type" in s for s in sqlsettings)
         assert not any("execution.checkpointing.interval" in s for s in sqlsettings)
