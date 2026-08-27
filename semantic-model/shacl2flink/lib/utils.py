@@ -590,20 +590,61 @@ def create_statementmap(object_name, table_object_names,
         # previous one, and the trigger topic took ~670 writes/s without it).
         # All three keys are required for it to take effect.
         #
-        # DISABLED until Flink >= 2.0.3 / 2.1.3 / 2.2.2 / 2.3.0. Two
-        # independent bugs killed it on 1.x, and neither has a 1.x backport:
+        # DISABLED on 1.20.4, on a CONTROLLED measurement rather than on a
+        # bug report: same cluster, same code, table.exec.state.ttl = 300 s,
+        # 15 min idle (3x TTL), resync cadence verified healthy in both runs
+        # (worst republication gap 136 s vs 138 s) -- tools/ttl_test.py
+        # --phase ttl:
         #
-        #  * 1.19.1: the MiniBatchAssigner nodes dropped the alias-keyed
-        #    STATE_TTL hints on their way to the joins (FLINK-36238 /
-        #    FLINK-36417), so the '0d' pins never reached the operators and
-        #    every join-based rule died for good once its state passed
-        #    table.exec.state.ttl.
-        #  * 1.20.4: mini-batch bundles that contain retraction-only keys
-        #    silently drop records (FLINK-35661 and related mini-batch
-        #    operator bugs, fixed only in the 2.x line) -- measured with
-        #    tools/ttl_test.py: verdict retractions were lost under
-        #    delete/insert churn and event-time overrides (alerts stuck
-        #    open), while the same suite passes with mini-batch off.
+        #   mini-batch off  12/12 pass
+        #   mini-batch on   5 fail -- all four SPARQL rules and the
+        #                   ClassConstraint stop raising after the idle and
+        #                   never recover; only a full re-publication of the
+        #                   entities revives them.
+        #
+        # It is NOT the state pins. That claim stood here for months and the
+        # planner sources refute it on 1.20, 2.3 and master alike:
+        # StreamExecJoin resolves both per-side TTLs from StateMetadata
+        # BEFORE the mini-batch branch and passes them into
+        # MiniBatchStreamingJoinOperator; StreamExecGlobalGroupAggregate --
+        # which exists only in mini-batch mode -- reads the same metadata and
+        # calls enableTimeToLive on the accumulator; and
+        # TwoStageOptimizedAggregateRule carries originalAgg.hints onto the
+        # node it creates. FLINK-36238 is a duplicate of FLINK-36417, which
+        # is about a WatermarkAssigner (not the MiniBatchAssigner), fails
+        # LOUDLY with a ValidationException instead of silently ignoring the
+        # pin, and was fixed in 1.20.1.
+        #
+        # What the pins cannot cover is the rest of the plan: STATE_TTL is
+        # registered for JOIN and AGGREGATE only (FlinkHintStrategies), so
+        # ChangelogNormalize and the dedup Rank keep table.exec.state.ttl
+        # whatever we pin. Their expiry is survivable without mini-batch --
+        # the resync republishes and the Rank re-emits -- and is not
+        # survivable with it.
+        #
+        # Both mini-batch aggregate paths carry an open correctness bug, and
+        # which one applies depends on the phase strategy:
+        #
+        #   TWO_PHASE (what we compile: 10 Local + 10 Global aggregates)
+        #     FLINK-31595 -- after the aggregate's state is gone, a
+        #     retraction makes the local agg emit a COUNT(*) = -1 delta, the
+        #     global agg merges it onto a freshly created accumulator, and
+        #     RecordCounter tests == 0, so the DELETE branch never fires.
+        #     OPEN on every branch, master included.
+        #   ONE_PHASE (table.optimizer.agg-phase-strategy = ONE_PHASE)
+        #     FLINK-35661 -- a `return` where `continue` was meant abandons
+        #     the rest of the bundle. Fixed in 2.3.0/2.0.3/2.1.3/2.2.2;
+        #     the 1.20 backport (PR 28262) is still open, so 1.20.4 has it.
+        #
+        # So on 2.3 mini-batch + ONE_PHASE is the combination worth
+        # retesting (keep unaligned checkpoints off -- FLINK-39898 -- and
+        # async state off, which mini-batch does not support). Note the job
+        # runs ProcTime mini-batch, not RowTime: no source here declares a
+        # WATERMARK, so requireWatermark is false everywhere and the
+        # assigner flushes on a wall-clock timer. The quiet-stream
+        # withholding that needs a watermark to flush applies to the alerts
+        # leg (alerts_bulk does declare one), which is why that leg has a
+        # heartbeat.
         #
         # Rerun tools/ttl_test.py --phase all after any Flink version bump
         # before flipping this back on.
