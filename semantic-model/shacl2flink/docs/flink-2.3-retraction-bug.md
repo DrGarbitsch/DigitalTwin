@@ -1,4 +1,4 @@
-# Deduplication with a multi-column ORDER BY is wrongly declared insert-only (Flink 2.1+)
+# Top-1 ROW_NUMBER on a non-time-attribute order key is wrongly declared insert-only (Flink 2.1+)
 
 **Affects** Flink 2.1.0 and 2.3.0 (measured); 2.2 and `master` carry the same
 code. **Not** 1.20.4 (measured), nor 1.19/1.20/2.0 by source inspection.
@@ -6,21 +6,34 @@ code. **Not** 1.20.4 (measured), nor 1.19/1.20/2.0 by source inspection.
 **Impact** Silent wrong results: a `ROW_NUMBER() = 1` deduplication stops
 retracting the row it supersedes, so every downstream operator keeps stale rows
 forever. No error, no warning, no failed job.
+**Fix** Two lines, verified — `flink-fix.patch` next to this file. See
+[The fix](#the-fix).
 
 ---
 
 ## The short version
 
-`RankUtil.keepLastDeduplicateRow` returns `false` for *any* order key with more
-than one column, and its caller reads that `false` as "this is a keep-**first**-row
-deduplication", which really is insert-only. So
+Flink 2.1 added a shortcut that declares a top-1 `ROW_NUMBER()` insert-only.
+It is sound for a genuine *keep-first deduplication on a time attribute*, where
+the first row to arrive wins and can never be displaced. But the shortcut is
+guarded only by `RankUtil.isDeduplication(rank)`, which checks nothing but
+"`ROW_NUMBER`, top-1, no rank column" — it never checks that the sort is on a
+time attribute. So it is applied to plain `Rank` operators too, and their
+retractions are dropped.
+
+On an ordinary (non-time-attribute) column, the only form that survives is
 
 ```sql
-ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC, seq DESC)
+ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC)          -- correct, by luck
 ```
 
-— a keep-**last** deduplication — is planned as an insert-only operator and its
-retractions are dropped. Deleting `, seq DESC` makes the same query correct.
+because that is the one case where `keepLastDeduplicateRow` returns `true`.
+Both of these are silently broken:
+
+```sql
+ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts DESC, seq DESC) -- multi-column
+ROW_NUMBER() OVER (PARTITION BY id ORDER BY ts ASC)            -- ascending
+```
 
 ---
 
@@ -169,6 +182,7 @@ Across releases:
 | 1.20.4 | correct — clears | run |
 | 2.1.0 | stuck at `critical` | run |
 | 2.3.0 | stuck at `critical` | run |
+| 2.3.0 + patch | correct — clears | run |
 | 2.0.0 | not testable | run — this query cannot be planned at all on 2.0.0: `java.lang.AssertionError: Relational expression rel#743:LogicalProject … belongs to a different planner than is currently being used`, an unrelated defect |
 | 1.19, 1.20, 2.0 | expected correct | source: the insert-only branch does not exist |
 | 2.1, 2.2, 2.3, master | expected broken | source: the insert-only branch is present |
@@ -226,8 +240,9 @@ the `OFF` row, then withdraws it, then emits the `ON` row, and every downstream
 operator sees a relation that always holds exactly one row per `id`. That is
 what SQL semantics require; its declared changelog mode `[I,UB,UA,D]` says so.
 
-The only deduplication that is genuinely insert-only is *keep-first*, where the
-first row seen for a key wins and nothing can ever displace it.
+The only deduplication that is genuinely insert-only is *keep-first on a time
+attribute*, where sort order equals arrival order, so the winner is decided by
+the first record and nothing can ever displace it.
 
 ---
 
@@ -243,8 +258,9 @@ specs are byte-identical — but the declared changelog mode differs:
 ```
 
 The single-column deduplication in the very same plan
-(`orderBy=[ts DESC]`, on `entities`) is `[I,UB,UA,D]` on both versions. Only the
-two-column one degrades.
+(`orderBy=[ts DESC]`, on `entities`) is `[I,UB,UA,D]` on both versions. Note
+that both are planned as `Rank`, never as `Deduplicate` — neither sorts on a
+time attribute — yet 2.3 applies deduplicate reasoning to one of them.
 
 `FlinkChangelogModeInferenceProgram.scala` (2.1+, absent in 2.0 and earlier):
 
@@ -262,10 +278,14 @@ case rank: StreamPhysicalRank if RankUtil.isDeduplication(rank) =>
 `RankUtil.scala`:
 
 ```scala
+/** Whether the given rank is logically a deduplication. */
+def isDeduplication(rank: Rank): Boolean =
+  !rank.outputRankNumber && rank.rankType == RankType.ROW_NUMBER && isTop1(rank.rankRange)
+
 def keepLastDeduplicateRow(orderKey: RelCollation): Boolean = {
   // order by timeIndicator desc ==> lastRow, otherwise is firstRow
   if (orderKey.getFieldCollations.size() != 1) {
-    return false                                  // <-- multi-column: gives up
+    return false                                  // multi-column: gives up
   }
   orderKey.getFieldCollations.get(0).direction.isDescending
 }
@@ -274,67 +294,89 @@ def outputInsertOnlyInDeduplicate(config: ReadableConfig, keepLastRow: Boolean):
   !keepLastRow && !config.get(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
 ```
 
-`keepLastDeduplicateRow` bails out on a multi-column order key and returns
-`false`, meaning "not keep-last". `outputInsertOnlyInDeduplicate` then reads that
-same `false` as the positive assertion "this is keep-first", and keep-first is
-insert-only. A "don't know" is being consumed as a "no".
+Two things go wrong together:
 
-With `ORDER BY ts DESC, seq DESC`: `getFieldCollations.size() == 2` → `false` →
-`!false` → INSERT_ONLY. With `ORDER BY ts DESC`: size 1, descending → `true` →
-`!true` → ALL_CHANGES, which is correct. That is the entire one-column /
-two-column difference we bisected.
+1. `isDeduplication` is not the right guard. Whether a rank is really executed
+   as a `StreamExecDeduplicate` is decided by `canConvertToDeduplicate`, which
+   additionally requires `sortOnTimeAttributeOnly` — a *single* sort field that
+   is a proctime or rowtime indicator. The changelog branch skips that check, so
+   plain `Rank` operators take the deduplicate shortcut.
+2. `keepLastDeduplicateRow` answers "no" both when it means "keep-first" and
+   when it means "I can't tell" (multi-column). `outputInsertOnlyInDeduplicate`
+   reads that `!keepLastRow` as the positive claim "this is keep-first", which
+   genuinely is insert-only. A "don't know" is consumed as a "no".
 
-### Suggested fix
+So on a plain column the shortcut fires for `ORDER BY x ASC` (keepLast = false
+because the direction is ascending) and for any multi-column order key
+(keepLast = false because it gave up). Only single-column `DESC` escapes, and
+only by accident. Note also that `outputInsertOnlyInDeduplicate` returns false
+whenever mini-batch is enabled, so **turning mini-batch on hides the bug
+entirely** — which makes the failure look mini-batch-dependent when it is not.
 
-Make the two functions agree on what `false` means. Either have
-`keepLastDeduplicateRow` return the right answer for a multi-column order key
-(it is keep-last iff **every** field collation is descending, keep-first iff
-every one is ascending), or give it three-valued results and let
-`outputInsertOnlyInDeduplicate` demand a positive keep-first before claiming
-insert-only. The conservative version is to make the insert-only path ask for a
-positive keep-first answer instead of the negation of keep-last (sketch; the
-keep-first predicate would be new):
+---
+
+## The fix
+
+`flink-fix.patch`, against the `release-2.3.0` tag. It restores the invariant
+that only a rank which is really executed as a `StreamExecDeduplicate` may claim
+to be insert-only, by reusing the predicate `canConvertToDeduplicate` already
+relies on:
 
 ```scala
-def outputInsertOnlyInDeduplicate(
-    config: ReadableConfig, orderKey: RelCollation): Boolean =
-  keepFirstDeduplicateRow(orderKey) &&      // all collations ascending
-    !config.get(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
+// FlinkChangelogModeInferenceProgram.scala
+val sortOnTimeAttributeOnly =
+  RankUtil.sortOnTimeAttributeOnly(rank.orderKey, rank.getInput.getRowType)
+
+if (insertOnly && sortOnTimeAttributeOnly && RankUtil.outputInsertOnlyInDeduplicate(
+      tableConfig, RankUtil.keepLastDeduplicateRow(rank.orderKey)))
 ```
 
-### Two notes for whoever picks this up
+plus making that existing helper visible (it was `private`). Since
+`sortOnTimeAttributeOnly` already demands a single proctime/rowtime sort field,
+this closes the ascending case and the multi-column case at once.
 
-- **Mini-batch hides the bug.** `outputInsertOnlyInDeduplicate` returns `false`
-  whenever `table.exec.mini-batch.enabled` is true, so the whole insert-only
-  path is skipped and results are correct. Turning mini-batch on is a viable
-  workaround, and it explains why the failure looks like it depends on
-  mini-batch when it does not.
-- **Tie-breaking is an ordinary reason to sort on two columns.** Ours is
-  `ORDER BY COALESCE(observedAt, ts) DESC, offset DESC`,
-  where the Kafka offset breaks ties between records carrying the same
-  timestamp. Any "latest record wins, offset breaks ties" pattern hits this.
+`canConvertToDeduplicate` itself is deliberately *not* called here: it consults
+`ChangelogPlanUtils.inputInsertOnly`, and Flink's own
+`FlinkRelMdModifiedMonotonicity` notes that this is unreliable while the
+modifyKindSet trait is still being computed. The `insertOnly` value already
+derived from the visited children serves that purpose instead.
+
+Verified by building `flink-table-planner` from the patched 2.3.0 tag and
+swapping the jar into `flink:2.3.0` (drop `lib/flink-table-planner-loader-*.jar`,
+put the planner jar in `lib/`):
+
+| check | result |
+|---|---|
+| multi-column case (`ORDER BY ts DESC, seq DESC`) | `ok → critical → ok` — fixed |
+| ascending case (`ORDER BY ts ASC`) | `ok → critical → ok` — fixed |
+| genuine keep-first dedup on `PROCTIME()` | plan unchanged: `Deduplicate(keep=[FirstRow], key=[id], order=[PROCTIME], outputInsertOnly=[true])`, byte-identical to stock |
+| `DeduplicateTest`, `ChangelogModeInferenceTest`, `RankTest` (stream + batch) | 93 tests, 0 failures |
+| `DeduplicateITCase` (runtime behaviour) | 50 tests, 0 failures, 6 skipped |
+
+The third row is the one that matters for not regressing the 2.1 optimisation:
+the case it was written for still produces exactly the same plan.
 
 ---
 
 ## Bisect log
 
 Each line is a full run of the reproducer; only the named change differs from
-the line above it.
+the minimal case.
 
 | variant | 1.20.4 | 2.3.0 |
 |---|---|---|
 | full platform rule (4 joins, real DDL) | clears | stuck |
 | one join, `hasState` only | clears | stuck |
 | **`ORDER BY ts DESC, seq DESC`** (minimal, above) | clears | **stuck** |
-| same, `ORDER BY ts DESC` — second sort column deleted | clears | clears |
-| same, but `SET 'table.exec.state.ttl' = '3600 s'` | clears | clears |
-| same, `PARTITION BY id, datasetId` (two-column *partition* key) | clears | clears |
+| **`ORDER BY ts ASC`**, later row has a smaller `ts` | clears | **stuck** |
+| `ORDER BY ts DESC` — second sort column deleted | clears | clears |
+| plus `SET 'table.exec.state.ttl' = '3600 s'` | clears | clears |
+| `PARTITION BY id, datasetId` (two-column *partition* key) | clears | clears |
 | no `LEFT JOIN` (dedup → `GROUP BY` → sink) | clears | clears |
 | no dedup on the left/universe side of the join | clears | clears |
 
-Only the second sort column matters. The state TTL, the partition key width and
-the join shape do not — they merely determine whether the lost retraction is
-observable.
+Only the order key matters. The state TTL, the partition key width and the join
+shape do not — they merely determine whether the lost retraction is observable.
 
 ---
 
@@ -353,10 +395,14 @@ only one of them is Flink's.
    its sink declares. The plan now shows
    `GroupAggregate(groupBy=[resource], MAX_RETRACT)` and no materializer.
 
-2. **Flink's, open** — this report. Our `attributes` view deduplicates with
-   `ORDER BY COALESCE(observedAt, ts) DESC, offset DESC`, two sort columns, so
-   on 2.1+ it is planned insert-only and alerts never clear.
+2. **Flink's** — this report, with a verified fix in `flink-fix.patch`. Our
+   `attributes` view deduplicates with
+   `ORDER BY COALESCE(observedAt, ts) DESC, offset DESC`, where the Kafka offset
+   breaks ties between records sharing a timestamp. That is a multi-column order
+   key, so on 2.1+ it is planned insert-only and alerts never clear.
 
-Until this is fixed upstream, 1.20.4 remains the only platform on which the use
-case is proven. On 2.1+ the workarounds are to enable mini-batch, or to collapse
-the deduplication order key to a single column.
+Until the fix is upstream, 1.20.4 remains the only stock platform on which the
+use case is proven. On 2.1+ the workarounds are to enable mini-batch, or to
+collapse the deduplication order key to a single **descending** column — and
+note that the single-column form is correct only by accident, so it is a
+workaround, not a design to rely on.
