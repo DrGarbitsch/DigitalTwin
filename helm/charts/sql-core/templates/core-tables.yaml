@@ -195,8 +195,17 @@ spec:
       --
       -- The offset is strictly monotonic per partition, so it is arrival
       -- order stated explicitly. Must mirror lib/utils.py create_yaml_view.
+      -- Partitioned on `id` ALONE. Not a weaker key: `id` is
+      -- <entityId>\hash(name\datasetId), so datasetId is functionally
+      -- determined by it. A key survives only a projection that keeps all of
+      -- its columns, and every rule selects just the columns it needs, so a
+      -- composite (id, datasetId) key was lost at the first Calc and the joins
+      -- downstream compiled as NoUniqueKey bag joins -- keeping EVERY row per
+      -- key, shedding one only on a matching retraction. Measured on Flink
+      -- 2.3, which drops retractions: one attribute write grew from 5x to
+      -- 1503x fan-out over eight writes, while 1.20.4 stayed flat.
       SELECT /*+ STATE_TTL('attributes' = '{{.Values.flink.viewTtl}}') */ *,
-      ROW_NUMBER() OVER (PARTITION BY `id`, `datasetId`
+      ROW_NUMBER() OVER (PARTITION BY `id`
          ORDER BY COALESCE(`observedAt`, `ts`) DESC, `offset` DESC) AS rownum
       FROM `attributes`)
       WHERE rownum = 1;

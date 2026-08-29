@@ -233,9 +233,29 @@ def main():
     # Names its own TTL setting for the same reason as entities_view, and
     # defaults to the same value. Not to be set to never-expire -- see
     # lib/configs.py.
-    yaml.dump(utils.create_yaml_view(table_name, table, ['id', 'datasetId'],
+    # Keyed on `id` ALONE, although the attribute is (entity, name, datasetId).
+    # That is not a weaker key: `id` is <entityId>\hash(name\datasetId) on the
+    # Flink side and <entityId>\name\datasetId on the SQLite side, so datasetId
+    # is functionally determined by id and the pair never distinguishes two
+    # rows that id does not.
+    #
+    # It matters because a key only survives a projection that keeps ALL of its
+    # columns. Every rule selects the columns it needs -- typically id and a
+    # value -- so a composite (id, datasetId) key was provably lost at the first
+    # Calc, and the joins downstream compiled as
+    # leftInputSpec=[NoUniqueKey], rightInputSpec=[NoUniqueKey]: bag joins that
+    # keep EVERY row per key and shed one only when a matching retraction
+    # arrives. A single-column key survives those projections, so the joins keep
+    # one row per key and REPLACE it.
+    #
+    # Measured on Flink 2.3, where retractions go missing: with bag joins one
+    # attribute write grew from 5x fan-out to 1503x over eight writes (>1.4M
+    # records from one write) while 1.20.4 stayed flat at 12 in / 12 out. The
+    # accumulation is 2.3's bug, but a keyed join makes a dropped retraction
+    # harmless instead of cumulative -- on both versions.
+    yaml.dump(utils.create_yaml_view(table_name, table, ['id'],
                                      ttl=configs.view_state_ttl), f)
-    print(utils.create_sql_view(table_name, sqlite_table, ['id', 'datasetId']),
+    print(utils.create_sql_view(table_name, sqlite_table, ['id']),
           file=sqlitef)
     # attributes_insert upsert-table
     table_name = "attributes-insert"
