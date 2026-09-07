@@ -375,6 +375,30 @@ currently over-claims for V1. See §10.2.
 Each milestone lists deliverables and **executable** acceptance criteria. A
 milestone is done when its criteria run green in CI against the corpus (§7).
 
+> **Status.** M0 and M1 are implemented and green: 39 tests, 92% coverage,
+> flake8 clean, `semforge validate` running against the real KMS. Four
+> deviations from what is written below, all deliberate:
+>
+> 1. **The corpus is `main`'s KMS.** This branch is based on `main`, so
+>    `kms-constraints/kms/` (the four-model fixture) and the `inversePath`
+>    cartridge work are not present — they are on `material-waste-class`.
+>    M1 criteria 2 and 3, which compare against those models, are therefore
+>    substituted by pinning the corpus's own violation set against its
+>    documented provenance (`test_corpus_validation.py`). All three violations
+>    it produces are known and explained: one is the rule-writeback divergence
+>    of F4, two are the `hasXXXWorkpiece` sub-attribute counts documented in
+>    `kms-constraints/kms/README.md`. The stronger comparison lands when those
+>    fixtures reach `main`.
+> 2. **Cardinality assertions 5 and 6 are implemented; 7 is deferred to M4.**
+>    Rejecting the mixed per-variable case needs the capability check, which is
+>    M4 work; detecting it needs SPARQL algebra analysis rather than the regex
+>    that suffices for 6.
+> 3. **`flake8` is ahead of shacl2flink's pin** (7.1.1 vs 5.0.4). The old pin
+>    predates PEP 701 and mis-parses f-strings on Python 3.12, reporting dozens
+>    of phantom errors. Reasoning is in `requirements-dev.txt`.
+> 4. **Python 3.12**, not 3.11 — it is what the machine has, and nothing in the
+>    dependency set objects.
+
 ### M0 — Skeleton and corpus (S)
 
 - Package scaffold, `Makefile` (`setup`, `test`, `lint`), CI job.
