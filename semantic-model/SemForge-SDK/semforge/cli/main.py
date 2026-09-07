@@ -19,6 +19,9 @@ from ..package import load
 from ..provenance import build_provenance
 from ..target import EmissionMode, builtin_profile, check_package, export as export_package
 from ..target.crosscheck import cross_check
+from ..diff import semantic_diff
+from ..diff.model import format_changes
+from ..diff.impact import format_regression, regression_report
 from ..validate import validate_package
 from ..validate.orchestrator import validate_graphs
 
@@ -202,6 +205,54 @@ def test(path, want_coverage, fail_on):
                 failed += len(offenders)
 
     sys.exit(1 if failed else 0)
+
+
+@cli.command('diff')
+@click.argument('before', type=click.Path(exists=True))
+@click.argument('after', type=click.Path(exists=True))
+@click.option('--impact/--no-impact', default=True,
+              help='also run the examples under both versions')
+def diff_command(before, after, impact):
+    """Compare two package versions at the semantic level.
+
+    Reports classified model changes -- a constraint weakened, a datatype
+    changed, a rule body edited -- and then what those did to the examples. A
+    changed SPARQL body is reported as impact-unknown rather than guessed at;
+    the example run is what settles it.
+    """
+    try:
+        old = load(before)
+        new = load(after)
+    except PackageError as exc:
+        click.echo(f'package error: {exc}', err=True)
+        sys.exit(2)
+
+    changes = semantic_diff(old.shapes, new.shapes)
+    if not changes:
+        click.echo('no semantic changes')
+    else:
+        click.echo(f'{len(changes)} semantic change(s)')
+        for line in format_changes(changes, new.shapes):
+            click.echo(f'  {line}')
+
+    if not impact:
+        sys.exit(0)
+
+    report = regression_report(
+        (old.model, old.shapes, old.knowledge),
+        (new.model, new.shapes, new.knowledge),
+        [(os.path.basename(new.sources['model']), new.model)],
+        changes=changes)
+    lines = format_regression(report)
+    if lines:
+        click.echo('\nAffected examples')
+        for line in lines:
+            click.echo(line)
+        # A weakening that changes behaviour is the case worth stopping for.
+        weakened = [c for c in changes if c.direction.value == 'weakened']
+        sys.exit(1 if weakened else 0)
+    click.echo('\nno example changed behaviour')
+    sys.exit(0)
 
 
 @cli.command()
