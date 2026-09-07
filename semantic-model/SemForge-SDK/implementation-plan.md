@@ -375,7 +375,7 @@ currently over-claims for V1. See §10.2.
 Each milestone lists deliverables and **executable** acceptance criteria. A
 milestone is done when its criteria run green in CI against the corpus (§7).
 
-> **Status.** M0 through M3 are implemented and green: 90 tests, 93% coverage,
+> **Status.** M0 through M4 are implemented and green: 109 tests, 88% coverage,
 > flake8 clean. On the real KMS, 89 constraints are evaluated -- 87 conformant,
 > 2 violated -- with the enumerator invariant holding (`complete: True`).
 >
@@ -392,6 +392,25 @@ milestone is done when its criteria run green in CI against the corpus (§7).
 > merged three prefix directives with the shape that followed, so the first
 > shape in the file was simply absent from the index. IRIs are now their own
 > token, and a test pins it.
+>
+> **M4 found that `main`'s shacl2flink cannot compile `main`'s own kms.**
+> `create_sql_checks_from_shacl.py` raises `WrongSparqlStructure: Unexpected
+> property structure found for property isUsedFrom` on
+> `TimestampCartridgeFromRulesShape`. The same package compiles cleanly against
+> the `material-waste-class` checkout, so the fix is already written and simply
+> is not on `main` yet. The cross-check reports this as a divergence diagnostic
+> naming the compiler directory, rather than treating a failed build as
+> agreement -- which is the whole point of it degrading loudly.
+>
+> Against a compiler that can build it, **pyshacl and the compiled SQL agree
+> exactly** on the corpus: the same two `hasXXXWorkpiece` findings, everything
+> else `ok`.
+>
+> **The corpus needed a vendored `context.jsonld`.** The shipped kms cannot be
+> compiled without fetching a remote `@context`, because the compiler requires a
+> local one and the model names a URL. `semforge export` therefore emits a
+> context, and the cross-check refuses to run without one rather than fetching
+> silently. See `tests/corpus/kms/README.md`.
 >
 > **M3 retired the one irreducible entry in `expected-divergences.txt`.** With
 > update semantics between rule iterations, the constructed `hasWasteclass`

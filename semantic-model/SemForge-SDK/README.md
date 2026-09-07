@@ -19,7 +19,7 @@ venv/bin/python -m semforge validate tests/corpus/kms
 
 ## Status
 
-**M0 through M3 are implemented** (see `implementation-plan.md` section 5).
+**M0 through M4 are implemented** (see `implementation-plan.md` section 5).
 A package loads, is projected to RDF, has its rules expanded to a bounded
 fixpoint under NGSI-LD update semantics, is normalised into the data view its
 shapes declare, and is validated with pyshacl. Every applicable constraint gets
@@ -35,7 +35,14 @@ venv/bin/python -m semforge validate tests/corpus/kms
 venv/bin/python -m semforge test tests/corpus/kms --coverage
 venv/bin/python -m semforge explain tests/corpus/kms StateOnFilterShape
 venv/bin/python -m semforge accept tests/corpus/kms
+venv/bin/python -m semforge export tests/corpus/kms -o /tmp/kms --mode broker
+venv/bin/python -m semforge validate tests/corpus/kms --cross-check sqlite
 ```
+
+`--cross-check sqlite` runs the package through shacl2flink's SQLite build and
+compares. It needs `requirements-crosscheck.txt` and the `sqlite3` CLI, and it
+is a courtesy check: its findings are bug reports for the compiler, never
+reasons to hold up a package whose pyshacl verdict is clean.
 
 What is **not** yet true, stated rather than implied:
 
@@ -45,7 +52,7 @@ What is **not** yet true, stated rather than implied:
   (`architecture.md` section 5.4).
 - Nothing yet derives `proposed` constraints from examples: the tier exists and
   is enforced, but no importer populates it.
-- No export, capability check, diff or editor service. M4–M6.
+- No semantic diff, regression report or editor service. M5–M6.
 
 ## Scope
 

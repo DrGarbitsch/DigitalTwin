@@ -17,6 +17,8 @@ from ..expect import (coverage, load_expectations, run_tests,
 from ..expect.store import Example
 from ..package import load
 from ..provenance import build_provenance
+from ..target import EmissionMode, builtin_profile, check_package, export as export_package
+from ..target.crosscheck import cross_check
 from ..validate import validate_package
 from ..validate.orchestrator import validate_graphs
 
@@ -31,7 +33,11 @@ def cli():
 @click.argument('path', type=click.Path(exists=True), default='.')
 @click.option('--no-strict', is_flag=True,
               help='report view-declaration problems instead of failing on them')
-def validate(path, no_strict):
+@click.option('--cross-check', type=click.Choice(['sqlite']), default=None,
+              help='additionally run the compiled SQLite build and compare')
+@click.option('--shacl2flink', type=click.Path(), default=None,
+              help='path to the shacl2flink checkout (for --cross-check)')
+def validate(path, no_strict, cross_check, shacl2flink):
     """Validate a package's examples against its shapes."""
     try:
         package = load(path)
@@ -55,6 +61,17 @@ def validate(path, no_strict):
         click.echo(f'{result.severity:>9}  {result.resource}  '
                    f'{result.component}({result.attribute})  [{result.shape_name}]')
 
+    if cross_check:
+        # A courtesy check. Its findings are bug reports for the compiler, and
+        # they never block a package whose pyshacl verdict is clean.
+        target = shacl2flink or _default_shacl2flink(path)
+        divergences = cross_check_sqlite(package, report, target)
+        click.echo(f'\ncross-check against {target or "(not found)"}')
+        for diagnostic in divergences:
+            click.echo(f'  {diagnostic}')
+        if not divergences:
+            click.echo('  cross-check: the compiled SQL agrees with pyshacl')
+
     count = len(report.violations)
     click.echo(f'\n{len(report.evaluated)} constraints evaluated, '
                f'{count} violation{"" if count == 1 else "s"}')
@@ -66,6 +83,64 @@ def validate(path, no_strict):
         click.echo('note: this report is INCOMPLETE -- conformance cannot be '
                    'trusted for the shapes above.', err=True)
     sys.exit(1 if count else 0)
+
+
+def _default_shacl2flink(package_path):
+    """Look for a sibling shacl2flink checkout, walking up from the package."""
+    here = os.path.abspath(package_path)
+    while here != os.path.dirname(here):
+        candidate = os.path.join(here, 'shacl2flink')
+        if os.path.isdir(candidate):
+            return candidate
+        here = os.path.dirname(here)
+    return ''
+
+
+def cross_check_sqlite(package, report, shacl2flink_dir):
+    return cross_check(package, report, shacl2flink_dir, python_exe=sys.executable)
+
+
+@cli.command('export')
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.option('-o', '--out', 'out_dir', required=True, type=click.Path(),
+              help='directory to write the KMS triple into')
+@click.option('--target', type=click.Choice(['kms']), default='kms')
+@click.option('--mode', type=click.Choice([m.value for m in EmissionMode]),
+              default=EmissionMode.COMPILE.value,
+              help='compile keeps the observation stream; broker collapses to the latest')
+@click.option('--profile', 'profile_name', default='shacl2flink',
+              help='target profile to check against before exporting')
+@click.option('--no-check', is_flag=True, help='skip the capability check')
+def export_command(path, out_dir, target, mode, profile_name, no_check):
+    """Export a package as the KMS triple, after checking it compiles.
+
+    The capability check runs FIRST, so a shape the target cannot express is a
+    diagnostic with a file and a line rather than a stack trace from the
+    compiler -- and nothing is written until the package passes.
+    """
+    try:
+        package = load(path)
+    except PackageError as exc:
+        click.echo(f'package error: {exc}', err=True)
+        sys.exit(2)
+
+    if not no_check:
+        problems = check_package(package, builtin_profile(profile_name))
+        if problems:
+            click.echo('ERROR: the following shapes cannot be compiled by the '
+                       f'{profile_name} profile and would be silently '
+                       'unvalidated:', err=True)
+            for diagnostic in problems:
+                click.echo(f'  - {diagnostic}', err=True)
+            sys.exit(2)
+
+    written = export_package(package, out_dir, EmissionMode(mode))
+    for role in ('knowledge', 'shapes', 'model', 'context'):
+        if role in written:
+            click.echo(f'{role:>10}  {written[role]}')
+    if written.get('collapsed'):
+        click.echo(f'{"collapsed":>10}  {written["collapsed"]} attribute '
+                   f'instance(s) to the latest observedAt')
 
 
 def _examples_and_reports(package, expectations):
