@@ -19,18 +19,21 @@ venv/bin/python -m semforge validate tests/corpus/kms
 
 ## Status
 
-**M0, M1 and M2 are implemented** (see `implementation-plan.md` section 5).
-A package loads, is projected to RDF, is normalised into the data view its
+**M0 through M3 are implemented** (see `implementation-plan.md` section 5).
+A package loads, is projected to RDF, has its rules expanded to a bounded
+fixpoint under NGSI-LD update semantics, is normalised into the data view its
 shapes declare, and is validated with pyshacl. Every applicable constraint gets
-a status, residue is pinned by digest, and coverage reports which constraints
-are actually exercised.
+a status, residue is pinned by digest, coverage reports which constraints are
+actually exercised, and constraints can be edited in place without disturbing
+the rest of the file.
 
-On the real KMS: 89 constraints evaluated, 86 conformant, 3 violated — all
-three known and documented.
+On the real KMS: 89 constraints evaluated, 87 conformant, 2 violated — both
+known and documented.
 
 ```bash
 venv/bin/python -m semforge validate tests/corpus/kms
 venv/bin/python -m semforge test tests/corpus/kms --coverage
+venv/bin/python -m semforge explain tests/corpus/kms StateOnFilterShape
 venv/bin/python -m semforge accept tests/corpus/kms
 ```
 
@@ -39,8 +42,10 @@ What is **not** yet true, stated rather than implied:
 - Constraints are referenced structurally (`shape/attribute/Component`), not by
   a declared frozen `semforge:id`. A structural reference changes when the path
   changes, which is the rename a regression report exists to explain
-  (`architecture.md` section 5.4). Declared IDs land with the write layer.
-- No provenance, rules fixpoint, export, diff or editor service. M3–M6.
+  (`architecture.md` section 5.4).
+- Nothing yet derives `proposed` constraints from examples: the tier exists and
+  is enforced, but no importer populates it.
+- No export, capability check, diff or editor service. M4–M6.
 
 ## Scope
 

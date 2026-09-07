@@ -375,9 +375,29 @@ currently over-claims for V1. See §10.2.
 Each milestone lists deliverables and **executable** acceptance criteria. A
 milestone is done when its criteria run green in CI against the corpus (§7).
 
-> **Status.** M0, M1 and M2 are implemented and green: 62 tests, 92% coverage,
-> flake8 clean. On the real KMS, 89 constraints are evaluated -- 86 conformant,
-> 3 violated -- with the enumerator invariant holding (`complete: True`).
+> **Status.** M0 through M3 are implemented and green: 90 tests, 93% coverage,
+> flake8 clean. On the real KMS, 89 constraints are evaluated -- 87 conformant,
+> 2 violated -- with the enumerator invariant holding (`complete: True`).
+>
+> **The H3 spike resolved in favour of the tokenizer, and better than the
+> fallback.** Turtle's statement grammar is small and what was needed is spans
+> rather than semantics, so `rdfio/turtle_index.py` locates statements directly;
+> an edit is a text insertion into the existing block, so even comments *inside*
+> the edited shape survive, which the planned shape-block rewrite would have
+> lost. The same index gives every shape a `file:line` locator, which is what
+> provenance reports and what an editor service will need.
+>
+> The corpus caught a real bug in it immediately: a `#` inside an IRI
+> (`<...shacl#>`) read as a comment start swallowed the statement terminator and
+> merged three prefix directives with the shape that followed, so the first
+> shape in the file was simply absent from the index. IRIs are now their own
+> token, and a test pins it.
+>
+> **M3 retired the one irreducible entry in `expected-divergences.txt`.** With
+> update semantics between rule iterations, the constructed `hasWasteclass`
+> replaces the value it was derived from instead of joining it, so the spurious
+> `maxCount` violation is gone -- and is still reproducible with `rules=False`,
+> asserted as a test.
 >
 > One thing M2 changed that was not planned: **shape identity is the full IRI,
 > not the local name.** The corpus carries both `base_shacl:CartridgeShape` and

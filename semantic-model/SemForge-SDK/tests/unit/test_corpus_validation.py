@@ -15,10 +15,11 @@ FILTER = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/'
 
 # Shape identity is the full IRI, not the short name: the corpus carries two
 # distinct CartridgeShape IRIs and merging them would corrupt coverage.
+# The hasWasteclass MaxCount violation used to be here, and M3 retired it: with
+# NGSI-LD update semantics between rule iterations the constructed value
+# REPLACES the one it was derived from instead of joining it. That was the one
+# irreducible entry in shacl2flink's expected-divergences.txt.
 EXPECTED = {
-    # filter_shacl, not base_shacl -- the two share a local name and only the
-    # IRI says which one required hasWasteclass [1,1].
-    ('urn:cartridge:1', 'hasWasteclass', 'MaxCountConstraintComponent', FILTER + 'CartridgeShape'),
     ('urn:cutter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
     ('urn:filter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
 }
@@ -29,19 +30,17 @@ def test_corpus_violations_are_exactly_the_known_ones(corpus):
     assert set(report.keys()) == EXPECTED
 
 
-def test_the_wasteclass_violation_is_the_rule_writeback_divergence(corpus):
-    """A sh:rule constructs a second hasWasteclass.
+def test_the_wasteclass_divergence_is_gone(corpus):
+    """M3 inverted this test, as its previous version predicted it would.
 
-    In RDF that is an added triple, so the attribute now has two values and
-    maxCount 1 fires. As an NGSI-LD update it would REPLACE the value that was
-    there. Applying update semantics between rule iterations is the `rule_output`
-    transform, which lands with the fixpoint in M3 -- so this violation is
-    expected today and is the test that will invert when M3 arrives.
+    It asserted that a sh:rule constructing a second hasWasteclass raised a
+    spurious maxCount violation, because pyshacl applies rules as pure triple
+    addition. With NGSI-LD update semantics the constructed value replaces the
+    one it was derived from, and the violation is gone. That it is still
+    reproducible with rules=False is asserted in test_rules.py.
     """
     report = validate_package(corpus)
-    hits = [r for r in report.violations if r.attribute == 'hasWasteclass']
-    assert len(hits) == 1
-    assert hits[0].resource == 'urn:cartridge:1'
+    assert [r for r in report.violations if r.attribute == 'hasWasteclass'] == []
 
 
 def test_the_workpiece_violations_are_the_documented_sub_attribute_ones(corpus):

@@ -16,6 +16,7 @@ from ..expect import (coverage, load_expectations, run_tests,
                       save_expectations)
 from ..expect.store import Example
 from ..package import load
+from ..provenance import build_provenance
 from ..validate import validate_package
 from ..validate.orchestrator import validate_graphs
 
@@ -126,6 +127,52 @@ def test(path, want_coverage, fail_on):
                 failed += len(offenders)
 
     sys.exit(1 if failed else 0)
+
+
+@cli.command()
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.argument('subject', required=False)
+def explain(path, subject):
+    """Say why a shape exists: where it came from, and what exercises it.
+
+    Provenance answers the first half; coverage answers the second. Together
+    they are what "why does this constraint exist" actually needs -- a
+    declaration site, and the examples standing behind it.
+    """
+    try:
+        package = load(path)
+        provenance = build_provenance(package)
+        expectations = load_expectations(path)
+        paired = _examples_and_reports(package, expectations)
+    except (PackageError, CapabilityError) as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+
+    entries = {e.constraint: e for e in coverage(paired)}
+    matched = False
+    for origin in sorted(provenance.origins.values(), key=lambda o: o.subject):
+        name = origin.subject.rsplit('/', 1)[-1].rsplit('#', 1)[-1]
+        if subject and subject not in origin.subject:
+            continue
+        related = {ref: entry for ref, entry in entries.items()
+                   if ref.split('/')[0].endswith(name)}
+        if subject is None and not related:
+            continue
+        matched = True
+        click.echo(f'{origin.subject}')
+        click.echo(f'  origin    {origin.kind}  (tier: {origin.tier})')
+        click.echo(f'  declared  {origin.locator or "unknown"}')
+        for ref, entry in sorted(related.items()):
+            click.echo(f'  {ref.split("/", 1)[-1]}')
+            click.echo(f'      fires on     {entry.firing_examples or "-- nothing"}')
+            click.echo(f'      conforms on  {entry.conforming_examples or "-- nothing"}')
+            if not entry.has_firing:
+                click.echo('      NOTE no example proves this can fire; it may be '
+                           'unsatisfiable rather than satisfied')
+        click.echo('')
+    if not matched:
+        click.echo(f'nothing known about {subject!r}', err=True)
+        sys.exit(1)
 
 
 @cli.command()

@@ -150,15 +150,27 @@ def test_coverage_flags_the_dead_shape_as_never_firing(corpus):
     assert not dead[0].has_firing
 
 
-def test_coverage_is_two_sided(corpus):
+def test_coverage_reports_each_side_independently():
     """A firing example proves liveness; a conforming one proves no over-firing.
 
-    Neither substitutes for the other, so both sides are reported.
+    Neither substitutes for the other, so the three states are distinct. Tested
+    on the entry directly rather than through the corpus, whose mix of states
+    changes as the model improves -- M3's rule update semantics turned the one
+    "only ever violated" constraint into a conforming one.
     """
+    from semforge.expect.runner import CoverageEntry
+
+    assert CoverageEntry('c').status == 'no-firing-example'
+    assert CoverageEntry('c', conforming_examples=['a']).status == 'no-firing-example'
+    assert CoverageEntry('c', firing_examples=['a']).status == 'no-conforming-example'
+    assert CoverageEntry('c', firing_examples=['a'],
+                         conforming_examples=['b']).status == 'two-sided'
+
+
+def test_every_corpus_constraint_is_seen_on_at_least_one_side(corpus):
     example = Example(path='model-instance.jsonld')
     entries = coverage([(example, validate_package(corpus))])
-    statuses = {e.status for e in entries}
-    assert 'no-firing-example' in statuses      # constraints only ever satisfied
-    assert 'no-conforming-example' in statuses  # constraints only ever violated
+    assert entries
     for entry in entries:
         assert entry.has_firing or entry.has_conforming
+    assert 'no-firing-example' in {e.status for e in entries}

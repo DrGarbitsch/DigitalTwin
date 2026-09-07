@@ -62,6 +62,7 @@ class Report:
     view_stats: list = field(default_factory=list)
     diagnostics: list = field(default_factory=list)
     complete: bool = False   # True once every applicable constraint has a status (H1/V1)
+    rule_iterations: int = 0
 
     @property
     def violations(self):

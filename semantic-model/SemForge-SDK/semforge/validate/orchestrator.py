@@ -16,8 +16,15 @@ from .applicable import enumerate_pairs
 from .results import Report, Result, Status
 
 
-def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True):
-    """Validate one already-loaded package. Returns a Report."""
+def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
+                    rules=True):
+    """Validate one already-loaded package. Returns a Report.
+
+    Rules are expanded first, with NGSI-LD update semantics applied between
+    iterations. pyshacl's advanced mode would run them too, but as pure triple
+    ADDITION -- which makes every rule that rewrites an existing attribute
+    manufacture a cardinality violation against its own shape.
+    """
     diagnostics = DiagnosticSet()
     for diagnostic in shape_views.check_declarations(shapes_graph):
         diagnostics.add(diagnostic)
@@ -26,7 +33,17 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True)
             'ERROR: the following shapes declare a data view their body '
             'contradicts, and would be evaluated over the wrong instances:')
 
+    if rules:
+        from ..rules import run_rules
+        run = run_rules(data_graph, shapes_graph, knowledge_graph)
+        data_graph = run.graph
+        for diagnostic in run.diagnostics:
+            diagnostics.add(diagnostic)
+        if strict:
+            diagnostics.fail_loud('ERROR: rule evaluation did not terminate:')
+
     report = Report(diagnostics=list(diagnostics))
+    report.rule_iterations = run.iterations if rules else 0
     expected = set()
     unmapped = []
 

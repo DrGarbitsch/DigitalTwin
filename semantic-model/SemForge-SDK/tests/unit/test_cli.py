@@ -8,8 +8,8 @@ from semforge.cli import cli
 def test_validate_reports_violations_and_exits_1(corpus_path):
     result = CliRunner().invoke(cli, ['validate', corpus_path])
     assert result.exit_code == 1
-    assert 'CartridgeShape' in result.output
-    assert '3 violations' in result.output
+    assert 'MachineShape' in result.output
+    assert '2 violations' in result.output
 
 
 def test_validate_reports_the_view_and_what_it_removed(corpus_path):
