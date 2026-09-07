@@ -7,11 +7,13 @@ declared view and merged afterwards.
 
 from rdflib import Graph
 
-from ..errors import DiagnosticSet
+from ..errors import Diagnostic, DiagnosticSet
 from ..ngsild import DataView, build_view
+from . import normalise
 from . import shapes as shape_views
 from .adapters import pyshacl_adapter
-from .results import Report
+from .applicable import enumerate_pairs
+from .results import Report, Result, Status
 
 
 def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True):
@@ -25,13 +27,55 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True)
             'contradicts, and would be evaluated over the wrong instances:')
 
     report = Report(diagnostics=list(diagnostics))
+    expected = set()
+    unmapped = []
+
     for view, view_shapes in sorted(shape_views.partition(shapes_graph).items(),
                                     key=lambda item: item[0].value):
         graph, stats = build_view(data_graph, view)
         report.view_stats.append(stats)
         subset = shape_views.subgraph_for(shapes_graph, view_shapes)
-        report.results.extend(pyshacl_adapter.run(
-            graph, subset, knowledge_graph, view=view.value))
+
+        violations = pyshacl_adapter.run(graph, subset, knowledge_graph, view=view.value)
+        report.results.extend(violations)
+
+        pairs, inapplicable = enumerate_pairs(
+            shapes_graph, graph, knowledge_graph, shapes=view_shapes)
+        expected |= pairs
+
+        # A shape whose target matched nothing is reported, not omitted: a
+        # shape that silently stopped matching anything has no other symptom.
+        for shape, declared in inapplicable:
+            for attribute, component in declared:
+                report.results.append(Result(
+                    resource='', attribute=attribute, component=component,
+                    shape=shape, severity='info',
+                    status=Status.NOT_APPLICABLE, view=view.value,
+                    shape_curie=normalise.curie(shapes_graph, shape)))
+
+    # Subtract what fired from what should have been evaluated. What is left
+    # conformed -- and can now be SAID to have conformed, rather than inferred
+    # from silence.
+    fired = {r.key() for r in report.results if r.status is Status.VIOLATED}
+    for resource, attribute, component, shape in sorted(expected - fired):
+        report.results.append(Result(
+            resource=resource, attribute=attribute, component=component,
+            shape=shape, severity='info', status=Status.CONFORMANT,
+            shape_curie=normalise.curie(shapes_graph, shape)))
+
+    # The drift check. A reported result the enumerator did not predict means
+    # the enumerator is wrong, and an enumerator that quietly under-counts turns
+    # V1 into decoration.
+    for key in sorted(fired - expected):
+        unmapped.append(key)
+        report.diagnostics.append(Diagnostic(
+            code='SF-ENUM-001', category='internal', severity='error',
+            subject=key[3],
+            message=(f'{key[0]} {key[2]}({key[1]}) was reported by pyshacl but '
+                     f'the applicable-set enumerator did not predict it; '
+                     f'conformance for this shape cannot be trusted')))
+
+    report.complete = not unmapped
     return report
 
 

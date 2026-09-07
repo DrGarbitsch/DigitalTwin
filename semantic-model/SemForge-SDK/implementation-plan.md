@@ -375,9 +375,18 @@ currently over-claims for V1. See §10.2.
 Each milestone lists deliverables and **executable** acceptance criteria. A
 milestone is done when its criteria run green in CI against the corpus (§7).
 
-> **Status.** M0 and M1 are implemented and green: 39 tests, 92% coverage,
-> flake8 clean, `semforge validate` running against the real KMS. Four
-> deviations from what is written below, all deliberate:
+> **Status.** M0, M1 and M2 are implemented and green: 62 tests, 92% coverage,
+> flake8 clean. On the real KMS, 89 constraints are evaluated -- 86 conformant,
+> 3 violated -- with the enumerator invariant holding (`complete: True`).
+>
+> One thing M2 changed that was not planned: **shape identity is the full IRI,
+> not the local name.** The corpus carries both `base_shacl:CartridgeShape` and
+> `filter_shacl:CartridgeShape`; collapsing them to one short name merged two
+> shapes' verdicts, which would have corrupted both coverage and the residue
+> digest. Display uses the CURIE (`:CartridgeShape` vs `default1:CartridgeShape`)
+> so expectation files stay readable and still unambiguous.
+>
+> Deviations from what is written below, all deliberate:
 >
 > 1. **The corpus is `main`'s KMS.** This branch is based on `main`, so
 >    `kms-constraints/kms/` (the four-model fixture) and the `inversePath`
@@ -390,6 +399,9 @@ milestone is done when its criteria run green in CI against the corpus (§7).
 >    `kms-constraints/kms/README.md`. The stronger comparison lands when those
 >    fixtures reach `main`.
 > 2. **Cardinality assertions 5 and 6 are implemented; 7 is deferred to M4.**
+>    M2's constraint references are structural (`shape/attribute/Component`)
+>    rather than the declared, frozen `semforge:id` of architecture section 5.4;
+>    those annotations arrive with the write layer in M3.
 >    Rejecting the mixed per-variable case needs the capability check, which is
 >    M4 work; detecting it needs SPARQL algebra analysis rather than the regex
 >    that suffices for 6.

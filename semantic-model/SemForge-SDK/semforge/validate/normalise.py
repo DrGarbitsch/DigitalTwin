@@ -26,6 +26,25 @@ VALUE_PATHS = {NGSILD + p for p in ('hasValue', 'hasValueList', 'hasJSON', 'hasO
 TRANSPARENT_EDGES = VALUE_PATHS | {str(RDF.first), str(RDF.rest)}
 
 
+def curie(graph, iri):
+    """A prefixed name for an IRI, falling back to the local name.
+
+    Used wherever a shape is named for a HUMAN -- coverage lines, expectation
+    files -- because the local name alone is ambiguous: the kms carries both
+    base_shacl:CartridgeShape and filter_shacl:CartridgeShape.
+    """
+    if not iri:
+        return ''
+    try:
+        prefix, _, name = graph.namespace_manager.compute_qname(str(iri), generate=False)
+        # An EMPTY prefix is still a prefix -- ':CartridgeShape' is what
+        # distinguishes the base shape from 'default1:CartridgeShape'. Dropping
+        # it back to the bare local name reintroduces the collision.
+        return f'{prefix}:{name}'
+    except Exception:
+        return local(iri)
+
+
 def local(iri):
     """The last segment of an IRI, for readable names."""
     return str(iri).rsplit('/', 1)[-1].rsplit('#', 1)[-1]

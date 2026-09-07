@@ -48,6 +48,7 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
         component = normalise.local(report.value(node, SH.sourceConstraintComponent))
         source = report.value(node, SH.sourceShape)
         shape = normalise.owning_shape(source, shapes_graph, report)
+        curie = normalise.curie(shapes_graph, shape)
         severity = normalise.local(report.value(node, SH.resultSeverity) or SH.Violation)
         message = report.value(node, SH.resultMessage)
 
@@ -58,16 +59,16 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
             # reported as NOT_EVALUATED so it still appears in the report.
             results.append(Result(
                 resource=str(focus), attribute='', component=component,
-                shape=normalise.local(shape) if shape else '',
+                shape=shape or '',
 
                 severity=severity, status=Status.NOT_EVALUATED,
-                message=str(message or ''), view=view))
+                message=str(message or ''), view=view, shape_curie=curie))
             continue
 
         results.append(Result(
             resource=resource, attribute=attribute or '',
             component=component,
-            shape=normalise.local(shape) if shape else '',
+            shape=shape or '',
             severity=severity, status=Status.VIOLATED,
-            message=str(message or ''), view=view))
+            message=str(message or ''), view=view, shape_curie=curie))
     return results

@@ -19,21 +19,28 @@ venv/bin/python -m semforge validate tests/corpus/kms
 
 ## Status
 
-**M0 and M1 are implemented** (see `implementation-plan.md` section 5): a
-package loads, is projected to RDF, is normalised into the data view its shapes
-declare, and is validated with pyshacl. `semforge validate` runs against the
-real KMS.
+**M0, M1 and M2 are implemented** (see `implementation-plan.md` section 5).
+A package loads, is projected to RDF, is normalised into the data view its
+shapes declare, and is validated with pyshacl. Every applicable constraint gets
+a status, residue is pinned by digest, and coverage reports which constraints
+are actually exercised.
 
-What is **not** yet true, and is stated rather than implied:
+On the real KMS: 89 constraints evaluated, 86 conformant, 3 violated — all
+three known and documented.
 
-- A report carries **violations only**. Establishing which constraints were
-  evaluated and *conformed* needs the applicable-set enumerator (H1), which is
-  M2 — a SHACL engine reports only violations, so conformance is the absence of
-  a result. `Report.complete` is `False` and the CLI says so, because a list of
-  three violations would otherwise read as "everything else passed", which is
-  the silence invariant V1 exists to forbid.
-- No expectations, residue, coverage, provenance, rules fixpoint, export or
-  diff. Those are M2–M5.
+```bash
+venv/bin/python -m semforge validate tests/corpus/kms
+venv/bin/python -m semforge test tests/corpus/kms --coverage
+venv/bin/python -m semforge accept tests/corpus/kms
+```
+
+What is **not** yet true, stated rather than implied:
+
+- Constraints are referenced structurally (`shape/attribute/Component`), not by
+  a declared frozen `semforge:id`. A structural reference changes when the path
+  changes, which is the rename a regression report exists to explain
+  (`architecture.md` section 5.4). Declared IDs land with the write layer.
+- No provenance, rules fixpoint, export, diff or editor service. M3–M6.
 
 ## Scope
 

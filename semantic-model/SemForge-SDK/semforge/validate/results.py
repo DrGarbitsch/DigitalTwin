@@ -29,11 +29,23 @@ class Result:
     resource: str            # the owning entity IRI
     attribute: str           # the attribute the constraint is on, or ''
     component: str           # e.g. MaxCountConstraintComponent
-    shape: str               # the source shape
+    shape: str               # the source shape, as a full IRI
     severity: str            # violation | warning | info (SHACL severities)
     status: Status = Status.VIOLATED
     message: str = ''
     view: str = 'current'
+    shape_curie: str = ''    # prefixed shape name, for display and expectations
+
+    @property
+    def shape_name(self):
+        """Short name, for display only.
+
+        Never used as identity: the corpus carries two distinct CartridgeShape
+        IRIs -- base_shacl and filter_shacl -- and collapsing them to one local
+        name merges two shapes' verdicts into one, which would corrupt both the
+        coverage report and the residue digest.
+        """
+        return self.shape.rsplit('/', 1)[-1].rsplit('#', 1)[-1]
 
     def key(self):
         """Identity used for comparison and, later, the residue digest.
@@ -54,6 +66,19 @@ class Report:
     @property
     def violations(self):
         return [r for r in self.results if r.status is Status.VIOLATED]
+
+    def with_status(self, status):
+        return [r for r in self.results if r.status is status]
+
+    @property
+    def conformant(self):
+        return self.with_status(Status.CONFORMANT)
+
+    @property
+    def evaluated(self):
+        """Every constraint that got a real verdict, either way."""
+        return [r for r in self.results
+                if r.status in (Status.VIOLATED, Status.CONFORMANT)]
 
     @property
     def conforms(self):

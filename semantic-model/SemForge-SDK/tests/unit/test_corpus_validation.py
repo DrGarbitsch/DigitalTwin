@@ -10,10 +10,17 @@ from semforge.validate import Status, validate_package
 
 # Documented in shacl2flink/tests/pyshacl-compare/expected-divergences.txt and
 # in kms-constraints/kms/README.md. See test docstrings for each.
+BASE = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/'
+FILTER = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/'
+
+# Shape identity is the full IRI, not the short name: the corpus carries two
+# distinct CartridgeShape IRIs and merging them would corrupt coverage.
 EXPECTED = {
-    ('urn:cartridge:1', 'hasWasteclass', 'MaxCountConstraintComponent', 'CartridgeShape'),
-    ('urn:cutter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', 'MachineShape'),
-    ('urn:filter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', 'MachineShape'),
+    # filter_shacl, not base_shacl -- the two share a local name and only the
+    # IRI says which one required hasWasteclass [1,1].
+    ('urn:cartridge:1', 'hasWasteclass', 'MaxCountConstraintComponent', FILTER + 'CartridgeShape'),
+    ('urn:cutter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
+    ('urn:filter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
 }
 
 
@@ -58,16 +65,18 @@ def test_no_result_is_unattributable(corpus):
     assert [r for r in report.results if r.status is Status.NOT_EVALUATED] == []
 
 
-def test_report_does_not_claim_completeness(corpus):
-    """V1: a report that cannot account for every applicable constraint says so.
+def test_report_accounts_for_every_applicable_constraint(corpus):
+    """V1, now established rather than deferred.
 
-    The applicable-set enumerator is M2. Until it exists, `complete` is False
-    and the CLI prints a note -- because a report listing three violations and
-    nothing else would otherwise read as "everything else conformed", which is
-    exactly the silence V1 forbids.
+    Was `complete is False` while the applicable-set enumerator was M2 work.
+    It exists now, so the report states conformance instead of leaving it to be
+    inferred from silence -- and `complete` is the claim that every reported
+    result mapped onto an enumerated pair.
     """
     report = validate_package(corpus)
-    assert report.complete is False
+    assert report.complete is True
+    assert len(report.conformant) > len(report.violations)
+    assert len(report.evaluated) == len(report.conformant) + len(report.violations)
 
 
 def test_shape_names_are_stable_not_blank_node_labels(corpus):
@@ -81,5 +90,17 @@ def test_shape_names_are_stable_not_blank_node_labels(corpus):
     second = validate_package(corpus).keys()
     assert first == second
     for _, _, _, shape in first:
-        assert shape and not shape.startswith('N') and not shape.startswith('n')
+        assert shape.startswith('http'), 'shape identity must be an IRI, not a blank node label'
         assert shape.endswith('Shape')
+
+
+def test_the_two_cartridge_shapes_stay_distinct(corpus):
+    """base_shacl:CartridgeShape and filter_shacl:CartridgeShape are different.
+
+    They share a local name. Identity is the IRI precisely so their verdicts
+    are never merged.
+    """
+    from semforge.validate.shapes import node_shapes
+    names = [str(s) for s in node_shapes(corpus.shapes) if str(s).endswith('CartridgeShape')]
+    assert len(names) == 2
+    assert len({n.rsplit('/', 1)[-1] for n in names}) == 1
