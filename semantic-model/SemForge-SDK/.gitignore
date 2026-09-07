@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .coverage
 .pytest_cache/
+vscode/node_modules/
+vscode/*.vsix

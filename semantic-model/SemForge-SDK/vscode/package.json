@@ -1,0 +1,57 @@
+{
+  "name": "semforge",
+  "displayName": "SemForge",
+  "description": "Semantic modelling for NGSI-LD, OWL and SHACL: validation, coverage and navigation across a SemForge package.",
+  "version": "0.1.0",
+  "publisher": "industryfusion",
+  "license": "Apache-2.0",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Programming Languages", "Linters"],
+  "activationEvents": [
+    "workspaceContains:**/shacl.ttl",
+    "onLanguage:turtle"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "turtle",
+        "aliases": ["Turtle", "RDF Turtle"],
+        "extensions": [".ttl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "SemForge",
+      "properties": {
+        "semforge.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python interpreter with semforge installed. Defaults to ./venv/bin/python inside the SemForge-SDK folder, then to 'python3'."
+        },
+        "semforge.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Trace the communication between VS Code and the SemForge language server."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "semforge.restart",
+        "title": "SemForge: Restart Language Server"
+      },
+      {
+        "command": "semforge.revalidate",
+        "title": "SemForge: Revalidate Package"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0"
+  }
+}

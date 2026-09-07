@@ -19,7 +19,7 @@ venv/bin/python -m semforge validate tests/corpus/kms
 
 ## Status
 
-**M0 through M4 are implemented** (see `implementation-plan.md` section 5).
+**M0 through M6 are implemented** (see `implementation-plan.md` section 5).
 A package loads, is projected to RDF, has its rules expanded to a bounded
 fixpoint under NGSI-LD update semantics, is normalised into the data view its
 shapes declare, and is validated with pyshacl. Every applicable constraint gets
@@ -37,7 +37,18 @@ venv/bin/python -m semforge explain tests/corpus/kms StateOnFilterShape
 venv/bin/python -m semforge accept tests/corpus/kms
 venv/bin/python -m semforge export tests/corpus/kms -o /tmp/kms --mode broker
 venv/bin/python -m semforge validate tests/corpus/kms --cross-check sqlite
+venv/bin/python -m semforge diff <before> <after>
 ```
+
+## VS Code
+
+`vscode/` holds the extension. See [vscode/README.md](./vscode/README.md) for
+setup — in short, `make setup` here, then `npm install` and `F5` there.
+
+It shows validation and capability errors on the shape that causes them, and
+flags constraints no example ever makes fire — the signal a passing test run
+cannot give you, because a constraint that cannot fire looks exactly like one
+that is satisfied.
 
 `--cross-check sqlite` runs the package through shacl2flink's SQLite build and
 compares. It needs `requirements-crosscheck.txt` and the `sqlite3` CLI, and it
@@ -52,7 +63,8 @@ What is **not** yet true, stated rather than implied:
   (`architecture.md` section 5.4).
 - Nothing yet derives `proposed` constraints from examples: the tier exists and
   is enforced, but no importer populates it.
-- No semantic diff, regression report or editor service. M5–M6.
+- No importers or registry resolution: the `proposed` tier exists and is
+  enforced, but nothing populates it yet. M7.
 
 ## Scope
 
