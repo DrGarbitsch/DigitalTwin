@@ -19,6 +19,8 @@ from ..package import load
 from ..provenance import build_provenance
 from ..target import EmissionMode, builtin_profile, check_package, export as export_package
 from ..target.crosscheck import cross_check
+from ..importers import (import_json_schema, import_ontology, observe_examples,
+                         save_proposal)
 from ..diff import semantic_diff
 from ..diff.model import format_changes
 from ..diff.impact import format_regression, regression_report
@@ -205,6 +207,93 @@ def test(path, want_coverage, fail_on):
                 failed += len(offenders)
 
     sys.exit(1 if failed else 0)
+
+
+@cli.command('import')
+@click.argument('source', type=click.Path(exists=True))
+@click.option('--as', 'kind', type=click.Choice(['jsonschema', 'ontology']),
+              required=True)
+@click.option('--into', 'path', type=click.Path(exists=True), default='.')
+@click.option('--namespace', required=True,
+              help='namespace for the proposed classes and shapes')
+def import_command(source, kind, path, namespace):
+    """Import a schema or ontology as PROPOSED semantics.
+
+    Nothing is added to the package. Importer output lands in .semforge/, which
+    validation does not read, because an imported artifact is evidence -- it
+    does not become a validation requirement until somebody says so.
+    """
+    proposal = (import_json_schema(source, namespace) if kind == 'jsonschema'
+                else import_ontology(source, namespace))
+    target = save_proposal(proposal, path)
+    click.echo(f'{len(proposal)} proposal(s) written to {target}')
+    click.echo('tier: proposed -- not loaded by validation, and not in shacl.ttl')
+    for note in proposal.notes:
+        click.echo(f'  note: {note}')
+    click.echo('\nReview them, then add the ones you want to shacl.ttl.')
+
+
+@cli.command('observe')
+@click.argument('path', type=click.Path(exists=True), default='.')
+def observe_command(path):
+    """Report the structure the examples contain, and propose nothing.
+
+    Repeated observation is not a requirement. Four examples that all carry a
+    serial number are four examples; whether it is required is a decision, and
+    this is the evidence for making it.
+    """
+    try:
+        package = load(path)
+    except PackageError as exc:
+        click.echo(f'package error: {exc}', err=True)
+        sys.exit(2)
+
+    observations, proposal = observe_examples([package.model], source=path)
+    for (entity_type, attribute), record in sorted(observations.items()):
+        types = ', '.join(sorted(record.datatypes)) or '-'
+        click.echo(f'{entity_type:<16} {attribute:<22} '
+                   f'on {len(record.entities)} entity/entities   {types}')
+    click.echo(f'\n{len(observations)} observation(s), tier: observed. '
+               f'Nothing here is a constraint.')
+
+
+@cli.command('resolve')
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.option('--out', type=click.Path(), default=None,
+              help='write the assembled knowledge file here')
+@click.option('--require-pinned', is_flag=True,
+              help='fail if any dependency declares no sha256')
+def resolve_command(path, out, require_pinned):
+    """Resolve declared dependencies and assemble knowledge reproducibly."""
+    from ..package.registry import (assemble_knowledge,
+                                    dependencies_from_config, resolve)
+    from ruamel.yaml import YAML
+
+    config_path = os.path.join(path, 'semforge.yaml')
+    if not os.path.exists(config_path):
+        click.echo(f'no semforge.yaml in {path}; nothing to resolve', err=True)
+        sys.exit(2)
+    with open(config_path) as handle:
+        config = YAML().load(handle) or {}
+
+    try:
+        resolution = resolve(dependencies_from_config(config), path,
+                             allow_unpinned=not require_pinned)
+    except PackageError as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+
+    for dependency in resolution.dependencies:
+        pinned = 'pinned' if dependency.sha256 else 'UNPINNED'
+        click.echo(f'{dependency.name:<24} {dependency.version or "-":<10} '
+                   f'{pinned:<9} {resolution.hashes[dependency.name]}')
+    if resolution.unpinned:
+        click.echo(f'\n{len(resolution.unpinned)} dependency/dependencies have no '
+                   f'sha256. The package cannot be reproduced from its own '
+                   f'contents until they do.', err=True)
+    if out:
+        assemble_knowledge(resolution, out)
+        click.echo(f'\nassembled -> {out}')
 
 
 @cli.command('diff')

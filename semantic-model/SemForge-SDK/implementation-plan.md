@@ -375,8 +375,21 @@ currently over-claims for V1. See §10.2.
 Each milestone lists deliverables and **executable** acceptance criteria. A
 milestone is done when its criteria run green in CI against the corpus (§7).
 
-> **Status.** M0 through M4 are implemented and green: 109 tests, 88% coverage,
-> flake8 clean. On the real KMS, 89 constraints are evaluated -- 87 conformant,
+> **Status: M0 through M7 are implemented and green** -- 162 tests, flake8
+> clean. The VS Code extension is in `vscode/`, with setup in its README.
+>
+> What each later milestone actually cost, beyond the plan:
+>
+> * **M5** hit the two bugs this project keeps hitting. Blank node labels leaked
+>   into the diff, so a package differed from ITSELF; and attribute-level and
+>   value-level constraints shared a key, so a real `minCount` edit was masked by
+>   its sibling and the diff reported nothing.
+> * **M6** had to aggregate the unexercised-constraint warning per shape. One
+>   finding per constraint put 72 annotations on the corpus, and a warning
+>   nobody can read is a warning nobody acts on.
+> * **M7**'s importers stop at the `proposed` tier, enforced by a test that
+>   asserts `shacl.ttl` is byte-identical and the validation result unchanged
+>   after an import. On the real KMS, 89 constraints are evaluated -- 87 conformant,
 > 2 violated -- with the enumerator invariant holding (`complete: True`).
 >
 > **The H3 spike resolved in favour of the tokenizer, and better than the

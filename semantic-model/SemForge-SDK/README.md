@@ -19,7 +19,7 @@ venv/bin/python -m semforge validate tests/corpus/kms
 
 ## Status
 
-**M0 through M6 are implemented** (see `implementation-plan.md` section 5).
+**M0 through M7 are implemented — the plan is complete** (see `implementation-plan.md` section 5).
 A package loads, is projected to RDF, has its rules expanded to a bounded
 fixpoint under NGSI-LD update semantics, is normalised into the data view its
 shapes declare, and is validated with pyshacl. Every applicable constraint gets
@@ -38,6 +38,9 @@ venv/bin/python -m semforge accept tests/corpus/kms
 venv/bin/python -m semforge export tests/corpus/kms -o /tmp/kms --mode broker
 venv/bin/python -m semforge validate tests/corpus/kms --cross-check sqlite
 venv/bin/python -m semforge diff <before> <after>
+venv/bin/python -m semforge observe tests/corpus/kms
+venv/bin/python -m semforge import schema.json --as jsonschema --namespace https://x/v1
+venv/bin/python -m semforge resolve <package> --require-pinned
 ```
 
 ## VS Code
@@ -63,8 +66,14 @@ What is **not** yet true, stated rather than implied:
   (`architecture.md` section 5.4).
 - Nothing yet derives `proposed` constraints from examples: the tier exists and
   is enforced, but no importer populates it.
-- No importers or registry resolution: the `proposed` tier exists and is
-  enforced, but nothing populates it yet. M7.
+- Constraints are still referenced structurally. The declared, frozen
+  `semforge:id` of `architecture.md` section 5.4 is not implemented, so a
+  reference changes when a path changes — the rename a regression report exists
+  to explain.
+- Cooked mode does not exist. The write layer is there (`semforge.rdfio`) and
+  the editor is raw-only; no structured UI uses it.
+- The mixed per-variable data view is refused rather than evaluated
+  (`SF-CAP-005`). Supporting it needs the algebra work in H2 step 4.
 
 ## Scope
 
