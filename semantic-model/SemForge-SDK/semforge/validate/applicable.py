@@ -20,10 +20,10 @@ pyshacl does not check -- shows up as a constraint that is CONFORMANT on every
 example forever, which is what the coverage report exists to surface.
 """
 
-from rdflib import URIRef
+from rdflib import BNode, URIRef
 from rdflib.namespace import RDF, RDFS, SH
 
-from .normalise import local
+from .normalise import inverse_predicate, local
 
 NGSILD_VALUE_PATHS = {
     'https://uri.etsi.org/ngsi-ld/hasValue',
@@ -121,9 +121,16 @@ def _walk(node, shapes_graph, attribute, seen):
         if isinstance(path, URIRef) and str(path) not in NGSILD_VALUE_PATHS:
             child_attribute = local(path)
         else:
-            # A value path, or a path expression with no name of its own: the
-            # constraint stays attributed to the attribute that carries it.
-            child_attribute = attribute
+            # An NGSI-LD inverse path is a two-hop sequence reported as an
+            # unnamed blank node; it must resolve to the SAME name the adapter
+            # gives it on the way back out, or a violation of it would look
+            # like enumerator drift. Nothing in the corpus violates the
+            # cartridge exclusivity rule, so this disagreement could not
+            # surface there -- test_inverse_path_constraint_does_not_look_like_drift
+            # makes one violate it.
+            predicate = inverse_predicate(path, shapes_graph) \
+                if isinstance(path, BNode) else None
+            child_attribute = local(predicate) if predicate is not None else attribute
         pairs.extend(_walk(child, shapes_graph, child_attribute, seen))
     return pairs
 

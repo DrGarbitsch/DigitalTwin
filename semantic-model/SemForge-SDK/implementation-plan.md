@@ -393,18 +393,26 @@ milestone is done when its criteria run green in CI against the corpus (§7).
 > shape in the file was simply absent from the index. IRIs are now their own
 > token, and a test pins it.
 >
-> **M4 found that `main`'s shacl2flink cannot compile `main`'s own kms.**
-> `create_sql_checks_from_shacl.py` raises `WrongSparqlStructure: Unexpected
-> property structure found for property isUsedFrom` on
-> `TimestampCartridgeFromRulesShape`. The same package compiles cleanly against
-> the `material-waste-class` checkout, so the fix is already written and simply
-> is not on `main` yet. The cross-check reports this as a divergence diagnostic
-> naming the compiler directory, rather than treating a failed build as
-> agreement -- which is the whole point of it degrading loudly.
+> **Resolved: `main` compiles its own kms.** M4 was built against an older
+> `main`, where `create_sql_checks_from_shacl.py` raised `WrongSparqlStructure`
+> on `isUsedFrom`; the fix was on `material-waste-class` at the time and has
+> since merged. On current `main` the cross-check runs end to end and **pyshacl
+> and the compiled SQL agree exactly** on the corpus.
 >
-> Against a compiler that can build it, **pyshacl and the compiled SQL agree
-> exactly** on the corpus: the same two `hasXXXWorkpiece` findings, everything
-> else `ok`.
+> Rebasing onto that `main` changed the corpus, since it symlinks the kms: 152
+> constraints now (was 89), three `hasXXXWorkpiece` violations (was two) because
+> the model gained a second filter/cartridge pair. Three pinned tests failed and
+> were reviewed before being updated -- the regression mechanism doing exactly
+> its job.
+>
+> It also surfaced a latent enumerator bug the old corpus could not reach. The
+> new `CartridgeShape` forbids one cartridge sitting in two filters, stated as a
+> two-hop inverse path that pyshacl reports as an unnamed blank node. The
+> adapter recovered the predicate name; the enumerator did not, so a violation
+> of that rule would have been reported AND flagged as enumerator drift. The
+> corpus cannot expose it -- the same change gave every filter its own cartridge
+> -- so a test now attaches a second filter to `urn:cartridge:1` and makes it
+> fire.
 >
 > **The corpus needed a vendored `context.jsonld`.** The shipped kms cannot be
 > compiled without fetching a remote `@context`, because the compiler requires a

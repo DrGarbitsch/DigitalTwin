@@ -19,15 +19,37 @@ FILTER = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/'
 # NGSI-LD update semantics between rule iterations the constructed value
 # REPLACES the one it was derived from instead of joining it. That was the one
 # irreducible entry in shacl2flink's expected-divergences.txt.
+# urn:filter:2 joined this set when the kms gained a second filter/cartridge
+# pair ("give each filter its own cartridge"). It is the same documented
+# finding as the other two, not a new one: MachineShape requires
+# hasState -> hasXXXWorkpiece [1,1] and only the plasmacutters carry it.
 EXPECTED = {
     ('urn:cutter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
     ('urn:filter:1', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
+    ('urn:filter:2', 'hasXXXWorkpiece', 'MinCountConstraintComponent', BASE + 'MachineShape'),
 }
 
 
 def test_corpus_violations_are_exactly_the_known_ones(corpus):
     report = validate_package(corpus)
     assert set(report.keys()) == EXPECTED
+
+
+def test_the_cartridge_exclusivity_rule_is_enumerated_but_unexercised(corpus):
+    """The kms gained a rule that no example proves can fire.
+
+    CartridgeShape forbids one cartridge sitting in two filters. The same
+    change gave every filter its own cartridge, so nothing in the model
+    violates it -- correct, and exactly the case coverage exists to report:
+    the constraint is alive in the enumerated set and untested by any example.
+    """
+    from semforge.expect import coverage
+    from semforge.expect.store import Example
+
+    entries = {e.constraint: e for e in coverage(
+        [(Example(path='model-instance.jsonld'), validate_package(corpus))])}
+    entry = entries[':CartridgeShape/hasCartridge/MaxCountConstraintComponent']
+    assert entry.status == 'no-firing-example'
 
 
 def test_the_wasteclass_divergence_is_gone(corpus):
@@ -51,7 +73,7 @@ def test_the_workpiece_violations_are_the_documented_sub_attribute_ones(corpus):
     """
     report = validate_package(corpus)
     hits = {r.resource for r in report.violations if r.attribute == 'hasXXXWorkpiece'}
-    assert hits == {'urn:cutter:1', 'urn:filter:1'}
+    assert hits == {'urn:cutter:1', 'urn:filter:1', 'urn:filter:2'}
 
 
 def test_no_result_is_unattributable(corpus):

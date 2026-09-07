@@ -97,3 +97,46 @@ def test_both_verdict_kinds_appear_in_the_report(corpus):
     report = validate_package(corpus)
     statuses = {r.status for r in report.results}
     assert Status.CONFORMANT in statuses and Status.VIOLATED in statuses
+
+
+SHARED_CARTRIDGE = '''
+{
+  "@context": "https://industryfusion.github.io/contexts/staging/example/v0.2/context.jsonld",
+  "id": "urn:filter:99",
+  "type": "iffBaseEntities:Filter",
+  "iffBaseEntities:hasCartridge": {
+    "type": "Relationship", "object": "urn:cartridge:1"
+  },
+  "iffBaseEntities:hasStrength": {"type": "Property", "value": 0.6},
+  "iffBaseEntities:hasState": {"type": "Property", "value": {"@id": "base:state_ON"}}
+}
+'''
+
+
+def test_inverse_path_constraint_does_not_look_like_drift(corpus):
+    """An NGSI-LD inverse path must be named identically on both sides.
+
+    CartridgeShape forbids a cartridge sitting in two filters, and states it
+    with the two-hop inverse ( [^ngsild:hasObject] [^hasCartridge] ) -- which
+    pyshacl reports as an unnamed blank node. The adapter recovers the
+    predicate; the enumerator has to reach the same name, or a violation of
+    this rule is reported AND flagged as enumerator drift.
+
+    The corpus cannot expose that: every filter has its own cartridge, which is
+    the point of the rule. So this attaches a second filter to urn:cartridge:1
+    and makes it fire.
+    """
+    from rdflib import Graph
+
+    from semforge.validate.orchestrator import validate_graphs
+
+    data = Graph()
+    for triple in corpus.model:
+        data.add(triple)
+    data.parse(data=SHARED_CARTRIDGE, format='json-ld')
+
+    report = validate_graphs(data, corpus.shapes, corpus.knowledge)
+    fired = [r for r in report.violations if r.attribute == 'hasCartridge']
+    assert fired, 'sharing a cartridge between two filters must violate CartridgeShape'
+    assert report.complete, [str(d) for d in report.diagnostics]
+    assert [d for d in report.diagnostics if d.code == 'SF-ENUM-001'] == []

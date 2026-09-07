@@ -27,8 +27,8 @@ a status, residue is pinned by digest, coverage reports which constraints are
 actually exercised, and constraints can be edited in place without disturbing
 the rest of the file.
 
-On the real KMS: 89 constraints evaluated, 87 conformant, 2 violated — both
-known and documented.
+On the real KMS: 152 constraints evaluated, 149 conformant, 3 violated — all
+three known and documented — and the compiled SQL agrees with pyshacl.
 
 ```bash
 venv/bin/python -m semforge validate tests/corpus/kms
