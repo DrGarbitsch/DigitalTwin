@@ -13,7 +13,13 @@ from ruamel.yaml import YAML
 
 from ..errors import PackageError
 
-FILENAME = os.path.join('expectations', 'validation.yaml')
+# One file per good/ or bad/ directory, sitting with the cases it declares.
+#
+# A central list means every new case edits one shared file, so two people
+# adding a test to different shapes collide over it. Declaring a case next to
+# itself makes a suite something you can add, move or delete on its own.
+EXPECTATIONS = 'expectations.yaml'
+EXAMPLES = 'examples'
 
 
 def _yaml():
@@ -32,17 +38,19 @@ class Example:
     conformance: str = ''            # 'full' requires empty residue
     include: list = field(default_factory=list)
     description: str = ''
+    source: str = ''           # the expectations.yaml that declares it
+    suite: str = ''            # the test_<Shape> directory it belongs to
 
     @property
     def group(self):
-        """The directory an example sits in -- good/, bad/, anything.
+        """good, bad, or '' when the suite draws no such distinction.
 
-        Folder names are for selection and grouping only. What an example is
-        FOR comes from `expect` and `asserts`; a file under bad/ that asserts
+        Folder names group and select; they decide nothing. What an example is
+        FOR comes from `expect` and `asserts` -- a file under bad/ that asserts
         nothing is an unfinished test, not a passing one.
         """
         parts = self.path.replace('\\', '/').split('/')
-        return parts[-2] if len(parts) > 1 else ''
+        return parts[-2] if len(parts) > 1 and parts[-2] in GROUPS else ''
 
     @property
     def requires_full_conformance(self):
@@ -66,46 +74,103 @@ class Expectations:
         return None
 
 
-def load_expectations(package_path):
-    location = os.path.join(package_path, FILENAME)
-    if not os.path.exists(location):
-        return Expectations(path=location, raw={'examples': []})
+def expectation_files(package_path):
+    """Every expectations.yaml under examples/, deepest path first."""
+    root = os.path.join(package_path, EXAMPLES)
+    found = []
+    for current, _, names in os.walk(root):
+        if EXPECTATIONS in names:
+            found.append(os.path.join(current, EXPECTATIONS))
+    return sorted(found)
 
-    with open(location) as handle:
-        raw = _yaml().load(handle) or {}
+
+def load_expectations(package_path):
+    """Every case declared anywhere under examples/.
+
+    A case's `path` is relative to the file that declares it, so a suite can be
+    moved or renamed without editing anything inside it. Includes stay relative
+    to examples/, because a subobject is shared and does not belong to the
+    suite that happens to use it.
+    """
+    root = os.path.join(package_path, EXAMPLES)
     examples = []
-    for entry in raw.get('examples', []) or []:
-        if 'path' not in entry:
-            raise PackageError(f'{location}: an example entry has no "path"')
-        examples.append(Example(
-            path=entry['path'],
-            expect=entry.get('expect', 'valid'),
-            asserts=list(entry.get('asserts', []) or []),
-            residue=entry.get('residue', ''),
-            conformance=entry.get('conformance', ''),
-            include=list(entry.get('include', []) or []),
-            description=entry.get('description', '')))
-    return Expectations(path=location, examples=examples, raw=raw)
+    raw_by_file = {}
+
+    for path in expectation_files(package_path):
+        directory = os.path.dirname(path)
+        with open(path) as handle:
+            raw = _yaml().load(handle) or {}
+        raw_by_file[path] = raw
+
+        for entry in raw.get('examples', []) or []:
+            if 'path' not in entry:
+                raise PackageError(f'{path}: an example entry has no "path"')
+            relative = os.path.relpath(
+                os.path.join(directory, entry['path']), root)
+            # A case outside good/ or bad/ is assumed to conform. That is the
+            # weaker position and it is worth naming: a suite with no bad case
+            # cannot tell a constraint that is satisfied from one that could
+            # never fire, which is what `semforge test --coverage` reports.
+            examples.append(Example(
+                path=relative,
+                expect=entry.get('expect', 'valid'),
+                asserts=list(entry.get('asserts', []) or []),
+                residue=entry.get('residue', ''),
+                conformance=entry.get('conformance', ''),
+                include=list(entry.get('include', []) or []),
+                description=entry.get('description', ''),
+                source=path,
+                suite=_suite_of(relative)))
+
+    return Expectations(path=root, examples=examples, raw=raw_by_file)
+
+
+GROUPS = ('good', 'bad')
+
+
+def _suite_of(relative):
+    """The directory a case belongs to.
+
+    Any name will do -- test_<Shape> reads well but nothing depends on it. What
+    a suite IS, is a directory holding good/ and bad/; the suite is whatever
+    sits above them.
+    """
+    parts = relative.replace('\\', '/').split('/')
+    for index, part in enumerate(parts[:-1]):
+        if part in GROUPS:
+            return '/'.join(parts[:index]) if index else ''
+    return '/'.join(parts[:-1])
 
 
 def save_expectations(expectations):
-    """Write back, preserving comments and ordering where the file existed."""
-    os.makedirs(os.path.dirname(expectations.path), exist_ok=True)
-    raw = expectations.raw if expectations.raw is not None else {'examples': []}
-    by_path = {e.path: e for e in expectations.examples}
+    """Write each case back to the file that declares it.
 
-    entries = raw.get('examples') or []
-    for entry in entries:
-        example = by_path.get(entry.get('path'))
-        if example is not None and example.residue:
-            entry['residue'] = example.residue
-    if not entries:
-        raw['examples'] = [
+    Accept has to land in the right suite: writing every residue into one file
+    would undo the point of distributing them.
+    """
+    raw_by_file = expectations.raw if isinstance(expectations.raw, dict) else {}
+    if not raw_by_file and expectations.examples:
+        # Nothing declared anything yet -- the package is being described for
+        # the first time, so put it where a reader will look.
+        os.makedirs(expectations.path, exist_ok=True)
+        source = os.path.join(expectations.path, EXPECTATIONS)
+        raw_by_file = {source: {'examples': [
             {'path': e.path, 'expect': e.expect, 'residue': e.residue}
-            for e in expectations.examples]
-
-    with open(expectations.path, 'w') as handle:
-        _yaml().dump(raw, handle)
+            for e in expectations.examples]}}
+        for example in expectations.examples:
+            example.source = source
+    for source, raw in raw_by_file.items():
+        directory = os.path.dirname(source)
+        mine = {e.path: e for e in expectations.examples if e.source == source}
+        for entry in raw.get('examples') or []:
+            relative = os.path.relpath(
+                os.path.join(directory, entry.get('path', '')),
+                expectations.path)
+            example = mine.get(relative)
+            if example is not None and example.residue:
+                entry['residue'] = example.residue
+        with open(source, 'w') as handle:
+            _yaml().dump(raw, handle)
 
 
 def compose(package, example):

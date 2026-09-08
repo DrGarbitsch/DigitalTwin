@@ -62,7 +62,12 @@ class ExampleTreeProvider {
       ? 'exampleEditable'
       : raw.kind;
 
-    if (raw.kind === 'example') {
+    if (raw.kind === 'suite') {
+      // One test_<Shape> directory: its cases pass or they do not.
+      item.iconPath = new vscode.ThemeIcon(
+        raw.severity ? 'testing-failed-icon' : 'folder-library'
+      );
+    } else if (raw.kind === 'example') {
       // A declared case: green when it did what it says, red when it did not.
       item.iconPath = new vscode.ThemeIcon(
         raw.severity ? 'testing-failed-icon' : 'beaker'
@@ -163,6 +168,7 @@ function register(context, clientHolder, onChanged) {
         uri: node.packageUri,
         entity: raw.entity,
         path: raw.path,
+        file: raw.file,
         value
       });
       if (result.ok) {
@@ -182,6 +188,101 @@ function register(context, clientHolder, onChanged) {
     vscode.commands.registerCommand('semforge.refreshExamples', () =>
       provider.refresh()
     ),
+
+    vscode.commands.registerCommand('semforge.addAttribute', async (node) => {
+      const raw = node && node.raw;
+      if (!raw || raw.kind !== 'entity') {
+        return;
+      }
+      const name = await vscode.window.showInputBox({
+        title: `New attribute on ${raw.entity}`,
+        prompt: 'Prefixed name, e.g. iffBaseEntities:hasStrength'
+      });
+      if (!name) {
+        return;
+      }
+      // Blank lets the server read the kind off the shapes, which is better
+      // than asking the person the model is supposed to be helping.
+      const { kinds } = await clientHolder.client.sendRequest('semforge/kinds', {});
+      const picked = await vscode.window.showQuickPick(
+        [{ label: 'From the shapes', description: 'let the model decide', value: '' }].concat(
+          kinds.map((k) => ({ label: k, value: k }))
+        ),
+        { title: 'Attribute type' }
+      );
+      if (picked === undefined) {
+        return;
+      }
+      const value = await vscode.window.showInputBox({
+        title: `Value for ${name}`,
+        prompt:
+          'JSON is parsed. A Relationship takes an entity IRI; a Property ' +
+          'takes a literal or {"@id": "…"}.'
+      });
+      if (value === undefined) {
+        return;
+      }
+      const result = await clientHolder.client.sendRequest(
+        'semforge/addAttribute',
+        {
+          uri: node.packageUri,
+          entity: raw.entity,
+          file: raw.file,
+          name,
+          kind: picked.value,
+          value
+        }
+      );
+      if (result.ok) {
+        vscode.window.setStatusBarMessage(
+          `SemForge: ${name} added as ${result.kind}`,
+          5000
+        );
+        provider.refresh();
+        if (onChanged) {
+          onChanged();
+        }
+      } else {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      }
+    }),
+
+    vscode.commands.registerCommand('semforge.addEntity', async (node) => {
+      const raw = node && node.raw;
+      const file = raw && (raw.file || (raw.children || []).map((c) => c.file)[0]);
+      if (!file) {
+        return;
+      }
+      const id = await vscode.window.showInputBox({
+        title: 'New entity',
+        prompt: 'id, e.g. urn:filter:9',
+        value: 'urn:'
+      });
+      if (!id) {
+        return;
+      }
+      const entityType = await vscode.window.showInputBox({
+        title: `Type of ${id}`,
+        prompt: 'e.g. iffBaseEntities:Filter'
+      });
+      if (!entityType) {
+        return;
+      }
+      const result = await clientHolder.client.sendRequest('semforge/addEntity', {
+        uri: node.packageUri,
+        file,
+        id,
+        entityType
+      });
+      if (result.ok) {
+        provider.refresh();
+        if (onChanged) {
+          onChanged();
+        }
+      } else {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      }
+    }),
 
     vscode.commands.registerCommand('semforge.addObservation', async (node) => {
       const raw = node && node.raw;
@@ -213,6 +314,7 @@ function register(context, clientHolder, onChanged) {
           entity: raw.entity,
           attributePath: raw.attributePath,
           datasetId: raw.datasetId,
+          file: raw.file,
           value,
           observedAt
         }

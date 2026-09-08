@@ -68,7 +68,8 @@ def test_accept_writes_the_residue(tmp_path, corpus_path):
 
     result = CliRunner().invoke(cli, ['accept', str(package)])
     assert result.exit_code == 0
-    written = (package / 'expectations' / 'validation.yaml').read_text()
+    # Nothing declared anything yet, so it lands where a reader will look.
+    written = (package / 'examples' / 'expectations.yaml').read_text()
     assert 'sha256:' in written
 
     # Second accept is a no-op: nothing changed, so nothing to accept.

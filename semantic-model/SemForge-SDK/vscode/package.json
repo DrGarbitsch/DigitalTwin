@@ -99,6 +99,16 @@
         "command": "semforge.addObservation",
         "title": "SemForge: Add Observation",
         "icon": "$(add)"
+      },
+      {
+        "command": "semforge.addAttribute",
+        "title": "SemForge: Add Attribute",
+        "icon": "$(add)"
+      },
+      {
+        "command": "semforge.addEntity",
+        "title": "SemForge: Add Entity",
+        "icon": "$(new-file)"
       }
     ],
     "viewsContainers": {
@@ -181,6 +191,16 @@
         {
           "command": "semforge.editValue",
           "when": "view == semforgeExamples && viewItem == exampleSeries",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addAttribute",
+          "when": "view == semforgeExamples && viewItem == entity",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addEntity",
+          "when": "view == semforgeExamples && viewItem == example",
           "group": "inline"
         }
       ]

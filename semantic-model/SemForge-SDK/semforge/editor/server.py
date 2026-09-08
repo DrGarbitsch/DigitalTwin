@@ -244,7 +244,7 @@ def _serialise_example(node):
         'editable': node.editable, 'severity': node.severity,
         'messages': list(node.messages),
         'datasetId': node.dataset_id, 'observations': node.observations,
-        'attributePath': list(node.attribute_path),
+        'attributePath': list(node.attribute_path), 'file': node.file,
         'children': [_serialise_example(child) for child in node.children],
     }
 
@@ -282,7 +282,8 @@ def set_example_value(ls, params):
         package = _package_for(root)
         path, old, new = set_value(package, _field(params, 'entity'),
                                    list(_field(params, 'path') or []),
-                                   _field(params, 'value'))
+                                   _field(params, 'value'),
+                                   file=_field(params, 'file'))
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(package.sources['shapes']))
         return {'ok': True, 'file': path, 'old': old, 'new': new}
@@ -304,12 +305,62 @@ def add_observation_feature(ls, params):
             package, _field(params, 'entity'),
             list(_field(params, 'attributePath') or []),
             _field(params, 'datasetId'), _field(params, 'value'),
-            _field(params, 'observedAt'))
+            _field(params, 'observedAt'), file=_field(params, 'file'))
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(package.sources['shapes']))
         return {'ok': True, 'file': path, 'count': count}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addAttribute')
+def add_attribute_feature(ls, params):
+    """Add an attribute, with the kind the shapes say it should be."""
+    from ..cooked.examples import add_attribute
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        path, kind = add_attribute(
+            package, _field(params, 'entity'), _field(params, 'name'),
+            kind=_field(params, 'kind'), value=_field(params, 'value'),
+            file=_field(params, 'file'),
+            observedAt=_field(params, 'observedAt'),
+            datasetId=_field(params, 'datasetId'))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(package.sources['shapes']))
+        return {'ok': True, 'file': path, 'kind': kind}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addEntity')
+def add_entity_feature(ls, params):
+    """Append a legal NGSI-LD entity to an example file."""
+    from ..cooked.examples import add_entity
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        path, count = add_entity(
+            package, _field(params, 'id'), _field(params, 'entityType'),
+            file=_field(params, 'file'))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(package.sources['shapes']))
+        return {'ok': True, 'file': path, 'count': count}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/kinds')
+def kinds(ls, params):
+    from ..ngsild.build import KINDS
+
+    return {'kinds': list(KINDS)}
 
 
 @server.feature('semforge/setConstraint')

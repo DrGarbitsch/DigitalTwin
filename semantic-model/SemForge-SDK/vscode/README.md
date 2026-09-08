@@ -291,6 +291,25 @@ as a Relationship would be a different attribute, not a new observation of the
 same one. A `datasetId` of `@none` is not written out: that *is* the default
 instance, and stating it would mean something else.
 
+**Building NGSI-LD, legally.** Right-click an example for **Add Entity**, or an
+entity for **Add Attribute**. An attribute is not free-form JSON — its `type`
+decides which key carries the payload:
+
+| type | key | payload |
+|---|---|---|
+| `Property` | `value` | a literal, or `{"@id": …}` for a vocabulary term |
+| `Relationship` | `object` | an entity IRI, never a literal |
+| `GeoProperty` | `value` | GeoJSON |
+| `JsonProperty` | `json` | arbitrary JSON, opaque to the graph |
+| `ListProperty` | `valueList` | an ordered list |
+
+The type is read **from the shapes** by default — a value shape on
+`ngsild:hasObject` means Relationship, one on `hasValue` means Property — so you
+are not asked something the model already knows. A pairing that cannot mean
+anything is refused rather than written: this repo has already lost time to
+`{"object": …}` where the model said Property, which made a SPARQL rule's join
+predicate refuse the row silently while every test stayed green.
+
 Click a value to change it; the input parses JSON, so `42` is a number and
 `{"@id": "…"}` a node reference — typing an IRI into a Property should not
 quietly produce the string form. The file is rewritten with a one-line diff and

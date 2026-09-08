@@ -42,6 +42,7 @@ class ExampleNode:
     severity: str = ''         # violation | warning | '' -- from the report
     messages: list = field(default_factory=list)
     children: list = field(default_factory=list)
+    file: str = ''             # the JSON file this node was read from
     dataset_id: str = ''       # the datasetId this row stands for
     observations: int = 0      # how many, when it is a series
     attribute_path: list = field(default_factory=list)  # where to append one
@@ -248,7 +249,8 @@ def build_suite(package, expectations=None):
     from ..validate.orchestrator import validate_graphs
 
     expectations = expectations or load_expectations(package.path)
-    roots = []
+    by_suite = OrderedDict()
+    loose = []
 
     for example in expectations.examples:
         try:
@@ -256,14 +258,28 @@ def build_suite(package, expectations=None):
             report = validate_graphs(graph, package.shapes, package.knowledge,
                                      strict=False)
         except Exception as exc:                   # noqa: BLE001
-            roots.append(ExampleNode(
-                kind='example', label=example.path, detail=f'error: {exc}',
-                severity='violation'))
-            continue
+            node = ExampleNode(kind='example', label=example.path,
+                               detail=f'error: {exc}', severity='violation')
+        else:
+            node = _example_root(package, example, report)
 
-        node = _example_root(package, example, report)
+        target = by_suite.setdefault(example.suite, []) if example.suite \
+            else loose
+        target.append(node)
+
+    roots = []
+    for suite, nodes in by_suite.items():
+        failing = [n for n in nodes if n.severity]
+        node = ExampleNode(
+            kind='suite', label=suite,
+            detail=' · '.join(p for p in (
+                f'{len(nodes)} case(s)',
+                f'{len(failing)} failing' if failing else 'all ok') if p),
+            severity='violation' if failing else '')
+        node.children = nodes
         roots.append(node)
 
+    roots.extend(loose)
     roots.append(_model_root(package))
     return roots
 
@@ -316,6 +332,12 @@ def _model_root(package):
     return node
 
 
+def _stamp_file(node, path):
+    node.file = path
+    for child in node.children:
+        _stamp_file(child, path)
+
+
 def _entity_nodes(path, report=None, editable=True):
     findings = {}
     counts = {}
@@ -345,6 +367,7 @@ def _entity_nodes(path, report=None, editable=True):
             if not editable:
                 _read_only(child)
             node.children.append(child)
+        _stamp_file(node, path)
         out.append(node)
     return out
 
@@ -415,15 +438,35 @@ def _locate(document, entity_id, path):
     raise PackageError(f'no entity {entity_id} in this example')
 
 
-def set_value(package, entity_id, path, value):
-    """Change one value in the model instance. Returns (path, old, new).
+def _target_file(package, file=None):
+    """Which JSON an edit lands in.
+
+    Defaults to the package model, but the suite view shows entities from
+    example files too -- editing one of those has to write where it came from,
+    not into model-instance.jsonld.
+    """
+    import os
+
+    if not file:
+        return package.sources['model']
+    if os.path.isabs(file):
+        return file
+    for base in (package.path, os.path.join(package.path, 'examples')):
+        candidate = os.path.join(base, file)
+        if os.path.exists(candidate):
+            return candidate
+    raise PackageError(f'no such example file: {file}')
+
+
+def set_value(package, entity_id, path, value, file=None):
+    """Change one value in an example. Returns (path, old, new).
 
     The new value is parsed as JSON when it can be, so `42` becomes a number
     and `{"@id": "..."}` becomes a node reference -- typing an IRI into a
     Property that expects one should not quietly produce the string form,
     which is the difference between a constraint passing and failing.
     """
-    source = package.sources['model']
+    source = _target_file(package, file)
     with open(source, encoding='utf-8') as handle:
         text = handle.read()
     document = json.loads(text, object_pairs_hook=OrderedDict)
@@ -452,7 +495,7 @@ def set_value(package, entity_id, path, value):
 
 
 def add_observation(package, entity_id, attribute_path, dataset_id=None,
-                    value=None, observed_at=None):
+                    value=None, observed_at=None, file=None):
     """Append an observation to one attribute of one entity.
 
     An attribute is identified by (entity, name, datasetId), so a new
@@ -461,7 +504,7 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     a Property whose new instance arrives as a Relationship is not a new
     observation of the same attribute, it is a different attribute.
     """
-    source = package.sources['model']
+    source = _target_file(package, file)
     with open(source, encoding='utf-8') as handle:
         text = handle.read()
     document = json.loads(text, object_pairs_hook=OrderedDict)
@@ -505,6 +548,82 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     with open(source, 'w', encoding='utf-8') as handle:
         handle.write(rendered)
     return source, len(cursor[key])
+
+
+def _write(source, document, text):
+    rendered = json.dumps(document, indent=2, ensure_ascii=False)
+    if text.endswith('\n'):
+        rendered += '\n'
+    json.loads(rendered)
+    with open(source, 'w', encoding='utf-8') as handle:
+        handle.write(rendered)
+    return rendered
+
+
+def add_attribute(package, entity_id, name, kind=None, value=None,
+                  file=None, **metadata):
+    """Add a legal NGSI-LD attribute to an entity.
+
+    The kind decides which key carries the payload, and the shapes are asked
+    first: a value shape on ngsild:hasObject means Relationship, one on
+    hasValue means Property. Reading it from the model beats asking the author,
+    who is the person the model exists to help -- and getting the pairing wrong
+    produces something that parses, looks plausible and means nothing.
+    """
+    from ..ngsild.build import attribute, kind_for_shape
+
+    source = _target_file(package, file)
+    with open(source, encoding='utf-8') as handle:
+        text = handle.read()
+    document = json.loads(text, object_pairs_hook=OrderedDict)
+    if not isinstance(document, list):
+        document = [document]
+
+    entity = next((e for e in document if isinstance(e, dict)
+                   and str(e.get('id') or e.get('@id')) == entity_id), None)
+    if entity is None:
+        raise PackageError(f'no entity {entity_id} in {source}')
+    if name in entity:
+        raise PackageError(
+            f'{entity_id} already has {name}; add an observation to it instead')
+
+    if not kind:
+        kind = kind_for_shape(package, str(entity.get('type', '')), name) \
+            or 'Property'
+    try:
+        parsed = json.loads(value) if isinstance(value, str) else value
+    except (TypeError, ValueError):
+        parsed = value
+
+    entity[name] = attribute(kind, parsed, **metadata)
+    _write(source, document, text)
+    return source, kind
+
+
+def add_entity(package, identifier, entity_type, file=None, context=None):
+    """Append a legal NGSI-LD entity to an example file."""
+    from ..ngsild.build import entity as build_entity
+    from ..package.context import context_config
+
+    source = _target_file(package, file)
+    with open(source, encoding='utf-8') as handle:
+        text = handle.read()
+    document = json.loads(text, object_pairs_hook=OrderedDict)
+    if not isinstance(document, list):
+        document = [document]
+
+    if any(isinstance(e, dict) and str(e.get('id') or e.get('@id')) == identifier
+           for e in document):
+        raise PackageError(f'{source} already declares {identifier}')
+
+    if context is None:
+        existing = next((e.get('@context') for e in document
+                         if isinstance(e, dict) and e.get('@context')), None)
+        context = existing or context_config(package.path).published
+
+    document.append(build_entity(identifier, entity_type, context=context))
+    _write(source, document, text)
+    return source, len(document)
 
 
 def flatten(nodes, depth=0):

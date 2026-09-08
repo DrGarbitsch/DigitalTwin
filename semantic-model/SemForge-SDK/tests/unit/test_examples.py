@@ -1,6 +1,7 @@
 """The example instances as a tree, and editing them."""
 
 import json
+import os
 import shutil
 
 import pytest
@@ -21,6 +22,11 @@ def package(tmp_path, corpus):
     for extra in ('context.jsonld', 'semforge.yaml'):
         shutil.copy(f'{corpus.path}/{extra}', target / extra)
     return load(str(target))
+
+
+def _cases(roots):
+    """Every example node, whether it sits in a suite or loose."""
+    return [n for _, n in flatten(roots) if n.kind == 'example']
 
 
 def _find(nodes, label, kind=None):
@@ -386,22 +392,30 @@ def test_a_new_observation_can_move_the_verdict(package):
 
 # --- the declared suite ------------------------------------------------------
 
-def test_every_declared_example_becomes_a_root(corpus):
+def test_cases_are_grouped_by_suite(corpus):
     from semforge.cooked.examples import build_suite
-    from semforge.expect import load_expectations
 
-    roots = build_suite(corpus)
-    declared = load_expectations(corpus.path).examples
-    assert len(roots) == len(declared) + 1, 'plus the shipped model'
-    assert roots[-1].label == 'model-instance.jsonld'
-    assert 'not a declared example' in roots[-1].detail
+    roots = {n.label: n for n in build_suite(corpus)}
+    assert {'test_StateOnCutterShape', 'test_WorkpieceShape',
+            'test_FilterShape', 'test_CartridgeShape'} <= set(roots)
+    assert roots['test_StateOnCutterShape'].kind == 'suite'
+    assert '2 case(s)' in roots['test_StateOnCutterShape'].detail
+    assert {c.label for c in roots['test_StateOnCutterShape'].children} == \
+        {'filter-on.jsonld', 'filter-off.jsonld'}
+
+
+def test_the_shipped_model_is_still_a_root(corpus):
+    from semforge.cooked.examples import build_suite
+
+    roots = {n.label: n for n in build_suite(corpus)}
+    assert 'not a declared example' in roots['model-instance.jsonld'].detail
 
 
 def test_a_root_says_what_the_example_is_for_and_how_it_did(corpus):
     from semforge.cooked.examples import build_suite
 
-    roots = {n.label: n for n in build_suite(corpus)}
-    good = roots['cutter-processing-with-filter-on.jsonld']
+    roots = {n.label: n for n in _cases(build_suite(corpus))}
+    good = roots['filter-on.jsonld']
     assert 'good' in good.detail and 'valid' in good.detail
     assert 'ok' in good.detail and good.severity == ''
     assert good.messages and 'healthy baseline' in good.messages[0]
@@ -411,8 +425,8 @@ def test_a_bad_example_that_fires_is_ok_not_a_failure(corpus):
     """`bad` means "expected to violate"; violating is the pass condition."""
     from semforge.cooked.examples import build_suite
 
-    roots = {n.label: n for n in build_suite(corpus)}
-    bad = roots['cutter-processing-with-filter-off.jsonld']
+    roots = {n.label: n for n in _cases(build_suite(corpus))}
+    bad = roots['filter-off.jsonld']
     assert bad.severity == '' and 'ok' in bad.detail
     entity = next(c for c in bad.children if c.kind == 'entity')
     assert entity.severity == 'violation'
@@ -422,8 +436,8 @@ def test_included_subobjects_are_shown_read_only(corpus):
     """Editing one here would change every case that includes it."""
     from semforge.cooked.examples import build_suite, flatten
 
-    roots = {n.label: n for n in build_suite(corpus)}
-    node = roots['cutter-processing-with-filter-on.jsonld']
+    roots = {n.label: n for n in _cases(build_suite(corpus))}
+    node = roots['filter-on.jsonld']
     includes = [c for c in node.children if c.kind == 'include']
     assert {c.label for c in includes} == {
         'workpiece-steel.jsonld', 'cartridge-fresh.jsonld', 'filter-on.jsonld'}
@@ -434,8 +448,8 @@ def test_included_subobjects_are_shown_read_only(corpus):
 def test_the_examples_own_entities_stay_editable(corpus):
     from semforge.cooked.examples import build_suite
 
-    roots = {n.label: n for n in build_suite(corpus)}
-    node = roots['workpiece-too-high.jsonld']
+    roots = {n.label: n for n in _cases(build_suite(corpus))}
+    node = roots['too-high.jsonld']
     entity = next(c for c in node.children if c.kind == 'entity')
     assert any(c.editable for c in entity.children)
 
@@ -445,13 +459,16 @@ def test_a_broken_example_is_reported_not_raised(tmp_path, corpus):
 
     target = tmp_path / 'pkg'
     shutil.copytree(corpus.path, target, symlinks=False)
-    (target / 'expectations' / 'validation.yaml').write_text(
-        'examples:\n  - path: good/nope.jsonld\n    expect: valid\n')
+    for stale in (target / 'examples').glob('test_*'):
+        shutil.rmtree(stale)
+    suite = target / 'examples' / 'test_Nothing' / 'bad'
+    suite.mkdir(parents=True)
+    (suite / 'expectations.yaml').write_text(
+        'examples:\n  - path: nope.jsonld\n    expect: invalid\n')
 
     from semforge.cooked.examples import build_suite
 
-    roots = build_suite(load(str(target)))
-    broken = roots[0]
+    broken = _cases(build_suite(load(str(target))))[0]
     assert broken.severity == 'violation'
     assert 'error' in broken.detail and 'nope' in broken.detail
 
@@ -468,7 +485,7 @@ def test_includes_are_merged_before_the_example(corpus):
     from semforge.validate.orchestrator import validate_graphs
 
     off = compose(corpus, Example(
-        path='bad/cutter-processing-with-filter-off.jsonld',
+        path='test_StateOnCutterShape/bad/filter-off.jsonld',
         include=['subobjects/workpiece-steel.jsonld',
                  'subobjects/cartridge-fresh.jsonld',
                  'subobjects/filter-off.jsonld']))
@@ -492,8 +509,9 @@ def test_a_missing_include_names_itself(corpus):
     from semforge.expect.store import Example, compose
 
     with pytest.raises(PackageError) as exc:
-        compose(corpus, Example(path='good/workpiece-at-the-limits.jsonld',
-                                include=['subobjects/nothing.jsonld']))
+        compose(corpus, Example(
+            path='test_WorkpieceShape/good/at-the-limits.jsonld',
+            include=['subobjects/nothing.jsonld']))
     assert 'nothing.jsonld' in str(exc.value)
 
 
@@ -506,3 +524,255 @@ def test_the_group_comes_from_the_folder_but_decides_nothing(corpus):
     for example in examples:
         if example.group == 'bad':
             assert example.expect == 'invalid'
+
+
+# --- one file per directory --------------------------------------------------
+
+def test_each_case_is_declared_next_to_itself(corpus):
+    """A central list means every new case edits one shared file.
+
+    Two people adding a test to different shapes would collide over it; this is
+    what makes a suite something you can add, move or delete on its own.
+    """
+    from semforge.expect import load_expectations
+
+    for example in load_expectations(corpus.path).examples:
+        assert example.source.endswith('expectations.yaml')
+        declared_in = os.path.dirname(example.source)
+        assert os.path.exists(os.path.join(declared_in,
+                                           os.path.basename(example.path)))
+
+
+def test_a_case_knows_its_suite(corpus):
+    from semforge.expect import load_expectations
+
+    suites = {e.suite for e in load_expectations(corpus.path).examples}
+    assert suites == {'test_StateOnCutterShape', 'test_WorkpieceShape',
+                      'test_FilterShape', 'test_CartridgeShape'}
+
+
+def test_a_new_suite_needs_no_central_edit(tmp_path, corpus):
+    """The point of the layout: dropping in a directory is enough."""
+    import shutil
+
+    from semforge.expect import load_expectations
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    before = len(load_expectations(str(target)).examples)
+
+    suite = target / 'examples' / 'test_MachineShape' / 'bad'
+    suite.mkdir(parents=True)
+    shutil.copy(
+        target / 'examples' / 'test_FilterShape' / 'bad' /
+        'without-cartridge.jsonld', suite / 'no-state.jsonld')
+    (suite / 'expectations.yaml').write_text(
+        'examples:\n'
+        '  - path: no-state.jsonld\n'
+        '    expect: invalid\n')
+
+    after = load_expectations(str(target))
+    assert len(after.examples) == before + 1
+    assert 'test_MachineShape' in {e.suite for e in after.examples}
+
+
+def test_paths_are_relative_to_the_declaring_file(corpus):
+    """So a suite can be renamed or moved without editing anything inside it."""
+    from semforge.expect import load_expectations
+
+    example = next(e for e in load_expectations(corpus.path).examples
+                   if e.suite == 'test_CartridgeShape')
+    assert example.path == \
+        'test_CartridgeShape/bad/shared-by-two-filters.jsonld'
+    with open(example.source) as handle:
+        assert 'path: shared-by-two-filters.jsonld' in handle.read()
+
+
+def test_includes_stay_relative_to_examples(corpus):
+    """A subobject is shared; it does not belong to the suite that uses it."""
+    from semforge.expect import load_expectations
+
+    for example in load_expectations(corpus.path).examples:
+        for included in example.include:
+            assert included.startswith('subobjects/')
+            assert os.path.exists(
+                os.path.join(corpus.path, 'examples', included))
+
+
+def test_a_suite_needs_no_particular_name(tmp_path, corpus):
+    """test_<Shape> reads well; nothing depends on it.
+
+    A suite is a directory holding good/ and bad/ -- the suite is whatever sits
+    above them, whatever it is called.
+    """
+    import shutil
+
+    from semforge.expect import load_expectations
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    shutil.move(str(target / 'examples' / 'test_WorkpieceShape'),
+                str(target / 'examples' / 'dimensions'))
+
+    suites = {e.suite for e in load_expectations(str(target)).examples}
+    assert 'dimensions' in suites and 'test_WorkpieceShape' not in suites
+
+
+def test_a_case_outside_good_or_bad_is_assumed_to_conform(tmp_path, corpus):
+    """The weaker position, and worth naming.
+
+    A suite with no bad case cannot tell a constraint that is satisfied from
+    one that could never fire -- which is what --coverage reports.
+    """
+    import shutil
+
+    from semforge.expect import load_expectations
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    loose = target / 'examples' / 'scratch'
+    loose.mkdir()
+    shutil.copy(
+        target / 'examples' / 'test_WorkpieceShape' / 'good' /
+        'at-the-limits.jsonld', loose / 'a-workpiece.jsonld')
+    (loose / 'expectations.yaml').write_text(
+        'examples:\n  - path: a-workpiece.jsonld\n')
+
+    example = next(e for e in load_expectations(str(target)).examples
+                   if e.suite == 'scratch')
+    assert example.expect == 'valid'
+    assert example.group == '', 'no good/bad distinction was drawn'
+
+
+# --- building legal NGSI-LD --------------------------------------------------
+
+def test_the_kind_decides_which_key_carries_the_payload():
+    """A pairing that cannot mean anything is refused rather than written.
+
+    Writing `{"object": …}` where the model says Property is not a typo that
+    fails loudly: the SPARQL rule's join predicate correctly refuses the row,
+    silently, and the tests stay green because a constraint that never runs
+    looks exactly like one that passes.
+    """
+    from semforge.ngsild import attribute
+
+    assert attribute('Property', 0.6) == {'type': 'Property', 'value': 0.6}
+    assert attribute('Relationship', 'urn:x:1') == \
+        {'type': 'Relationship', 'object': 'urn:x:1'}
+    assert attribute('JsonProperty', {}) == {'type': 'JsonProperty', 'json': {}}
+    assert attribute('ListProperty', []) == \
+        {'type': 'ListProperty', 'valueList': []}
+
+
+@pytest.mark.parametrize('kind,value', [
+    ('Relationship', 42),
+    ('Relationship', {'value': 'urn:x:1'}),
+    ('ListProperty', 'not a list'),
+    ('JsonProperty', 'not json'),
+    ('Property', {'a': 1}),
+    ('Nonsense', 1),
+])
+def test_an_impossible_pairing_is_refused(kind, value):
+    from semforge.ngsild import attribute
+
+    with pytest.raises(PackageError):
+        attribute(kind, value)
+
+
+def test_an_iri_reference_is_a_legal_property_value():
+    from semforge.ngsild import attribute
+
+    assert attribute('Property', {'@id': 'base:state_ON'})['value'] == \
+        {'@id': 'base:state_ON'}
+
+
+def test_metadata_lands_in_the_right_place():
+    from semforge.ngsild import attribute
+
+    built = attribute('Property', 1, observedAt='2024-01-01T00:00:00.000Z',
+                      datasetId='urn:d:1')
+    assert list(built) == ['type', 'value', 'observedAt', 'datasetId']
+
+
+def test_the_kind_is_read_off_the_shapes(corpus):
+    """Better than asking the author, who is who the model exists to help."""
+    from semforge.ngsild import kind_for_shape
+
+    assert kind_for_shape(corpus, 'Cutter', 'hasFilter') == 'Relationship'
+    assert kind_for_shape(corpus, 'Filter', 'hasStrength') == 'Property'
+    assert kind_for_shape(corpus, 'Filter', 'hasCartridge') == 'Relationship'
+    assert kind_for_shape(corpus, 'Filter', 'nothingLikeThis') is None
+
+
+def test_adding_an_attribute_infers_its_kind(package):
+    from semforge.cooked.examples import add_attribute
+
+    # CutterShape declares hasOutWorkpiece as a relationship, and
+    # urn:plasmacutter:1 does not carry it yet.
+    _, kind = add_attribute(package, 'urn:plasmacutter:1',
+                            'iffBaseEntities:hasOutWorkpiece',
+                            value='urn:workpiece:1')
+    assert kind == 'Relationship'
+    with open(package.sources['model']) as handle:
+        document = json.load(handle)
+    entity = next(e for e in document if e['id'] == 'urn:plasmacutter:1')
+    assert 'object' in entity['iffBaseEntities:hasOutWorkpiece']
+
+
+def test_adding_an_attribute_that_is_already_there_is_refused(package):
+    from semforge.cooked.examples import add_attribute
+
+    with pytest.raises(PackageError) as exc:
+        add_attribute(package, 'urn:filter:1', 'iffBaseEntities:hasStrength',
+                      value=1)
+    assert 'add an observation' in str(exc.value)
+
+
+def test_a_new_entity_is_legal_ngsi_ld(package):
+    from semforge.cooked.examples import add_entity
+
+    add_entity(package, 'urn:filter:77', 'iffBaseEntities:Filter')
+    with open(package.sources['model']) as handle:
+        document = json.load(handle)
+    added = document[-1]
+    assert list(added)[:3] == ['@context', 'id', 'type']
+    assert added['@context'].startswith('https://')
+
+
+def test_a_duplicate_entity_is_refused(package):
+    from semforge.cooked.examples import add_entity
+
+    with pytest.raises(PackageError) as exc:
+        add_entity(package, 'urn:filter:1', 'iffBaseEntities:Filter')
+    assert 'already declares' in str(exc.value)
+
+
+def test_an_edit_lands_in_the_file_it_came_from(tmp_path, corpus):
+    """The suite view shows entities from example files.
+
+    Editing one has to write where it came from; the first version wrote every
+    edit into model-instance.jsonld regardless.
+    """
+    import shutil
+
+    from semforge.cooked.examples import add_attribute
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    package = load(str(target))
+
+    before = open(package.sources['model']).read()
+    case = 'test_WorkpieceShape/good/at-the-limits.jsonld'
+    source, _ = add_attribute(package, 'urn:workpiece:1',
+                              'iffBaseEntities:hasDepth', value=3, file=case)
+
+    assert source.endswith('at-the-limits.jsonld')
+    assert open(package.sources['model']).read() == before
+
+
+def test_every_node_knows_its_file(corpus):
+    from semforge.cooked.examples import build_suite
+
+    for _, node in flatten(build_suite(corpus)):
+        if node.kind in ('entity', 'attribute', 'instance', 'dataset'):
+            assert node.file, f'{node.kind} {node.label} has no file'
