@@ -20,12 +20,19 @@ class ConstraintNode {
     this.raw = raw;
     this.packageUri = packageUri;
   }
+}
 
-  get children() {
-    return (this.raw.children || []).map(
-      (child) => new ConstraintNode(child, this.packageUri)
-    );
+/** file:line -> { file, line }, tolerating a Windows drive letter. */
+function splitLocation(at) {
+  const split = at.lastIndexOf(':');
+  if (split < 0) {
+    return undefined;
   }
+  const line = parseInt(at.slice(split + 1), 10);
+  if (Number.isNaN(line)) {
+    return undefined;
+  }
+  return { file: at.slice(0, split), line: Math.max(line - 1, 0) };
 }
 
 class CookedTreeProvider {
@@ -40,8 +47,62 @@ class CookedTreeProvider {
     if (uri) {
       this.uri = uri;
     }
-    this.owners = new Map();
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * Index the whole tree in one pass.
+   *
+   * The server returns every node in a single reply, so the wrappers can be
+   * built once and kept. That identity is what TreeView.reveal needs: a fresh
+   * wrapper per getChildren call would make every element unrecognisable to
+   * the view, and reveal a no-op.
+   */
+  _index(roots) {
+    this.nodes = new Map();
+    this.parents = new Map();
+    this.owners = new Map();
+
+    const walk = (raw, parentRaw, owner) => {
+      this.nodes.set(raw, new ConstraintNode(raw, this.uri));
+      this.parents.set(raw, parentRaw);
+      this.owners.set(raw, owner);
+      (raw.children || []).forEach((child) => walk(child, raw, owner));
+    };
+
+    roots.forEach((root) => {
+      const owner = {
+        label: root.label,
+        // The type's OWN shape -- an override is added there, never to the
+        // inherited shape the constraint came from.
+        shape: (root.children.find((c) => !c.inheritedFrom) || {}).shape
+      };
+      walk(root, null, owner);
+    });
+    this.rawRoots = roots;
+  }
+
+  wrap(raw) {
+    return raw ? this.nodes.get(raw) : undefined;
+  }
+
+  getParent(node) {
+    return this.wrap(this.parents.get(node.raw));
+  }
+
+  /** The non-inherited node declaring the same thing, if the tree has one. */
+  findCanonical(raw) {
+    for (const candidate of this.nodes.keys()) {
+      if (
+        !candidate.inheritedFrom &&
+        candidate.shape === raw.shape &&
+        candidate.parameter === (raw.parameter || '') &&
+        JSON.stringify(candidate.path) === JSON.stringify(raw.path || [])
+      ) {
+        return this.nodes.get(candidate);
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -52,11 +113,6 @@ class CookedTreeProvider {
    */
   ownerOf(node) {
     return this.owners ? this.owners.get(node.raw) : undefined;
-  }
-
-  _remember(raw, owner) {
-    (raw.children || []).forEach((child) => this._remember(child, owner));
-    this.owners.set(raw, owner);
   }
 
   getTreeItem(node) {
@@ -93,13 +149,6 @@ class CookedTreeProvider {
         `Inherited from ${raw.inheritedClass.split('/').pop()}\n` +
         `Declared at ${raw.definedAt}\n\n` +
         'Right-click to jump there, or to declare it on this type.';
-      if (raw.definedAt) {
-        item.command = {
-          command: 'semforge.goToDefinition',
-          title: 'Go to definition',
-          arguments: [node]
-        };
-      }
     } else if (raw.editable) {
       item.iconPath = new vscode.ThemeIcon('edit');
       item.tooltip = `${raw.parameter} = ${raw.value}\nClick to change.`;
@@ -119,7 +168,7 @@ class CookedTreeProvider {
 
   async getChildren(node) {
     if (node) {
-      return node.children;
+      return (node.raw.children || []).map((child) => this.wrap(child));
     }
     const client = this.clientHolder.client;
     if (!client || !this.uri) {
@@ -131,14 +180,8 @@ class CookedTreeProvider {
       return [];
     }
     this.lastError = undefined;
-    this.owners = this.owners || new Map();
-    (result.roots || []).forEach((root) => {
-      const owner = { label: root.label, shape: (root.children[0] || {}).shape };
-      this._remember(root, owner);
-    });
-    return (result.roots || []).map(
-      (raw) => new ConstraintNode(raw, this.uri)
-    );
+    this._index(result.roots || []);
+    return this.rawRoots.map((raw) => this.wrap(raw));
   }
 }
 
@@ -270,12 +313,43 @@ async function promptForValue(client, node) {
   });
 }
 
+/** Put the cursor on a file:line, without stealing focus from the tree. */
+async function showLocation(at, focus) {
+  const where = splitLocation(at || '');
+  if (!where) {
+    return;
+  }
+  const document = await vscode.workspace.openTextDocument(where.file);
+  const editor = await vscode.window.showTextDocument(document, {
+    preserveFocus: !focus,
+    preview: true
+  });
+  const position = new vscode.Position(where.line, 0);
+  editor.selection = new vscode.Selection(position, position);
+  editor.revealRange(
+    new vscode.Range(position, position),
+    vscode.TextEditorRevealType.InCenter
+  );
+}
+
 function register(context, clientHolder) {
   const provider = new CookedTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeConstraints', {
     treeDataProvider: provider
   });
   context.subscriptions.push(view);
+
+  // Selecting anything moves the .ttl to it. Every node carries its own
+  // file:line -- an attribute, a single parameter, not just the shape -- so
+  // this lands on the line you picked rather than the top of the block.
+  context.subscriptions.push(
+    view.onDidChangeSelection(async (event) => {
+      const selected = event.selection && event.selection[0];
+      if (selected && selected.raw.definedAt) {
+        await showLocation(selected.raw.definedAt, false);
+      }
+    })
+  );
 
   const track = (editor) => {
     if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
@@ -354,21 +428,27 @@ function register(context, clientHolder) {
     ),
 
     vscode.commands.registerCommand('semforge.goToDefinition', async (node) => {
-      const at = node && node.raw && node.raw.definedAt;
-      if (!at) {
+      const raw = node && node.raw;
+      if (!raw) {
         return;
       }
-      const split = at.lastIndexOf(':');
-      const file = at.slice(0, split);
-      const line = Math.max(parseInt(at.slice(split + 1), 10) - 1, 0);
-      const document = await vscode.workspace.openTextDocument(file);
-      const editor = await vscode.window.showTextDocument(document);
-      const position = new vscode.Position(line, 0);
-      editor.selection = new vscode.Selection(position, position);
-      editor.revealRange(
-        new vscode.Range(position, position),
-        vscode.TextEditorRevealType.InCenter
-      );
+      // Navigate BOTH views. The tree is where the reader is looking, so
+      // jumping only the editor leaves them to find the declaring shape by
+      // hand -- which is the work this command exists to remove.
+      const canonical = provider.findCanonical(raw);
+      if (canonical) {
+        try {
+          await view.reveal(canonical, {
+            select: true,
+            focus: true,
+            expand: 3
+          });
+        } catch (error) {
+          // reveal can refuse for a node the view has not realised yet; the
+          // editor jump below still happens.
+        }
+      }
+      await showLocation(raw.definedAt, true);
     }),
 
     vscode.commands.registerCommand('semforge.overrideHere', async (node) => {

@@ -196,3 +196,56 @@ def test_adding_to_an_attribute_the_shape_already_has(package):
         'sh:minCount', '1')
     assert how == 'added-to-existing'
     Graph().parse(package.sources['shapes'], format='turtle')
+
+
+# --- every node knows where it is --------------------------------------------
+
+def test_every_node_carries_its_own_file_and_line(corpus):
+    """Selecting a node moves the .ttl to it, so a shape-level line is not enough."""
+    located = [n for _, n in flatten(build_tree(corpus))
+               if n.kind in ('shape', 'attribute', 'slot', 'constraint')]
+    assert located
+    for node in located:
+        assert node.defined_at, f'{node.kind} {node.label} has no location'
+        file_part, _, line = node.defined_at.rpartition(':')
+        assert file_part.endswith('shacl.ttl') and line.isdigit()
+
+
+def test_sibling_constraints_get_distinct_lines(corpus):
+    """A tree that points every constraint at the top of its block makes the
+    reader hunt for the line themselves."""
+    node = _type_node(corpus, 'Filter')
+    shape = next(c for c in node.children if not c.inherited_from)
+    attribute = next(a for a in shape.children if a.label == 'hasStrength')
+    lines = {c.parameter: int(c.defined_at.rpartition(':')[2])
+             for c in attribute.children if c.kind == 'constraint'}
+    assert len(set(lines.values())) > 1, f'all on one line: {lines}'
+
+
+def test_an_inherited_node_keeps_its_own_line_not_the_shapes(corpus):
+    """Stamping the shape's locator over the subtree sent every jump to the
+    same line, which is exactly what makes go-to-definition useless."""
+    node = _type_node(corpus, 'Filter')
+    inherited = next(c for c in node.children
+                     if c.inherited_from and c.children
+                     and c.children[0].kind == 'attribute')
+    attribute = inherited.children[0]
+    assert attribute.defined_at != inherited.defined_at
+    assert int(attribute.defined_at.rpartition(':')[2]) > \
+        int(inherited.defined_at.rpartition(':')[2])
+
+
+def test_the_location_points_at_the_real_text(corpus):
+    """Read the line back and check it says what the node claims."""
+    with open(corpus.sources['shapes']) as handle:
+        lines = handle.read().splitlines()
+
+    checked = 0
+    for _, node in flatten(build_tree(corpus)):
+        if node.kind != 'constraint' or not node.defined_at:
+            continue
+        line = lines[int(node.defined_at.rpartition(':')[2]) - 1]
+        assert node.parameter in line, \
+            f'{node.parameter} not on its own line: {line!r}'
+        checked += 1
+    assert checked > 20

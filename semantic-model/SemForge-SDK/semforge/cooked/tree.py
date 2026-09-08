@@ -79,28 +79,58 @@ class CookedNode:
                 'parameter': self.parameter}
 
 
-def _constraint_nodes(block, shape, chain):
+def _line_counter(text):
+    """offset -> 1-based line. Built once; the tree asks for it per node.
+
+    Every node needs a location, not just the shapes: selecting an attribute or
+    a single constraint should move the .ttl editor to it, and a tree that can
+    only point at whole shapes makes the reader hunt for the line themselves.
+    """
+    starts = [0]
+    for index, char in enumerate(text):
+        if char == '\n':
+            starts.append(index + 1)
+
+    def line_of(offset):
+        low, high = 0, len(starts) - 1
+        while low < high:
+            middle = (low + high + 1) // 2
+            if starts[middle] <= offset:
+                low = middle
+            else:
+                high = middle - 1
+        return low + 1
+
+    return line_of
+
+
+def _at(path, line_of, offset):
+    return f'{path}:{line_of(offset)}'
+
+
+def _constraint_nodes(block, shape, chain, locate=None):
     nodes = []
     for name in sorted(block.parameters):
         if name == 'sh:order':
             continue
-        _, _, value = block.parameters[name]
+        start, _, value = block.parameters[name]
+        where = locate(start) if locate else ''
         if name in RAW_ONLY:
             nodes.append(CookedNode(
                 kind='raw', label=f'{local(name)} (raw only)',
                 detail='structure, not a parameter — edit in the .ttl',
                 shape=shape, path_chain=list(chain), parameter=name,
-                value=value.strip()[:60]))
+                value=value.strip()[:60], defined_at=where))
         elif name in EDITABLE:
             nodes.append(CookedNode(
                 kind='constraint', label=local(name), detail=value,
                 shape=shape, path_chain=list(chain), parameter=name,
-                value=value, editable=True))
+                value=value, editable=True, defined_at=where))
         else:
             nodes.append(CookedNode(
                 kind='raw', label=local(name), detail=value,
                 shape=shape, path_chain=list(chain), parameter=name,
-                value=value))
+                value=value, defined_at=where))
     return nodes
 
 
@@ -109,23 +139,25 @@ def _short(path):
     return local(path.strip('<>')).split(':')[-1]
 
 
-def _attribute_node(block, shape, chain):
+def _attribute_node(block, shape, chain, locate=None):
     chain = chain + [block.path]
     node = CookedNode(kind='attribute', label=_short(block.path),
-                      detail=block.path, shape=shape, path_chain=list(chain))
-    node.children.extend(_constraint_nodes(block, shape, chain))
+                      detail=block.path, shape=shape, path_chain=list(chain),
+                      defined_at=locate(block.start) if locate else '')
+    node.children.extend(_constraint_nodes(block, shape, chain, locate))
 
     for child in block.children:
         if child.path in VALUE_PATHS:
             slot = CookedNode(
                 kind='slot', label='value',
                 detail=_short(child.path), shape=shape,
-                path_chain=chain + [child.path])
+                path_chain=chain + [child.path],
+                defined_at=locate(child.start) if locate else '')
             slot.children.extend(
-                _constraint_nodes(child, shape, chain + [child.path]))
+                _constraint_nodes(child, shape, chain + [child.path], locate))
             node.children.append(slot)
         else:
-            node.children.append(_attribute_node(child, shape, chain))
+            node.children.append(_attribute_node(child, shape, chain, locate))
     return node
 
 
@@ -146,35 +178,44 @@ def _ancestors(graph, cls):
 
 
 def _mark_inherited(node, shape, cls, locator):
-    """Stamp a subtree as inherited and make it read-only here."""
+    """Stamp a subtree as inherited and make it read-only here.
+
+    Each node keeps its OWN location. Overwriting them all with the shape's
+    would send every jump to the same line, which is precisely what makes
+    "go to definition" useless on a nested constraint.
+    """
     node.inherited_from = str(shape)
     node.inherited_class = str(cls)
-    node.defined_at = locator
+    node.defined_at = node.defined_at or locator
     node.editable = False
     for child in node.children:
         _mark_inherited(child, shape, cls, locator)
 
 
-def _shape_node(package, shape, text, index):
+def _shape_node(package, shape, text, index, line_of=None):
     block = index.block_for(shape)
     if block is None:
         return None
     groups = property_blocks(text, block)
+
+    def locate(offset):
+        return _at(index.path, line_of, offset) if line_of else ''
+
     node = CookedNode(kind='shape', label=curie(package.shapes, shape),
                       detail=f'{len(groups)} attribute(s)', shape=str(shape),
                       defined_at=index.locator(shape))
     for group in groups:
-        node.children.append(_attribute_node(group, str(shape), []))
+        node.children.append(_attribute_node(group, str(shape), [], locate))
     if (shape, SH.sparql, None) in package.shapes:
         node.children.append(CookedNode(
             kind='raw', label='SPARQL constraint',
             detail='a query body is not a form — edit in the .ttl',
-            shape=str(shape)))
+            shape=str(shape), defined_at=index.locator(shape)))
     if (shape, SH.rule, None) in package.shapes:
         node.children.append(CookedNode(
             kind='raw', label='SPARQL rule',
             detail='a rule body is not a form — edit in the .ttl',
-            shape=str(shape)))
+            shape=str(shape), defined_at=index.locator(shape)))
     return node
 
 
@@ -196,6 +237,7 @@ def build_tree(package):
     with open(source_path, encoding='utf-8') as handle:
         text = handle.read()
     index = index_file(source_path)
+    line_of = _line_counter(text)
 
     by_class = {}
     for shape in node_shapes(package.shapes):
@@ -207,7 +249,7 @@ def build_tree(package):
         node = CookedNode(kind='type', label=local(cls), target_class=str(cls))
         own = 0
         for shape in by_class[cls]:
-            child = _shape_node(package, shape, text, index)
+            child = _shape_node(package, shape, text, index, line_of)
             if child is not None:
                 node.children.append(child)
                 own += 1
@@ -215,7 +257,7 @@ def build_tree(package):
         inherited = 0
         for ancestor in _ancestors(package.knowledge, cls)[1:]:
             for shape in by_class.get(ancestor, []):
-                child = _shape_node(package, shape, text, index)
+                child = _shape_node(package, shape, text, index, line_of)
                 if child is None:
                     continue
                 _mark_inherited(child, shape, ancestor, index.locator(shape))

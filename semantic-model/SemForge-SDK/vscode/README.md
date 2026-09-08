@@ -44,6 +44,11 @@ to the `owl:ObjectProperty` in `knowledge.ttl` that declares it. Nothing else in
 the toolchain can follow that link: the two files are related only through the
 graph.
 
+**Selecting anything moves the `.ttl` to it.** Every node carries its own
+`file:line` — an attribute, a single `sh:minCount`, not just the shape — so the
+editor lands on the line you picked rather than the top of the block. Focus
+stays in the tree, so you can arrow through a shape and watch the file follow.
+
 **Outline** lists every shape in the file.
 
 ---
@@ -201,8 +206,12 @@ panel follows immediately.
 A **⇧ hierarchy icon** means the constraint is inherited: it is declared on a
 supertype and applies here because `sh:targetClass` reaches subclasses. `Filter`
 shows `MachineShape`'s `hasState` for that reason — the constraint was never
-missing from Filter, only from the tree. Clicking jumps to where it is declared;
-right-click also offers **Declare on This Type**.
+missing from Filter, only from the tree. Right-click offers **Go to Definition** and **Declare on This Type**.
+
+**Go to Definition navigates both views**: it reveals and expands the declaring
+shape in the tree *and* moves the `.ttl` to the line. Jumping only the editor
+would leave you to find the declaring shape in the tree by hand, which is the
+work the command exists to remove.
 
 > **There is no override in SHACL.** A constraint declared on `Filter` is
 > *conjoined* with the one on `Machine`, not substituted for it — adding
