@@ -2,6 +2,7 @@
 
 from .tree import (CookedNode, EDITABLE, RAW_ONLY, apply_edit, build_tree,
                    remove_constraint)
+from .examples import ExampleNode, build_examples, set_value
 
 __all__ = ['CookedNode', 'EDITABLE', 'RAW_ONLY', 'build_tree', 'apply_edit',
-           'remove_constraint']
+           'remove_constraint', 'ExampleNode', 'build_examples', 'set_value']

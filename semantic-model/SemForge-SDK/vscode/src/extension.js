@@ -14,6 +14,7 @@ const vscode = require('vscode');
 const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
 
 const cookedTree = require('./tree');
+const exampleTree = require('./examples');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -116,7 +117,10 @@ function startClient(context) {
 
 function activate(context) {
   startClient(context);
-  cookedTree.register(context, clientHolder);
+  // The constraint view and the example view are two halves of one loop:
+  // editing data should refresh the shapes' verdicts and vice versa.
+  const constraints = cookedTree.register(context, clientHolder);
+  exampleTree.register(context, clientHolder, () => constraints.refresh());
 
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.restart', async () => {

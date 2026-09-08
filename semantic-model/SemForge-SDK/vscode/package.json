@@ -84,6 +84,16 @@
         "command": "semforge.overrideHere",
         "title": "SemForge: Declare on This Type",
         "icon": "$(arrow-down)"
+      },
+      {
+        "command": "semforge.editValue",
+        "title": "SemForge: Edit Value",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "semforge.refreshExamples",
+        "title": "SemForge: Refresh Examples",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -101,6 +111,11 @@
           "id": "semforgeConstraints",
           "name": "Constraints",
           "contextualTitle": "SemForge"
+        },
+        {
+          "id": "semforgeExamples",
+          "name": "Examples",
+          "contextualTitle": "SemForge"
         }
       ]
     },
@@ -109,6 +124,11 @@
         {
           "command": "semforge.refreshTree",
           "when": "view == semforgeConstraints",
+          "group": "navigation"
+        },
+        {
+          "command": "semforge.refreshExamples",
+          "when": "view == semforgeExamples",
           "group": "navigation"
         }
       ],
@@ -131,6 +151,11 @@
         {
           "command": "semforge.overrideHere",
           "when": "view == semforgeConstraints && viewItem == inherited",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeExamples && viewItem == exampleEditable",
           "group": "inline"
         }
       ]

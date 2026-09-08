@@ -237,6 +237,59 @@ def constraint_choices(ls, params):
         return {'choices': [], 'note': str(exc), 'total': 0}
 
 
+def _serialise_example(node):
+    return {
+        'kind': node.kind, 'label': node.label, 'detail': node.detail,
+        'entity': node.entity, 'path': list(node.path), 'value': node.value,
+        'editable': node.editable, 'severity': node.severity,
+        'messages': list(node.messages),
+        'children': [_serialise_example(child) for child in node.children],
+    }
+
+
+@server.feature('semforge/examples')
+def examples(ls, params):
+    """The example entities, annotated with what validation says about them."""
+    from ..cooked.examples import build_examples
+    from ..validate import validate_package
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'roots': [], 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        report = validate_package(package, strict=False)
+        return {'root': root,
+                'roots': [_serialise_example(n)
+                          for n in build_examples(package, report)]}
+    except Exception as exc:                       # noqa: BLE001
+        return {'roots': [], 'error': str(exc)}
+
+
+@server.feature('semforge/setValue')
+def set_example_value(ls, params):
+    """Change one value in the example, then re-validate.
+
+    Re-publishing afterwards is the point: the reason to edit data here rather
+    than in the JSON is to watch the verdict move.
+    """
+    from ..cooked.examples import set_value
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        path, old, new = set_value(package, _field(params, 'entity'),
+                                   list(_field(params, 'path') or []),
+                                   _field(params, 'value'))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(package.sources['shapes']))
+        return {'ok': True, 'file': path, 'old': old, 'new': new}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/setConstraint')
 def set_constraint(ls, params):
     """Apply one cooked edit, then re-analyse so diagnostics follow it."""

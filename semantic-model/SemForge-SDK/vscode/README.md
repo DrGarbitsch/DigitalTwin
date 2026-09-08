@@ -234,6 +234,36 @@ are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the
 `.ttl`.
 
+**The Examples view** — the second tree in the SemForge container. It shows the
+data the shapes judge:
+
+```
+model-instance.jsonld            8 entities
+├── urn:cutter:1                 Machine · 1 violation(s)     ⛔
+│   └── hasState                 base:state_ON · Property     ✎
+└── urn:filter:1                 Filter · 1 violation(s)      ⛔
+    ├── hasCartridge             "urn:cartridge:1" · Relationship  ✎
+    └── hasStrength              4 instances
+        ├── 0.9   Property · superseded
+        ├── 0.8   Property · superseded
+        └── 0.6   Property · current
+```
+
+Click a value to change it; the input parses JSON, so `42` is a number and
+`{"@id": "…"}` a node reference — typing an IRI into a Property should not
+quietly produce the string form. The file is rewritten with a one-line diff and
+both trees re-validate, which is the reason to edit here rather than in the
+JSON: you see the verdict move.
+
+**`current` and `superseded` are worth knowing about.** An attribute resolves to
+its latest `observedAt` per `datasetId` before validation, so editing a
+superseded observation changes the file and nothing else. Without the marker
+that reads as the editor being broken.
+
+An entity that violates something is marked, and carries the message on hover —
+a `minCount` violation is about an attribute that is *not there*, so there is no
+attribute node to hang it on.
+
 **Output → SemForge** — pick "SemForge" in the dropdown of the Output panel.
 This is where the server reports for itself, and the first place to look if the
 Problems panel stays empty.
