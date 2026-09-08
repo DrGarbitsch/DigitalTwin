@@ -34,6 +34,10 @@ OBJECT_PATH = NGSILD + 'hasObject'
 EXCLUDED = {NGSILD + 'Property', NGSILD + 'Relationship',
             str(RDFS.Datatype), str(RDFS.Class), str(OWL.Class)}
 
+# Above this, sending the whole list to a picker stops being useful and the
+# client asks the server to filter instead.
+SEARCH_THRESHOLD = 200
+
 NODE_KINDS = ['sh:IRI', 'sh:BlankNode', 'sh:Literal', 'sh:BlankNodeOrIRI',
               'sh:IRIOrLiteral', 'sh:BlankNodeOrLiteral']
 
@@ -146,18 +150,74 @@ def term_for(shapes_graph, iri):
         return f'<{iri}>'
 
 
-def _as_choice(package, cls, note=''):
+def class_stats(package):
+    """{class: (individuals, shape uses)} -- the two signals that rank a class.
+
+    A `sh:class` under a value slot says the value IRI is an INDIVIDUAL of that
+    class, so a class with no individuals cannot be the answer, however
+    plausible its name. And a class already used as sh:class somewhere is a
+    proven value class rather than a guess.
+
+    Without this the picker is alphabetical, which on the kms puts Binding,
+    BoundConnector, BoundMap and FieldType -- connector infrastructure, none of
+    it instantiable -- ahead of MachineState, Wasteclass and Material.
+    """
+    from rdflib.namespace import SH
+
+    individuals = {}
+    for _, cls in package.knowledge.subject_objects(RDF.type):
+        if isinstance(cls, URIRef):
+            individuals[cls] = individuals.get(cls, 0) + 1
+
+    used = {}
+    for cls in package.shapes.objects(None, SH['class']):
+        if isinstance(cls, URIRef):
+            used[cls] = used.get(cls, 0) + 1
+    return individuals, used
+
+
+def _as_choice(package, cls, note='', stats=None):
+    individuals, used = stats if stats else ({}, {})
+    count = individuals.get(cls, 0)
+    uses = used.get(cls, 0)
+
+    parts = [note] if note else []
+    if uses:
+        parts.append(f'used by {uses} shape(s)')
+    parts.append(f'{count} individual(s)' if count
+                 else 'no individuals -- cannot be a value')
     return {'value': term_for(package.shapes, cls),
             'label': local(cls),
-            'detail': note or str(cls)}
+            'detail': ' · '.join(parts),
+            'iri': str(cls),
+            'rank': (-uses, 0 if count else 1, -count, local(cls).lower())}
 
 
-def choices_for(package, path_chain, parameter):
+def _ordered(choices, search, limit):
+    """Rank, filter by the typed text, and cap. Returns (choices, total)."""
+    if search:
+        needle = search.strip().lower()
+        choices = [c for c in choices
+                   if needle in c['label'].lower() or needle in c['iri'].lower()]
+    choices.sort(key=lambda c: c['rank'])
+    total = len(choices)
+    if limit and total > limit:
+        choices = choices[:limit]
+    for choice in choices:
+        choice.pop('rank', None)
+    return choices, total
+
+
+def choices_for(package, path_chain, parameter, search=None, limit=None):
     """Candidate values for one parameter, or [] when a free value is right.
 
     Returns (choices, note). The note explains an EMPTY list, because "no
     suggestions" and "suggestions unavailable" are different situations and a
     picker that silently offers nothing cannot tell you which you are in.
+
+    `search` filters on the local name and the IRI, and `limit` caps the result
+    -- an ontology of any size makes sending everything pointless, and the note
+    says how much was left out.
     """
     if parameter == 'sh:nodeKind':
         return [{'value': kind, 'label': kind, 'detail': ''}
@@ -181,15 +241,30 @@ def choices_for(package, path_chain, parameter):
     is_object = slot_iri.endswith('hasObject') or slot_iri == OBJECT_PATH
     is_value = slot_iri.endswith('hasValue') or slot_iri == VALUE_PATH
 
+    stats = class_stats(package)
     if is_object:
-        return ([_as_choice(package, c, f'entity type (under {local(root)})')
-                 for c in entities],
-                '' if entities else 'no entity classes below ' + local(root))
+        found, total = _ordered(
+            [_as_choice(package, c, f'entity type (under {local(root)})', stats)
+             for c in entities], search, limit)
+        return found, _note(found, total, 'entity classes below ' + local(root))
     if is_value:
-        return ([_as_choice(package, c, 'vocabulary class') for c in knowledge],
-                '' if knowledge else 'no non-entity classes in the ontology')
+        found, total = _ordered(
+            [_as_choice(package, c, 'vocabulary class', stats)
+             for c in knowledge], search, limit)
+        return found, _note(found, total, 'non-entity classes in the ontology')
 
     # Not in a value slot: the constraint is on the attribute node itself, where
     # sh:class is unusual. Offer everything and say so.
-    return ([_as_choice(package, c) for c in entities + knowledge],
-            'not a value slot -- both entity and vocabulary classes offered')
+    found, total = _ordered(
+        [_as_choice(package, c, '', stats) for c in entities + knowledge],
+        search, limit)
+    return found, (f'not a value slot -- both entity and vocabulary classes '
+                   f'offered ({total})')
+
+
+def _note(found, total, what):
+    if not total:
+        return f'no {what}'
+    if len(found) < total:
+        return f'showing {len(found)} of {total}; keep typing to narrow'
+    return ''

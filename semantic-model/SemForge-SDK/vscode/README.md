@@ -158,6 +158,32 @@ and everything else hangs beneath it. A package without such a root can declare
 one as `entityRoot:` in `semforge.yaml`; a package with neither gets no
 suggestions and is told why, rather than being offered every class in the file.
 
+**The list is ranked, not alphabetical**, and each entry says why it is where it
+is:
+
+```
+MachineState       vocabulary class · used by 1 shape(s) · 7 individual(s)
+Wasteclass         vocabulary class · used by 1 shape(s) · 4 individual(s)
+Material           vocabulary class · used by 1 shape(s) · 3 individual(s)
+ChemicalElement    vocabulary class · 9 individual(s)
+…
+FieldType          vocabulary class · no individuals -- cannot be a value
+```
+
+Two signals do the ordering. A class already used as `sh:class` somewhere is a
+proven value class rather than a guess. And a `sh:class` on a value says the
+value IRI is an *individual* of that class, so a class with no individuals
+cannot be the answer however plausible its name — those sink to the bottom and
+say so. Alphabetically the KMS put `Binding`, `BoundConnector`, `BoundMap` and
+`FieldType` ahead of the three you would actually pick.
+
+**Typing narrows it.** For an ontology that fits, VS Code filters locally on the
+name, the term and the detail. For one that does not, the server caps what it
+sends and each keystroke asks it again — so a large ontology stays navigable
+instead of arriving as a truncated list with no way to reach the rest. The
+placeholder says which you are in (`showing 200 of 4,318; keep typing to
+narrow`).
+
 Every picker keeps **Enter a different value…** at the bottom. The suggestions
 are a convenience, not a restriction — a list you cannot escape would make the
 cooked view less capable than the file it edits.

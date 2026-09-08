@@ -209,18 +209,28 @@ def constraint_choices(ls, params):
     NGSI-LD encoding, vocabulary classes on the other -- and a hard-coded list
     in JavaScript would drift from the model the moment somebody adds a class.
     """
-    from ..cooked.choices import choices_for
+    from ..cooked.choices import SEARCH_THRESHOLD, choices_for
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
-        return {'choices': [], 'note': 'not a SemForge package'}
+        return {'choices': [], 'note': 'not a SemForge package', 'total': 0}
     try:
         package = _package_for(root)
+        limit = _field(params, 'limit') or SEARCH_THRESHOLD
+        # Fetch the whole ranked set once and cap it here, so `total` is exact
+        # without asking twice. total > len(choices) is what tells the client
+        # that local filtering is not enough and it must come back as the user
+        # types.
         found, note = choices_for(package, list(_field(params, 'path') or []),
-                                  _field(params, 'parameter'))
-        return {'choices': found, 'note': note}
+                                  _field(params, 'parameter'),
+                                  search=_field(params, 'search'))
+        total = len(found)
+        if total > limit:
+            found = found[:limit]
+            note = f'showing {limit} of {total}; keep typing to narrow'
+        return {'choices': found, 'note': note, 'total': total}
     except Exception as exc:                       # noqa: BLE001
-        return {'choices': [], 'note': str(exc)}
+        return {'choices': [], 'note': str(exc), 'total': 0}
 
 
 @server.feature('semforge/setConstraint')

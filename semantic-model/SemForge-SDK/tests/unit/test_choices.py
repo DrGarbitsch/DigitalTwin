@@ -150,3 +150,73 @@ def test_a_numeric_bound_has_no_candidate_list(corpus):
 @pytest.mark.parametrize('parameter', ['sh:minCount', 'sh:maxCount', 'sh:pattern'])
 def test_free_value_parameters_offer_nothing(corpus, parameter):
     assert choices_for(corpus, STATE, parameter) == ([], '')
+
+
+# --- ranking and search ------------------------------------------------------
+
+def test_classes_actually_used_as_sh_class_come_first(corpus):
+    """Ordering by name buries the answer.
+
+    Alphabetically the kms offers Binding, BoundConnector, BoundMap and
+    FieldType -- connector infrastructure -- ahead of MachineState, Wasteclass
+    and Material, which are the three the shapes actually use.
+    """
+    choices, _ = choices_for(corpus, STATE, 'sh:class')
+    assert [c['label'] for c in choices[:3]] == \
+        ['MachineState', 'Wasteclass', 'Material']
+
+
+def test_a_class_with_no_individuals_sinks_and_says_why(corpus):
+    """A value IRI is an INDIVIDUAL of the class, so a class without any
+    cannot be the answer however plausible its name."""
+    choices, _ = choices_for(corpus, STATE, 'sh:class')
+    labels = [c['label'] for c in choices]
+    for empty in ('BoundConnector', 'FieldType', 'OPCUAConnector', 'TestConnector'):
+        assert labels.index(empty) > labels.index('MachineState')
+    tail = [c for c in choices if c['label'] == 'FieldType'][0]
+    assert 'cannot be a value' in tail['detail']
+
+
+def test_the_detail_carries_the_evidence_for_the_ranking(corpus):
+    choices, _ = choices_for(corpus, STATE, 'sh:class')
+    state = [c for c in choices if c['label'] == 'MachineState'][0]
+    assert 'used by 1 shape(s)' in state['detail']
+    assert '7 individual(s)' in state['detail']
+
+
+def test_search_filters_on_the_local_name(corpus):
+    choices, _ = choices_for(corpus, STATE, 'sh:class', search='was')
+    assert [c['label'] for c in choices] == ['Wasteclass']
+
+
+def test_search_also_matches_the_iri(corpus):
+    choices, _ = choices_for(corpus, STATE, 'sh:class', search='filter_knowledge')
+    assert 'Wasteclass' in {c['label'] for c in choices}
+
+
+def test_search_is_case_insensitive(corpus):
+    assert choices_for(corpus, STATE, 'sh:class', search='MACHINEstate')[0]
+
+
+def test_a_limit_caps_the_list_and_says_how_much_is_left(corpus):
+    choices, note = choices_for(corpus, STATE, 'sh:class', limit=3)
+    assert len(choices) == 3
+    assert 'showing 3 of 12' in note
+    assert 'keep typing' in note
+
+
+def test_no_limit_returns_everything_with_no_note(corpus):
+    choices, note = choices_for(corpus, STATE, 'sh:class')
+    assert len(choices) == 12 and note == ''
+
+
+def test_a_search_matching_nothing_says_so(corpus):
+    choices, note = choices_for(corpus, STATE, 'sh:class', search='zzzz')
+    assert choices == []
+    assert 'no non-entity classes' in note
+
+
+def test_entity_choices_are_ranked_too(corpus):
+    choices, _ = choices_for(corpus, FILTER_REL, 'sh:class')
+    labels = [c['label'] for c in choices]
+    assert labels.index('Filter') < labels.index('Entity')

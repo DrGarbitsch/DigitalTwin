@@ -110,37 +110,7 @@ function freeText(raw) {
   });
 }
 
-/**
- * Ask for the new value, offering what the model allows.
- *
- * The picker always keeps a way out to a typed value. The suggestions are a
- * convenience, not a restriction -- a list that cannot be escaped would make
- * the cooked view less capable than the file it edits, which is exactly what
- * an escape hatch exists to prevent.
- */
-async function promptForValue(client, node) {
-  const raw = node.raw;
-  let choices = [];
-  let note = '';
-  try {
-    const result = await client.sendRequest('semforge/choices', {
-      uri: node.packageUri,
-      path: raw.path,
-      parameter: raw.parameter
-    });
-    choices = result.choices || [];
-    note = result.note || '';
-  } catch (error) {
-    note = `suggestions unavailable: ${error.message}`;
-  }
-
-  if (!choices.length) {
-    if (note) {
-      vscode.window.setStatusBarMessage(`SemForge: ${note}`, 5000);
-    }
-    return freeText(raw);
-  }
-
+function toItems(choices) {
   const items = choices.map((choice) => ({
     label: choice.label,
     description: choice.value,
@@ -153,17 +123,109 @@ async function promptForValue(client, node) {
     detail: 'anything valid in the shapes file',
     value: CUSTOM
   });
+  return items;
+}
 
-  const picked = await vscode.window.showQuickPick(items, {
-    title: `${raw.parameter} (currently ${raw.value})`,
-    placeHolder: note || 'pick a value, or enter your own',
-    matchOnDescription: true,
-    matchOnDetail: true
-  });
-  if (!picked) {
-    return undefined;
+async function fetchChoices(client, node, search) {
+  try {
+    const result = await client.sendRequest('semforge/choices', {
+      uri: node.packageUri,
+      path: node.raw.path,
+      parameter: node.raw.parameter,
+      search: search || null
+    });
+    return {
+      choices: result.choices || [],
+      note: result.note || '',
+      total: result.total || 0
+    };
+  } catch (error) {
+    return { choices: [], note: `suggestions unavailable: ${error.message}`, total: 0 };
   }
-  return picked.value === CUSTOM ? freeText(raw) : picked.value;
+}
+
+/**
+ * Ask for the new value, offering what the model allows.
+ *
+ * When the candidate set fits, VS Code filters it locally as you type. When it
+ * does not -- the server caps what it sends -- typing goes back to the server
+ * instead, so an ontology of any size stays navigable rather than arriving as a
+ * truncated list with no way to reach the rest.
+ *
+ * Either way the picker keeps a way out to a typed value. The suggestions are a
+ * convenience, not a restriction: a list that cannot be escaped would make the
+ * cooked view less capable than the file it edits.
+ */
+async function promptForValue(client, node) {
+  const raw = node.raw;
+  const first = await fetchChoices(client, node, '');
+
+  if (!first.choices.length) {
+    if (first.note) {
+      vscode.window.setStatusBarMessage(`SemForge: ${first.note}`, 5000);
+    }
+    return freeText(raw);
+  }
+
+  const truncated = first.total > first.choices.length;
+  if (!truncated) {
+    const picked = await vscode.window.showQuickPick(toItems(first.choices), {
+      title: `${raw.parameter} (currently ${raw.value})`,
+      placeHolder: first.note || 'pick a value, or enter your own',
+      matchOnDescription: true,
+      matchOnDetail: true
+    });
+    if (!picked) {
+      return undefined;
+    }
+    return picked.value === CUSTOM ? freeText(raw) : picked.value;
+  }
+
+  return new Promise((resolve) => {
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.title = `${raw.parameter} (currently ${raw.value})`;
+    quickPick.placeholder = first.note || 'type to search';
+    quickPick.matchOnDescription = true;
+    quickPick.matchOnDetail = true;
+    // The server has already ranked and filtered; re-filtering locally would
+    // hide entries it deliberately included.
+    quickPick.items = toItems(first.choices);
+
+    let pending;
+    let generation = 0;
+    quickPick.onDidChangeValue((text) => {
+      clearTimeout(pending);
+      const mine = ++generation;
+      pending = setTimeout(async () => {
+        quickPick.busy = true;
+        const next = await fetchChoices(client, node, text);
+        if (mine === generation) {
+          quickPick.items = toItems(next.choices);
+          quickPick.placeholder = next.note || 'pick a value, or enter your own';
+        }
+        quickPick.busy = false;
+      }, 150);
+    });
+
+    let accepted = false;
+    quickPick.onDidAccept(async () => {
+      const picked = quickPick.selectedItems[0];
+      accepted = true;
+      quickPick.hide();
+      if (!picked) {
+        resolve(undefined);
+      } else {
+        resolve(picked.value === CUSTOM ? await freeText(raw) : picked.value);
+      }
+    });
+    quickPick.onDidHide(() => {
+      quickPick.dispose();
+      if (!accepted) {
+        resolve(undefined);
+      }
+    });
+    quickPick.show();
+  });
 }
 
 function register(context, clientHolder) {

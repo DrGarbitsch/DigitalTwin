@@ -258,3 +258,28 @@ def test_class_choices_arrive_over_the_protocol_and_respect_the_slot(session):
     values = {c['value'] for c in vocabulary['choices']}
     assert 'base:MachineState' in values
     assert not any(v.startswith('default') for v in values)
+
+
+def test_choices_can_be_searched_and_capped_over_the_protocol(session):
+    """What the picker does as you type when the ontology is too big to send."""
+    session.send({'jsonrpc': '2.0', 'id': 22, 'method': 'semforge/choices',
+                  'params': {'uri': 'file://' + session.document,
+                             'path': ['iffBaseEntities:hasState',
+                                      'ngsild:hasValue'],
+                             'parameter': 'sh:class', 'limit': 3}})
+    capped = session.wait_for(lambda m: m.get('id') == 22)[0]['result']
+    assert len(capped['choices']) == 3
+    assert capped['total'] == 12
+    assert 'keep typing' in capped['note']
+    # The three that survive a cap of three are the ranked ones.
+    assert [c['label'] for c in capped['choices']] == \
+        ['MachineState', 'Wasteclass', 'Material']
+
+    session.send({'jsonrpc': '2.0', 'id': 23, 'method': 'semforge/choices',
+                  'params': {'uri': 'file://' + session.document,
+                             'path': ['iffBaseEntities:hasState',
+                                      'ngsild:hasValue'],
+                             'parameter': 'sh:class', 'search': 'was'}})
+    searched = session.wait_for(lambda m: m.get('id') == 23)[0]['result']
+    assert [c['label'] for c in searched['choices']] == ['Wasteclass']
+    assert searched['total'] == 1
