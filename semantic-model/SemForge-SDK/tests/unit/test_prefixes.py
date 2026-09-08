@@ -1,5 +1,6 @@
 """One name per namespace, across every artifact."""
 
+import json
 import shutil
 
 import pytest
@@ -243,8 +244,38 @@ def test_a_prefix_the_context_does_not_declare_is_an_error(tmp_path, corpus):
     assert 'will not expand' in undeclared[0].message
 
 
-def test_the_context_now_declares_iffbaseknowledge(corpus):
-    """Added alongside `base`, which stays so nothing written against it breaks."""
+def test_two_names_for_one_namespace_do_not_survive_rdflib(corpus):
+    """Why the context still calls base_knowledge `base` and nothing else.
+
+    Adding iffBaseKnowledge alongside base looked additive -- two names, one
+    namespace, legal JSON-LD, nothing written against `base` breaks. It is not
+    additive in practice: rdflib binds ONE prefix per namespace, so the second
+    name evicts the first. And shacl2flink reads the context through rdflib and
+    requires the surviving name to be literally `base`
+    (create_sql_checks_from_shacl.py: "No prefix 'base:' is found").
+
+    So publishing that addition would have stopped the compiler for everyone.
+    This pins the mechanism, so the next person to try it finds out here.
+    """
+    import rdflib
+
+    graph = rdflib.Graph()
+    graph.parse(f'{corpus.path}/context.jsonld', format='json-ld')
+    bound = {prefix: str(namespace) for prefix, namespace in graph.namespaces()}
+    assert bound.get('base') == BASE + 'base_knowledge/', \
+        'shacl2flink requires the context to bind base_knowledge as "base"'
+
+    with_both = rdflib.Graph()
+    with_both.parse(data=json.dumps({'@context': [{
+        'base': {'@id': BASE + 'base_knowledge/', '@prefix': True},
+        'iffBaseKnowledge': {'@id': BASE + 'base_knowledge/', '@prefix': True},
+    }]}), format='json-ld')
+    names = [p for p, n in with_both.namespaces() if str(n) == BASE + 'base_knowledge/']
+    assert len(names) == 1, 'rdflib kept both names; the eviction may be fixed'
+
+
+def test_the_context_matches_what_is_published(corpus):
+    """The vendored copy is a snapshot; divergence is the reproducibility bug."""
     found = context_prefixes(corpus.path)
-    assert found['iffBaseKnowledge'] == BASE + 'base_knowledge/'
-    assert found['base'] == found['iffBaseKnowledge']
+    assert 'base' in found
+    assert 'iffBaseKnowledge' not in found

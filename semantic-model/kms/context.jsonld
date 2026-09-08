@@ -38,10 +38,6 @@
                 "@id": "https://industryfusion.github.io/contexts/example/v0/base_knowledge/",
                 "@prefix": true
             },
-            "iffBaseKnowledge": {
-                "@id": "https://industryfusion.github.io/contexts/example/v0/base_knowledge/",
-                "@prefix": true
-            },
             "iffFilterKnowledge": {
                 "@id": "https://industryfusion.github.io/contexts/example/v0/filter_knowledge/",
                 "@prefix": true
