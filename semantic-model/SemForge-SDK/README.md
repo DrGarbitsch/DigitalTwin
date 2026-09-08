@@ -41,6 +41,7 @@ venv/bin/python -m semforge diff <before> <after>
 venv/bin/python -m semforge observe tests/corpus/kms
 venv/bin/python -m semforge import schema.json --as jsonschema --namespace https://x/v1
 venv/bin/python -m semforge resolve <package> --require-pinned
+venv/bin/python -m semforge prefixes <package> [--fix]
 ```
 
 ## VS Code

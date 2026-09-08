@@ -131,11 +131,12 @@ def classify_classes(package):
 def term_for(shapes_graph, iri):
     """A term that is valid IN THE SHAPES FILE.
 
-    The value is written into shacl.ttl, and knowledge.ttl binds different
-    prefixes for the same namespaces -- `default1:` there against
-    `iffBaseKnowledge:` here. Offering the knowledge file's spelling would write
-    an undefined prefix into the shapes file and break it on the next parse.
-    Where the shapes file binds no prefix at all, a full IRI is always valid.
+    A package whose prefixes are aligned (`semforge prefixes`) has one name per
+    namespace, so this is usually the same answer either file would give. It is
+    computed against the SHAPES graph anyway, because that is where the value is
+    written and alignment is a property a package can lack -- the kms did, and
+    the two files disagreed about what `:` and `default1:` meant. Where the
+    shapes file binds no prefix at all, a full IRI is always valid.
     """
     try:
         prefix, _, name = shapes_graph.namespace_manager.compute_qname(

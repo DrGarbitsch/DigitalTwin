@@ -1,0 +1,27 @@
+# The package's agreed names for namespaces.
+#
+# context.jsonld is the source of truth and most of these come from it. This
+# file adds the ones it does not declare, and overrides it in exactly one place.
+#
+# It is a separate file rather than an edit to context.jsonld on purpose:
+# context.jsonld is a snapshot of a published URL, and diverging from what that
+# URL serves is the reproducibility problem in another form. Names that belong
+# to everybody go upstream; names that are this package's business live here.
+namespaces:
+  # Not declared by the context: the two shapes namespaces, the test bindings,
+  # and NGSI-LD itself. Named for the iff* family already in the context.
+  iffBaseShacl: https://industryfusion.github.io/contexts/example/v0/base_shacl/
+  iffFilterShacl: https://industryfusion.github.io/contexts/example/v0/filter_shacl/
+  iffBindingsBaseTest: https://industryfusion.github.io/contexts/example/v0/bindings/base_test/
+  ngsild: https://uri.etsi.org/ngsi-ld/
+
+  # Overrides the context, which calls this namespace `base`. shacl.ttl already
+  # says iffBaseKnowledge -- at the Turtle level AND inside every SPARQL body,
+  # which declares its own prefixes and is a separate scope. Adopting `base`
+  # would align the header while leaving the queries saying something else, so
+  # the name that is already consistent within the file wins.
+  #
+  # model-instance.jsonld still writes `base:state_ON`, which resolves through
+  # the context. Making all three literally identical means adding
+  # iffBaseKnowledge to the PUBLISHED context; that is an upstream change.
+  iffBaseKnowledge: https://industryfusion.github.io/contexts/example/v0/base_knowledge/

@@ -48,7 +48,11 @@ def test_the_cartridge_exclusivity_rule_is_enumerated_but_unexercised(corpus):
 
     entries = {e.constraint: e for e in coverage(
         [(Example(path='model-instance.jsonld'), validate_package(corpus))])}
-    entry = entries[':CartridgeShape/hasCartridge/MaxCountConstraintComponent']
+    # iffBaseShacl:, not ':' -- the package now gives every namespace exactly
+    # one name, so a constraint reference no longer depends on which file you
+    # read it in.
+    entry = entries[
+        'iffBaseShacl:CartridgeShape/hasCartridge/MaxCountConstraintComponent']
     assert entry.status == 'no-firing-example'
 
 

@@ -1,5 +1,5 @@
-@prefix : <https://industryfusion.github.io/contexts/example/v0/base_shacl/> .
-@prefix default1: <https://industryfusion.github.io/contexts/example/v0/filter_shacl/> .
+@prefix iffBaseShacl: <https://industryfusion.github.io/contexts/example/v0/base_shacl/> .
+@prefix iffFilterShacl: <https://industryfusion.github.io/contexts/example/v0/filter_shacl/> .
 @prefix iffBaseEntities: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
 @prefix iffBaseKnowledge: <https://industryfusion.github.io/contexts/example/v0/base_knowledge/> .
 @prefix iffFilterEntities: <https://industryfusion.github.io/contexts/example/v0/filter_entities/> .
@@ -11,7 +11,7 @@
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
 
-:CartridgeShape a sh:NodeShape ;
+iffBaseShacl:CartridgeShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -43,7 +43,7 @@
                       [ sh:inversePath iffBaseEntities:hasCartridge ] ) ] ;
     sh:targetClass iffBaseEntities:FilterCartridge .
 
-:CutterShape a sh:NodeShape ;
+iffBaseShacl:CutterShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -101,7 +101,7 @@
                                 sh:path ngsild:hasValueList ] ] ) ;] ;
     sh:targetClass iffBaseEntities:Cutter .
 
-:FilterShape a sh:NodeShape ;
+iffBaseShacl:FilterShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -126,7 +126,7 @@
                     sh:path ngsild:hasObject ] ] ;
     sh:targetClass iffBaseEntities:Filter .
 
-:FilterStrengthShape a sh:NodeShape ;
+iffBaseShacl:FilterStrengthShape a sh:NodeShape ;
     sh:sparql [ a sh:SPARQLConstraints ;
             sh:message "Check Filter strength as function of workpiece: {?value}" ;
             sh:select """
@@ -157,7 +157,7 @@ SELECT ?this ?value
         """ ] ;
     sh:targetClass iffBaseEntities:Filter .
 
-:MachineShape a sh:NodeShape ;
+iffBaseShacl:MachineShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -181,7 +181,7 @@ SELECT ?this ?value
                     ] ;
     sh:targetClass iffBaseEntities:Machine .
 
-:StateOnCutterShape a sh:NodeShape ;
+iffBaseShacl:StateOnCutterShape a sh:NodeShape ;
     sh:sparql [ a sh:SPARQLConstraints ;
             sh:message "Cutter running without running filter" ;
             sh:select """
@@ -202,7 +202,7 @@ SELECT $this ?v1 ?f ?v2
             sh:severity iffBaseKnowledge:severityCritical ] ;
     sh:targetClass iffBaseEntities:Cutter .
 
-:StateOnFilterShape a sh:NodeShape ;
+iffBaseShacl:StateOnFilterShape a sh:NodeShape ;
     sh:sparql [ a sh:SPARQLConstraints ;
             sh:message "Filter running without running assigned machine" ;
             sh:select """
@@ -225,7 +225,7 @@ SELECT $this ?v1 ?pc ?v2
             sh:severity iffBaseKnowledge:severityWarning ] ;
     sh:targetClass iffBaseEntities:Filter .
 
-:StateValueShape a sh:NodeShape ;
+iffBaseShacl:StateValueShape a sh:NodeShape ;
     sh:sparql [ a sh:SPARQLConstraints ;
             sh:message "State value {?value} are not a valid machineState for machine {$this} of type {?type}" ;
             sh:select """
@@ -247,7 +247,7 @@ SELECT $this ?value ?type
         """ ] ;
     sh:targetClass iffBaseEntities:Machine .
 
-:TimestampCartridgeFromRulesShape a sh:NodeShape ;
+iffBaseShacl:TimestampCartridgeFromRulesShape a sh:NodeShape ;
     sh:rule [ a sh:SPARQLRule ;
             sh:construct """
 PREFIX iffBaseEntities: <https://industryfusion.github.io/contexts/example/v0/base_entities/>
@@ -271,7 +271,7 @@ WHERE {
 """ ] ;
     sh:targetClass iffBaseEntities:FilterCartridge .
 
-:TimestampCartridgeUntilRulesShape a sh:NodeShape ;
+iffBaseShacl:TimestampCartridgeUntilRulesShape a sh:NodeShape ;
     sh:rule [ a sh:SPARQLRule ;
             sh:construct """
 PREFIX iffBaseEntities: <https://industryfusion.github.io/contexts/example/v0/base_entities/>
@@ -292,7 +292,7 @@ WHERE {
 """ ] ;
     sh:targetClass iffBaseEntities:FilterCartridge .
 
-:WorkpieceShape a sh:NodeShape ;
+iffBaseShacl:WorkpieceShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -338,7 +338,7 @@ WHERE {
                     sh:path ngsild:hasValue ] ] ;
     sh:targetClass iffBaseEntities:Workpiece .
 
-default1:CartridgeShape a sh:NodeShape ;
+iffFilterShacl:CartridgeShape a sh:NodeShape ;
     sh:property [ sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:nodeKind sh:BlankNode ;
@@ -351,7 +351,7 @@ default1:CartridgeShape a sh:NodeShape ;
                     sh:path ngsild:hasValue ] ] ;
     sh:targetClass iffBaseEntities:FilterCartridge .
 
-default1:ChangeWasteClassRulesShape a sh:NodeShape ;
+iffFilterShacl:ChangeWasteClassRulesShape a sh:NodeShape ;
     sh:rule [ a sh:SPARQLRule ;
             sh:construct """
 PREFIX iffBaseEntities: <https://industryfusion.github.io/contexts/example/v0/base_entities/>

@@ -257,6 +257,42 @@ def observe_command(path):
                f'Nothing here is a constraint.')
 
 
+@cli.command('prefixes')
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.option('--fix', is_flag=True, help='rewrite the artifacts to the agreed names')
+def prefixes_command(path, fix):
+    """Check that every namespace has one agreed name, and optionally align.
+
+    The context is the source of truth: it is the artifact all three already
+    share. semforge.yaml `namespaces:` adds what the context does not declare
+    and overrides it where the package has a reason to.
+    """
+    from ..package.prefixes import align, check
+
+    try:
+        package = load(path)
+    except PackageError as exc:
+        click.echo(f'package error: {exc}', err=True)
+        sys.exit(2)
+
+    if fix:
+        applied = align(package)
+        if not applied:
+            click.echo('already aligned; nothing to rewrite')
+        for role, renames in sorted(applied.items()):
+            for old, new in sorted(renames.items()):
+                click.echo(f'{role:>10}  {old or "(default)"}: -> {new}:')
+        package = load(path)
+
+    findings = check(package)
+    for finding in findings:
+        click.echo(f'{finding.code:<12} {finding.severity:<8} {finding.message}')
+    errors = [f for f in findings if f.severity == 'error']
+    if not findings:
+        click.echo('every namespace has one agreed name across the package')
+    sys.exit(1 if errors else 0)
+
+
 @cli.command('resolve')
 @click.argument('path', type=click.Path(exists=True), default='.')
 @click.option('--out', type=click.Path(), default=None,
