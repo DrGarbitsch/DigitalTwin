@@ -389,7 +389,15 @@ milestone is done when its criteria run green in CI against the corpus (§7).
 >   nobody can read is a warning nobody acts on.
 > * **M7**'s importers stop at the `proposed` tier, enforced by a test that
 >   asserts `shacl.ttl` is byte-identical and the validation result unchanged
->   after an import. On the real KMS, 89 constraints are evaluated -- 87 conformant,
+>   after an import.
+>
+> **M6 was reported complete when it was not.** Its own acceptance criteria
+> named find-references and S1/S2 -- a cooked edit that round-trips to raw --
+> and only go-to-definition was built. Cooked mode has since landed: a
+> TreeView over entity types, attributes and constraints, editing Core
+> parameters through the text-anchored writer, so a cooked edit IS a raw edit
+> and S1 holds by construction rather than by agreement. Changing `1` to `0`
+> rewrites one byte. find-references is still not built. On the real KMS, 89 constraints are evaluated -- 87 conformant,
 > 2 violated -- with the enumerator invariant holding (`complete: True`).
 >
 > **The H3 spike resolved in favour of the tokenizer, and better than the

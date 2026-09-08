@@ -125,3 +125,31 @@ def test_the_two_cartridge_shapes_stay_distinct(corpus):
     names = [str(s) for s in node_shapes(corpus.shapes) if str(s).endswith('CartridgeShape')]
     assert len(names) == 2
     assert len({n.rsplit('/', 1)[-1] for n in names}) == 1
+
+
+def test_validation_does_not_mutate_the_package(corpus):
+    """pyshacl writes into the shapes graph it is handed.
+
+    It injects RDFS axioms -- `owl:Class rdfs:subClassOf rdfs:Class` and one
+    more -- so a package validated twice is not the package that was loaded.
+    That matters well beyond a test: the editor service caches packages across
+    edits, and the semantic diff compares two shapes graphs, so a validated copy
+    would differ from an unvalidated one by triples that are in neither file.
+
+    Found because a cooked-mode test passed alone and failed in a full run.
+    """
+    before = len(corpus.shapes), len(corpus.knowledge), len(corpus.model)
+    for _ in range(3):
+        validate_package(corpus)
+    assert (len(corpus.shapes), len(corpus.knowledge), len(corpus.model)) == before
+
+
+def test_a_diff_between_a_validated_and_an_unvalidated_copy_is_empty(corpus,
+                                                                     corpus_path):
+    """The consequence that would have been hardest to explain."""
+    from semforge.diff import semantic_diff
+    from semforge.package import load
+
+    fresh = load(corpus_path)
+    validate_package(corpus)
+    assert semantic_diff(corpus.shapes, fresh.shapes) == []

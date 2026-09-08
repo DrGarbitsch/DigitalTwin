@@ -102,12 +102,18 @@ def run_rules(data_graph, shapes_graph, knowledge_graph=None,
         for triple in knowledge_graph:
             working.add(triple)
 
+    # Same reason as the validator adapter: pyshacl writes into the shapes
+    # graph it is handed.
+    shapes = Graph()
+    for triple in shapes_graph:
+        shapes.add(triple)
+
     run = RuleRun(graph=working)
     for iteration in range(1, max_iterations + 1):
         before_size = len(working)
         before_instances = _attribute_instances(working)
 
-        pyshacl.shacl_rules(working, shacl_graph=shapes_graph,
+        pyshacl.shacl_rules(working, shacl_graph=shapes,
                             advanced=True, inplace=True, do_owl_imports=False)
 
         run.replaced += apply_update_semantics(working, before_instances)

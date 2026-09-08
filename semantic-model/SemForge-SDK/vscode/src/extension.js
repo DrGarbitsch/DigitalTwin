@@ -13,6 +13,11 @@ const path = require('path');
 const vscode = require('vscode');
 const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
 
+const cookedTree = require('./tree');
+
+// Shared so the tree provider always talks to the CURRENT client: restarting
+// the server must not leave the view wired to a dead one.
+const clientHolder = { client: undefined };
 let client;
 
 /**
@@ -105,11 +110,13 @@ function startClient(context) {
     clientOptions
   );
   client.start();
+  clientHolder.client = client;
   context.subscriptions.push(client);
 }
 
 function activate(context) {
   startClient(context);
+  cookedTree.register(context, clientHolder);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.restart', async () => {

@@ -37,8 +37,19 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
         for triple in knowledge_graph:
             data.add(triple)
 
+    # pyshacl MUTATES the shapes graph it is given -- it injects RDFS axioms
+    # such as `owl:Class rdfs:subClassOf rdfs:Class` into it. Handing it the
+    # package's own graph makes that graph drift: a cached package accumulates
+    # them, and a semantic diff between a validated and an unvalidated copy of
+    # the same file reports changes that are not in either file.
+    shapes = Graph()
+    for prefix, namespace in shapes_graph.namespaces():
+        shapes.bind(prefix, namespace)
+    for triple in shapes_graph:
+        shapes.add(triple)
+
     _, report, _ = pyshacl.validate(
-        data, shacl_graph=shapes_graph,
+        data, shacl_graph=shapes,
         advanced=True, inplace=False, do_owl_imports=False)
 
     results = []
@@ -47,13 +58,13 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
         path = report.value(node, SH.resultPath)
         component = normalise.local(report.value(node, SH.sourceConstraintComponent))
         source = report.value(node, SH.sourceShape)
-        shape = normalise.owning_shape(source, shapes_graph, report)
-        curie = normalise.curie(shapes_graph, shape)
+        shape = normalise.owning_shape(source, shapes, report)
+        curie = normalise.curie(shapes, shape)
         severity = normalise.local(report.value(node, SH.resultSeverity) or SH.Violation)
         message = report.value(node, SH.resultMessage)
 
         resource, attribute = normalise.attribute_name(
-            focus, path, data, shapes_graph, report)
+            focus, path, data, shapes, report)
         if resource is None:
             # Cannot be attributed to an entity. Never silently dropped: it is
             # reported as NOT_EVALUATED so it still appears in the report.

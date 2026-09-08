@@ -5,8 +5,13 @@
   "version": "0.1.0",
   "publisher": "industryfusion",
   "license": "Apache-2.0",
-  "engines": { "vscode": "^1.75.0" },
-  "categories": ["Programming Languages", "Linters"],
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
   "activationEvents": [
     "workspaceContains:**/shacl.ttl",
     "onLanguage:turtle"
@@ -16,8 +21,13 @@
     "languages": [
       {
         "id": "turtle",
-        "aliases": ["Turtle", "RDF Turtle"],
-        "extensions": [".ttl"],
+        "aliases": [
+          "Turtle",
+          "RDF Turtle"
+        ],
+        "extensions": [
+          ".ttl"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -31,7 +41,11 @@
         },
         "semforge.trace.server": {
           "type": "string",
-          "enum": ["off", "messages", "verbose"],
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
           "default": "off",
           "description": "Trace the communication between VS Code and the SemForge language server."
         }
@@ -45,8 +59,62 @@
       {
         "command": "semforge.revalidate",
         "title": "SemForge: Revalidate Package"
+      },
+      {
+        "command": "semforge.editConstraint",
+        "title": "SemForge: Edit Constraint",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "semforge.removeConstraint",
+        "title": "SemForge: Remove Constraint",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "semforge.refreshTree",
+        "title": "SemForge: Refresh Constraints",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "semforge",
+          "title": "SemForge",
+          "icon": "resources/semforge.svg"
+        }
+      ]
+    },
+    "views": {
+      "semforge": [
+        {
+          "id": "semforgeConstraints",
+          "name": "Constraints",
+          "contextualTitle": "SemForge"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "semforge.refreshTree",
+          "when": "view == semforgeConstraints",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "semforge.editConstraint",
+          "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.removeConstraint",
+          "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"

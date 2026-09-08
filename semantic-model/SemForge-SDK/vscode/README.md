@@ -125,6 +125,34 @@ This is the main thing. On the shipped KMS it should hold **11 entries**:
 faint blue ones on each other shape's first line. Hover one to read the message.
 Clicking a Problems entry jumps to it.
 
+**The SemForge view** — click the SemForge icon in the activity bar (left
+edge). This is the cooked view: entity types, their attributes, and the
+constraints on each.
+
+```
+Filter                            2 shape(s)
+└── :FilterShape                  2 attribute(s)
+    └── hasStrength
+        ├── ✎ sh:maxCount   1
+        ├── ✎ sh:minCount   1
+        ├── ✎ sh:nodeKind   sh:BlankNode
+        └── value                 hasValue
+            ├── ✎ sh:maxInclusive  100.0
+            ├── ✎ sh:minInclusive  0.0
+            └── 🔒 or (raw only)   structure, not a parameter
+```
+
+A pencil means editable: click it and you get an input box, or a picker where
+the value is an enumeration (`sh:nodeKind`, `sh:datatype`). The edit rewrites
+**only that value** in `shacl.ttl` — changing `1` to `0` moves one byte and
+leaves every comment in the file intact — then re-validates, so the Problems
+panel follows immediately.
+
+A padlock means shown but not editable here. Connectives (`sh:or`, `sh:node`)
+are structure rather than a parameter, and a SPARQL body is not a form. They
+appear so the tree does not lie about what the shape contains; edit them in the
+`.ttl`.
+
 **Output → SemForge** — pick "SemForge" in the dropdown of the Output panel.
 This is where the server reports for itself, and the first place to look if the
 Problems panel stays empty.
@@ -181,9 +209,13 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
   shape that raised them, not to the entity in `model-instance.jsonld` — mapping
   a finding back to a JSON-LD line needs a JSON position index that does not
   exist yet.
-- **Editing is raw.** This is raw mode in the sense of `manifest.md` §2.2. The
-  cooked view — navigating entity types and editing constraints through a
-  structured UI — is not built; the SDK has the write layer it needs
-  (`semforge.rdfio`), but no UI uses it yet.
+- **Cooked editing covers Core parameters only** — cardinality, datatype,
+  class, nodeKind, ranges, lengths, pattern. That is deliberate rather than
+  partial: those are the constraints that honestly fit one name and one scalar
+  value. Connectives and SPARQL bodies are shown and locked.
+- **No adding constraints from the tree yet.** You can change and remove what a
+  shape declares; adding a new attribute or constraint is still a `.ttl` edit
+  (the SDK can do it — `semforge.rdfio.add_property_constraint` — but no
+  command is wired to it).
 - **Analysis is whole-package on every save.** Fine at KMS scale (about a second);
   the incremental path exists in the plan and is not wired up.

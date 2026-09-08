@@ -54,6 +54,11 @@ flags constraints no example ever makes fire — the signal a passing test run
 cannot give you, because a constraint that cannot fire looks exactly like one
 that is satisfied.
 
+It also carries the **cooked view**: a tree of entity types, attributes and
+constraints, where editing a Core parameter rewrites just that value in
+`shacl.ttl`. Cooked and raw are one state — the edit is a raw edit — so
+comments survive and validation follows immediately.
+
 `--cross-check sqlite` runs the package through shacl2flink's SQLite build and
 compares. It needs `requirements-crosscheck.txt` and the `sqlite3` CLI, and it
 is a courtesy check: its findings are bug reports for the compiler, never

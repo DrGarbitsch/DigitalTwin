@@ -147,6 +147,84 @@ def document_symbol(ls, params):
     return symbols
 
 
+# --- the SemForge channel ---------------------------------------------------
+#
+# Architecture section 8.3: LSP is used where the operation IS an LSP
+# operation. A constraint tree and an edit-by-address are not, and forcing them
+# through workspace/executeCommand would make them opaque to any other client.
+# They get named methods instead.
+
+def _field(params, name, default=None):
+    """Read a parameter whichever way pygls handed it over.
+
+    Custom methods have no registered type, so pygls deserialises their params
+    into a namedtuple-like object rather than a dict -- and a handler written
+    for one shape fails on the other with a TypeError the client never sees.
+    """
+    if isinstance(params, dict):
+        return params.get(name, default)
+    return getattr(params, name, default)
+
+
+def _serialise(node):
+    return {
+        'kind': node.kind, 'label': node.label, 'detail': node.detail,
+        'shape': node.shape, 'path': list(node.path_chain),
+        'parameter': node.parameter, 'value': node.value,
+        'editable': node.editable,
+        'children': [_serialise(child) for child in node.children],
+    }
+
+
+def _package_for(root):
+    from ..package import load
+
+    if root not in _packages:
+        _packages[root] = load(root)
+    return _packages[root]
+
+
+@server.feature('semforge/tree')
+def cooked_tree(ls, params):
+    """The cooked constraint tree for a package."""
+    from ..cooked import build_tree
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'roots': [], 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        return {'root': root,
+                'roots': [_serialise(node) for node in build_tree(package)]}
+    except Exception as exc:                       # noqa: BLE001
+        return {'roots': [], 'error': str(exc)}
+
+
+@server.feature('semforge/setConstraint')
+def set_constraint(ls, params):
+    """Apply one cooked edit, then re-analyse so diagnostics follow it."""
+    from ..cooked import apply_edit, remove_constraint
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        shape = _field(params, 'shape')
+        chain = list(_field(params, 'path') or [])
+        parameter = _field(params, 'parameter')
+        if _field(params, 'remove'):
+            path, changed = remove_constraint(package, shape, chain, parameter)
+        else:
+            path, changed = apply_edit(package, shape, chain, parameter,
+                                       str(_field(params, 'value')))
+        _packages.pop(root, None)                  # the file changed underneath
+        _publish(ls, _path_to_uri(path))
+        return {'ok': True, 'file': path, 'bytesChanged': changed}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 def main():
     server.start_io()
 
