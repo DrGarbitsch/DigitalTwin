@@ -178,3 +178,38 @@ def test_the_extension_manifest_is_valid_and_points_at_the_server():
         text = handle.read()
     assert 'semforge.editor.server' in text, \
         'the extension must launch the SDK server, not reimplement it'
+
+
+def _vscode_dir():
+    here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(here, 'vscode')
+
+
+def test_f5_has_a_launch_configuration():
+    """Without this, F5 offers a debugger picker instead of the extension host.
+
+    The documented "press F5" is only true when .vscode/launch.json exists in
+    the extension folder, and shipping the instruction without the file is what
+    made the first setup attempt fail.
+    """
+    with open(os.path.join(_vscode_dir(), '.vscode', 'launch.json')) as handle:
+        launch = json.load(handle)
+
+    configurations = launch['configurations']
+    assert configurations
+    assert all(c['type'] == 'extensionHost' for c in configurations)
+    assert any(any(a.startswith('--extensionDevelopmentPath') for a in c['args'])
+               for c in configurations)
+
+
+def test_the_launch_configuration_opens_a_real_package():
+    """The dev host should land on something worth looking at."""
+    with open(os.path.join(_vscode_dir(), '.vscode', 'launch.json')) as handle:
+        first = json.load(handle)['configurations'][0]
+
+    folder = [a for a in first['args']
+              if not a.startswith('--')][0].replace('${workspaceFolder}', _vscode_dir())
+    resolved = os.path.abspath(folder)
+    assert os.path.isdir(resolved)
+    assert os.path.exists(os.path.join(resolved, 'kms', 'shacl.ttl')), \
+        'the extension host should open a folder containing a package'

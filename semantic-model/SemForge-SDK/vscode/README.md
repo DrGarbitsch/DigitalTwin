@@ -68,22 +68,41 @@ cd semantic-model/SemForge-SDK/vscode
 npm install
 ```
 
-Then either:
+Then pick one of three ways to run it.
 
-**Run it from source** (no packaging step, best while it is young):
+**A. One command, no F5.** The most reliable, because it depends on nothing in
+your VS Code setup:
 
-1. Open `semantic-model/SemForge-SDK/vscode` as a VS Code window.
-2. Press `F5`. A second window opens with the extension loaded.
-3. In that window, open the repository, then open
-   `semantic-model/kms/shacl.ttl`.
+```bash
+cd semantic-model/SemForge-SDK/vscode
+code --extensionDevelopmentPath="$PWD" ../..
+```
 
-**Or install it properly:**
+A new window opens with the extension loaded and `semantic-model/` as its
+folder. Open `kms/shacl.ttl` in it.
+
+**B. F5 from the extension folder.**
+
+1. Open **`semantic-model/SemForge-SDK/vscode`** as the VS Code window — the
+   folder itself, not the repository root. `.vscode/launch.json` lives there and
+   is what teaches F5 what to do.
+2. Press `F5`, or pick **Run SemForge Extension** in the Run and Debug panel.
+3. A second window opens on `semantic-model/`. Open `kms/shacl.ttl`.
+
+> If F5 asks you to *select a debugger* or offers Node.js/Chrome, VS Code has
+> not found `launch.json`. That means the open folder is not the `vscode/`
+> directory — check the title bar. Use method **A**, which does not depend on
+> it.
+
+**C. Install a packaged build.**
 
 ```bash
 npm install -g @vscode/vsce
 vsce package                       # produces semforge-0.1.0.vsix
 code --install-extension semforge-0.1.0.vsix
 ```
+
+Installed this way it loads in every window, so open the repository normally.
 
 ### 3. Check it is alive
 
@@ -96,7 +115,14 @@ shacl.ttl:160  warning  3 violation(s) here: MinCountConstraintComponent(hasXXXW
 shacl.ttl:14   info     7 constraint(s) here have no example that makes them fire …
 ```
 
-If nothing appears, open **Output → SemForge** for the server log.
+If nothing appears, open **Output → SemForge** in the dropdown for the server
+log. The usual causes:
+
+| Symptom | Cause |
+|---|---|
+| F5 offers a debugger list | the open folder is not `vscode/`; see method A |
+| Output says `No module named semforge` | the interpreter has no SDK — run `make setup`, or set `semforge.pythonPath` |
+| No Problems at all, no output channel | the file is not inside a package: its directory needs `knowledge.ttl`, `shacl.ttl` and `model-instance.jsonld` alongside |
 
 ---
 
