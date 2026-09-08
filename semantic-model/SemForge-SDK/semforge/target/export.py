@@ -60,12 +60,18 @@ def collapse_for_broker(entities):
     return collapsed
 
 
-def export(package, out_dir, mode=EmissionMode.COMPILE):
+def export(package, out_dir, mode=EmissionMode.COMPILE, target_context=None):
     """Write knowledge.ttl, shacl.ttl and a model instance into out_dir.
 
     Returns a dict of what was written. The Turtle artifacts are copied from
     source text rather than reserialised, so they are byte-identical to the
     package and stable across runs.
+
+    `target_context` points the exported model somewhere: by default at the
+    package's PUBLISHED context, because the broker and the compiler resolve it
+    themselves and a file naming a local path is useless to them. Locally the
+    same file resolves against the local copy -- that is the whole point of
+    declaring both.
     """
     mode = mode if isinstance(mode, EmissionMode) else EmissionMode(mode)
     os.makedirs(out_dir, exist_ok=True)
@@ -85,6 +91,19 @@ def export(package, out_dir, mode=EmissionMode.COMPILE):
         entities = [entities]
     if mode is EmissionMode.BROKER:
         written['collapsed'] = collapse_for_broker(entities)
+
+    from ..package.context import context_config
+
+    config = context_config(package.path)
+    context_value = target_context if target_context is not None else config.published
+    if context_value:
+        retargeted = 0
+        for entity in entities:
+            if isinstance(entity, dict) and entity.get('@context') != context_value:
+                entity['@context'] = context_value
+                retargeted += 1
+        written['context_url'] = context_value
+        written['retargeted'] = retargeted
 
     model_path = os.path.join(out_dir, 'model-instance.jsonld')
     with open(model_path, 'w', encoding='utf-8') as handle:

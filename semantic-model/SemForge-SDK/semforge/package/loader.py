@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from rdflib import Graph
 
 from ..errors import PackageError
+from .context import context_config, model_context, resolve_model_document
 
 DEFAULTS = {
     'knowledge': ['knowledge.ttl'],
@@ -26,6 +27,8 @@ DEFAULTS = {
 @dataclass
 class Package:
     path: str
+    context_url: str = ''      # what the model names on disk
+    context_resolved_locally: bool = False
     knowledge: Graph = field(default_factory=Graph)
     shapes: Graph = field(default_factory=Graph)
     model: Graph = field(default_factory=Graph)
@@ -63,5 +66,20 @@ def load(path):
     package = Package(path=path, sources=sources)
     package.knowledge.parse(sources['knowledge'], format='turtle')
     package.shapes.parse(sources['shapes'], format='turtle')
-    package.model.parse(sources['model'], format='json-ld')
+
+    # The model names the PUBLISHED context on disk; loading answers it from the
+    # local copy. Editing the file to point at a local path would make the
+    # package unusable to everyone who resolves the url themselves, and fetching
+    # the url would make every load depend on the network and on whatever it
+    # serves today.
+    import json as _json
+
+    config = context_config(path)
+    package.context_url = str(model_context(sources['model']) or '')
+    document, swapped = resolve_model_document(path, sources['model'], config)
+    package.context_resolved_locally = swapped
+    if swapped:
+        package.model.parse(data=_json.dumps(document), format='json-ld')
+    else:
+        package.model.parse(sources['model'], format='json-ld')
     return package

@@ -42,7 +42,14 @@ venv/bin/python -m semforge observe tests/corpus/kms
 venv/bin/python -m semforge import schema.json --as jsonschema --namespace https://x/v1
 venv/bin/python -m semforge resolve <package> --require-pinned
 venv/bin/python -m semforge prefixes <package> [--fix]
+venv/bin/python -m semforge retarget <package> --to local|published
+venv/bin/python -m semforge serve-context <package>
 ```
+
+A package declares a **local** and a **published** context. Work resolves the
+local one, so a term is usable as soon as it is agreed and no build needs the
+network; `export` points the model back at the published url and refuses to
+write if the model uses a term that url does not declare.
 
 ## VS Code
 

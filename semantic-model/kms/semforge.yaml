@@ -1,3 +1,15 @@
+# The context this package resolves against.
+#
+# Locally the LOCAL file answers, so a term can be used the moment it is agreed
+# rather than after it is published, and no build depends on the network. On
+# export the model is pointed at the PUBLISHED url, because the broker and the
+# compiler resolve it themselves -- and export checks that the published context
+# actually declares everything the model uses, rather than shipping values that
+# will not expand.
+context:
+  local: context.jsonld
+  published: https://industryfusion.github.io/contexts/staging/example/v0.2/context.jsonld
+
 # The package's agreed names for namespaces.
 #
 # context.jsonld is the source of truth and most of these come from it. This

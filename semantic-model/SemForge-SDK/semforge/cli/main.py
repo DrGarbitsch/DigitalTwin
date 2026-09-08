@@ -139,10 +139,28 @@ def export_command(path, out_dir, target, mode, profile_name, no_check):
                 click.echo(f'  - {diagnostic}', err=True)
             sys.exit(2)
 
+    # Readiness is checked BEFORE writing. A term the published context does
+    # not declare exports as a value that will not expand, and the moment to
+    # say so is now -- not when a broker rejects it.
+    from ..package.context import check_export_readiness
+
+    readiness = check_export_readiness(
+        package, cache_dir=os.path.join(path, '.semforge', 'cache', 'contexts'))
+    blocking = [d for d in readiness if d.severity == 'error']
+    for diagnostic in readiness:
+        click.echo(f'  {diagnostic}', err=diagnostic.severity == 'error')
+    if blocking:
+        click.echo('\nERROR: the published context must be updated before this '
+                   'package can be exported. Nothing was written.', err=True)
+        sys.exit(2)
+
     written = export_package(package, out_dir, EmissionMode(mode))
     for role in ('knowledge', 'shapes', 'model', 'context'):
         if role in written:
             click.echo(f'{role:>10}  {written[role]}')
+    if written.get('context_url'):
+        click.echo(f'{"@context":>10}  {written["context_url"]} '
+                   f'({written.get("retargeted", 0)} entity/entities retargeted)')
     if written.get('collapsed'):
         click.echo(f'{"collapsed":>10}  {written["collapsed"]} attribute '
                    f'instance(s) to the latest observedAt')
@@ -255,6 +273,65 @@ def observe_command(path):
                    f'on {len(record.entities)} entity/entities   {types}')
     click.echo(f'\n{len(observations)} observation(s), tier: observed. '
                f'Nothing here is a constraint.')
+
+
+@cli.command('serve-context')
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.option('--port', default=0, help='0 picks a free port')
+def serve_context_command(path, port):
+    """Serve the package's local context over HTTP.
+
+    Loading inside the SDK does not need this -- it substitutes the local
+    content in memory. It is for tools that insist on an http url.
+    """
+    from ..package.context import serve_local_context
+
+    try:
+        server = serve_local_context(path, port)
+    except PackageError as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(2)
+    click.echo(f'serving {server.path}\n  at {server.url}\nCtrl-C to stop')
+    try:
+        while True:
+            __import__('time').sleep(3600)
+    except KeyboardInterrupt:
+        server.stop()
+        click.echo('stopped')
+
+
+@cli.command('retarget')
+@click.argument('path', type=click.Path(exists=True), default='.')
+@click.option('--to', type=click.Choice(['local', 'published']), required=True)
+def retarget_command(path, to):
+    """Point a model instance's @context at the local file or the published url.
+
+    Importing a model written elsewhere is the `local` case: until it names
+    something this package can resolve, it is not part of the package.
+    """
+    from ..package.context import context_config, local_context_path, retarget_model
+
+    try:
+        package = load(path)
+    except PackageError as exc:
+        click.echo(f'package error: {exc}', err=True)
+        sys.exit(2)
+
+    config = context_config(path)
+    if to == 'published':
+        if not config.declared:
+            click.echo('semforge.yaml declares no published context', err=True)
+            sys.exit(2)
+        value = config.published
+    else:
+        local = local_context_path(path, config)
+        if local is None:
+            click.echo('the package has no local context', err=True)
+            sys.exit(2)
+        value = os.path.relpath(local, path)
+
+    changed = retarget_model(package.sources['model'], value)
+    click.echo(f'{changed} entity/entities now name {value}')
 
 
 @cli.command('prefixes')

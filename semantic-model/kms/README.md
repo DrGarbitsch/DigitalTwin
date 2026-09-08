@@ -57,8 +57,34 @@ in this directory is the proposed content: publishing it is a four-line
 addition.
 
 Only afterwards should `model-instance.jsonld` switch its five `base:state_ON`
-values to `iffBaseKnowledge:state_ON`. The model resolves prefixes through the
-context it names -- the *remote* one -- so renaming the data first leaves those
-values unexpanded: a plain string where an IRI was meant, which `sh:class` then
-correctly refuses. `semforge prefixes` reports the pending rename (`SF-PFX-004`)
-until both halves are done.
+values to `iffBaseKnowledge:state_ON`. `semforge prefixes` reports the pending
+rename (`SF-PFX-004`) until both halves are done.
+
+The reason to wait is not SemForge, which resolves the context locally and would
+be happy either way. It is `shacl2flink`: `make build` reads
+`model-instance.jsonld` directly and resolves the *remote* context, so a term
+the published context does not carry expands to a plain string where an IRI was
+meant -- and `sh:class` then correctly refuses it.
+
+### The local/published split
+
+`semforge.yaml` declares both:
+
+```yaml
+context:
+  local: context.jsonld
+  published: https://industryfusion.github.io/contexts/staging/example/v0.2/context.jsonld
+```
+
+The model on disk keeps naming the **published** url -- it must, or it is
+useless to anyone who resolves that url themselves. Loading substitutes the
+**local** file's content in memory, so work here never depends on the network
+and a term is usable as soon as it is agreed locally.
+
+`semforge export` points the exported model back at the published url, and
+checks first: any term the model uses that the published context does not
+declare is an **error**, and nothing is written. That is the moment the split
+has to be paid for, and the only moment anybody can act on it.
+
+`semforge retarget --to local` is the other direction, for a model imported from
+somewhere else.
