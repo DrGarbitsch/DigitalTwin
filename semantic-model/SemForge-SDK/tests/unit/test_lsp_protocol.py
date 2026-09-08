@@ -27,11 +27,16 @@ def _framed(message):
 class Session:
     def __init__(self, document):
         self.messages = []
+        # NOT cwd=SDK. The server is launched by an editor with the folder the
+        # USER opened as its working directory, and running it from the SDK
+        # directory hid a real failure: `semforge` was importable only because
+        # the package happened to sit in the current directory, so the server
+        # died instantly for every actual user while this test passed.
         self.process = subprocess.Popen(
             [INTERPRETER if os.path.exists(INTERPRETER) else sys.executable,
              '-m', 'semforge.editor.server'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, cwd=SDK)
+            stderr=subprocess.PIPE, cwd=os.path.dirname(SDK))
         threading.Thread(target=self._read, daemon=True).start()
         self.document = document
 
@@ -104,6 +109,19 @@ def test_opening_a_shapes_file_publishes_diagnostics(session):
     diagnostics = published[0]['params']['diagnostics']
     assert diagnostics
     assert all(d['range']['start']['line'] >= 0 for d in diagnostics)
+
+
+def test_the_server_starts_from_a_directory_that_is_not_the_sdk(session):
+    """The regression guard for the failure this test used to hide.
+
+    An editor starts the server wherever the user's folder is. If `semforge` is
+    not installed, the process exits before saying anything -- and a language
+    server that exits immediately is indistinguishable from one that found
+    nothing to report.
+    """
+    assert session.process.poll() is None, (
+        'the server exited: '
+        + session.process.stderr.read().decode()[-400:])
 
 
 def test_the_diagnostics_carry_the_semforge_source_and_a_kind(session):

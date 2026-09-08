@@ -104,25 +104,47 @@ code --install-extension semforge-0.1.0.vsix
 
 Installed this way it loads in every window, so open the repository normally.
 
-### 3. Check it is alive
+### 3. What you should see
 
-Open any `.ttl` in a directory that also holds `knowledge.ttl` and
-`model-instance.jsonld`. Within a second or two the Problems panel should fill.
-On the shipped KMS you should see roughly:
+Open `semantic-model/kms/shacl.ttl`. The file itself looks no different — the
+extension adds no syntax colouring beyond what VS Code already does for `.ttl`.
+**Everything it contributes is in three places, and none of them is the editor
+text by default:**
+
+**Problems panel** — `Ctrl+Shift+M` (`Cmd+Shift+M` on macOS), or View → Problems.
+This is the main thing. On the shipped KMS it should hold **11 entries**:
 
 ```
-shacl.ttl:160  warning  3 violation(s) here: MinCountConstraintComponent(hasXXXWorkpiece) …
-shacl.ttl:14   info     7 constraint(s) here have no example that makes them fire …
+⚠  3 violation(s) here: MinCountConstraintComponent(hasXXXWorkpiece) on urn:filter:2 …   [160]
+ⓘ  7 constraint(s) here have no example that makes them fire (hasCartridge/MaxCount…)    [14]
+ⓘ  20 constraint(s) here have no example that makes them fire (hasFilter/ClassCons…)     [46]
+…
 ```
+
+**Squiggles in the file** — a yellow underline on line 160 (`:MachineShape`) and
+faint blue ones on each other shape's first line. Hover one to read the message.
+Clicking a Problems entry jumps to it.
+
+**Output → SemForge** — pick "SemForge" in the dropdown of the Output panel.
+This is where the server reports for itself, and the first place to look if the
+Problems panel stays empty.
+
+If you see none of that, the language server is not running — the table below
+says why.
 
 If nothing appears, open **Output → SemForge** in the dropdown for the server
 log. The usual causes:
 
 | Symptom | Cause |
 |---|---|
-| F5 offers a debugger list | the open folder is not `vscode/`; see method A |
-| Output says `No module named semforge` | the interpreter has no SDK — run `make setup`, or set `semforge.pythonPath` |
-| No Problems at all, no output channel | the file is not inside a package: its directory needs `knowledge.ttl`, `shacl.ttl` and `model-instance.jsonld` alongside |
+| Problems panel empty, no SemForge output channel | the server exited at startup. Almost always `semforge` is not installed into the interpreter: run `make setup` again — it now does `pip install -e .`, which earlier versions did not |
+| F5 offers a debugger list | the open folder is not `vscode/`; use method A |
+| Output says `No module named semforge` | same as the first row: `cd semantic-model/SemForge-SDK && make setup` |
+| Problems empty but the output channel exists | the file is not inside a package: its directory needs `knowledge.ttl`, `shacl.ttl` and `model-instance.jsonld` alongside it |
+| Nothing after editing | analysis runs on open and on **save**, not on keystroke |
+
+A language server that exits immediately is indistinguishable from one that
+found nothing to report, which is why the first row is the first row.
 
 ---
 

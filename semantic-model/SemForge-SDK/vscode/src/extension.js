@@ -43,16 +43,43 @@ function resolvePython(workspaceFolder) {
   return 'python3';
 }
 
+/**
+ * The SDK directory for an interpreter at <sdk>/venv/bin/python, or undefined.
+ *
+ * Used as the server's working directory and PYTHONPATH so that an SDK which
+ * has not been `pip install -e .`'d still starts. Without it the server is
+ * launched in the folder the user opened, where `semforge` is not importable --
+ * which fails silently, because a language server that exits immediately looks
+ * exactly like one that found nothing to report.
+ */
+function sdkDirectory(python) {
+  const parts = python.split(path.sep);
+  const index = parts.lastIndexOf('venv');
+  if (index <= 0) {
+    return undefined;
+  }
+  const candidate = parts.slice(0, index).join(path.sep);
+  return fs.existsSync(path.join(candidate, 'semforge')) ? candidate : undefined;
+}
+
 function startClient(context) {
   const folders = vscode.workspace.workspaceFolders;
   const root = folders && folders.length ? folders[0].uri.fsPath : undefined;
   const python = resolvePython(root);
+  const sdk = sdkDirectory(python);
+
+  const environment = Object.assign({}, process.env);
+  if (sdk) {
+    environment.PYTHONPATH = environment.PYTHONPATH
+      ? `${sdk}${path.delimiter}${environment.PYTHONPATH}`
+      : sdk;
+  }
 
   const serverOptions = {
     command: python,
     args: ['-m', 'semforge.editor.server'],
     transport: TransportKind.stdio,
-    options: { cwd: root }
+    options: { cwd: sdk || root, env: environment }
   };
 
   const clientOptions = {

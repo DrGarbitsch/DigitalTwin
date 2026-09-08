@@ -11,7 +11,7 @@ together as one versioned unit.
 ## Quick start
 
 ```bash
-make setup                          # venv + pinned dependencies
+make setup                          # venv, pinned dependencies, editable install
 make test                           # pytest, 80% coverage gate
 make lint                           # flake8
 venv/bin/python -m semforge validate tests/corpus/kms
@@ -46,7 +46,8 @@ venv/bin/python -m semforge resolve <package> --require-pinned
 ## VS Code
 
 `vscode/` holds the extension. See [vscode/README.md](./vscode/README.md) for
-setup — in short, `make setup` here, then `npm install` and `F5` there.
+setup — in short, `make setup` here, then `npm install` there and
+`code --extensionDevelopmentPath="$PWD" ../..`.
 
 It shows validation and capability errors on the shape that causes them, and
 flags constraints no example ever makes fire — the signal a passing test run
