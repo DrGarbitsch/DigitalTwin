@@ -234,8 +234,27 @@ are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the
 `.ttl`.
 
-**The Examples view** — the second tree in the SemForge container. It shows the
-data the shapes judge:
+**The Examples view** — the second tree in the SemForge container. It shows
+every declared example, what it is for, and whether it did it:
+
+```
+🧪 cutter-processing-with-filter-on.jsonld   good · valid · ok · 3 include(s)
+   ├── urn:plasmacutter:1                    Plasmacutter
+   └── 🔗 filter-on.jsonld                   included — edit it where it is declared
+🧪 cutter-processing-with-filter-off.jsonld  bad · invalid · ok · 3 include(s)
+   └── urn:plasmacutter:1                    Plasmacutter · 1 violation(s)   ⛔
+🧪 model-instance.jsonld                     the model as shipped — not a declared example
+```
+
+A **bad** example that violates is `ok` — violating is its pass condition. One
+that stops violating is the failure, which is the regression a negative example
+exists to catch.
+
+Entities arriving through `include` are read-only here: editing a subobject in
+place would change every case that includes it, which is a decision to take in
+that file rather than a side effect of editing one example.
+
+Under each entity is the data itself:
 
 ```
 model-instance.jsonld            8 entities

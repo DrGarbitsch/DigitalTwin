@@ -232,6 +232,129 @@ def _attribute_node(name, value, entity, path, findings):
     return node
 
 
+def build_suite(package, expectations=None):
+    """Every declared example as its own root, with what it is for and how it did.
+
+    The package's own model-instance is included as a root too. It is not a
+    declared example -- it is the model as shipped -- and leaving it out of the
+    tree would hide the thing most of the toolchain actually compiles.
+
+    Entities that arrive through `include` are shown read-only under the file
+    that declares them. Editing a subobject in place would change every case
+    that includes it, which is a decision to take deliberately in that file
+    rather than a side effect of editing one example.
+    """
+    from ..expect.store import compose, load_expectations
+    from ..validate.orchestrator import validate_graphs
+
+    expectations = expectations or load_expectations(package.path)
+    roots = []
+
+    for example in expectations.examples:
+        try:
+            graph = compose(package, example)
+            report = validate_graphs(graph, package.shapes, package.knowledge,
+                                     strict=False)
+        except Exception as exc:                   # noqa: BLE001
+            roots.append(ExampleNode(
+                kind='example', label=example.path, detail=f'error: {exc}',
+                severity='violation'))
+            continue
+
+        node = _example_root(package, example, report)
+        roots.append(node)
+
+    roots.append(_model_root(package))
+    return roots
+
+
+def _expected_shape(example, report):
+    """Did it do what it says? -- the label the tree hangs on the example."""
+    violations = len(report.violations)
+    if example.expect == 'invalid':
+        return ('ok' if violations else 'FAILED: expected a violation',
+                '' if violations else 'violation')
+    if example.conformance == 'full' and violations:
+        return (f'FAILED: {violations} violation(s), conformance is full',
+                'violation')
+    return ('ok', '')
+
+
+def _example_root(package, example, report):
+    import os
+
+    status, severity = _expected_shape(example, report)
+    detail = ' · '.join(p for p in (
+        example.group, example.expect, status,
+        f'{len(example.include)} include(s)' if example.include else '') if p)
+    node = ExampleNode(kind='example', label=os.path.basename(example.path),
+                       detail=detail, severity=severity,
+                       messages=[example.description] if example.description
+                       else [])
+
+    own = os.path.join(package.path, 'examples', example.path)
+    node.children.extend(_entity_nodes(own, report))
+
+    for included in example.include:
+        path = os.path.join(package.path, 'examples', included)
+        folder = ExampleNode(kind='include', label=os.path.basename(included),
+                             detail='included — edit it where it is declared')
+        folder.children.extend(_entity_nodes(path, report, editable=False))
+        node.children.append(folder)
+    return node
+
+
+def _model_root(package):
+    from ..validate import validate_package
+
+    node = ExampleNode(
+        kind='example', label=package.sources['model'].rsplit('/', 1)[-1],
+        detail='the model as shipped — not a declared example')
+    node.children.extend(
+        _entity_nodes(package.sources['model'], validate_package(
+            package, strict=False)))
+    return node
+
+
+def _entity_nodes(path, report=None, editable=True):
+    findings = {}
+    counts = {}
+    for result in (report.violations if report is not None else []):
+        findings.setdefault((result.resource, result.attribute),
+                            ['violation', []])[1].append(
+            f'{result.component}: {result.message or ""}'.strip())
+        counts[result.resource] = counts.get(result.resource, 0) + 1
+
+    out = []
+    for entity in _entities(path):
+        if not isinstance(entity, dict):
+            continue
+        identifier = str(entity.get('id') or entity.get('@id') or '(no id)')
+        node = ExampleNode(
+            kind='entity', label=identifier, entity=identifier,
+            detail=str(entity.get('type') or entity.get('@type') or ''))
+        if counts.get(identifier):
+            node.severity = 'violation'
+            node.detail += f' · {counts[identifier]} violation(s)'
+            node.messages = [m for (resource, _), (_, msgs) in findings.items()
+                             if resource == identifier for m in msgs]
+        for key, value in entity.items():
+            if key in RESERVED:
+                continue
+            child = _attribute_node(key, value, identifier, [key], findings)
+            if not editable:
+                _read_only(child)
+            node.children.append(child)
+        out.append(node)
+    return out
+
+
+def _read_only(node):
+    node.editable = False
+    for child in node.children:
+        _read_only(child)
+
+
 def build_examples(package, report=None):
     """Entities -> attributes -> instances, annotated with the verdicts."""
     findings = {}

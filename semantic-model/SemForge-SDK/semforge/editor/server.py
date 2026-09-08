@@ -252,18 +252,16 @@ def _serialise_example(node):
 @server.feature('semforge/examples')
 def examples(ls, params):
     """The example entities, annotated with what validation says about them."""
-    from ..cooked.examples import build_examples
-    from ..validate import validate_package
+    from ..cooked.examples import build_suite
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
         package = _package_for(root)
-        report = validate_package(package, strict=False)
         return {'root': root,
                 'roots': [_serialise_example(n)
-                          for n in build_examples(package, report)]}
+                          for n in build_suite(package)]}
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 

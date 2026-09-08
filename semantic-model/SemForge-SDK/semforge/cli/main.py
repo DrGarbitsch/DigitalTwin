@@ -8,7 +8,6 @@ import os
 import sys
 
 import click
-from rdflib import Graph
 
 from .. import __version__
 from ..errors import CapabilityError, PackageError
@@ -176,12 +175,13 @@ def _examples_and_reports(package, expectations):
         default = Example(path=os.path.relpath(package.sources['model'], package.path))
         return [(default, validate_package(package))]
 
+    from ..expect.store import compose
+
     paired = []
     for example in expectations.examples:
-        graph = Graph()
-        graph.parse(os.path.join(package.path, example.path), format='json-ld')
+        graph = compose(package, example)
         paired.append((example, validate_graphs(
-            graph, package.shapes, package.knowledge)))
+            graph, package.shapes, package.knowledge, strict=False)))
     return paired
 
 

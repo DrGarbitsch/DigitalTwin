@@ -382,3 +382,127 @@ def test_a_new_observation_can_move_the_verdict(package):
                     '@none', '999', '2030-01-01T00:00:00.000Z')
     after = validate_package(load(package.path))
     assert [r for r in after.violations if r.attribute == 'hasStrength']
+
+
+# --- the declared suite ------------------------------------------------------
+
+def test_every_declared_example_becomes_a_root(corpus):
+    from semforge.cooked.examples import build_suite
+    from semforge.expect import load_expectations
+
+    roots = build_suite(corpus)
+    declared = load_expectations(corpus.path).examples
+    assert len(roots) == len(declared) + 1, 'plus the shipped model'
+    assert roots[-1].label == 'model-instance.jsonld'
+    assert 'not a declared example' in roots[-1].detail
+
+
+def test_a_root_says_what_the_example_is_for_and_how_it_did(corpus):
+    from semforge.cooked.examples import build_suite
+
+    roots = {n.label: n for n in build_suite(corpus)}
+    good = roots['cutter-processing-with-filter-on.jsonld']
+    assert 'good' in good.detail and 'valid' in good.detail
+    assert 'ok' in good.detail and good.severity == ''
+    assert good.messages and 'healthy baseline' in good.messages[0]
+
+
+def test_a_bad_example_that_fires_is_ok_not_a_failure(corpus):
+    """`bad` means "expected to violate"; violating is the pass condition."""
+    from semforge.cooked.examples import build_suite
+
+    roots = {n.label: n for n in build_suite(corpus)}
+    bad = roots['cutter-processing-with-filter-off.jsonld']
+    assert bad.severity == '' and 'ok' in bad.detail
+    entity = next(c for c in bad.children if c.kind == 'entity')
+    assert entity.severity == 'violation'
+
+
+def test_included_subobjects_are_shown_read_only(corpus):
+    """Editing one here would change every case that includes it."""
+    from semforge.cooked.examples import build_suite, flatten
+
+    roots = {n.label: n for n in build_suite(corpus)}
+    node = roots['cutter-processing-with-filter-on.jsonld']
+    includes = [c for c in node.children if c.kind == 'include']
+    assert {c.label for c in includes} == {
+        'workpiece-steel.jsonld', 'cartridge-fresh.jsonld', 'filter-on.jsonld'}
+    assert all(not n.editable for include in includes
+               for _, n in flatten([include]))
+
+
+def test_the_examples_own_entities_stay_editable(corpus):
+    from semforge.cooked.examples import build_suite
+
+    roots = {n.label: n for n in build_suite(corpus)}
+    node = roots['workpiece-too-high.jsonld']
+    entity = next(c for c in node.children if c.kind == 'entity')
+    assert any(c.editable for c in entity.children)
+
+
+def test_a_broken_example_is_reported_not_raised(tmp_path, corpus):
+    import shutil
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    (target / 'expectations' / 'validation.yaml').write_text(
+        'examples:\n  - path: good/nope.jsonld\n    expect: valid\n')
+
+    from semforge.cooked.examples import build_suite
+
+    roots = build_suite(load(str(target)))
+    broken = roots[0]
+    assert broken.severity == 'violation'
+    assert 'error' in broken.detail and 'nope' in broken.detail
+
+
+# --- composition -------------------------------------------------------------
+
+def test_includes_are_merged_before_the_example(corpus):
+    """The example wins where both describe the same entity.
+
+    That is what lets bad/ swap in a filter that is OFF over the one the good
+    case includes.
+    """
+    from semforge.expect.store import Example, compose
+    from semforge.validate.orchestrator import validate_graphs
+
+    off = compose(corpus, Example(
+        path='bad/cutter-processing-with-filter-off.jsonld',
+        include=['subobjects/workpiece-steel.jsonld',
+                 'subobjects/cartridge-fresh.jsonld',
+                 'subobjects/filter-off.jsonld']))
+    report = validate_graphs(off, corpus.shapes, corpus.knowledge, strict=False)
+    assert [r.shape.rsplit('/', 1)[-1] for r in report.violations] == \
+        ['StateOnCutterShape']
+
+
+def test_every_example_file_is_declared(corpus):
+    """A file that exists and is never run suggests coverage the suite lacks."""
+    from semforge.expect import load_expectations
+    from semforge.expect.store import discover
+
+    declared = {e.path for e in load_expectations(corpus.path).examples}
+    found = {f for f in discover(corpus.path)
+             if not f.startswith('subobjects')}
+    assert found == declared
+
+
+def test_a_missing_include_names_itself(corpus):
+    from semforge.expect.store import Example, compose
+
+    with pytest.raises(PackageError) as exc:
+        compose(corpus, Example(path='good/workpiece-at-the-limits.jsonld',
+                                include=['subobjects/nothing.jsonld']))
+    assert 'nothing.jsonld' in str(exc.value)
+
+
+def test_the_group_comes_from_the_folder_but_decides_nothing(corpus):
+    from semforge.expect import load_expectations
+
+    examples = load_expectations(corpus.path).examples
+    assert {e.group for e in examples} == {'good', 'bad'}
+    # A folder name groups; `expect` is what says the case must violate.
+    for example in examples:
+        if example.group == 'bad':
+            assert example.expect == 'invalid'

@@ -45,9 +45,9 @@ class ExampleTreeProvider {
     const item = new vscode.TreeItem(
       raw.label || raw.kind,
       hasChildren
-        ? raw.kind === 'entity'
+        ? raw.kind === 'example' && !raw.severity
           ? vscode.TreeItemCollapsibleState.Collapsed
-          : vscode.TreeItemCollapsibleState.Collapsed
+          : vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || '';
@@ -63,7 +63,14 @@ class ExampleTreeProvider {
       : raw.kind;
 
     if (raw.kind === 'example') {
-      item.iconPath = new vscode.ThemeIcon('database');
+      // A declared case: green when it did what it says, red when it did not.
+      item.iconPath = new vscode.ThemeIcon(
+        raw.severity ? 'testing-failed-icon' : 'beaker'
+      );
+    } else if (raw.kind === 'include') {
+      // A subobject. Editing it here would change every case that includes it,
+      // so it is shown read-only and edited where it is declared.
+      item.iconPath = new vscode.ThemeIcon('references');
     } else if (raw.kind === 'entity') {
       item.iconPath = new vscode.ThemeIcon(
         raw.severity ? 'error' : 'symbol-object'
