@@ -94,6 +94,11 @@
         "command": "semforge.refreshExamples",
         "title": "SemForge: Refresh Examples",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "semforge.addObservation",
+        "title": "SemForge: Add Observation",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -156,6 +161,26 @@
         {
           "command": "semforge.editValue",
           "when": "view == semforgeExamples && viewItem == exampleEditable",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleSeries",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleDataset",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleEditable",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeExamples && viewItem == exampleSeries",
           "group": "inline"
         }
       ]

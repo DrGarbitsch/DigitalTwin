@@ -51,7 +51,16 @@ class ExampleTreeProvider {
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || '';
-    item.contextValue = raw.editable ? 'exampleEditable' : raw.kind;
+    // A row that stands for a datasetId can take a new observation, whether or
+    // not there is already a series under it.
+    const series = raw.observations > 1;
+    item.contextValue = raw.datasetId
+      ? series
+        ? 'exampleSeries'
+        : 'exampleDataset'
+      : raw.editable
+      ? 'exampleEditable'
+      : raw.kind;
 
     if (raw.kind === 'example') {
       item.iconPath = new vscode.ThemeIcon('database');
@@ -61,6 +70,14 @@ class ExampleTreeProvider {
       );
     } else if (raw.kind === 'meta') {
       item.iconPath = new vscode.ThemeIcon('watch');
+    } else if (series) {
+      // A time series: the row shows the value validation reads, the children
+      // are the observations behind it.
+      item.iconPath = new vscode.ThemeIcon('graph-line');
+      item.tooltip =
+        `${raw.observations} observations for datasetId ${raw.datasetId}\n` +
+        'The row shows the one validation reads (latest observedAt).\n' +
+        'Right-click to add another.';
     } else if (raw.severity) {
       item.iconPath = new vscode.ThemeIcon('warning');
     } else if (raw.editable) {
@@ -157,7 +174,55 @@ function register(context, clientHolder, onChanged) {
 
     vscode.commands.registerCommand('semforge.refreshExamples', () =>
       provider.refresh()
-    )
+    ),
+
+    vscode.commands.registerCommand('semforge.addObservation', async (node) => {
+      const raw = node && node.raw;
+      if (!raw || !raw.attributePath || !raw.attributePath.length) {
+        return;
+      }
+      const value = await vscode.window.showInputBox({
+        title: `New observation of ${raw.label}`,
+        prompt: `datasetId ${raw.datasetId || '@none'} — JSON is parsed`,
+        value: raw.value
+      });
+      if (value === undefined) {
+        return;
+      }
+      const observedAt = await vscode.window.showInputBox({
+        title: 'observedAt',
+        prompt:
+          'ISO 8601 UTC with milliseconds. Later than the current one, or it ' +
+          'will not become the value validation reads.',
+        value: new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z')
+      });
+      if (observedAt === undefined) {
+        return;
+      }
+      const result = await clientHolder.client.sendRequest(
+        'semforge/addObservation',
+        {
+          uri: node.packageUri,
+          entity: raw.entity,
+          attributePath: raw.attributePath,
+          datasetId: raw.datasetId,
+          value,
+          observedAt
+        }
+      );
+      if (result.ok) {
+        vscode.window.setStatusBarMessage(
+          `SemForge: ${raw.label} now has ${result.count} observation(s)`,
+          5000
+        );
+        provider.refresh();
+        if (onChanged) {
+          onChanged();
+        }
+      } else {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      }
+    })
   );
 
   return provider;

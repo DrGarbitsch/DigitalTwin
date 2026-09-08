@@ -243,11 +243,34 @@ model-instance.jsonld            8 entities
 │   └── hasState                 base:state_ON · Property     ✎
 └── urn:filter:1                 Filter · 1 violation(s)      ⛔
     ├── hasCartridge             "urn:cartridge:1" · Relationship  ✎
-    └── hasStrength              4 instances
-        ├── 0.9   Property · superseded
-        ├── 0.8   Property · superseded
-        └── 0.6   Property · current
+    └── hasStrength              0.6 · Property · 4 observations   📈
+        ├── 0.9   2024-02-28T13:52:32.000Z · superseded
+        ├── 0.8   2024-02-28T13:52:33.000Z · superseded
+        ├── 0.7   2024-02-28T13:52:34.000Z · superseded
+        └── 0.6   2024-02-28T13:52:35.000Z · current
 ```
+
+**Instances are grouped by `datasetId`.** That is not cosmetic: an NGSI-LD
+attribute is identified by `(entity, name, datasetId)`, so several instances
+sharing one are the *same* attribute observed repeatedly, while different
+`datasetId`s are *different* attributes that happen to share a name. The dedup
+resolves within a `datasetId` and never across, and a flat list hides that.
+
+With one `datasetId` the series hangs straight off the attribute. With several,
+each gets its own row showing its own current value:
+
+```
+hasStrength                       2 datasets
+├── 0.6    @none · Property · 4 observations        📈
+└── 1.5    urn:sensor:B · Property · 2 observations 📈
+```
+
+A row with the 📈 icon takes **Add Observation** (right-click). It asks for the
+value and an `observedAt`, joins the series for *its* `datasetId`, and copies
+the `type` from what is already there — a Property whose new instance arrived
+as a Relationship would be a different attribute, not a new observation of the
+same one. A `datasetId` of `@none` is not written out: that *is* the default
+instance, and stating it would mean something else.
 
 Click a value to change it; the input parses JSON, so `42` is a number and
 `{"@id": "…"}` a node reference — typing an IRI into a Property should not

@@ -63,20 +63,32 @@ def test_an_instance_with_sub_attributes_is_not_folded(corpus):
     assert any(c.label == 'hasXXXWorkpiece' for c in nested)
 
 
-def test_a_repeated_attribute_keeps_its_instances(corpus):
+def test_a_repeated_attribute_keeps_its_observations(corpus):
     """urn:filter:1 carries four hasStrength observations."""
     node = _find(build_examples(corpus), 'urn:filter:1', 'entity')
     strength = next(c for c in node.children if c.label == 'hasStrength')
     assert len(strength.children) == 4
-    assert '4 instances' in strength.detail
+    assert '4 observations' in strength.detail
 
 
-def test_observed_at_is_shown_as_metadata(corpus):
+def test_the_timestamp_is_on_the_row_not_a_child(corpus):
+    """Inside a series the observedAt IS the row's identity.
+
+    Repeating it as a child is one more level to expand for something already
+    on the line.
+    """
     node = _find(build_examples(corpus), 'urn:filter:1', 'entity')
     strength = next(c for c in node.children if c.label == 'hasStrength')
-    meta = [m for instance in strength.children for m in instance.children
-            if m.kind == 'meta']
-    assert any(m.label == 'observedAt' for m in meta)
+    assert all('2024-02-28T13:52' in c.detail for c in strength.children)
+    assert not [m for c in strength.children for m in c.children
+                if m.kind == 'meta' and m.label == 'observedAt']
+
+
+def test_metadata_outside_a_series_is_still_a_child(corpus):
+    """A lone instance's observedAt has no row of its own to sit on."""
+    node = _find(build_examples(corpus), 'urn:cartridge:1', 'entity')
+    used = next(c for c in node.children if c.label == 'isUsedFrom')
+    assert used.value
 
 
 def test_a_violating_entity_is_marked_and_carries_the_message(corpus):
@@ -220,3 +232,153 @@ def test_the_file_still_parses_after_an_edit(package):
     with open(package.sources['model']) as handle:
         json.load(handle)
     assert load(package.path).model
+
+
+# --- per datasetId -----------------------------------------------------------
+
+def test_one_dataset_shows_the_series_under_the_attribute(corpus):
+    """No dataset row when there is only one: it would be depth for nothing."""
+    node = _find(build_examples(corpus), 'urn:filter:1', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    assert strength.dataset_id == '@none'
+    assert strength.observations == 4 and strength.is_series
+    assert all(c.kind == 'instance' for c in strength.children)
+    assert strength.value == '0.6', 'the row shows what validation reads'
+
+
+def test_several_datasets_get_a_row_each(package):
+    """Different datasetIds are different attributes sharing a name.
+
+    The dedup resolves within a datasetId and never across, so listing them
+    flat would conflate two things that behave differently.
+    """
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    'urn:sensor:B', '1.0', '2024-02-28T14:00:00.000Z')
+    add_observation(load(package.path), 'urn:filter:1',
+                    ['iffBaseEntities:hasStrength'], 'urn:sensor:B', '1.5',
+                    '2024-02-28T14:01:00.000Z')
+
+    node = _find(build_examples(load(package.path)), 'urn:filter:1', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    assert '2 datasets' in strength.detail
+    datasets = {c.dataset_id: c for c in strength.children}
+    assert set(datasets) == {'@none', 'urn:sensor:B'}
+    assert datasets['@none'].value == '0.6'
+    assert datasets['urn:sensor:B'].value == '1.5'
+    assert datasets['urn:sensor:B'].observations == 2
+
+
+def test_each_dataset_resolves_its_own_current(package):
+    """The latest observedAt WITHIN a datasetId, not across all of them."""
+    from semforge.cooked.examples import add_observation
+
+    # Newer than everything in @none, but a different dataset.
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    'urn:sensor:B', '1.0', '2025-01-01T00:00:00.000Z')
+
+    node = _find(build_examples(load(package.path)), 'urn:filter:1', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    datasets = {c.dataset_id: c for c in strength.children}
+    assert datasets['@none'].value == '0.6', \
+        'a newer observation in another dataset must not supersede this one'
+
+
+def test_the_current_index_addresses_the_whole_attribute(package):
+    """It is an edit path into the JSON array, not a position within a group.
+
+    The two coincide only when there is a single datasetId, which is what made
+    the first version crash on the second dataset.
+    """
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    'urn:sensor:B', '1.0', '2024-02-28T14:00:00.000Z')
+    node = _find(build_examples(load(package.path)), 'urn:filter:1', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    sensor = next(c for c in strength.children
+                  if c.dataset_id == 'urn:sensor:B')
+    assert sensor.path[-2] == 4, 'index 4 is where it sits in the array'
+
+
+# --- adding observations -----------------------------------------------------
+
+def test_an_observation_joins_its_own_series(package):
+    from semforge.cooked.examples import add_observation
+
+    _, count = add_observation(
+        package, 'urn:filter:1', ['iffBaseEntities:hasStrength'], '@none',
+        '0.55', '2024-02-28T13:52:36.000Z')
+    assert count == 5
+
+    node = _find(build_examples(load(package.path)), 'urn:filter:1', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    assert strength.value == '0.55', 'the newest observation becomes current'
+
+
+def test_a_new_dataset_id_starts_its_own_series(package):
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    'urn:sensor:B', '1.0', '2024-02-28T14:00:00.000Z')
+    with open(package.sources['model']) as handle:
+        document = json.load(handle)
+    entity = next(e for e in document if e['id'] == 'urn:filter:1')
+    added = entity['iffBaseEntities:hasStrength'][-1]
+    assert added['datasetId'] == 'urn:sensor:B'
+    assert added['value'] == 1.0
+
+
+def test_the_default_dataset_is_not_written_out(package):
+    """`@none` IS the default instance; writing it would be a different thing."""
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    '@none', '0.55', '2024-02-28T13:52:36.000Z')
+    with open(package.sources['model']) as handle:
+        document = json.load(handle)
+    entity = next(e for e in document if e['id'] == 'urn:filter:1')
+    assert 'datasetId' not in entity['iffBaseEntities:hasStrength'][-1]
+
+
+def test_the_type_is_carried_over(package):
+    """A Property whose new instance is a Relationship is a different attribute."""
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    '@none', '0.55', '2024-02-28T13:52:36.000Z')
+    with open(package.sources['model']) as handle:
+        document = json.load(handle)
+    entity = next(e for e in document if e['id'] == 'urn:filter:1')
+    assert entity['iffBaseEntities:hasStrength'][-1]['type'] == 'Property'
+
+
+def test_adding_to_a_single_valued_attribute_makes_it_a_series(package):
+    from semforge.cooked.examples import add_observation
+
+    _, count = add_observation(
+        package, 'urn:filter:2', ['iffBaseEntities:hasStrength'], '@none',
+        '0.7', '2024-03-01T00:00:00.000Z')
+    assert count == 2
+    node = _find(build_examples(load(package.path)), 'urn:filter:2', 'entity')
+    strength = next(c for c in node.children if c.label == 'hasStrength')
+    assert strength.is_series and strength.value == '0.7'
+
+
+def test_adding_to_an_unknown_attribute_is_refused(package):
+    from semforge.cooked.examples import add_observation
+
+    with pytest.raises(PackageError) as exc:
+        add_observation(package, 'urn:filter:1', ['iffBaseEntities:nope'],
+                        '@none', '1', None)
+    assert 'nope' in str(exc.value)
+
+
+def test_a_new_observation_can_move_the_verdict(package):
+    from semforge.cooked.examples import add_observation
+
+    add_observation(package, 'urn:filter:1', ['iffBaseEntities:hasStrength'],
+                    '@none', '999', '2030-01-01T00:00:00.000Z')
+    after = validate_package(load(package.path))
+    assert [r for r in after.violations if r.attribute == 'hasStrength']

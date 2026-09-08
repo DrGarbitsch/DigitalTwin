@@ -243,6 +243,8 @@ def _serialise_example(node):
         'entity': node.entity, 'path': list(node.path), 'value': node.value,
         'editable': node.editable, 'severity': node.severity,
         'messages': list(node.messages),
+        'datasetId': node.dataset_id, 'observations': node.observations,
+        'attributePath': list(node.attribute_path),
         'children': [_serialise_example(child) for child in node.children],
     }
 
@@ -286,6 +288,28 @@ def set_example_value(ls, params):
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(package.sources['shapes']))
         return {'ok': True, 'file': path, 'old': old, 'new': new}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addObservation')
+def add_observation_feature(ls, params):
+    """Append an observation to one attribute's series."""
+    from ..cooked.examples import add_observation
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        path, count = add_observation(
+            package, _field(params, 'entity'),
+            list(_field(params, 'attributePath') or []),
+            _field(params, 'datasetId'), _field(params, 'value'),
+            _field(params, 'observedAt'))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(package.sources['shapes']))
+        return {'ok': True, 'file': path, 'count': count}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 
