@@ -220,6 +220,15 @@ work the command exists to remove.
 > you give would be weaker or identical it says so and offers to open the
 > inherited shape instead. To genuinely relax, edit the shape that declares it.
 
+`sh:nodeKind sh:BlankNode` is **not shown on an attribute**. In NGSI-LD an
+attribute *is* a blank node carrying `hasValue`/`hasObject`, so stating it
+decides nothing — `semforge export` adds it to every forward attribute path,
+because a SHACL consumer knows nothing of that convention. Two places it stays
+visible, because there it is a real decision: on a **value** (`sh:IRI` for a
+relationship target, `sh:Literal` for a plain value), and wherever an attribute
+declares something *other* than `BlankNode`, which is a modelling error rather
+than boilerplate.
+
 A padlock means shown but not editable here. Connectives (`sh:or`, `sh:node`)
 are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the

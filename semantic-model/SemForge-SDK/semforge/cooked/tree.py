@@ -55,6 +55,26 @@ RAW_ONLY = {'sh:or', 'sh:and', 'sh:xone', 'sh:not', 'sh:node', 'sh:in'}
 VALUE_PATHS = {'ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList',
                'ngsild:hasJSON'}
 
+# An NGSI-LD attribute IS a blank node carrying hasValue/hasObject, so
+# `sh:nodeKind sh:BlankNode` on a forward attribute path restates the encoding
+# rather than deciding anything. It is hidden here and completed on export.
+#
+# Two things it is NOT. At the VALUE level nodeKind is a real choice --
+# sh:IRI for a relationship target, sh:Literal for a plain value, and the kms
+# uses both. And an INVERSE path does not reach an attribute node at all: it
+# walks back to the entity that points here, which is an IRI. CartridgeShape's
+# exclusivity constraint is exactly that case, and BlankNode there would be
+# wrong rather than redundant.
+IMPLIED_NODE_KIND = 'sh:BlankNode'
+
+
+def forward_attribute_path(path):
+    """True when a path names one NGSI-LD attribute going forwards."""
+    text = (path or '').strip()
+    if not text or text.startswith(('(', '[')):
+        return False          # a sequence or an inverse: not an attribute node
+    return text not in VALUE_PATHS
+
 
 @dataclass
 class CookedNode:
@@ -108,12 +128,18 @@ def _at(path, line_of, offset):
     return f'{path}:{line_of(offset)}'
 
 
-def _constraint_nodes(block, shape, chain, locate=None):
+def _constraint_nodes(block, shape, chain, locate=None, is_value_slot=False):
     nodes = []
+    implied = (not is_value_slot) and forward_attribute_path(block.path)
     for name in sorted(block.parameters):
         if name == 'sh:order':
             continue
         start, _, value = block.parameters[name]
+        if (name == 'sh:nodeKind' and implied
+                and value.strip() == IMPLIED_NODE_KIND):
+            # Restates the encoding; showing it is noise. A DIFFERENT nodeKind
+            # here is a modelling error and stays visible.
+            continue
         where = locate(start) if locate else ''
         if name in RAW_ONLY:
             nodes.append(CookedNode(
@@ -144,7 +170,7 @@ def _attribute_node(block, shape, chain, locate=None):
     node = CookedNode(kind='attribute', label=_short(block.path),
                       detail=block.path, shape=shape, path_chain=list(chain),
                       defined_at=locate(block.start) if locate else '')
-    node.children.extend(_constraint_nodes(block, shape, chain, locate))
+    node.children.extend(_constraint_nodes(block, shape, chain, locate, False))
 
     for child in block.children:
         if child.path in VALUE_PATHS:
@@ -154,7 +180,8 @@ def _attribute_node(block, shape, chain, locate=None):
                 path_chain=chain + [child.path],
                 defined_at=locate(child.start) if locate else '')
             slot.children.extend(
-                _constraint_nodes(child, shape, chain + [child.path], locate))
+                _constraint_nodes(child, shape, chain + [child.path], locate,
+                                  True))
             node.children.append(slot)
         else:
             node.children.append(_attribute_node(child, shape, chain, locate))

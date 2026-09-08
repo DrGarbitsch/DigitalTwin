@@ -29,6 +29,58 @@ import shutil
 from enum import Enum
 
 
+def complete_node_kinds(text):
+    """Add the `sh:nodeKind sh:BlankNode` the NGSI-LD encoding implies.
+
+    An attribute IS a blank node carrying hasValue/hasObject, so stating it on
+    every forward attribute path is boilerplate an author should not have to
+    write -- the cooked view hides it. The EXPORTED shapes still need it,
+    because the compiler and any other consumer read plain SHACL with no
+    knowledge of that convention.
+
+    Two cases are deliberately skipped, and the second is why this is not a
+    blanket rewrite:
+
+    * a VALUE shape, where nodeKind is a real choice -- sh:IRI for a
+      relationship target, sh:Literal for a plain value;
+    * an INVERSE path, which does not reach an attribute node at all. It walks
+      back to the entity pointing here, which is an IRI. CartridgeShape's
+      exclusivity constraint is exactly that, and BlankNode there would be
+      wrong rather than missing.
+
+    Returns (text, added). Adding nothing returns the input unchanged, so a
+    package that already states them exports byte-identically.
+    """
+    from ..cooked.tree import IMPLIED_NODE_KIND, VALUE_PATHS, \
+        forward_attribute_path
+    from ..rdfio import add_parameter, property_blocks
+    from ..rdfio.turtle_index import TurtleIndex
+
+    def gather(block, is_value, out):
+        if (not is_value and forward_attribute_path(block.path)
+                and 'sh:nodeKind' not in block.parameters):
+            out.append(block)
+        for child in block.children:
+            gather(child, child.path in VALUE_PATHS, out)
+
+    added = 0
+    while True:
+        index = TurtleIndex(text)
+        targets = []
+        for block in index.blocks:
+            for group in property_blocks(text, block):
+                gather(group, False, targets)
+        if not targets:
+            break
+        # Rightmost first: an insertion shifts every offset after it.
+        target = max(targets, key=lambda b: b.start)
+        text = add_parameter(text, target, 'sh:nodeKind', IMPLIED_NODE_KIND)
+        added += 1
+        if added > 500:
+            raise RuntimeError('node-kind completion did not converge')
+    return text, added
+
+
 class EmissionMode(Enum):
     COMPILE = 'compile'
     BROKER = 'broker'
@@ -81,6 +133,10 @@ def export(package, out_dir, mode=EmissionMode.COMPILE, target_context=None):
         destination = os.path.join(out_dir, name)
         with open(package.sources[role], encoding='utf-8') as source:
             text = source.read()
+        if role == 'shapes':
+            text, added = complete_node_kinds(text)
+            if added:
+                written['node_kinds_added'] = added
         with open(destination, 'w', encoding='utf-8') as handle:
             handle.write(text)
         written[role] = destination
