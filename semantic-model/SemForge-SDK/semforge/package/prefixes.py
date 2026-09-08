@@ -108,6 +108,40 @@ def file_prefixes(path):
             for match in PREFIX_LINE.finditer(text)}, text
 
 
+PREFIXED = re.compile(r'^([A-Za-z_][\w.-]*):[\w.-]+$')
+
+
+def model_prefixes(path):
+    """{prefix: count} used in a JSON-LD model's keys and @id values.
+
+    The model instance is the third artifact, and leaving it out of the check
+    would let the two Turtle files agree with each other while the data spoke a
+    different language.
+    """
+    with open(path, encoding='utf-8') as handle:
+        document = json.load(handle)
+
+    found = {}
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                for candidate in (key, value if key == '@id' else None):
+                    if isinstance(candidate, str) and not candidate.startswith(
+                            ('http', 'urn', '@')):
+                        match = PREFIXED.match(candidate)
+                        if match:
+                            name = match.group(1)
+                            found[name] = found.get(name, 0) + 1
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(document)
+    return found
+
+
 def check(package):
     """Findings for every disagreement between the artifacts and the context."""
     by_namespace = names_by_namespace(package.path)
@@ -149,6 +183,40 @@ def check(package):
                     message=(f'{role}: <{namespace}> is "{name or "(default)"}:" here '
                              f'but "{agreed}:" in the context.'),
                     files=[role]))
+
+    findings.extend(_check_model(package, by_namespace))
+    return findings
+
+
+def _check_model(package, by_namespace):
+    """The model instance has to speak the same language as the shapes.
+
+    Its prefixes resolve through the CONTEXT rather than through an @prefix
+    header, so a name here is only usable once the context declares it. That
+    makes the ordering matter: switching the data to a new name before the
+    published context carries it leaves the value unexpanded -- a plain string
+    where an IRI was meant, which sh:class then correctly refuses.
+    """
+    context = context_prefixes(package.path)
+    findings = []
+    for name, count in sorted(model_prefixes(package.sources['model']).items()):
+        namespace = context.get(name)
+        if namespace is None:
+            findings.append(PrefixFinding(
+                code='SF-PFX-005', severity='error', files=['model'],
+                message=(f'model: "{name}:" is used {count} time(s) but the '
+                         f'context does not declare it, so it will not expand '
+                         f'to an IRI.')))
+            continue
+        agreed = by_namespace.get(namespace)
+        if agreed and agreed != name:
+            findings.append(PrefixFinding(
+                code='SF-PFX-004', severity='warning', namespace=namespace,
+                files=['model'],
+                message=(f'model: <{namespace}> is written as "{name}:" '
+                         f'({count} use(s)) but the package calls it '
+                         f'"{agreed}:". Safe to switch once every context the '
+                         f'data is loaded against declares "{agreed}:".')))
     return findings
 
 

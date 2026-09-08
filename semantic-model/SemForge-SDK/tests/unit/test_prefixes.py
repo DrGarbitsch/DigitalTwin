@@ -48,8 +48,16 @@ def test_the_package_declaration_overrides_the_context(corpus):
         'iffBaseKnowledge'
 
 
-def test_the_corpus_is_aligned(corpus):
-    assert check(corpus) == []
+def test_the_corpus_has_no_prefix_errors(corpus):
+    """Nothing ambiguous, nothing undeclared.
+
+    One warning remains by design: model-instance.jsonld still writes `base:`,
+    which is safe to change only after the published context carries
+    `iffBaseKnowledge`. See kms/README.md.
+    """
+    findings = check(corpus)
+    assert [f for f in findings if f.severity == 'error'] == []
+    assert {f.code for f in findings} == {'SF-PFX-004'}
 
 
 def test_no_ambiguous_or_generated_prefix_survives(corpus):
@@ -154,10 +162,12 @@ def test_canonical_map_merges_both_sources(corpus):
 
 # --- CLI ---------------------------------------------------------------------
 
-def test_prefixes_command_reports_alignment(corpus_path):
+def test_prefixes_command_succeeds_with_only_the_pending_rename(corpus_path):
+    """A warning does not fail the command; an ambiguous prefix does."""
     result = CliRunner().invoke(cli, ['prefixes', corpus_path])
     assert result.exit_code == 0
-    assert 'one agreed name' in result.output
+    assert 'SF-PFX-004' in result.output
+    assert 'SF-PFX-001' not in result.output
 
 
 def test_prefixes_command_fails_on_an_ambiguous_prefix(tmp_path, corpus):
@@ -187,3 +197,54 @@ def test_prefixes_fix_rewrites_and_then_reports_clean(tmp_path, corpus):
     result = CliRunner().invoke(cli, ['prefixes', str(target), '--fix'])
     assert 'default9: -> iffFilterKnowledge:' in result.output
     assert result.exit_code == 0
+
+
+# --- the third artifact ------------------------------------------------------
+
+def test_the_model_instance_is_checked_too(corpus):
+    """Two Turtle files can agree with each other while the data differs."""
+    from semforge.package.prefixes import model_prefixes
+
+    used = model_prefixes(corpus.sources['model'])
+    assert used['iffBaseEntities'] > 0
+    assert 'base' in used, 'the fixture should still exercise the pending rename'
+
+
+def test_the_pending_rename_is_reported_with_its_precondition(corpus):
+    """base: -> iffBaseKnowledge: is safe only once the context carries it.
+
+    The model's prefixes resolve through the CONTEXT, not an @prefix header, so
+    switching the data first leaves the value unexpanded -- a plain string where
+    an IRI was meant, which sh:class then correctly refuses.
+    """
+    pending = [f for f in check(corpus) if f.code == 'SF-PFX-004']
+    assert len(pending) == 1
+    assert 'iffBaseKnowledge' in pending[0].message
+    assert pending[0].severity == 'warning'
+
+
+def test_a_prefix_the_context_does_not_declare_is_an_error(tmp_path, corpus):
+    import json
+
+    target = tmp_path / 'pkg'
+    target.mkdir()
+    for role, name in (('knowledge', 'knowledge.ttl'), ('shapes', 'shacl.ttl')):
+        shutil.copy(corpus.sources[role], target / name)
+    shutil.copy(f'{corpus.path}/context.jsonld', target / 'context.jsonld')
+    shutil.copy(f'{corpus.path}/semforge.yaml', target / 'semforge.yaml')
+    with open(corpus.sources['model']) as handle:
+        model = json.load(handle)
+    model[0]['nosuchprefix:attr'] = {'type': 'Property', 'value': 1}
+    (target / 'model-instance.jsonld').write_text(json.dumps(model))
+
+    findings = check(load(str(target)))
+    undeclared = [f for f in findings if f.code == 'SF-PFX-005']
+    assert undeclared and undeclared[0].severity == 'error'
+    assert 'will not expand' in undeclared[0].message
+
+
+def test_the_context_now_declares_iffbaseknowledge(corpus):
+    """Added alongside `base`, which stays so nothing written against it breaks."""
+    found = context_prefixes(corpus.path)
+    assert found['iffBaseKnowledge'] == BASE + 'base_knowledge/'
+    assert found['base'] == found['iffBaseKnowledge']

@@ -29,3 +29,36 @@ Do not write epoch numbers into time-valued properties: they are ambiguous
 compiles to do not even share an epoch for their internal conversions.
 Millisecond arithmetic remains available inside rule expressions — arithmetic
 on time variables converts to milliseconds automatically.
+
+
+## Prefixes
+
+Every namespace has exactly one name, and `context.jsonld` is where the name is
+agreed. `semforge prefixes .` checks it; `--fix` aligns the Turtle artifacts.
+
+This was not always so. `:` denoted `base_shacl/` in `shacl.ttl` and
+`base_entities/` in `knowledge.ttl`, and `default1:` denoted `filter_shacl/` and
+`base_knowledge/` respectively -- so a term copied between the two files changed
+meaning silently. The `default1..5` names came from `make ontology2kms` merging
+modules with `rdfpipe`, which invents a name when the source supplies none.
+
+`semforge.yaml` declares the four namespaces the context does not: the two
+shapes namespaces, the test bindings, and NGSI-LD itself.
+
+### One step is still outstanding, and it is upstream
+
+`context.jsonld` here now declares **`iffBaseKnowledge`** alongside `base` --
+same namespace, two names, `base` kept so nothing written against it breaks.
+
+**That change has to be published** at
+`https://industryfusion.github.io/contexts/staging/example/v0.2/context.jsonld`,
+which lives in the `industryfusion.github.io` repository, not this one. The file
+in this directory is the proposed content: publishing it is a four-line
+addition.
+
+Only afterwards should `model-instance.jsonld` switch its five `base:state_ON`
+values to `iffBaseKnowledge:state_ON`. The model resolves prefixes through the
+context it names -- the *remote* one -- so renaming the data first leaves those
+values unexpanded: a plain string where an IRI was meant, which `sh:class` then
+correctly refuses. `semforge prefixes` reports the pending rename (`SF-PFX-004`)
+until both halves are done.
