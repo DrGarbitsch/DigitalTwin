@@ -74,6 +74,16 @@
         "command": "semforge.refreshTree",
         "title": "SemForge: Refresh Constraints",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "semforge.goToDefinition",
+        "title": "SemForge: Go to Definition",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "semforge.overrideHere",
+        "title": "SemForge: Declare on This Type",
+        "icon": "$(arrow-down)"
       }
     ],
     "viewsContainers": {
@@ -111,6 +121,16 @@
         {
           "command": "semforge.removeConstraint",
           "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.goToDefinition",
+          "when": "view == semforgeConstraints && viewItem == inherited",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.overrideHere",
+          "when": "view == semforgeConstraints && viewItem == inherited",
           "group": "inline"
         }
       ]

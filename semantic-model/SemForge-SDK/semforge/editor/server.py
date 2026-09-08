@@ -172,6 +172,10 @@ def _serialise(node):
         'shape': node.shape, 'path': list(node.path_chain),
         'parameter': node.parameter, 'value': node.value,
         'editable': node.editable,
+        'inheritedFrom': node.inherited_from,
+        'inheritedClass': node.inherited_class,
+        'definedAt': node.defined_at,
+        'targetClass': node.target_class,
         'children': [_serialise(child) for child in node.children],
     }
 
@@ -256,6 +260,42 @@ def set_constraint(ls, params):
         return {'ok': True, 'file': path, 'bytesChanged': changed}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/override')
+def override(ls, params):
+    """Declare an inherited constraint explicitly on the subtype's own shape.
+
+    Reports the EFFECT before doing anything, because SHACL has no override:
+    the new constraint is conjoined with the inherited one, so it can tighten
+    and cannot relax. `check` alone returns the verdict without writing.
+    """
+    from ..cooked.tree import override_constraint, override_effect
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+
+    parameter = _field(params, 'parameter')
+    value = str(_field(params, 'value'))
+    effect = override_effect(parameter, _field(params, 'inheritedValue'), value)
+    if _field(params, 'check'):
+        return {'ok': True, 'effect': effect}
+    if effect in ('weaker', 'same') and not _field(params, 'force'):
+        return {'ok': False, 'effect': effect,
+                'error': ('SHACL conjoins constraints, so this would be '
+                          'evaluated alongside the inherited one rather than '
+                          'instead of it -- it cannot relax it.')}
+    try:
+        package = _package_for(root)
+        path, how = override_constraint(
+            package, _field(params, 'targetShape'),
+            list(_field(params, 'path') or []), parameter, value)
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(path))
+        return {'ok': True, 'effect': effect, 'file': path, 'how': how}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'effect': effect, 'error': str(exc)}
 
 
 def main():

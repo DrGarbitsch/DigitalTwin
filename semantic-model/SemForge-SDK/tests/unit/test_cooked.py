@@ -51,10 +51,22 @@ def test_a_sub_attribute_of_a_relationship_appears_below_it(corpus):
 
 def test_core_parameters_are_editable_and_structure_is_not(corpus):
     for _, node in flatten(build_tree(corpus)):
-        if node.kind == 'constraint':
+        if node.kind == 'constraint' and not node.inherited_from:
             assert node.editable and node.parameter in EDITABLE
         if node.parameter in RAW_ONLY:
             assert not node.editable
+
+
+def test_an_inherited_constraint_is_shown_but_not_edited_here(corpus):
+    """It is declared on a supertype, and SHACL conjoins rather than replaces.
+
+    Offering an in-place edit would imply a substitution that does not happen;
+    the tree offers "declare it on this type" instead.
+    """
+    inherited = [n for _, n in flatten(build_tree(corpus))
+                 if n.kind == 'constraint' and n.inherited_from]
+    assert inherited
+    assert all(not n.editable and n.defined_at for n in inherited)
 
 
 def test_a_sparql_body_is_shown_but_not_offered_as_a_form(corpus):

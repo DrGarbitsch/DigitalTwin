@@ -198,6 +198,19 @@ The edit rewrites
 leaves every comment in the file intact — then re-validates, so the Problems
 panel follows immediately.
 
+A **⇧ hierarchy icon** means the constraint is inherited: it is declared on a
+supertype and applies here because `sh:targetClass` reaches subclasses. `Filter`
+shows `MachineShape`'s `hasState` for that reason — the constraint was never
+missing from Filter, only from the tree. Clicking jumps to where it is declared;
+right-click also offers **Declare on This Type**.
+
+> **There is no override in SHACL.** A constraint declared on `Filter` is
+> *conjoined* with the one on `Machine`, not substituted for it — adding
+> `hasState minCount 0` to `FilterShape` leaves `MachineShape`'s `minCount 1`
+> firing exactly as before. So the action can only tighten, and when the value
+> you give would be weaker or identical it says so and offers to open the
+> inherited shape instead. To genuinely relax, edit the shape that declares it.
+
 A padlock means shown but not editable here. Connectives (`sh:or`, `sh:node`)
 are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the

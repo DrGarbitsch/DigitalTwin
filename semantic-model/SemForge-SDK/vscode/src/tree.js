@@ -40,7 +40,23 @@ class CookedTreeProvider {
     if (uri) {
       this.uri = uri;
     }
+    this.owners = new Map();
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * The type node a tree node sits under.
+   *
+   * An override is added to the shape of the type being VIEWED, not the shape
+   * the constraint came from -- that is the whole point of pulling it down.
+   */
+  ownerOf(node) {
+    return this.owners ? this.owners.get(node.raw) : undefined;
+  }
+
+  _remember(raw, owner) {
+    (raw.children || []).forEach((child) => this._remember(child, owner));
+    this.owners.set(raw, owner);
   }
 
   getTreeItem(node) {
@@ -53,7 +69,11 @@ class CookedTreeProvider {
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || raw.value || '';
-    item.contextValue = raw.editable ? 'editable' : raw.kind;
+    item.contextValue = raw.inheritedFrom
+      ? 'inherited'
+      : raw.editable
+      ? 'editable'
+      : raw.kind;
 
     if (raw.kind === 'type') {
       item.iconPath = new vscode.ThemeIcon('symbol-class');
@@ -63,6 +83,23 @@ class CookedTreeProvider {
       item.iconPath = new vscode.ThemeIcon('symbol-field');
     } else if (raw.kind === 'slot') {
       item.iconPath = new vscode.ThemeIcon('symbol-property');
+    } else if (raw.inheritedFrom) {
+      // Shown because it APPLIES here: sh:targetClass reaches subclasses, so a
+      // shape on Machine validates every Filter. Not editable in place --
+      // SHACL conjoins, so a constraint added on the subtype is evaluated
+      // alongside this one rather than instead of it.
+      item.iconPath = new vscode.ThemeIcon('type-hierarchy-super');
+      item.tooltip =
+        `Inherited from ${raw.inheritedClass.split('/').pop()}\n` +
+        `Declared at ${raw.definedAt}\n\n` +
+        'Right-click to jump there, or to declare it on this type.';
+      if (raw.definedAt) {
+        item.command = {
+          command: 'semforge.goToDefinition',
+          title: 'Go to definition',
+          arguments: [node]
+        };
+      }
     } else if (raw.editable) {
       item.iconPath = new vscode.ThemeIcon('edit');
       item.tooltip = `${raw.parameter} = ${raw.value}\nClick to change.`;
@@ -94,6 +131,11 @@ class CookedTreeProvider {
       return [];
     }
     this.lastError = undefined;
+    this.owners = this.owners || new Map();
+    (result.roots || []).forEach((root) => {
+      const owner = { label: root.label, shape: (root.children[0] || {}).shape };
+      this._remember(root, owner);
+    });
     return (result.roots || []).map(
       (raw) => new ConstraintNode(raw, this.uri)
     );
@@ -309,7 +351,93 @@ function register(context, clientHolder) {
 
     vscode.commands.registerCommand('semforge.refreshTree', () =>
       provider.refresh()
-    )
+    ),
+
+    vscode.commands.registerCommand('semforge.goToDefinition', async (node) => {
+      const at = node && node.raw && node.raw.definedAt;
+      if (!at) {
+        return;
+      }
+      const split = at.lastIndexOf(':');
+      const file = at.slice(0, split);
+      const line = Math.max(parseInt(at.slice(split + 1), 10) - 1, 0);
+      const document = await vscode.workspace.openTextDocument(file);
+      const editor = await vscode.window.showTextDocument(document);
+      const position = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(
+        new vscode.Range(position, position),
+        vscode.TextEditorRevealType.InCenter
+      );
+    }),
+
+    vscode.commands.registerCommand('semforge.overrideHere', async (node) => {
+      const raw = node && node.raw;
+      if (!raw || !raw.inheritedFrom || !raw.parameter) {
+        vscode.window.showInformationMessage(
+          'SemForge: pick an inherited constraint to declare on this type.'
+        );
+        return;
+      }
+      // The type node this constraint is being pulled down onto.
+      const owner = provider.ownerOf(node);
+      if (!owner) {
+        vscode.window.showErrorMessage(
+          'SemForge: could not tell which shape to add it to.'
+        );
+        return;
+      }
+
+      const value = await vscode.window.showInputBox({
+        title: `${raw.parameter} on ${owner.label}`,
+        prompt:
+          `Inherited value is ${raw.value}. SHACL conjoins, so this can only ` +
+          'make the constraint stricter.',
+        value: raw.value
+      });
+      if (value === undefined) {
+        return;
+      }
+
+      const send = (force) =>
+        clientHolder.client.sendRequest('semforge/override', {
+          uri: node.packageUri,
+          targetShape: owner.shape,
+          path: raw.path,
+          parameter: raw.parameter,
+          inheritedValue: raw.value,
+          value,
+          force
+        });
+
+      let result = await send(false);
+      if (!result.ok && (result.effect === 'weaker' || result.effect === 'same')) {
+        const choice = await vscode.window.showWarningMessage(
+          `${raw.parameter} ${raw.value} → ${value} is ${result.effect}. ` +
+            result.error,
+          { modal: true },
+          'Open the inherited shape',
+          'Add it anyway'
+        );
+        if (choice === 'Open the inherited shape') {
+          return vscode.commands.executeCommand('semforge.goToDefinition', node);
+        }
+        if (choice !== 'Add it anyway') {
+          return;
+        }
+        result = await send(true);
+      }
+
+      if (result.ok) {
+        vscode.window.setStatusBarMessage(
+          `SemForge: ${raw.parameter} declared on ${owner.label} (${result.effect})`,
+          5000
+        );
+        provider.refresh();
+      } else {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      }
+    })
   );
 
   return provider;

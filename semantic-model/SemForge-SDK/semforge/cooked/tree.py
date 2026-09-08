@@ -67,6 +67,10 @@ class CookedNode:
     value: str = ''
     editable: bool = False
     children: list = field(default_factory=list)
+    inherited_from: str = ''   # the shape that declares it, when not this one
+    inherited_class: str = ''  # the ancestor class that shape targets
+    defined_at: str = ''       # file:line of the declaring shape
+    target_class: str = ''     # for a type node, the class it stands for
 
     @property
     def address(self):
@@ -125,44 +129,103 @@ def _attribute_node(block, shape, chain):
     return node
 
 
+def _ancestors(graph, cls):
+    """cls and every class above it, through rdfs:subClassOf."""
+    from rdflib.namespace import RDFS
+
+    found = [cls]
+    seen = {cls}
+    pending = [cls]
+    while pending:
+        for parent in graph.objects(pending.pop(), RDFS.subClassOf):
+            if parent not in seen:
+                seen.add(parent)
+                found.append(parent)
+                pending.append(parent)
+    return found
+
+
+def _mark_inherited(node, shape, cls, locator):
+    """Stamp a subtree as inherited and make it read-only here."""
+    node.inherited_from = str(shape)
+    node.inherited_class = str(cls)
+    node.defined_at = locator
+    node.editable = False
+    for child in node.children:
+        _mark_inherited(child, shape, cls, locator)
+
+
+def _shape_node(package, shape, text, index):
+    block = index.block_for(shape)
+    if block is None:
+        return None
+    groups = property_blocks(text, block)
+    node = CookedNode(kind='shape', label=curie(package.shapes, shape),
+                      detail=f'{len(groups)} attribute(s)', shape=str(shape),
+                      defined_at=index.locator(shape))
+    for group in groups:
+        node.children.append(_attribute_node(group, str(shape), []))
+    if (shape, SH.sparql, None) in package.shapes:
+        node.children.append(CookedNode(
+            kind='raw', label='SPARQL constraint',
+            detail='a query body is not a form — edit in the .ttl',
+            shape=str(shape)))
+    if (shape, SH.rule, None) in package.shapes:
+        node.children.append(CookedNode(
+            kind='raw', label='SPARQL rule',
+            detail='a rule body is not a form — edit in the .ttl',
+            shape=str(shape)))
+    return node
+
+
 def build_tree(package):
-    """Entity types -> attributes -> constraints, for the whole package."""
+    """Entity types -> attributes -> constraints, inherited ones included.
+
+    A shape targeting Machine applies to every Filter too: sh:targetClass goes
+    through the subclass closure, and pyshacl duly evaluates MachineShape's
+    hasState against urn:filter:1. Showing Filter with only its own two
+    attributes made the tree lie by omission -- the constraint was there, just
+    declared elsewhere.
+
+    So a type carries what its own shapes declare AND what it inherits, the
+    latter marked with where it comes from and not editable in place. Editing it
+    there would be a lie of a different kind: SHACL CONJOINS, so a constraint
+    added to the subtype cannot relax the one above it (see override_effect).
+    """
     source_path = package.sources['shapes']
     with open(source_path, encoding='utf-8') as handle:
         text = handle.read()
     index = index_file(source_path)
 
-    by_type = {}
+    by_class = {}
     for shape in node_shapes(package.shapes):
-        block = index.block_for(shape)
-        if block is None:
-            continue
-        groups = property_blocks(text, block)
-        targets = [local(t) for t in package.shapes.objects(shape, SH.targetClass)]
-        label = targets[0] if targets else local(shape)
-
-        shape_node = CookedNode(
-            kind='shape', label=curie(package.shapes, shape),
-            detail=f'{len(groups)} attribute(s)', shape=str(shape))
-        for group in groups:
-            shape_node.children.append(_attribute_node(group, str(shape), []))
-        if (shape, SH.sparql, None) in package.shapes:
-            shape_node.children.append(CookedNode(
-                kind='raw', label='SPARQL constraint',
-                detail='a query body is not a form — edit in the .ttl',
-                shape=str(shape)))
-        if (shape, SH.rule, None) in package.shapes:
-            shape_node.children.append(CookedNode(
-                kind='raw', label='SPARQL rule',
-                detail='a rule body is not a form — edit in the .ttl',
-                shape=str(shape)))
-        by_type.setdefault(label, []).append(shape_node)
+        for target in package.shapes.objects(shape, SH.targetClass):
+            by_class.setdefault(target, []).append(shape)
 
     roots = []
-    for label in sorted(by_type):
-        node = CookedNode(kind='type', label=label,
-                          detail=f'{len(by_type[label])} shape(s)')
-        node.children = by_type[label]
+    for cls in sorted(by_class, key=str):
+        node = CookedNode(kind='type', label=local(cls), target_class=str(cls))
+        own = 0
+        for shape in by_class[cls]:
+            child = _shape_node(package, shape, text, index)
+            if child is not None:
+                node.children.append(child)
+                own += 1
+
+        inherited = 0
+        for ancestor in _ancestors(package.knowledge, cls)[1:]:
+            for shape in by_class.get(ancestor, []):
+                child = _shape_node(package, shape, text, index)
+                if child is None:
+                    continue
+                _mark_inherited(child, shape, ancestor, index.locator(shape))
+                child.detail = (f'inherited from {local(ancestor)} — '
+                                f'{child.detail}')
+                node.children.append(child)
+                inherited += 1
+
+        node.detail = f'{own} shape(s)' + (f', {inherited} inherited'
+                                           if inherited else '')
         roots.append(node)
     return roots
 
@@ -213,6 +276,73 @@ def remove_constraint(package, shape, path_chain, parameter):
     updated = remove_parameter(text, target, parameter)
     _write_verified(source_path, updated)
     return source_path, len(text) - len(updated)
+
+
+# Which way a bound moves when it WEAKENS a constraint. Reused from the
+# semantic diff, because the question is the same one asked at edit time --
+# keyed there by CONSTRAINT COMPONENT, while a cooked node carries the SHACL
+# PARAMETER, so the two have to be bridged.
+from ..diff.model import WEAKER_WHEN            # noqa: E402
+from ..validate.applicable import PARAMETERS    # noqa: E402
+
+WEAKER_BY_PARAMETER = {
+    f'sh:{str(parameter).rsplit("#", 1)[-1]}': WEAKER_WHEN[component]
+    for parameter, component in PARAMETERS.items() if component in WEAKER_WHEN
+}
+
+
+def override_effect(parameter, inherited_value, new_value):
+    """'stricter' | 'weaker' | 'same' | 'unknown' for a proposed override.
+
+    SHACL has no override. A constraint declared on Filter is CONJOINED with the
+    one MachineShape declares, not substituted for it -- proven: adding
+    `hasState minCount 0` to FilterShape leaves MachineShape's `minCount 1`
+    firing exactly as before.
+
+    So an override can tighten and cannot relax, and the only honest thing to do
+    with a weaker value is say it will have no effect.
+    """
+    if str(inherited_value).strip() == str(new_value).strip():
+        return 'same'
+    rule = WEAKER_BY_PARAMETER.get(parameter)
+    if rule is None:
+        return 'unknown'
+    try:
+        moved_up = float(new_value) > float(inherited_value)
+    except (TypeError, ValueError):
+        return 'unknown'
+    weakened = moved_up if rule == 'increases' else not moved_up
+    return 'weaker' if weakened else 'stricter'
+
+
+def override_constraint(package, shape, path_chain, parameter, value):
+    """Declare an inherited constraint explicitly on this type's own shape.
+
+    Adds rather than replaces, which is what SHACL means by it.
+    """
+    from ..rdfio import add_parameter, add_property_constraint
+
+    source_path, text, target = None, None, None
+    try:
+        source_path, text, target = _locate(package, shape, path_chain)
+    except PackageError:
+        target = None
+
+    if target is not None:
+        updated = add_parameter(text, target, parameter, value) \
+            if target.parameter(parameter) is None \
+            else set_parameter(text, target, parameter, value)
+        _write_verified(source_path, updated)
+        return source_path, 'added-to-existing'
+
+    # The attribute is not on this shape at all: add the whole property block.
+    attribute = path_chain[0] if path_chain else None
+    if attribute is None:
+        raise PackageError('cannot override without an attribute path')
+    updated = add_property_constraint(
+        package.sources['shapes'], shape, attribute, [(parameter, value)])
+    _write_verified(package.sources['shapes'], updated)
+    return package.sources['shapes'], 'added-attribute'
 
 
 def flatten(nodes, depth=0):
