@@ -9,14 +9,11 @@
 
 const vscode = require('vscode');
 
-// Values that are an enumeration rather than free text. Offering a picker for
-// these is the whole ergonomic difference between a form and a text box.
-const CHOICES = {
-  'sh:nodeKind': ['sh:IRI', 'sh:BlankNode', 'sh:Literal',
-                  'sh:BlankNodeOrIRI', 'sh:IRIOrLiteral'],
-  'sh:datatype': ['xsd:string', 'xsd:integer', 'xsd:double', 'xsd:decimal',
-                  'xsd:boolean', 'xsd:dateTime', 'xsd:anyURI']
-};
+// Candidate values come from the server, never from a list in here. Which
+// classes may be offered is an ontology question -- entity types on one side of
+// the NGSI-LD encoding, vocabulary classes on the other -- and a list hard-coded
+// in JavaScript would drift from the model the moment somebody adds a class.
+const CUSTOM = Symbol('custom');
 
 class ConstraintNode {
   constructor(raw, packageUri) {
@@ -103,22 +100,70 @@ class CookedTreeProvider {
   }
 }
 
-/** Ask for the new value, using a picker where the value is an enumeration. */
-async function promptForValue(raw) {
-  const choices = CHOICES[raw.parameter];
-  if (choices) {
-    return vscode.window.showQuickPick(choices, {
-      title: `${raw.parameter} (currently ${raw.value})`,
-      placeHolder: 'pick a value'
-    });
-  }
+function freeText(raw) {
   return vscode.window.showInputBox({
-    title: `${raw.parameter}`,
+    title: raw.parameter,
     prompt: `New value for ${raw.parameter}`,
     value: raw.value,
     validateInput: (text) =>
       text.trim().length ? undefined : 'a value is required'
   });
+}
+
+/**
+ * Ask for the new value, offering what the model allows.
+ *
+ * The picker always keeps a way out to a typed value. The suggestions are a
+ * convenience, not a restriction -- a list that cannot be escaped would make
+ * the cooked view less capable than the file it edits, which is exactly what
+ * an escape hatch exists to prevent.
+ */
+async function promptForValue(client, node) {
+  const raw = node.raw;
+  let choices = [];
+  let note = '';
+  try {
+    const result = await client.sendRequest('semforge/choices', {
+      uri: node.packageUri,
+      path: raw.path,
+      parameter: raw.parameter
+    });
+    choices = result.choices || [];
+    note = result.note || '';
+  } catch (error) {
+    note = `suggestions unavailable: ${error.message}`;
+  }
+
+  if (!choices.length) {
+    if (note) {
+      vscode.window.setStatusBarMessage(`SemForge: ${note}`, 5000);
+    }
+    return freeText(raw);
+  }
+
+  const items = choices.map((choice) => ({
+    label: choice.label,
+    description: choice.value,
+    detail: choice.detail,
+    value: choice.value
+  }));
+  items.push({
+    label: '$(edit) Enter a different value…',
+    description: '',
+    detail: 'anything valid in the shapes file',
+    value: CUSTOM
+  });
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title: `${raw.parameter} (currently ${raw.value})`,
+    placeHolder: note || 'pick a value, or enter your own',
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (!picked) {
+    return undefined;
+  }
+  return picked.value === CUSTOM ? freeText(raw) : picked.value;
 }
 
 function register(context, clientHolder) {
@@ -145,7 +190,7 @@ function register(context, clientHolder) {
       if (!raw || !raw.editable) {
         return;
       }
-      const value = await promptForValue(raw);
+      const value = await promptForValue(clientHolder.client, node);
       if (value === undefined) {
         return;
       }
@@ -208,4 +253,4 @@ function register(context, clientHolder) {
   return provider;
 }
 
-module.exports = { register, CookedTreeProvider, CHOICES };
+module.exports = { register, CookedTreeProvider };

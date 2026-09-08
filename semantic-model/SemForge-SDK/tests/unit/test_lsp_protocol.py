@@ -231,3 +231,30 @@ def test_a_refused_edit_reports_instead_of_corrupting(tmp_path, corpus):
         assert open(document).read() == before
     finally:
         live.close()
+
+
+def test_class_choices_arrive_over_the_protocol_and_respect_the_slot(session):
+    """What the picker shows: entity types for a relationship, vocabulary for a value."""
+    session.send({'jsonrpc': '2.0', 'id': 20, 'method': 'semforge/choices',
+                  'params': {'uri': 'file://' + session.document,
+                             'path': ['iffBaseEntities:hasFilter',
+                                      'ngsild:hasObject'],
+                             'parameter': 'sh:class'}})
+    entity = session.wait_for(lambda m: m.get('id') == 20)[0]['result']
+    entity_labels = {c['label'] for c in entity['choices']}
+    assert 'Filter' in entity_labels and 'MachineState' not in entity_labels
+
+    session.send({'jsonrpc': '2.0', 'id': 21, 'method': 'semforge/choices',
+                  'params': {'uri': 'file://' + session.document,
+                             'path': ['iffBaseEntities:hasState',
+                                      'ngsild:hasValue'],
+                             'parameter': 'sh:class'}})
+    vocabulary = session.wait_for(lambda m: m.get('id') == 21)[0]['result']
+    labels = {c['label'] for c in vocabulary['choices']}
+    assert 'MachineState' in labels and 'Filter' not in labels
+
+    # Spelled for the shapes file, not the knowledge file: `default1:` is what
+    # knowledge.ttl calls that namespace and shacl.ttl would not resolve it.
+    values = {c['value'] for c in vocabulary['choices']}
+    assert 'iffBaseKnowledge:MachineState' in values
+    assert not any(v.startswith('default') for v in values)

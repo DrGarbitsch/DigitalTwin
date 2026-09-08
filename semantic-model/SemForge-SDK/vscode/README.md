@@ -142,8 +142,32 @@ Filter                            2 shape(s)
             └── 🔒 or (raw only)   structure, not a parameter
 ```
 
-A pencil means editable: click it and you get an input box, or a picker where
-the value is an enumeration (`sh:nodeKind`, `sh:datatype`). The edit rewrites
+A pencil means editable: click it and you get a picker of what the model
+allows, or an input box where the value is free (a count, a bound, a pattern).
+
+For `sh:class` the picker knows which half of the ontology applies, because the
+two sides of the NGSI-LD encoding mean different things:
+
+| slot | offers | because |
+|---|---|---|
+| `value → hasObject` | entity types — `Filter`, `Workpiece`, `Cutter` | a Relationship points at an entity |
+| `value → hasValue` | vocabulary classes — `MachineState`, `Wasteclass`, `Material` | a Property with an IRI value points into the ontology |
+
+Entity types are found by their root: the KMS declares `base_entities:Entity`
+and everything else hangs beneath it. A package without such a root can declare
+one as `entityRoot:` in `semforge.yaml`; a package with neither gets no
+suggestions and is told why, rather than being offered every class in the file.
+
+Every picker keeps **Enter a different value…** at the bottom. The suggestions
+are a convenience, not a restriction — a list you cannot escape would make the
+cooked view less capable than the file it edits.
+
+The offered term is spelled for `shacl.ttl`, which matters more than it looks:
+`knowledge.ttl` calls that namespace `default1:` while the shapes file calls it
+`iffBaseKnowledge:`, and writing the wrong one would break the file on the next
+parse.
+
+The edit rewrites
 **only that value** in `shacl.ttl` — changing `1` to `0` moves one byte and
 leaves every comment in the file intact — then re-validates, so the Problems
 panel follows immediately.

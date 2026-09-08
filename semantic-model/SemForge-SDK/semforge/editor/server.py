@@ -200,6 +200,29 @@ def cooked_tree(ls, params):
         return {'roots': [], 'error': str(exc)}
 
 
+@server.feature('semforge/choices')
+def constraint_choices(ls, params):
+    """Candidate values for a parameter at one address.
+
+    Computed here rather than in the extension because which classes are
+    offerable is an ontology question -- entity types on one side of the
+    NGSI-LD encoding, vocabulary classes on the other -- and a hard-coded list
+    in JavaScript would drift from the model the moment somebody adds a class.
+    """
+    from ..cooked.choices import choices_for
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'choices': [], 'note': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        found, note = choices_for(package, list(_field(params, 'path') or []),
+                                  _field(params, 'parameter'))
+        return {'choices': found, 'note': note}
+    except Exception as exc:                       # noqa: BLE001
+        return {'choices': [], 'note': str(exc)}
+
+
 @server.feature('semforge/setConstraint')
 def set_constraint(ls, params):
     """Apply one cooked edit, then re-analyse so diagnostics follow it."""
