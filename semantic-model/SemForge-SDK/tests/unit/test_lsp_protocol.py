@@ -256,5 +256,5 @@ def test_class_choices_arrive_over_the_protocol_and_respect_the_slot(session):
     # Spelled for the shapes file, not the knowledge file: `default1:` is what
     # knowledge.ttl calls that namespace and shacl.ttl would not resolve it.
     values = {c['value'] for c in vocabulary['choices']}
-    assert 'iffBaseKnowledge:MachineState' in values
+    assert 'base:MachineState' in values
     assert not any(v.startswith('default') for v in values)

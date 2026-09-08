@@ -1,5 +1,5 @@
 @prefix iffBaseEntities: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
-@prefix iffBaseKnowledge: <https://industryfusion.github.io/contexts/example/v0/base_knowledge/> .
+@prefix base: <https://industryfusion.github.io/contexts/example/v0/base_knowledge/> .
 @prefix iffBindingsBaseTest: <https://industryfusion.github.io/contexts/example/v0/bindings/base_test/> .
 @prefix iffFilterEntities: <https://industryfusion.github.io/contexts/example/v0/filter_entities/> .
 @prefix iffFilterKnowledge: <https://industryfusion.github.io/contexts/example/v0/filter_knowledge/> .
@@ -35,7 +35,7 @@ iffBaseEntities:hasHeight a owl:NamedIndividual,
         owl:ObjectProperty ;
     rdfs:domain iffBaseEntities:Workpiece ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> ;
-    iffBaseKnowledge:boundBy iffBindingsBaseTest:heightBinding .
+    base:boundBy iffBindingsBaseTest:heightBinding .
 
 iffBaseEntities:hasInWorkpiece a owl:NamedIndividual,
         owl:ObjectProperty ;
@@ -46,13 +46,13 @@ iffBaseEntities:hasLength a owl:NamedIndividual,
         owl:ObjectProperty ;
     rdfs:domain iffBaseEntities:Workpiece ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> ;
-    iffBaseKnowledge:boundBy iffBindingsBaseTest:lengthBinding .
+    base:boundBy iffBindingsBaseTest:lengthBinding .
 
 iffBaseEntities:hasMaterial a owl:NamedIndividual,
         owl:ObjectProperty ;
     rdfs:domain iffBaseEntities:Workpiece ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> ;
-    iffBaseKnowledge:boundBy iffBindingsBaseTest:materialBinding .
+    base:boundBy iffBindingsBaseTest:materialBinding .
 
 iffBaseEntities:hasOutWorkpiece a owl:NamedIndividual,
         owl:ObjectProperty ;
@@ -63,14 +63,14 @@ iffBaseEntities:hasState a owl:NamedIndividual,
         owl:ObjectProperty ;
     rdfs:domain iffBaseEntities:Machine ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> ;
-    iffBaseKnowledge:boundBy iffBindingsBaseTest:stateBindingCutter,
+    base:boundBy iffBindingsBaseTest:stateBindingCutter,
         iffBindingsBaseTest:stateBindingFilter .
 
 iffBaseEntities:hasStrength a owl:NamedIndividual,
         owl:ObjectProperty ;
     rdfs:domain iffBaseEntities:Filter ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> ;
-    iffBaseKnowledge:boundBy iffBindingsBaseTest:strengthBinding .
+    base:boundBy iffBindingsBaseTest:strengthBinding .
 
 iffBaseEntities:hasWidth a owl:NamedIndividual,
         owl:ObjectProperty ;
@@ -87,103 +87,103 @@ iffBaseEntities:isUsedUntil a owl:NamedIndividual,
     rdfs:domain iffBaseEntities:FilterCartridge ;
     rdfs:range <https://uri.etsi.org/ngsi-ld/Property> .
 
-iffBaseKnowledge: a owl:Ontology ;
+base: a owl:Ontology ;
     owl:versionIRI <https://industryfusion.github.io/contexts/staging/example/v0.1/base_knowledge.ttl> ;
     owl:versionInfo "0.1"^^xsd:string .
 
-iffBaseKnowledge:FieldType a owl:Class .
+base:FieldType a owl:Class .
 
-iffBaseKnowledge:OPCUAConnector a owl:Class,
+base:OPCUAConnector a owl:Class,
         owl:NamedIndividual ;
-    rdfs:subClassOf iffBaseKnowledge:BoundConnector .
+    rdfs:subClassOf base:BoundConnector .
 
-iffBaseKnowledge:bindingVersion a owl:DatatypeProperty ;
+base:bindingVersion a owl:DatatypeProperty ;
     rdfs:range xsd:string .
 
-iffBaseKnowledge:bindsConnector a owl:ObjectProperty ;
-    rdfs:domain iffBaseKnowledge:BoundMap ;
-    rdfs:range iffBaseKnowledge:BoundConnector .
+base:bindsConnector a owl:ObjectProperty ;
+    rdfs:domain base:BoundMap ;
+    rdfs:range base:BoundConnector .
 
-iffBaseKnowledge:bindsConnectorAttribute a owl:DatatypeProperty .
+base:bindsConnectorAttribute a owl:DatatypeProperty .
 
-iffBaseKnowledge:bindsContext a owl:DatatypeProperty ;
+base:bindsContext a owl:DatatypeProperty ;
     rdfs:range xsd:string .
 
-iffBaseKnowledge:bindsEntityType a owl:ObjectProperty ;
-    rdfs:domain iffBaseKnowledge:Binding .
+base:bindsEntityType a owl:ObjectProperty ;
+    rdfs:domain base:Binding .
 
-iffBaseKnowledge:bindsFirmware a owl:DatatypeProperty ;
-    rdfs:domain iffBaseKnowledge:Binding ;
+base:bindsFirmware a owl:DatatypeProperty ;
+    rdfs:domain base:Binding ;
     rdfs:range xsd:string .
 
-iffBaseKnowledge:bindsLogic a owl:DatatypeProperty ;
-    rdfs:domain iffBaseKnowledge:BoundMap ;
+base:bindsLogic a owl:DatatypeProperty ;
+    rdfs:domain base:BoundMap ;
     rdfs:range xsd:string .
 
-iffBaseKnowledge:bindsLogicVar a owl:DatatypeProperty ;
-    rdfs:domain iffBaseKnowledge:BoundMap ;
+base:bindsLogicVar a owl:DatatypeProperty ;
+    rdfs:domain base:BoundMap ;
     rdfs:range xsd:string .
 
-iffBaseKnowledge:bindsMap a owl:ObjectProperty ;
-    rdfs:domain iffBaseKnowledge:Binding ;
-    rdfs:range iffBaseKnowledge:BoundMap .
+base:bindsMap a owl:ObjectProperty ;
+    rdfs:domain base:Binding ;
+    rdfs:range base:BoundMap .
 
-iffBaseKnowledge:bindsMapDataType a owl:ObjectProperty ;
-    rdfs:domain iffBaseKnowledge:BoundMap ;
+base:bindsMapDataType a owl:ObjectProperty ;
+    rdfs:domain base:BoundMap ;
     rdfs:range rdfs:Datatype .
 
-iffBaseKnowledge:boundBy a owl:ObjectProperty ;
+base:boundBy a owl:ObjectProperty ;
     rdfs:domain <https://uri.etsi.org/ngsi-ld/Property>,
         <https://uri.etsi.org/ngsi-ld/Relationship> ;
-    rdfs:range iffBaseKnowledge:Binding .
+    rdfs:range base:Binding .
 
-iffBaseKnowledge:hasEntity a owl:AnnotationProperty .
+base:hasEntity a owl:AnnotationProperty .
 
-iffBaseKnowledge:isValidFor a owl:ObjectProperty ;
-    rdfs:domain iffBaseKnowledge:MachineState .
+base:isValidFor a owl:ObjectProperty ;
+    rdfs:domain base:MachineState .
 
-iffBaseKnowledge:severityCritical a owl:NamedIndividual,
-        iffBaseKnowledge:SeverityClass ;
+base:severityCritical a owl:NamedIndividual,
+        base:SeverityClass ;
     rdfs:label "critical" .
 
-iffBaseKnowledge:severityWarning a owl:NamedIndividual,
-        iffBaseKnowledge:SeverityClass ;
+base:severityWarning a owl:NamedIndividual,
+        base:SeverityClass ;
     rdfs:label "warning" .
 
-iffBaseKnowledge:state_CLEANING a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_CLEANING a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "CLEANING" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Filter .
+    base:isValidFor iffBaseEntities:Filter .
 
-iffBaseKnowledge:state_CLEARING a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_CLEARING a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "CLEARING" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Cutter .
+    base:isValidFor iffBaseEntities:Cutter .
 
-iffBaseKnowledge:state_ERROR a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_ERROR a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "ERROR" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Machine .
+    base:isValidFor iffBaseEntities:Machine .
 
-iffBaseKnowledge:state_OFF a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_OFF a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "OFF" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Machine .
+    base:isValidFor iffBaseEntities:Machine .
 
-iffBaseKnowledge:state_ON a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_ON a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "ON" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Machine .
+    base:isValidFor iffBaseEntities:Machine .
 
-iffBaseKnowledge:state_PREPARING a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_PREPARING a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "PREPARING" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Cutter .
+    base:isValidFor iffBaseEntities:Cutter .
 
-iffBaseKnowledge:state_PROCESSING a owl:NamedIndividual,
-        iffBaseKnowledge:MachineState ;
+base:state_PROCESSING a owl:NamedIndividual,
+        base:MachineState ;
     rdfs:label "PROCESSING" ;
-    iffBaseKnowledge:isValidFor iffBaseEntities:Cutter .
+    base:isValidFor iffBaseEntities:Cutter .
 
 iffBindingsBaseTest: a owl:Ontology ;
     owl:imports <https://industryfusion.github.io/contexts/staging/example/v0.1/base_entities.ttl>,
@@ -192,19 +192,19 @@ iffBindingsBaseTest: a owl:Ontology ;
     owl:versionInfo "0.1"^^xsd:string .
 
 iffBindingsBaseTest:testBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindingVersion "0.9"^^xsd:string ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Filter ;
-    iffBaseKnowledge:bindsFirmware "123"^^xsd:string,
+        base:Binding ;
+    base:bindingVersion "0.9"^^xsd:string ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsEntityType iffBaseEntities:Filter ;
+    base:bindsFirmware "123"^^xsd:string,
         "xyz"^^xsd:string ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map1 .
+    base:bindsMap iffBindingsBaseTest:_map1 .
 
 iffBindingsBaseTest:widthBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Workpiece ;
-    iffBaseKnowledge:bindsFirmware "xyz" ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map7 .
+        base:Binding ;
+    base:bindsEntityType iffBaseEntities:Workpiece ;
+    base:bindsFirmware "xyz" ;
+    base:bindsMap iffBindingsBaseTest:_map7 .
 
 iffFilterEntities: a owl:Ontology ;
     owl:imports <https://industryfusion.github.io/contexts/staging/example/v0.1/base_entities.ttll>,
@@ -298,79 +298,79 @@ xsd:integer a rdfs:Datatype,
         owl:NamedIndividual .
 
 iffBindingsBaseTest:_map2 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "stateattr2" ;
-    iffBaseKnowledge:bindsLogicVar "var2" ;
-    iffBaseKnowledge:bindsMapDataType xsd:integer .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "stateattr2" ;
+    base:bindsLogicVar "var2" ;
+    base:bindsMapDataType xsd:integer .
 
 iffBindingsBaseTest:_map3 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "heightattr" ;
-    iffBaseKnowledge:bindsLogicVar "var3" ;
-    iffBaseKnowledge:bindsMapDataType xsd:decimal .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "heightattr" ;
+    base:bindsLogicVar "var3" ;
+    base:bindsMapDataType xsd:decimal .
 
 iffBindingsBaseTest:_map4 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnectorAttribute "lengthattr" ;
-    iffBaseKnowledge:bindsLogicVar "var4" ;
-    iffBaseKnowledge:bindsMapDataType xsd:decimal .
+        base:BoundMap ;
+    base:bindsConnectorAttribute "lengthattr" ;
+    base:bindsLogicVar "var4" ;
+    base:bindsMapDataType xsd:decimal .
 
 iffBindingsBaseTest:_map5 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "materialattr" ;
-    iffBaseKnowledge:bindsLogicVar "var5" ;
-    iffBaseKnowledge:bindsMapDataType xsd:string .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "materialattr" ;
+    base:bindsLogicVar "var5" ;
+    base:bindsMapDataType xsd:string .
 
 iffBindingsBaseTest:_map6 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "strengthattr" ;
-    iffBaseKnowledge:bindsLogicVar "var6" ;
-    iffBaseKnowledge:bindsMapDataType xsd:decimal .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "strengthattr" ;
+    base:bindsLogicVar "var6" ;
+    base:bindsMapDataType xsd:decimal .
 
 iffBindingsBaseTest:_map7 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "widthattr" ;
-    iffBaseKnowledge:bindsLogicVar "var7" ;
-    iffBaseKnowledge:bindsMapDataType xsd:decimal .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "widthattr" ;
+    base:bindsLogicVar "var7" ;
+    base:bindsMapDataType xsd:decimal .
 
 iffBindingsBaseTest:_map8 a owl:NamedIndividual ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "filterstateattr" ;
-    iffBaseKnowledge:bindsLogicVar "var8" ;
-    iffBaseKnowledge:bindsMapDataType xsd:boolean .
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "filterstateattr" ;
+    base:bindsLogicVar "var8" ;
+    base:bindsMapDataType xsd:boolean .
 
 iffBindingsBaseTest:heightBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindingVersion "0.9"^^xsd:string ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Workpiece ;
-    iffBaseKnowledge:bindsFirmware "123"^^xsd:string,
+        base:Binding ;
+    base:bindingVersion "0.9"^^xsd:string ;
+    base:bindsEntityType iffBaseEntities:Workpiece ;
+    base:bindsFirmware "123"^^xsd:string,
         "Firmware xyz" ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map3 .
+    base:bindsMap iffBindingsBaseTest:_map3 .
 
 iffBindingsBaseTest:lengthBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Workpiece ;
-    iffBaseKnowledge:bindsFirmware "xyz" ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map4 .
+        base:Binding ;
+    base:bindsEntityType iffBaseEntities:Workpiece ;
+    base:bindsFirmware "xyz" ;
+    base:bindsMap iffBindingsBaseTest:_map4 .
 
 iffBindingsBaseTest:materialBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Workpiece ;
-    iffBaseKnowledge:bindsFirmware "xyz" ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map5 .
+        base:Binding ;
+    base:bindsEntityType iffBaseEntities:Workpiece ;
+    base:bindsFirmware "xyz" ;
+    base:bindsMap iffBindingsBaseTest:_map5 .
 
 iffBindingsBaseTest:stateBindingCutter a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindingVersion "0.9"^^xsd:string ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Cutter ;
-    iffBaseKnowledge:bindsFirmware "abc",
+        base:Binding ;
+    base:bindingVersion "0.9"^^xsd:string ;
+    base:bindsEntityType iffBaseEntities:Cutter ;
+    base:bindsFirmware "abc",
         "xyz" ;
-    iffBaseKnowledge:bindsLogic """WHERE  {
+    base:bindsLogic """WHERE  {
     BIND(ngsi-ld:Property as ?type)
     BIND( 
         IF(?var1 = true, 
@@ -382,14 +382,14 @@ iffBindingsBaseTest:stateBindingCutter a owl:NamedIndividual,
     )
     BIND(IF(BOUND(?var1) && BOUND(?var2), 1.0, 0.0) as ?trustLevel)
 }""" ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map1,
+    base:bindsMap iffBindingsBaseTest:_map1,
         iffBindingsBaseTest:_map2 .
 
 iffBindingsBaseTest:stateBindingFilter a owl:NamedIndividual ;
-    iffBaseKnowledge:bindingVersion "0.9"^^xsd:string ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Filter ;
-    iffBaseKnowledge:bindsFirmware "xyz" ;
-    iffBaseKnowledge:bindsLogic """WHERE  {
+    base:bindingVersion "0.9"^^xsd:string ;
+    base:bindsEntityType iffBaseEntities:Filter ;
+    base:bindsFirmware "xyz" ;
+    base:bindsLogic """WHERE  {
     BIND(ngsi-ld:Property as ?type)
     BIND( 
         IF(?var8 = true, 
@@ -399,15 +399,15 @@ iffBindingsBaseTest:stateBindingFilter a owl:NamedIndividual ;
     )
     BIND(IF(BOUND(?var8), 1.0, 0.0) as ?trustLevel)
 }"""^^xsd:string ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map8 ;
-    iffBaseKnowledge:hasEntity iffBaseEntities:Filter .
+    base:bindsMap iffBindingsBaseTest:_map8 ;
+    base:hasEntity iffBaseEntities:Filter .
 
 iffBindingsBaseTest:strengthBinding a owl:NamedIndividual,
-        iffBaseKnowledge:Binding ;
-    iffBaseKnowledge:bindingVersion "0.9"^^xsd:string ;
-    iffBaseKnowledge:bindsEntityType iffBaseEntities:Filter ;
-    iffBaseKnowledge:bindsFirmware "xyz" ;
-    iffBaseKnowledge:bindsLogic """WHERE {
+        base:Binding ;
+    base:bindingVersion "0.9"^^xsd:string ;
+    base:bindsEntityType iffBaseEntities:Filter ;
+    base:bindsFirmware "xyz" ;
+    base:bindsLogic """WHERE {
     BIND(ngsi-ld:Property as ?type)
     BIND( 
         ?var6 / "10.0"^^xsd:float
@@ -415,7 +415,7 @@ iffBindingsBaseTest:strengthBinding a owl:NamedIndividual,
     )
     BIND(IF( BOUND(?var6), 1.0, 0.0) as ?trustLevel)
 }"""^^xsd:string ;
-    iffBaseKnowledge:bindsMap iffBindingsBaseTest:_map6 .
+    base:bindsMap iffBindingsBaseTest:_map6 .
 
 iffFilterKnowledge:WC0 a owl:NamedIndividual,
         iffFilterKnowledge:Wasteclass .
@@ -548,14 +548,14 @@ iffBaseEntities:Consumable a owl:Class,
 iffBaseEntities:Entity a owl:Class,
         owl:NamedIndividual .
 
-iffBaseKnowledge:SeverityClass a owl:Class .
+base:SeverityClass a owl:Class .
 
 iffBindingsBaseTest:_map1 a owl:NamedIndividual,
-        iffBaseKnowledge:BoundMap ;
-    iffBaseKnowledge:bindsConnector iffBaseKnowledge:TestConnector ;
-    iffBaseKnowledge:bindsConnectorAttribute "stateattr" ;
-    iffBaseKnowledge:bindsLogicVar "var1" ;
-    iffBaseKnowledge:bindsMapDataType xsd:boolean .
+        base:BoundMap ;
+    base:bindsConnector base:TestConnector ;
+    base:bindsConnectorAttribute "stateattr" ;
+    base:bindsLogicVar "var1" ;
+    base:bindsMapDataType xsd:boolean .
 
 iffFilterKnowledge:WC1 a owl:NamedIndividual,
         iffFilterKnowledge:Wasteclass ;
@@ -573,7 +573,7 @@ iffBaseEntities:FilterCartridge a owl:Class,
         owl:NamedIndividual ;
     rdfs:subClassOf iffBaseEntities:Consumable .
 
-iffBaseKnowledge:BoundConnector a owl:Class .
+base:BoundConnector a owl:Class .
 
 material:carbon a owl:NamedIndividual,
         material:ChemicalElement ;
@@ -622,11 +622,11 @@ iffBaseEntities:Workpiece a owl:Class,
         owl:NamedIndividual ;
     rdfs:subClassOf iffBaseEntities:Consumable .
 
-iffBaseKnowledge:MachineState a owl:Class .
+base:MachineState a owl:Class .
 
-iffBaseKnowledge:TestConnector a owl:Class,
+base:TestConnector a owl:Class,
         owl:NamedIndividual ;
-    rdfs:subClassOf iffBaseKnowledge:BoundConnector .
+    rdfs:subClassOf base:BoundConnector .
 
 iffBaseEntities:Cutter a owl:Class,
         owl:NamedIndividual ;
@@ -637,11 +637,11 @@ xsd:string a rdfs:Datatype,
 
 <https://uri.etsi.org/ngsi-ld/Property> a owl:Class .
 
-iffBaseKnowledge:Binding a owl:Class .
+base:Binding a owl:Class .
 
 material:ChemicalElement a owl:Class .
 
-iffBaseKnowledge:BoundMap a owl:Class .
+base:BoundMap a owl:Class .
 
 material:_ElementOccurance a owl:Class .
 

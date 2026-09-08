@@ -108,7 +108,7 @@ def test_the_offered_term_is_spelled_for_the_shapes_file(corpus):
     """
     choices, _ = choices_for(corpus, STATE, 'sh:class')
     values = {c['value'] for c in choices}
-    assert 'iffBaseKnowledge:MachineState' in values
+    assert 'base:MachineState' in values
     assert not any(v.startswith('default') for v in values)
 
 

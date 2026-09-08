@@ -27,13 +27,7 @@ namespaces:
   iffBindingsBaseTest: https://industryfusion.github.io/contexts/example/v0/bindings/base_test/
   ngsild: https://uri.etsi.org/ngsi-ld/
 
-  # Overrides the context, which calls this namespace `base`. shacl.ttl already
-  # says iffBaseKnowledge -- at the Turtle level AND inside every SPARQL body,
-  # which declares its own prefixes and is a separate scope. Adopting `base`
-  # would align the header while leaving the queries saying something else, so
-  # the name that is already consistent within the file wins.
-  #
-  # model-instance.jsonld still writes `base:state_ON`, which resolves through
-  # the context. Making all three literally identical means adding
-  # iffBaseKnowledge to the PUBLISHED context; that is an upstream change.
-  iffBaseKnowledge: https://industryfusion.github.io/contexts/example/v0/base_knowledge/
+  # base_knowledge/ is deliberately NOT listed. The context calls it `base` and
+  # that name stays: rdflib binds one prefix per namespace, so a second name
+  # evicts the first, and shacl2flink requires the survivor to be literally
+  # `base`. See kms/README.md.

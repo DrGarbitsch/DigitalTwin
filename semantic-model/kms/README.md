@@ -45,45 +45,30 @@ modules with `rdfpipe`, which invents a name when the source supplies none.
 `semforge.yaml` declares the four namespaces the context does not: the two
 shapes namespaces, the test bindings, and NGSI-LD itself.
 
-### One decision is still open, and it is not the one it looked like
+### base_knowledge/ is called `base`, everywhere
 
-`shacl.ttl` calls `base_knowledge/` **`iffBaseKnowledge`**; the context calls it
-**`base`**, and `model-instance.jsonld` writes `base:state_ON` through it.
+`shacl.ttl`, `knowledge.ttl` and `model-instance.jsonld` all say `base:`, and so
+does the context. The SPARQL bodies inside `shacl.ttl` were brought along in a
+separate pass -- they declare their own prefixes and the aligner deliberately
+does not reach inside string literals, so that rename was verified by comparing
+validation results before and after rather than by trusting the edit.
 
-The obvious fix -- declare `iffBaseKnowledge` in the context *alongside* `base`,
-two names for one namespace, nothing written against `base` breaks -- **does not
-work, and was tried.** Two things stop it:
+It went this way round rather than renaming to `iffBaseKnowledge` because the
+obvious alternative does not work, and was tried:
 
-* rdflib binds **one prefix per namespace**. The second name evicts the first,
-  so adding `iffBaseKnowledge` removes `base` from every rdflib consumer.
+* rdflib binds **one prefix per namespace**, so declaring a second name for
+  `base_knowledge/` in the context evicts the first rather than adding to it;
 * `shacl2flink/create_sql_checks_from_shacl.py` reads the context through rdflib
-  and requires the surviving name to be literally `base`:
-  *"No prefix 'base:' is found in your given context. This is needed!"*
+  and requires the survivor to be literally `base` -- *"No prefix 'base:' is
+  found in your given context. This is needed!"*
 
-Publishing that addition would therefore have stopped the compiler for
-everyone. `context.jsonld` here is byte-identical to what is published, and
-`test_two_names_for_one_namespace_do_not_survive_rdflib` pins the mechanism.
+So `context.jsonld` is byte-identical to what is published, and nothing upstream
+has to change. `test_two_names_for_one_namespace_do_not_survive_rdflib` pins the
+mechanism.
 
-So the real choice is between two single names:
-
-* **keep `base`** -- align `shacl.ttl` to it (`semforge prefixes --fix` after
-  dropping the override in `semforge.yaml`). Costs nothing, and leaves the
-  Turtle prefix saying `base:` while the SPARQL bodies inside it say
-  `iffBaseKnowledge:`, since those declare their own and are a separate scope.
-* **move to `iffBaseKnowledge`** -- publish it *instead of* `base`, update the
-  model's five values, and remove the hardcoded prefix name from
-  `create_sql_checks_from_shacl.py`. More work, and it removes a real wart: a
-  compiler that requires one specific prefix spelling is fragile whatever the
-  spelling is.
-
-`semforge prefixes` reports the divergence until it is settled.
-
-The gate was tested against the real model: switching the five values to
-`iffBaseKnowledge:` while the published context lacked the term left
-`create_ngsild_models.py` emitting `'iffBaseKnowledge:state_ON'` as a plain
-string, with no IRI anywhere in the output -- so `sh:class` would match nothing
-and the SPARQL rules comparing `?v = iffBaseKnowledge:state_ON` would silently
-never fire. `semforge export` refuses to write in that state (`SF-CTX-002`).
+Moving to `iffBaseKnowledge` later remains possible, and now costs one
+`semforge prefixes --fix` plus removing that hardcoded prefix name from the
+compiler -- which is a wart whatever the spelling.
 
 ### The local/published split
 

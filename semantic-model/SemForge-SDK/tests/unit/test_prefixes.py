@@ -11,8 +11,8 @@ from rdflib.compare import isomorphic
 from semforge.cli import cli
 from semforge.package import load
 from semforge.package.prefixes import (align, canonical_map, check,
-                                       context_prefixes, file_prefixes,
-                                       names_by_namespace)
+                                       context_prefixes, declared_prefixes,
+                                       file_prefixes, names_by_namespace)
 
 BASE = 'https://industryfusion.github.io/contexts/example/v0/'
 
@@ -36,29 +36,27 @@ def test_the_context_is_read_as_the_source_of_truth(corpus):
     assert found['material'].endswith('/material/')
 
 
-def test_the_package_declaration_overrides_the_context(corpus):
-    """The context calls base_knowledge `base`; this package says otherwise.
+def test_the_context_name_wins_where_the_package_declares_nothing(corpus):
+    """base_knowledge/ is `base`, and semforge.yaml deliberately stays quiet.
 
-    shacl.ttl says iffBaseKnowledge at the Turtle level AND inside every SPARQL
-    body, which declares its own prefixes and is a separate scope. Adopting the
-    context's name would align the header and leave the queries saying
-    something else.
+    Two names for one namespace do not survive rdflib, and shacl2flink requires
+    the survivor to be `base`, so the context's name is the only workable one.
     """
     assert context_prefixes(corpus.path)['base'] == BASE + 'base_knowledge/'
-    assert names_by_namespace(corpus.path)[BASE + 'base_knowledge/'] == \
-        'iffBaseKnowledge'
+    assert names_by_namespace(corpus.path)[BASE + 'base_knowledge/'] == 'base'
+    assert 'iffBaseKnowledge' not in declared_prefixes(corpus.path)
 
 
-def test_the_corpus_has_no_prefix_errors(corpus):
-    """Nothing ambiguous, nothing undeclared.
+def test_the_package_declaration_still_overrides_where_it_speaks(corpus):
+    """The mechanism is intact even though base_knowledge does not use it."""
+    declared = declared_prefixes(corpus.path)
+    assert declared['iffBaseShacl'] == BASE + 'base_shacl/'
+    assert names_by_namespace(corpus.path)[BASE + 'base_shacl/'] == 'iffBaseShacl'
 
-    One warning remains by design: model-instance.jsonld still writes `base:`,
-    which is safe to change only after the published context carries
-    `iffBaseKnowledge`. See kms/README.md.
-    """
-    findings = check(corpus)
-    assert [f for f in findings if f.severity == 'error'] == []
-    assert {f.code for f in findings} == {'SF-PFX-004'}
+
+def test_the_corpus_is_fully_aligned(corpus):
+    """All three artifacts agree on every namespace, including the model."""
+    assert check(corpus) == []
 
 
 def test_no_ambiguous_or_generated_prefix_survives(corpus):
@@ -106,20 +104,41 @@ def test_alignment_is_idempotent(package):
     assert align(load(package.path), dry_run=True) == {}
 
 
-def test_alignment_leaves_sparql_bodies_alone(package):
+def test_alignment_leaves_sparql_bodies_alone(tmp_path, corpus):
     """A SPARQL body declares its own prefixes and is a separate scope.
 
-    Rewriting into one would break queries that are currently correct.
+    Rewriting into one would break queries that are currently correct, so the
+    aligner steps over string literals. The kms bodies were brought to `base:`
+    by a deliberate separate pass, verified by comparing validation results
+    before and after -- not by the aligner reaching inside them.
     """
-    with open(package.sources['shapes']) as handle:
-        before = handle.read()
-    bodies_before = before.count('PREFIX iffBaseKnowledge:')
-    assert bodies_before > 0
+    target = tmp_path / 'pkg'
+    target.mkdir()
+    shutil.copy(corpus.sources['knowledge'], target / 'knowledge.ttl')
+    shutil.copy(corpus.sources['model'], target / 'model-instance.jsonld')
+    shutil.copy(f'{corpus.path}/context.jsonld', target / 'context.jsonld')
+    shutil.copy(f'{corpus.path}/semforge.yaml', target / 'semforge.yaml')
 
-    align(package)
-    with open(package.sources['shapes']) as handle:
-        after = handle.read()
-    assert after.count('PREFIX iffBaseKnowledge:') == bodies_before
+    # `wrong:` at the Turtle level should be renamed to the agreed name; the
+    # SPARQL body names the same namespace differently and must not be touched.
+    body = ('PREFIX inner: <https://industryfusion.github.io/contexts/'
+            'example/v0/base_knowledge/>\nSELECT $this WHERE '
+            '{ $this ?p inner:state_ON }')
+    (target / 'shacl.ttl').write_text(
+        '@prefix sh: <http://www.w3.org/ns/shacl#> .\n'
+        '@prefix wrong: <https://industryfusion.github.io/contexts/example/'
+        'v0/base_knowledge/> .\n'
+        '@prefix ex: <https://example.org/> .\n'
+        'ex:S a sh:NodeShape ; sh:targetClass wrong:MachineState ;\n'
+        '    sh:sparql [ a sh:SPARQLConstraints ; sh:select """' + body + '""" ] .\n')
+
+    applied = align(load(str(target)))
+    after = (target / 'shacl.ttl').read_text()
+
+    assert applied['shapes'] == {'wrong': 'base'}
+    assert 'base:MachineState' in after, 'the Turtle level should be renamed'
+    assert 'PREFIX inner:' in after, 'the SPARQL body must be left alone'
+    assert 'inner:state_ON' in after
 
 
 def test_alignment_reports_a_namespace_nobody_named(tmp_path, corpus):
@@ -163,12 +182,10 @@ def test_canonical_map_merges_both_sources(corpus):
 
 # --- CLI ---------------------------------------------------------------------
 
-def test_prefixes_command_succeeds_with_only_the_pending_rename(corpus_path):
-    """A warning does not fail the command; an ambiguous prefix does."""
+def test_prefixes_command_reports_a_clean_package(corpus_path):
     result = CliRunner().invoke(cli, ['prefixes', corpus_path])
     assert result.exit_code == 0
-    assert 'SF-PFX-004' in result.output
-    assert 'SF-PFX-001' not in result.output
+    assert 'one agreed name' in result.output
 
 
 def test_prefixes_command_fails_on_an_ambiguous_prefix(tmp_path, corpus):
@@ -211,17 +228,17 @@ def test_the_model_instance_is_checked_too(corpus):
     assert 'base' in used, 'the fixture should still exercise the pending rename'
 
 
-def test_the_pending_rename_is_reported_with_its_precondition(corpus):
-    """base: -> iffBaseKnowledge: is safe only once the context carries it.
+def test_the_model_agrees_with_the_shapes_now(corpus):
+    """The rename that was pending is done -- in the other direction.
 
-    The model's prefixes resolve through the CONTEXT, not an @prefix header, so
-    switching the data first leaves the value unexpanded -- a plain string where
-    an IRI was meant, which sh:class then correctly refuses.
+    shacl.ttl moved to `base:` rather than the model moving to
+    iffBaseKnowledge:, because rdflib cannot carry two names for one namespace
+    and shacl2flink requires this one to be `base`.
     """
-    pending = [f for f in check(corpus) if f.code == 'SF-PFX-004']
-    assert len(pending) == 1
-    assert 'iffBaseKnowledge' in pending[0].message
-    assert pending[0].severity == 'warning'
+    from semforge.package.prefixes import model_prefixes
+
+    assert [f for f in check(corpus) if f.code == 'SF-PFX-004'] == []
+    assert 'base' in model_prefixes(corpus.sources['model'])
 
 
 def test_a_prefix_the_context_does_not_declare_is_an_error(tmp_path, corpus):
