@@ -245,6 +245,7 @@ def _serialise_example(node):
         'messages': list(node.messages),
         'datasetId': node.dataset_id, 'observations': node.observations,
         'attributePath': list(node.attribute_path), 'file': node.file,
+        'entityType': node.entity_type,
         # Without this the client has no location and selection reveals
         # nothing -- which is how the examples tree looked inert.
         'definedAt': node.defined_at,
@@ -267,6 +268,106 @@ def examples(ls, params):
                           for n in build_suite(package)]}
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
+
+
+def _serialise_knowledge(node):
+    return {
+        'kind': node.kind, 'label': node.label, 'detail': node.detail,
+        'iri': node.iri, 'definedAt': node.defined_at,
+        'shape': node.shape, 'shapeName': node.shape_name,
+        'shapeAt': node.shape_at,
+        'entity': node.entity, 'entityType': node.entity_type,
+        'file': node.file,
+        'severity': node.severity, 'messages': list(node.messages),
+        'children': [_serialise_knowledge(child) for child in node.children],
+    }
+
+
+@server.feature('semforge/knowledge')
+def knowledge(ls, params):
+    """The ontology: entity hierarchy and vocabularies, with their joins.
+
+    The third of the three views. What it adds over reading knowledge.ttl is
+    where it meets the other two -- which class a shape judges, which terms the
+    examples actually use -- so the rows carry both locations.
+    """
+    from ..cooked.knowledge import build_knowledge
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'roots': [], 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        return {'root': root,
+                'roots': [_serialise_knowledge(n)
+                          for n in build_knowledge(package)]}
+    except Exception as exc:                       # noqa: BLE001
+        return {'roots': [], 'error': str(exc)}
+
+
+@server.feature('semforge/shapeFor')
+def shape_for_attribute(ls, params):
+    """Where the shape that judges this attribute is declared.
+
+    With `create` set, an absent one is written as an empty property shape: the
+    point of the jump is to change the constraint, and there is nothing to
+    change when no shape mentions the attribute. The stub is reported as
+    created so the client can say so -- it constrains nothing yet, and the
+    capability check will call that out.
+    """
+    from ..cooked.shapelink import ensure_property_shape, find_property_shape
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    entity_type = _field(params, 'entityType') or ''
+    attribute = _field(params, 'attribute') or ''
+    if not entity_type or not attribute:
+        return {'ok': False,
+                'error': 'need both an entity type and an attribute name'}
+    try:
+        package = _package_for(root)
+        if _field(params, 'create'):
+            found, how = ensure_property_shape(package, entity_type, attribute)
+            if how == 'created':
+                _packages.pop(root, None)
+                _publish(ls, _path_to_uri(package.sources['shapes']))
+        else:
+            found, how = find_property_shape(package, entity_type,
+                                             attribute), 'found'
+            if found is None:
+                return {'ok': False, 'exists': False,
+                        'error': f'no shape constrains {attribute} '
+                                 f'on {entity_type}'}
+        return {'ok': True, 'how': how, **found}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/valueChoices')
+def value_choices_feature(ls, params):
+    """What the shape allows as a value for one example attribute.
+
+    Separate from `semforge/choices`: that one answers "what may this SHACL
+    parameter say", this one answers "what may this datum be". A sh:class on
+    the value slot means the value is an individual of that class, so the
+    options are individuals -- or, for a relationship, entity ids.
+    """
+    from ..cooked.shapelink import value_choices
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'choices': [], 'note': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        found, note = value_choices(package,
+                                    _field(params, 'entityType') or '',
+                                    _field(params, 'attribute') or '',
+                                    limit=_field(params, 'limit') or 200,
+                                    search=_field(params, 'search'))
+        return {'choices': found, 'note': note}
+    except Exception as exc:                       # noqa: BLE001
+        return {'choices': [], 'note': str(exc)}
 
 
 @server.feature('semforge/setValue')

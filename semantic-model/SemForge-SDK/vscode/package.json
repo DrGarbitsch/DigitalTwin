@@ -15,6 +15,7 @@
   "activationEvents": [
     "onView:semforgeConstraints",
     "onView:semforgeExamples",
+    "onView:semforgeKnowledge",
     "workspaceContains:**/shacl.ttl",
     "workspaceContains:**/model-instance.jsonld",
     "onLanguage:turtle"
@@ -116,6 +117,21 @@
       {
         "command": "semforge.doctor",
         "title": "SemForge: Doctor (diagnose setup)"
+      },
+      {
+        "command": "semforge.goToShape",
+        "title": "SemForge: Go to the SHACL rule for this attribute",
+        "icon": "$(law)"
+      },
+      {
+        "command": "semforge.refreshKnowledge",
+        "title": "SemForge: Refresh the knowledge tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "semforge.showShapeForClass",
+        "title": "SemForge: Go to the shape for this class",
+        "icon": "$(law)"
       }
     ],
     "viewsContainers": {
@@ -138,6 +154,11 @@
           "id": "semforgeExamples",
           "name": "Examples",
           "contextualTitle": "SemForge"
+        },
+        {
+          "id": "semforgeKnowledge",
+          "name": "Knowledge",
+          "contextualTitle": "SemForge"
         }
       ]
     },
@@ -151,6 +172,11 @@
         {
           "command": "semforge.refreshExamples",
           "when": "view == semforgeExamples",
+          "group": "navigation"
+        },
+        {
+          "command": "semforge.refreshKnowledge",
+          "when": "view == semforgeKnowledge",
           "group": "navigation"
         }
       ],
@@ -208,6 +234,16 @@
         {
           "command": "semforge.addEntity",
           "when": "view == semforgeExamples && viewItem == example",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.goToShape",
+          "when": "view == semforgeExamples && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attribute)$/",
+          "group": "inline@0"
+        },
+        {
+          "command": "semforge.showShapeForClass",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
           "group": "inline"
         }
       ]

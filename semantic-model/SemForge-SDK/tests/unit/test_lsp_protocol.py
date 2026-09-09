@@ -283,3 +283,142 @@ def test_choices_can_be_searched_and_capped_over_the_protocol(session):
     searched = session.wait_for(lambda m: m.get('id') == 23)[0]['result']
     assert [c['label'] for c in searched['choices']] == ['Wasteclass']
     assert searched['total'] == 1
+
+
+def test_the_shape_for_an_attribute_arrives_over_the_protocol(session):
+    """The icon on an example row has to get a file and a line, or it cannot
+    jump anywhere."""
+    session.send({'jsonrpc': '2.0', 'id': 30, 'method': 'semforge/shapeFor',
+                  'params': {'uri': 'file://' + session.document,
+                             'entityType': 'iffBaseEntities:Filter',
+                             'attribute': 'hasStrength'}})
+    found = session.wait_for(lambda m: m.get('id') == 30)[0]['result']
+    assert found['ok'], found.get('error')
+    assert found['shapeName'] == 'iffBaseShacl:FilterShape'
+    assert found['inherited'] is False
+    assert found['line'] > 0 and found['file'].endswith('shacl.ttl')
+
+    session.send({'jsonrpc': '2.0', 'id': 31, 'method': 'semforge/shapeFor',
+                  'params': {'uri': 'file://' + session.document,
+                             'entityType': 'iffBaseEntities:Filter',
+                             'attribute': 'hasState'}})
+    inherited = session.wait_for(lambda m: m.get('id') == 31)[0]['result']
+    assert inherited['shapeName'] == 'iffBaseShacl:MachineShape'
+    assert inherited['inherited'] is True
+
+    session.send({'jsonrpc': '2.0', 'id': 32, 'method': 'semforge/shapeFor',
+                  'params': {'uri': 'file://' + session.document,
+                             'entityType': 'iffBaseEntities:Filter',
+                             'attribute': 'hasNothingAtAll'}})
+    absent = session.wait_for(lambda m: m.get('id') == 32)[0]['result']
+    # exists:False is what tells the client to offer creating one; a bare
+    # failure would leave it with nothing to offer.
+    assert absent['ok'] is False and absent['exists'] is False
+
+
+def test_creating_a_missing_shape_writes_the_file(tmp_path, corpus):
+    import shutil
+
+    package = tmp_path / 'pkg'
+    package.mkdir()
+    for role, name in (('knowledge', 'knowledge.ttl'), ('shapes', 'shacl.ttl'),
+                       ('model', 'model-instance.jsonld')):
+        shutil.copy(corpus.sources[role], package / name)
+    document = str(package / 'shacl.ttl')
+
+    live = Session(document)
+    try:
+        live.send({'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+                   'params': {'processId': os.getpid(),
+                              'rootUri': 'file://' + str(package),
+                              'capabilities': {}}})
+        assert live.wait_for(lambda m: m.get('id') == 1)
+        live.send({'jsonrpc': '2.0', 'method': 'initialized', 'params': {}})
+
+        live.send({'jsonrpc': '2.0', 'id': 33, 'method': 'semforge/shapeFor',
+                   'params': {'uri': 'file://' + document,
+                              'entityType': 'iffBaseEntities:Filter',
+                              'attribute': 'iffBaseEntities:hasBrandNew',
+                              'create': True}})
+        made = live.wait_for(lambda m: m.get('id') == 33)[0]['result']
+        assert made['ok'], made.get('error')
+        assert made['how'] == 'created'
+
+        text = open(document).read()
+        assert 'hasBrandNew' in text
+        # The reported line is the one to open: it has to be the new property.
+        assert 'hasBrandNew' in text.splitlines()[made['line'] - 1]
+    finally:
+        live.close()
+
+
+def test_value_choices_arrive_over_the_protocol(session):
+    """Editing a value offers what the shape allows, in the form the file
+    wants."""
+    session.send({'jsonrpc': '2.0', 'id': 34, 'method': 'semforge/valueChoices',
+                  'params': {'uri': 'file://' + session.document,
+                             'entityType': 'iffBaseEntities:Filter',
+                             'attribute': 'hasState'}})
+    states = session.wait_for(lambda m: m.get('id') == 34)[0]['result']
+    labels = [c['label'] for c in states['choices']]
+    assert 'state_ON' in labels
+    assert all(c['value'].startswith('{"@id": "') for c in states['choices'])
+
+    session.send({'jsonrpc': '2.0', 'id': 35, 'method': 'semforge/valueChoices',
+                  'params': {'uri': 'file://' + session.document,
+                             'entityType': 'iffBaseEntities:Filter',
+                             'attribute': 'hasStrength'}})
+    free = session.wait_for(lambda m: m.get('id') == 35)[0]['result']
+    assert free['choices'] == []
+    assert 'no sh:class' in free['note']
+
+
+def test_the_examples_tree_carries_the_entity_type_over_the_protocol(session):
+    """Serialised or not, this is the difference between the icon working and
+    the icon doing nothing."""
+    session.send({'jsonrpc': '2.0', 'id': 36, 'method': 'semforge/examples',
+                  'params': {'uri': 'file://' + session.document}})
+    tree = session.wait_for(lambda m: m.get('id') == 36)[0]['result']
+
+    rows = []
+
+    def walk(nodes):
+        for node in nodes:
+            rows.append(node)
+            walk(node.get('children') or [])
+
+    walk(tree['roots'])
+    attributes = [r for r in rows if r['kind'] == 'attribute']
+    assert attributes
+    assert all(r['entityType'] for r in attributes), \
+        [r['label'] for r in attributes if not r['entityType']]
+
+
+def test_the_knowledge_tree_arrives_over_the_protocol(session):
+    """The third view: hierarchy, vocabularies, and the locations that connect
+    them to the other two."""
+    session.send({'jsonrpc': '2.0', 'id': 37, 'method': 'semforge/knowledge',
+                  'params': {'uri': 'file://' + session.document}})
+    tree = session.wait_for(lambda m: m.get('id') == 37)[0]['result']
+    assert not tree.get('error'), tree.get('error')
+    assert [r['label'] for r in tree['roots']] == ['Entity types',
+                                                   'Vocabulary classes']
+
+    rows = []
+
+    def walk(nodes):
+        for node in nodes:
+            rows.append(node)
+            walk(node.get('children') or [])
+
+    walk(tree['roots'])
+    classes = [r for r in rows if r['kind'] == 'class']
+    assert len(classes) > 10
+    # Both jumps have to survive serialisation: the class in knowledge.ttl and
+    # the shape in shacl.ttl.
+    assert all(r['definedAt'] for r in classes)
+    filters = next(r for r in classes if r['label'] == 'iffBaseEntities:Filter')
+    assert filters['shapeAt'].endswith(tuple('0123456789'))
+    assert filters['shapeName'].endswith('FilterShape')
+    assert any(r['kind'] == 'instance' and r['entity'].startswith('urn:')
+               for r in rows)

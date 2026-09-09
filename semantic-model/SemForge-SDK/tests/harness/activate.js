@@ -10,6 +10,11 @@ const Module = require('module');
 const path = require('path');
 const original = Module._load;
 const registered = [];
+// What the views did, so a test can drive a click and see the effect. A click
+// that does not unfold the row is invisible to `node --check` and to any test
+// that only counts commands.
+const selectionHandlers = [];
+const revealed = [];
 
 const noop = () => undefined;
 const stub = {
@@ -22,7 +27,19 @@ const stub = {
     openTextDocument: noop
   },
   window: {
-    createTreeView: () => ({ dispose: noop, reveal: noop, onDidChangeSelection: noop }),
+    showWarningMessage: noop,
+    showQuickPick: noop,
+    showInputBox: noop,
+    showTextDocument: noop,
+    createTreeView: (id) => ({
+      dispose: noop,
+      reveal: (node, options) =>
+        Promise.resolve(revealed.push({ view: id, options: options || {} })),
+      onDidChangeSelection: (handler) => {
+        selectionHandlers.push({ view: id, handler });
+        return { dispose: noop };
+      }
+    }),
     onDidChangeActiveTextEditor: noop,
     activeTextEditor: undefined,
     showErrorMessage: (m) => { registered.push('ERROR: ' + m); return Promise.resolve(); },
@@ -59,5 +76,22 @@ Module._load = function (request, parent, isMain) {
 const extension = require(path.resolve(process.argv[3]));
 const context = { subscriptions: [] };
 extension.activate(context);
-console.log(JSON.stringify({ commands: registered.filter((r) => !r.startsWith('ERROR')),
-                             errors: registered.filter((r) => r.startsWith('ERROR')) }));
+
+async function main() {
+  // Select a row that has children and no location, so only the unfold is
+  // under test and nothing tries to open a file.
+  for (const { handler } of selectionHandlers) {
+    await handler({
+      selection: [{ raw: { kind: 'entity', definedAt: '', children: [{}] },
+                    packageUri: 'file://x' }]
+    });
+  }
+  console.log(JSON.stringify({
+    commands: registered.filter((r) => !r.startsWith('ERROR')),
+    errors: registered.filter((r) => r.startsWith('ERROR')),
+    views: selectionHandlers.map((s) => s.view),
+    revealed
+  }));
+}
+
+main();

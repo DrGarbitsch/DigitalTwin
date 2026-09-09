@@ -28,7 +28,8 @@ EXPECTED = {
     'semforge.editConstraint', 'semforge.removeConstraint',
     'semforge.refreshTree', 'semforge.goToDefinition', 'semforge.overrideHere',
     'semforge.editValue', 'semforge.refreshExamples', 'semforge.addAttribute',
-    'semforge.addEntity', 'semforge.addObservation',
+    'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
+    'semforge.refreshKnowledge', 'semforge.showShapeForClass',
 }
 
 
@@ -102,3 +103,91 @@ def test_the_trees_anchor_to_the_folder_not_only_the_editor(corpus_path):
         source = open(os.path.join(SDK, 'vscode', 'src', name)).read()
         assert 'function defaultUri(' in source, f'{name} has no folder fallback'
         assert 'workspaceFolders' in source
+
+
+def test_clicking_a_row_unfolds_it(corpus_path):
+    """One click has to both show the row and leave it open.
+
+    A click on a collapsible row toggles it, so the reveal that shows you the
+    entity also closed it. Nothing but driving the handler catches that: the
+    code parses either way.
+    """
+    result = _activate(corpus_path)
+    assert 'semforgeExamples' in result['views'], \
+        'the examples view registered no selection handler'
+    expanded = [r for r in result['revealed']
+                if r['view'] == 'semforgeExamples'
+                and r['options'].get('expand')]
+    assert expanded, (
+        'selecting a row with children did not reveal it with expand; '
+        f'reveals seen: {result["revealed"]}')
+    # Revealing must not steal the selection or the focus back from the click.
+    assert expanded[0]['options'].get('select') is False
+    assert expanded[0]['options'].get('focus') is False
+
+
+def test_every_menu_when_clause_names_a_context_value_that_exists():
+    """An inline icon whose `when` matches nothing simply never appears.
+
+    There is no error, no log line and no way to tell it apart from the command
+    being broken -- so the contextValue strings in package.json are checked
+    against the ones the trees actually set.
+    """
+    import re
+
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    # Per view, because a contextValue the OTHER tree sets is no help: the
+    # menu is matched against the tree named in the same `when`.
+    sources = {}
+    for view, name in (('semforgeConstraints', 'tree.js'),
+                       ('semforgeExamples', 'examples.js'),
+                       ('semforgeKnowledge', 'knowledge.js')):
+        with open(os.path.join(SDK, 'vscode', 'src', name)) as handle:
+            sources[view] = handle.read()
+
+    seen = 0
+    for entry in menus:
+        when = entry['when']
+        view = re.search(r"view\s*==\s*(\w+)", when).group(1)
+        source = sources[view]
+        values = re.findall(r"viewItem\s*==\s*(\w+)", when)
+        values += [v for group in re.findall(r"viewItem\s*=~\s*/([^/]+)/", when)
+                   for v in re.findall(r"\w+", group)]
+        assert values, f'no viewItem in {when!r}'
+        for value in values:
+            seen += 1
+            assert f"'{value}'" in source, (
+                f'{entry["command"]} is shown when viewItem == {value}, '
+                f'which {view} never sets -- the icon would never appear')
+    assert seen >= len(menus)
+
+
+def test_the_context_value_table_covers_every_kind_the_server_sends(corpus):
+    """A kind with no entry falls through to a bare label and loses its menu."""
+    import re
+
+    from semforge.cooked.examples import build_examples, flatten
+
+    with open(os.path.join(SDK, 'vscode', 'src', 'examples.js')) as handle:
+        table = handle.read().split('CONTEXT_BY_KIND = {', 1)[1].split('};', 1)[0]
+    known = set(re.findall(r"(\w+):", table))
+
+    kinds = {node.kind for _, node in flatten(build_examples(corpus))}
+    assert kinds <= known, f'no contextValue for {sorted(kinds - known)}'
+
+
+def test_all_three_views_are_wired(corpus_path):
+    """Shapes, data and knowledge -- the three ingredients, three views.
+
+    A view contributed in package.json with no provider behind it renders "There
+    is no data provider registered", which reads as the extension being broken.
+    """
+    result = _activate(corpus_path)
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        declared = [v['id']
+                    for v in json.load(handle)['contributes']['views']['semforge']]
+    assert declared == ['semforgeConstraints', 'semforgeExamples',
+                        'semforgeKnowledge']
+    # Every declared view got a provider and a selection handler at activation.
+    assert set(declared) == set(result['views'])

@@ -107,6 +107,11 @@ to the `owl:ObjectProperty` in `knowledge.ttl` that declares it. Nothing else in
 the toolchain can follow that link: the two files are related only through the
 graph.
 
+**One click shows the row and leaves it open.** Selecting a row moves the file
+to it *and* unfolds it. A click on a collapsible row toggles it, so the reveal
+that showed you an entity also folded it shut — you had to click twice to see
+what one click was supposed to show. The chevron still folds it.
+
 **Selecting anything moves the `.ttl` to it.** Every node carries its own
 `file:line` — an attribute, a single `sh:minCount`, not just the shape — so the
 editor lands on the line you picked rather than the top of the block. Focus
@@ -373,7 +378,25 @@ anything is refused rather than written: this repo has already lost time to
 `{"object": …}` where the model said Property, which made a SPARQL rule's join
 predicate refuse the row silently while every test stayed green.
 
-Click a value to change it; the input parses JSON, so `42` is a number and
+Each attribute row carries a **⚖ icon: the SHACL rule for this attribute**. It
+opens `shacl.ttl` at the `sh:property` block that judges this datum — including
+when that block is on a supertype, which is where it is hardest to find by hand
+(`hasState` on a `Filter` is `MachineShape`'s, and the status bar says so).
+**If nothing constrains the attribute it offers to write an empty
+`sh:property`** for it, so there is somewhere to add constraints. That stub
+deliberately constrains nothing yet, and the capability check reports it as
+compiling to nothing until you add a parameter — a property shape that asserts
+nothing is a visible TODO, not a finished shape.
+
+Editing a value **offers what the shape allows**. Where the value's shape
+declares `sh:class`, the picker lists the individuals of that class — and for a
+relationship, the entity ids of that type — spelled the way the file needs them
+(`{"@id": "base:state_ON"}` for a Property with an IRI value, a bare IRI for a
+Relationship). This is a different question from the `sh:class` picker in the
+Constraints view: that one asks what the *constraint* may say, this one what the
+*datum* may be. **Enter a different value…** stays at the bottom.
+
+Otherwise the input parses JSON, so `42` is a number and
 `{"@id": "…"}` a node reference — typing an IRI into a Property should not
 quietly produce the string form. The file is rewritten with a one-line diff and
 both trees re-validate, which is the reason to edit here rather than in the
@@ -387,6 +410,53 @@ that reads as the editor being broken.
 An entity that violates something is marked, and carries the message on hover —
 a `minCount` violation is about an attribute that is *not there*, so there is no
 attribute node to hang it on.
+
+**The Knowledge view** — the third tree, and the third ingredient. Shapes say
+what must hold, examples are what holds; neither says what the model *is*.
+
+```
+📚 Entity types                        9 type(s) under Entity
+└── iffBaseEntities:Entity
+    ├── iffBaseEntities:Consumable
+    │   ├── iffBaseEntities:FilterCartridge  CartridgeShape + 4 more · 3 instance(s)
+    │   └── iffBaseEntities:Workpiece        WorkpieceShape · 4 instance(s)
+    └── iffBaseEntities:Machine              MachineShape · 1 instance(s)
+        ├── iffBaseEntities:Cutter           CutterShape · 1 instance(s)
+        │   ├── iffBaseEntities:Plasmacutter 3 instance(s) · checked by an inherited shape
+        │   └── iffBaseEntities:Lasercutter  checked by an inherited shape
+        └── iffBaseEntities:Filter           FilterShape + 2 more · 7 instance(s)
+📚 Vocabulary classes                  14 class(es)
+└── base:MachineState                  7 member(s) · used by 1 constraint(s)
+    ├── state_ON          ON · used in 7 place(s)
+    ├── state_OFF         OFF · used in 1 place(s)
+    └── ⚠ state_CLEANING  CLEANING · unused
+```
+
+What it adds over reading `knowledge.ttl` is the **joins** — the places where
+the three ingredients meet, which is where authoring goes wrong and where
+nothing reports today:
+
+| Row says | Meaning |
+|---|---|
+| `FilterShape + 2 more` | which shapes judge instances of this class. The ⚖ icon opens the shape |
+| `checked by an inherited shape` | no shape of its own, but `sh:targetClass` reaches subclasses — `CutterShape` judges a `Plasmacutter` |
+| ⚠ `no shape` | nothing targets this type or anything above it, so nothing about it is ever checked |
+| `7 instance(s)` | how many examples instantiate it, counted across every suite — not only `model-instance.jsonld` |
+| `used in 7 place(s)` | an example gives this term as a value. Expand for which entity and attribute |
+| ⚠ `unused` | no case gives this value, so nothing exercises the constraint that allows it |
+| ⚠ `no members` | a shape uses this class as `sh:class` and it has no individuals: no value can ever satisfy it |
+
+The flags are narrow on purpose. `unused` is shown only for a vocabulary some
+shape actually draws values from — a `Binding` or a `ChemicalElement` is not
+something an NGSI-LD example is meant to mention, and colouring those would
+turn the tree yellow and bury the real gap. `no members` is likewise only for a
+vocabulary class: an entity class under `sh:class` is the *range of a
+relationship*, and its instances live in the data rather than in
+`knowledge.ttl`. An abstract root — subclasses, no instances — is not expected
+to have a shape of its own and is not flagged.
+
+Selecting a class or a member moves `knowledge.ttl` to its declaration;
+selecting an instance moves the `.jsonld` to the entity.
 
 **Output → SemForge** — pick "SemForge" in the dropdown of the Output panel.
 This is where the server reports for itself, and the first place to look if the
@@ -428,6 +498,9 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 |---|---|
 | `SemForge: Restart Language Server` | after changing `semforge.pythonPath`, or if the server dies |
 | `SemForge: Revalidate Package` | saves the active file, which re-runs analysis |
+| `SemForge: Doctor` | what it sees: folder, interpreter, whether `semforge` imports |
+| `SemForge: Go to the SHACL rule for this attribute` | the ⚖ icon on an example attribute; creates an empty `sh:property` when none exists |
+| `SemForge: Go to the shape for this class` | the ⚖ icon on a knowledge class |
 
 ## Settings
 
@@ -448,9 +521,15 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
   class, nodeKind, ranges, lengths, pattern. That is deliberate rather than
   partial: those are the constraints that honestly fit one name and one scalar
   value. Connectives and SPARQL bodies are shown and locked.
-- **No adding constraints from the tree yet.** You can change and remove what a
-  shape declares; adding a new attribute or constraint is still a `.ttl` edit
-  (the SDK can do it — `semforge.rdfio.add_property_constraint` — but no
-  command is wired to it).
+- **Adding constraints is half-wired.** You can change and remove what a shape
+  declares, and the ⚖ icon on an example attribute will create an *empty*
+  `sh:property` for an unconstrained attribute — but filling it in is still a
+  `.ttl` edit. There is no "add a parameter" command yet.
+- **The Knowledge view is read-only.** It shows the ontology and the joins; a
+  new class or member is a `knowledge.ttl` edit.
+- **`instance(s)` and `used in` count the examples, not the world.** They say
+  what the suite exercises. A term no case uses may still be perfectly valid —
+  that is why those rows are flagged as warnings and only where a shape draws
+  from them.
 - **Analysis is whole-package on every save.** Fine at KMS scale (about a second);
   the incremental path exists in the plan and is not wired up.

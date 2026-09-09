@@ -44,6 +44,7 @@ class ExampleNode:
     children: list = field(default_factory=list)
     file: str = ''             # the JSON file this node was read from
     defined_at: str = ''       # file:line, so selecting the row moves the editor
+    entity_type: str = ''      # the entity's NGSI-LD type, for the shape jump
     dataset_id: str = ''       # the datasetId this row stands for
     observations: int = 0      # how many, when it is a series
     attribute_path: list = field(default_factory=list)  # where to append one
@@ -406,10 +407,22 @@ def _entity_nodes(path, report=None, editable=True):
             if not editable:
                 _read_only(child)
             node.children.append(child)
+        _stamp_type(node, str(entity.get('type') or entity.get('@type') or ''))
         _stamp_file(node, path)
         _stamp_lines(node, path, index, [position])
         out.append(node)
     return out
+
+
+def _stamp_type(node, entity_type):
+    """Carry the entity type down to every row beneath it.
+
+    An attribute row needs it to find the shape that judges it, and deriving it
+    from the entity id later would mean re-reading the file the row came from.
+    """
+    node.entity_type = entity_type
+    for child in node.children:
+        _stamp_type(child, entity_type)
 
 
 def _read_only(node):
@@ -459,6 +472,7 @@ def build_examples(package, report=None):
                 continue
             node.children.append(
                 _attribute_node(key, value, identifier, [key], findings))
+        _stamp_type(node, str(entity.get('type') or entity.get('@type') or ''))
         root.children.append(node)
     return [root]
 

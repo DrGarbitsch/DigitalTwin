@@ -16,6 +16,7 @@ const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
 
 const cookedTree = require('./tree');
 const exampleTree = require('./examples');
+const knowledgeTree = require('./knowledge');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -192,6 +193,11 @@ function activate(context) {
   // editing data should refresh the shapes' verdicts and vice versa.
   const constraints = cookedTree.register(context, clientHolder);
   exampleTree.register(context, clientHolder, () => constraints.refresh());
+  // The third ingredient, joined to the first: the shape icon on a class row
+  // opens shacl.ttl AND shows that shape in the constraint tree.
+  knowledgeTree.register(context, clientHolder, (shape) =>
+    constraints.revealShape(shape)
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.doctor', async () => {

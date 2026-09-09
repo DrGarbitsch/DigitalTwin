@@ -14,6 +14,20 @@ const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
 
+// The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
+// string and nothing else: a row whose contextValue drifts from what
+// package.json says loses its icons silently -- no error, no log line.
+const CONTEXT_BY_KIND = {
+  suite: 'suite',
+  example: 'example',
+  entity: 'entity',
+  include: 'include',
+  attribute: 'attribute',
+  instance: 'instance',
+  dataset: 'dataset',
+  meta: 'meta'
+};
+
 class ExampleTreeNode {
   constructor(raw, packageUri) {
     this.raw = raw;
@@ -27,6 +41,7 @@ class ExampleTreeProvider {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
     this.nodes = new Map();
+    this.parents = new Map();
   }
 
   refresh(uri) {
@@ -41,6 +56,12 @@ class ExampleTreeProvider {
       this.nodes.set(raw, new ExampleTreeNode(raw, this.uri));
     }
     return this.nodes.get(raw);
+  }
+
+  // reveal() refuses to work without this, and reveal is how a click unfolds
+  // the row it selected.
+  getParent(node) {
+    return this.parents.get(node.raw);
   }
 
   getTreeItem(node) {
@@ -64,7 +85,7 @@ class ExampleTreeProvider {
         : 'exampleDataset'
       : raw.editable
       ? 'exampleEditable'
-      : raw.kind;
+      : CONTEXT_BY_KIND[raw.kind] || raw.kind;
 
     if (raw.kind === 'suite') {
       // One test_<Shape> directory: its cases pass or they do not.
@@ -117,7 +138,10 @@ class ExampleTreeProvider {
 
   async getChildren(node) {
     if (node) {
-      return (node.raw.children || []).map((child) => this.wrap(child));
+      return (node.raw.children || []).map((child) => {
+        this.parents.set(child, node);
+        return this.wrap(child);
+      });
     }
     const client = this.clientHolder.client;
     if (!client || !this.uri) {
@@ -130,6 +154,7 @@ class ExampleTreeProvider {
       return [];
     }
     this.nodes = new Map();
+    this.parents = new Map();
     return (result.roots || []).map((raw) => this.wrap(raw));
   }
 }
@@ -155,6 +180,67 @@ function defaultUri() {
   return undefined;
 }
 
+/**
+ * The new value for an attribute: picked from the shape's classes, or typed.
+ *
+ * `semforge/choices` answers "what may this SHACL parameter say"; this asks the
+ * other question, "what may this datum be", and the answer is a list only when
+ * the shape constrains the value to a class.
+ */
+async function askForValue(clientHolder, node, raw) {
+  const typeIt = () =>
+    vscode.window.showInputBox({
+      title: `${raw.label} on ${raw.entity}`,
+      prompt:
+        'JSON is parsed, so 42 is a number and {"@id": "..."} a node ' +
+        'reference. Anything else is taken as a string.',
+      value: raw.value
+    });
+
+  const attribute = (raw.attributePath || raw.path || [])[0];
+  if (!raw.entityType || !attribute) {
+    return typeIt();
+  }
+  let answer;
+  try {
+    answer = await clientHolder.client.sendRequest('semforge/valueChoices', {
+      uri: node.packageUri,
+      entityType: raw.entityType,
+      attribute
+    });
+  } catch (error) {
+    return typeIt();
+  }
+  const choices = (answer && answer.choices) || [];
+  if (!choices.length) {
+    return typeIt();
+  }
+  const picked = await vscode.window.showQuickPick(
+    choices
+      .map((choice) => ({
+        label: choice.label,
+        description: choice.detail,
+        detail: choice.value === raw.value ? 'current value' : undefined,
+        value: choice.value
+      }))
+      .concat([
+        {
+          label: '$(edit) Type a value',
+          description: answer.note || 'not one of the listed individuals',
+          value: undefined
+        }
+      ]),
+    {
+      title: `${raw.label} on ${raw.entity}`,
+      placeHolder: answer.note || 'the values this attribute\'s shape allows'
+    }
+  );
+  if (picked === undefined) {
+    return undefined;
+  }
+  return picked.value === undefined ? typeIt() : picked.value;
+}
+
 function register(context, clientHolder, onChanged) {
   const provider = new ExampleTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeExamples', {
@@ -168,8 +254,22 @@ function register(context, clientHolder, onChanged) {
   context.subscriptions.push(
     view.onDidChangeSelection(async (event) => {
       const selected = event.selection && event.selection[0];
-      if (selected && selected.raw.definedAt) {
+      if (!selected) {
+        return;
+      }
+      if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
+      }
+      // A click on a collapsible row toggles it, so clicking an entity that
+      // was open closed it -- and what you asked for was to see it. reveal()
+      // can only expand, never collapse, so the row ends up open either way.
+      // The chevron still folds it: clicking the twistie does not select.
+      if ((selected.raw.children || []).length) {
+        try {
+          await view.reveal(selected, { expand: true, select: false, focus: false });
+        } catch (error) {
+          // reveal throws if the node is gone after a refresh; nothing to do.
+        }
       }
     })
   );
@@ -200,13 +300,11 @@ function register(context, clientHolder, onChanged) {
       if (!raw || !raw.editable) {
         return;
       }
-      const value = await vscode.window.showInputBox({
-        title: `${raw.label} on ${raw.entity}`,
-        prompt:
-          'JSON is parsed, so 42 is a number and {"@id": "..."} a node ' +
-          'reference. Anything else is taken as a string.',
-        value: raw.value
-      });
+      // When the shape says sh:class, the value is an individual of that
+      // class -- so offer those rather than asking someone to remember the
+      // IRI. Typing it out by hand is how `{"object": ...}` vs `{"value":
+      // ...}` mistakes get made.
+      const value = await askForValue(clientHolder, node, raw);
       if (value === undefined) {
         return;
       }
@@ -228,6 +326,60 @@ function register(context, clientHolder, onChanged) {
         }
       } else {
         vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      }
+    }),
+
+    vscode.commands.registerCommand('semforge.goToShape', async (node) => {
+      const raw = node && node.raw;
+      const attribute = raw && (raw.attributePath || raw.path || [])[0];
+      if (!raw || !attribute || !raw.entityType) {
+        vscode.window.showWarningMessage(
+          'SemForge: no entity type on this row, so there is no shape to find.'
+        );
+        return;
+      }
+      const ask = (create) =>
+        clientHolder.client.sendRequest('semforge/shapeFor', {
+          uri: node.packageUri,
+          entityType: raw.entityType,
+          attribute,
+          create
+        });
+      let result = await ask(false);
+      if (!result.ok && result.exists === false) {
+        // Nothing constrains this attribute. Offer to write the empty property
+        // shape, because a jump to a rule that does not exist is useless --
+        // but write it only on a yes: this edits shacl.ttl.
+        const answer = await vscode.window.showInformationMessage(
+          `No shape constrains ${attribute} on ${raw.entityType}.`,
+          { modal: true },
+          'Create an empty one'
+        );
+        if (answer !== 'Create an empty one') {
+          return;
+        }
+        result = await ask(true);
+      }
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return;
+      }
+      await showLocation(`${result.file}:${result.line}`, true);
+      if (result.how === 'created') {
+        vscode.window.showInformationMessage(
+          `SemForge: added an empty sh:property for ${attribute} in ` +
+            `${result.shapeName}. It constrains nothing yet — add parameters ` +
+            'in the Constraints view.'
+        );
+        if (onChanged) {
+          onChanged();
+        }
+      } else if (result.inherited) {
+        vscode.window.setStatusBarMessage(
+          `SemForge: ${attribute} is constrained by ${result.shapeName}, ` +
+            'which this type inherits from.',
+          6000
+        );
       }
     }),
 
@@ -383,4 +535,4 @@ function register(context, clientHolder, onChanged) {
   return provider;
 }
 
-module.exports = { register, ExampleTreeProvider };
+module.exports = { register, ExampleTreeProvider, CONTEXT_BY_KIND };

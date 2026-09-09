@@ -1013,6 +1013,45 @@ editing, scoped test execution, regression views, provenance queries — use a
 namespace. Manifest §8.3 explicitly allows this, and forcing them into
 `workspace/executeCommand` would make them opaque to any client.
 
+#### 12.2.1 Three views, and the joins between them
+
+The cooked side presents the package as the three artifacts it is made of —
+shapes (`semforge/tree`), examples (`semforge/examples`) and knowledge
+(`semforge/knowledge`) — because those are the three things an author edits and
+each answers a question the others cannot: what must hold, what holds, what
+exists.
+
+Showing them separately is not the point; the point is that **each row carries
+the locations of its joins**, which is where authoring actually goes wrong:
+
+| Join | Method | Carried as |
+|---|---|---|
+| datum → the shape judging it | `semforge/shapeFor` | the declaring `sh:property`'s `file:line`, plus whether it is inherited |
+| datum → the values its shape allows | `semforge/valueChoices` | individuals of the `sh:class`, or entity ids for a relationship slot |
+| class → the shape targeting it | `semforge/knowledge` | `shapeAt`, the node shape's `file:line` |
+| class → the examples instantiating it | `semforge/knowledge` | instance rows with their `.jsonld` `file:line` |
+| vocabulary term → the data using it | `semforge/knowledge` | usage rows, `(entity, attribute)` |
+
+None of these is derivable inside the editor: every one is a graph question
+spanning two artifacts, which is why they are server methods rather than
+JavaScript. The same reasoning as §8.4 — the editor decides nothing.
+
+A join that is *missing* is reported on the row itself rather than in a separate
+report, and only where its absence is a defect: a type nothing targets (through
+its ancestors too — `sh:targetClass` traverses `rdfs:subClassOf*`), a
+`sh:class` on a vocabulary with no individuals, a value no case exercises. An
+abstract root with no shape and a vocabulary no shape draws from are not
+defects, and flagging them would bury the ones that are.
+
+**`semforge/shapeFor` may create.** When nothing constrains an attribute there
+is nothing to navigate to, so with `create` it writes an empty `sh:property`
+carrying only `sh:path`. That shape is deliberately incomplete and the
+capability check continues to report it as compiling to nothing (`SF-CAP-004`):
+a property shape asserting nothing is a visible TODO, and treating it as
+finished would be the silent-success failure §7.4 exists to prevent. An
+inherited constraint counts as existing and is never copied down — that would be
+an override, which is a decision with its own command (§12.3, S1).
+
 ### 12.3 Raw/cooked synchronisation (D2)
 
 Both views project the same SIM; neither holds derived state.

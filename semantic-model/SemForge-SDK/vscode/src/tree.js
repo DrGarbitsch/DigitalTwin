@@ -334,6 +334,26 @@ function register(context, clientHolder) {
       'model-instance.jsonld — or run "SemForge: Doctor".';
   }
 
+  // The knowledge view jumps here. Opening shacl.ttl alone would leave you to
+  // find the same shape in this tree by hand, which is the work the jump exists
+  // to remove -- the same reasoning as Go to Definition.
+  provider.revealShape = async (shape) => {
+    const canonical = provider.findCanonical({
+      shape,
+      path: [],
+      parameter: ''
+    });
+    if (!canonical) {
+      return false;
+    }
+    try {
+      await view.reveal(canonical, { select: true, focus: false, expand: 2 });
+      return true;
+    } catch (error) {
+      return false;     // not realised yet; the editor jump still happened
+    }
+  };
+
   // Selecting anything moves the .ttl to it. Every node carries its own
   // file:line -- an attribute, a single parameter, not just the shape -- so
   // this lands on the line you picked rather than the top of the block.
