@@ -77,6 +77,25 @@ function resolvePython(startDir) {
 }
 
 /**
+ * The SDK directory for an interpreter at <sdk>/venv/bin/python, or undefined.
+ *
+ * Used as the server's working directory and PYTHONPATH so that an SDK which
+ * has not been `pip install -e .`'d still starts. Without it the server is
+ * launched in the folder the user opened, where `semforge` is not importable --
+ * which fails silently, because a language server that exits immediately looks
+ * exactly like one that found nothing to report.
+ */
+function sdkDirectory(python) {
+  const parts = python.split(path.sep);
+  const index = parts.lastIndexOf('venv');
+  if (index <= 0) {
+    return undefined;
+  }
+  const candidate = parts.slice(0, index).join(path.sep);
+  return fs.existsSync(path.join(candidate, 'semforge')) ? candidate : undefined;
+}
+
+/**
  * Can this interpreter actually import semforge?
  *
  * Asked before starting the server, because a language server that exits
