@@ -45,6 +45,11 @@ const stub = {
 Module._load = function (request, parent, isMain) {
   if (request === 'vscode') return stub;
   if (request === 'vscode-languageclient/node') {
+    // Stubbed, because the real library wants a far fuller vscode API than a
+    // stub can provide. Whether it SHIPS is a separate question, and stubbing
+    // it here is what hid the extension being packaged without it -- so
+    // test_extension_packaging.py checks that every bare require resolves
+    // inside the package. The two tests cover different failures.
     return { LanguageClient: class { start() {} stop() { return Promise.resolve(); } },
              TransportKind: { stdio: 0 } };
   }
