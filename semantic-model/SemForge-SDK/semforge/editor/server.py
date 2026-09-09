@@ -245,6 +245,9 @@ def _serialise_example(node):
         'messages': list(node.messages),
         'datasetId': node.dataset_id, 'observations': node.observations,
         'attributePath': list(node.attribute_path), 'file': node.file,
+        # Without this the client has no location and selection reveals
+        # nothing -- which is how the examples tree looked inert.
+        'definedAt': node.defined_at,
         'children': [_serialise_example(child) for child in node.children],
     }
 

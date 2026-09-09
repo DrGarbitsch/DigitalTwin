@@ -12,6 +12,8 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 
+const { showLocation } = require('./reveal');
+
 class ExampleTreeNode {
   constructor(raw, packageUri) {
     this.raw = raw;
@@ -103,13 +105,13 @@ class ExampleTreeProvider {
     if (raw.messages && raw.messages.length) {
       item.tooltip = raw.messages.join('\n');
     }
-    if (raw.editable) {
-      item.command = {
-        command: 'semforge.editValue',
-        title: 'Edit value',
-        arguments: [node]
-      };
+    if (raw.messages && raw.messages.length) {
+      item.tooltip = raw.messages.join('\n');
     }
+    // No command on click. Clicking used to open the edit box, which is a
+    // surprising thing for a single click to do -- and it replaced the one
+    // thing a click should do, which is show you the row in the file. Editing
+    // is the inline pencil and the context menu.
     return item;
   }
 
@@ -159,6 +161,19 @@ function register(context, clientHolder, onChanged) {
     treeDataProvider: provider
   });
   context.subscriptions.push(view);
+
+  // Selecting a row moves the .jsonld to it. Every node carries its own
+  // file:line now, so this lands on the entity, the attribute or the single
+  // observation you picked.
+  context.subscriptions.push(
+    view.onDidChangeSelection(async (event) => {
+      const selected = event.selection && event.selection[0];
+      if (selected && selected.raw.definedAt) {
+        await showLocation(selected.raw.definedAt, false);
+      }
+    })
+  );
+
   if (!defaultUri() && !vscode.window.activeTextEditor) {
     view.message =
       'Open a folder holding knowledge.ttl, shacl.ttl and ' +

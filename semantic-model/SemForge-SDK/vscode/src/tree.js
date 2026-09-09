@@ -11,6 +11,8 @@ const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
 
+const { showLocation } = require('./reveal');
+
 // Candidate values come from the server, never from a list in here. Which
 // classes may be offered is an ontology question -- entity types on one side of
 // the NGSI-LD encoding, vocabulary classes on the other -- and a list hard-coded
@@ -22,19 +24,6 @@ class ConstraintNode {
     this.raw = raw;
     this.packageUri = packageUri;
   }
-}
-
-/** file:line -> { file, line }, tolerating a Windows drive letter. */
-function splitLocation(at) {
-  const split = at.lastIndexOf(':');
-  if (split < 0) {
-    return undefined;
-  }
-  const line = parseInt(at.slice(split + 1), 10);
-  if (Number.isNaN(line)) {
-    return undefined;
-  }
-  return { file: at.slice(0, split), line: Math.max(line - 1, 0) };
 }
 
 class CookedTreeProvider {
@@ -153,12 +142,9 @@ class CookedTreeProvider {
         'Right-click to jump there, or to declare it on this type.';
     } else if (raw.editable) {
       item.iconPath = new vscode.ThemeIcon('edit');
-      item.tooltip = `${raw.parameter} = ${raw.value}\nClick to change.`;
-      item.command = {
-        command: 'semforge.editConstraint',
-        title: 'Edit',
-        arguments: [node]
-      };
+      item.tooltip =
+        `${raw.parameter} = ${raw.value}\n` +
+        'Selecting shows it in the file; the pencil edits it.';
     } else {
       // Shown, not offered. A tree that hid what it cannot edit would be
       // lying about what the shape contains.
@@ -313,25 +299,6 @@ async function promptForValue(client, node) {
     });
     quickPick.show();
   });
-}
-
-/** Put the cursor on a file:line, without stealing focus from the tree. */
-async function showLocation(at, focus) {
-  const where = splitLocation(at || '');
-  if (!where) {
-    return;
-  }
-  const document = await vscode.workspace.openTextDocument(where.file);
-  const editor = await vscode.window.showTextDocument(document, {
-    preserveFocus: !focus,
-    preview: true
-  });
-  const position = new vscode.Position(where.line, 0);
-  editor.selection = new vscode.Selection(position, position);
-  editor.revealRange(
-    new vscode.Range(position, position),
-    vscode.TextEditorRevealType.InCenter
-  );
 }
 
 /**

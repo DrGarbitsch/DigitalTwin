@@ -43,6 +43,7 @@ class ExampleNode:
     messages: list = field(default_factory=list)
     children: list = field(default_factory=list)
     file: str = ''             # the JSON file this node was read from
+    defined_at: str = ''       # file:line, so selecting the row moves the editor
     dataset_id: str = ''       # the datasetId this row stands for
     observations: int = 0      # how many, when it is a series
     attribute_path: list = field(default_factory=list)  # where to append one
@@ -338,7 +339,45 @@ def _stamp_file(node, path):
         _stamp_file(child, path)
 
 
+def _stamp_lines(node, path, index, prefix):
+    """Give every node a file:line, so selecting it can move the editor.
+
+    The shapes tree could always do this because Turtle is indexed by byte
+    span. JSON had no equivalent, so selecting an entity or an attribute moved
+    nothing at all.
+    """
+    # An attribute row means the attribute, even when it was folded onto its
+    # current instance's value -- that is where you would edit the whole thing.
+    address = node.attribute_path if node.kind == 'attribute' and \
+        node.attribute_path else node.path
+    full = tuple(prefix) + tuple(address)
+    line = index.get(full)
+    if line is None and node.kind == 'entity':
+        line = index.get(tuple(prefix) + ('id',)) or index.get(tuple(prefix))
+    if line is None:
+        # Fall back to the nearest addressable ancestor rather than nothing: a
+        # row that cannot be pointed at is worse than one pointing at its
+        # parent.
+        for depth in range(len(full) - 1, len(prefix) - 1, -1):
+            line = index.get(full[:depth])
+            if line is not None:
+                break
+    if line is not None:
+        node.defined_at = f'{path}:{line}'
+    for child in node.children:
+        _stamp_lines(child, path, index, prefix)
+
+
 def _entity_nodes(path, report=None, editable=True):
+    from .jsonloc import locate
+
+    with open(path, encoding='utf-8') as handle:
+        raw = handle.read()
+    try:
+        index = locate(raw)
+    except Exception:                              # noqa: BLE001
+        index = {}
+
     findings = {}
     counts = {}
     for result in (report.violations if report is not None else []):
@@ -348,7 +387,7 @@ def _entity_nodes(path, report=None, editable=True):
         counts[result.resource] = counts.get(result.resource, 0) + 1
 
     out = []
-    for entity in _entities(path):
+    for position, entity in enumerate(_entities(path)):
         if not isinstance(entity, dict):
             continue
         identifier = str(entity.get('id') or entity.get('@id') or '(no id)')
@@ -368,6 +407,7 @@ def _entity_nodes(path, report=None, editable=True):
                 _read_only(child)
             node.children.append(child)
         _stamp_file(node, path)
+        _stamp_lines(node, path, index, [position])
         out.append(node)
     return out
 
