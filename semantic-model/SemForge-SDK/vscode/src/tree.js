@@ -7,6 +7,8 @@
  * the SDK, so the tree and the CLI cannot disagree about what a shape says.
  */
 
+const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -332,12 +334,38 @@ async function showLocation(at, focus) {
   );
 }
 
+/**
+ * A package artifact inside the opened folder, as a URI string.
+ *
+ * The common flow is "open the folder, click the icon" with no editor open at
+ * all. Anchoring only to the active editor left the tree empty in exactly that
+ * case, with nothing to say why.
+ */
+function defaultUri() {
+  const folders = vscode.workspace.workspaceFolders || [];
+  for (const folder of folders) {
+    const root = folder.uri.fsPath;
+    for (const name of ['shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld']) {
+      const candidate = path.join(root, name);
+      if (fs.existsSync(candidate)) {
+        return vscode.Uri.file(candidate).toString();
+      }
+    }
+  }
+  return undefined;
+}
+
 function register(context, clientHolder) {
   const provider = new CookedTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeConstraints', {
     treeDataProvider: provider
   });
   context.subscriptions.push(view);
+  if (!defaultUri() && !vscode.window.activeTextEditor) {
+    view.message =
+      'Open a folder holding knowledge.ttl, shacl.ttl and ' +
+      'model-instance.jsonld — or run "SemForge: Doctor".';
+  }
 
   // Selecting anything moves the .ttl to it. Every node carries its own
   // file:line -- an attribute, a single parameter, not just the shape -- so
@@ -357,6 +385,9 @@ function register(context, clientHolder) {
     }
   };
   track(vscode.window.activeTextEditor);
+  if (!provider.uri) {
+    provider.refresh(defaultUri());
+  }
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(track),
     vscode.workspace.onDidSaveTextDocument(() => provider.refresh())

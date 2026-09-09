@@ -70,3 +70,35 @@ def test_the_manifest_and_the_code_agree(corpus_path):
 def test_a_usable_package_activates_without_an_error_popup(corpus_path):
     """The corpus has a working venv beside it, so nothing should be reported."""
     assert _activate(corpus_path)['errors'] == []
+
+
+def test_every_view_has_an_onview_activation_event():
+    """Clicking a contributed view has to activate the extension.
+
+    Without `onView:`, VS Code renders the view with nothing behind it and says
+    "There is no data provider registered that can provide view data" -- which
+    reads as the extension being broken rather than asleep, and leaves no log
+    entry at all because it never ran.
+    """
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        manifest = json.load(handle)
+
+    views = {view['id']
+             for group in manifest['contributes']['views'].values()
+             for view in group}
+    events = set(manifest['activationEvents'])
+    for view in views:
+        assert f'onView:{view}' in events, \
+            f'{view} can be shown without activating the extension'
+
+
+def test_the_trees_anchor_to_the_folder_not_only_the_editor(corpus_path):
+    """The common flow is "open the folder, click the icon" with no file open.
+
+    Anchoring only to the active editor left the tree empty in exactly that
+    case, with nothing to say why.
+    """
+    for name in ('tree.js', 'examples.js'):
+        source = open(os.path.join(SDK, 'vscode', 'src', name)).read()
+        assert 'function defaultUri(' in source, f'{name} has no folder fallback'
+        assert 'workspaceFolders' in source

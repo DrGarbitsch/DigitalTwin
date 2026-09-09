@@ -8,6 +8,8 @@
  * visible where the change was made.
  */
 
+const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
 class ExampleTreeNode {
@@ -130,12 +132,38 @@ class ExampleTreeProvider {
   }
 }
 
+/**
+ * A package artifact inside the opened folder, as a URI string.
+ *
+ * The common flow is "open the folder, click the icon" with no editor open at
+ * all. Anchoring only to the active editor left the tree empty in exactly that
+ * case, with nothing to say why.
+ */
+function defaultUri() {
+  const folders = vscode.workspace.workspaceFolders || [];
+  for (const folder of folders) {
+    const root = folder.uri.fsPath;
+    for (const name of ['shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld']) {
+      const candidate = path.join(root, name);
+      if (fs.existsSync(candidate)) {
+        return vscode.Uri.file(candidate).toString();
+      }
+    }
+  }
+  return undefined;
+}
+
 function register(context, clientHolder, onChanged) {
   const provider = new ExampleTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeExamples', {
     treeDataProvider: provider
   });
   context.subscriptions.push(view);
+  if (!defaultUri() && !vscode.window.activeTextEditor) {
+    view.message =
+      'Open a folder holding knowledge.ttl, shacl.ttl and ' +
+      'model-instance.jsonld — or run "SemForge: Doctor".';
+  }
 
   const track = (editor) => {
     if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
@@ -143,6 +171,9 @@ function register(context, clientHolder, onChanged) {
     }
   };
   track(vscode.window.activeTextEditor);
+  if (!provider.uri) {
+    provider.refresh(defaultUri());
+  }
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(track),
     vscode.workspace.onDidSaveTextDocument(() => provider.refresh())

@@ -13,10 +13,11 @@
     "Linters"
   ],
   "activationEvents": [
+    "onView:semforgeConstraints",
+    "onView:semforgeExamples",
     "workspaceContains:**/shacl.ttl",
     "workspaceContains:**/model-instance.jsonld",
-    "onLanguage:turtle",
-    "onLanguage:json"
+    "onLanguage:turtle"
   ],
   "main": "./src/extension.js",
   "contributes": {

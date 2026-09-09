@@ -38,7 +38,8 @@ const stub = {
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   Position: class {}, Selection: class {}, Range: class {},
   TextEditorRevealType: { InCenter: 2 }, SymbolKind: { Class: 4 },
-  MarkupKind: { Markdown: 'markdown' }
+  MarkupKind: { Markdown: 'markdown' },
+  Uri: { file: (p) => ({ fsPath: p, toString: () => 'file://' + p }) }
 };
 
 Module._load = function (request, parent, isMain) {
