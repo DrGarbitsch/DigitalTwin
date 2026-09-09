@@ -8,6 +8,7 @@
  * semantic engine, or the CLI and CI stop agreeing with the editor.
  */
 
+const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
@@ -20,59 +21,110 @@ const exampleTree = require('./examples');
 // the server must not leave the view wired to a dead one.
 const clientHolder = { client: undefined };
 let client;
+let lastResolved;
+
+/** Every directory from `start` up to the filesystem root. */
+function upwards(start) {
+  const out = [];
+  let here = start;
+  for (;;) {
+    out.push(here);
+    const parent = path.dirname(here);
+    if (parent === here) {
+      return out;
+    }
+    here = parent;
+  }
+}
+
+// Where an SDK venv sits relative to some ancestor directory.
+const VENV_PATHS = [
+  ['venv', 'bin', 'python'],
+  ['venv', 'Scripts', 'python.exe'],
+  ['SemForge-SDK', 'venv', 'bin', 'python'],
+  ['SemForge-SDK', 'venv', 'Scripts', 'python.exe'],
+  ['semantic-model', 'SemForge-SDK', 'venv', 'bin', 'python'],
+  ['semantic-model', 'SemForge-SDK', 'venv', 'Scripts', 'python.exe']
+];
 
 /**
  * Find a Python that has semforge importable.
  *
- * Order: the configured interpreter, then the SDK's own venv (which is what
- * `make setup` builds), then whatever python3 is on PATH.
+ * Searches UPWARD from the opened folder, which is the case that matters: open
+ * `kms` and the SDK is a SIBLING, not a child. Looking only downwards meant
+ * that opening the package you actually want to work on fell through to the
+ * system python3, which has no semforge -- so the server exited and the view
+ * showed nothing, with no way to tell that from "there is nothing here".
  */
-function resolvePython(workspaceFolder) {
+function resolvePython(startDir) {
   const configured = vscode.workspace
     .getConfiguration('semforge')
     .get('pythonPath');
   if (configured) {
-    return configured;
+    return { python: configured, source: 'semforge.pythonPath' };
   }
-  if (workspaceFolder) {
-    const candidates = [
-      path.join(workspaceFolder, 'venv', 'bin', 'python'),
-      path.join(workspaceFolder, 'semantic-model', 'SemForge-SDK', 'venv', 'bin', 'python'),
-      path.join(workspaceFolder, 'SemForge-SDK', 'venv', 'bin', 'python')
-    ];
-    for (const candidate of candidates) {
-      if (fs.existsSync(candidate)) {
-        return candidate;
+  if (startDir) {
+    for (const dir of upwards(startDir)) {
+      for (const relative of VENV_PATHS) {
+        const candidate = path.join(dir, ...relative);
+        if (fs.existsSync(candidate)) {
+          return { python: candidate, source: 'found next to the package' };
+        }
       }
     }
   }
-  return 'python3';
+  return { python: 'python3', source: 'PATH (no SDK venv found)' };
 }
 
 /**
- * The SDK directory for an interpreter at <sdk>/venv/bin/python, or undefined.
+ * Can this interpreter actually import semforge?
  *
- * Used as the server's working directory and PYTHONPATH so that an SDK which
- * has not been `pip install -e .`'d still starts. Without it the server is
- * launched in the folder the user opened, where `semforge` is not importable --
- * which fails silently, because a language server that exits immediately looks
- * exactly like one that found nothing to report.
+ * Asked before starting the server, because a language server that exits
+ * immediately is indistinguishable from one that found nothing to report --
+ * which is exactly how this failed.
  */
-function sdkDirectory(python) {
-  const parts = python.split(path.sep);
-  const index = parts.lastIndexOf('venv');
-  if (index <= 0) {
-    return undefined;
+function canImport(python) {
+  try {
+    childProcess.execFileSync(python, ['-c', 'import semforge'], {
+      stdio: 'ignore',
+      timeout: 20000
+    });
+    return true;
+  } catch (error) {
+    return false;
   }
-  const candidate = parts.slice(0, index).join(path.sep);
-  return fs.existsSync(path.join(candidate, 'semforge')) ? candidate : undefined;
 }
 
 function startClient(context) {
   const folders = vscode.workspace.workspaceFolders;
   const root = folders && folders.length ? folders[0].uri.fsPath : undefined;
-  const python = resolvePython(root);
+  const resolved = resolvePython(root);
+  const python = resolved.python;
+  lastResolved = resolved;
   const sdk = sdkDirectory(python);
+
+  if (!canImport(python)) {
+    const hint = sdk || '<SemForge-SDK>';
+    vscode.window
+      .showErrorMessage(
+        `SemForge cannot start: ${python} (${resolved.source}) has no ` +
+          `\`semforge\` module. Run \`make setup\` in the SDK, or set ` +
+          '`semforge.pythonPath`.',
+        'Run SemForge: Doctor',
+        'Open Settings'
+      )
+      .then((choice) => {
+        if (choice === 'Run SemForge: Doctor') {
+          vscode.commands.executeCommand('semforge.doctor');
+        } else if (choice === 'Open Settings') {
+          vscode.commands.executeCommand(
+            'workbench.action.openSettings',
+            'semforge.pythonPath'
+          );
+        }
+      });
+    return;
+  }
 
   const environment = Object.assign({}, process.env);
   if (sdk) {
@@ -123,6 +175,38 @@ function activate(context) {
   exampleTree.register(context, clientHolder, () => constraints.refresh());
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('semforge.doctor', async () => {
+      // "I have no clue how to start it" deserves a self-diagnosis, not a
+      // search through an output channel.
+      const folders = vscode.workspace.workspaceFolders;
+      const root = folders && folders.length ? folders[0].uri.fsPath : '(none)';
+      const resolved = lastResolved || resolvePython(root === '(none)' ? undefined : root);
+      const sdk = sdkDirectory(resolved.python);
+      const importable = canImport(resolved.python);
+
+      const channel = vscode.window.createOutputChannel('SemForge Doctor');
+      channel.appendLine('SemForge doctor');
+      channel.appendLine('');
+      channel.appendLine(`opened folder   ${root}`);
+      channel.appendLine(`interpreter     ${resolved.python}`);
+      channel.appendLine(`  chosen via    ${resolved.source}`);
+      channel.appendLine(`  imports semforge: ${importable ? 'yes' : 'NO'}`);
+      channel.appendLine(`SDK directory   ${sdk || '(not found)'}`);
+      channel.appendLine(`language client ${client ? 'started' : 'not started'}`);
+      channel.appendLine('');
+      if (!importable) {
+        channel.appendLine('To fix:');
+        channel.appendLine(`  cd ${sdk || '<repo>/semantic-model/SemForge-SDK'}`);
+        channel.appendLine('  make setup');
+        channel.appendLine('  then: Developer: Reload Window');
+      } else {
+        channel.appendLine('A package is any directory holding knowledge.ttl,');
+        channel.appendLine('shacl.ttl and model-instance.jsonld. Open a file');
+        channel.appendLine('inside one; diagnostics arrive on open and on save.');
+      }
+      channel.show(true);
+    }),
+
     vscode.commands.registerCommand('semforge.restart', async () => {
       if (client) {
         await client.stop();

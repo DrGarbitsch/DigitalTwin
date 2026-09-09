@@ -14,7 +14,9 @@
   ],
   "activationEvents": [
     "workspaceContains:**/shacl.ttl",
-    "onLanguage:turtle"
+    "workspaceContains:**/model-instance.jsonld",
+    "onLanguage:turtle",
+    "onLanguage:json"
   ],
   "main": "./src/extension.js",
   "contributes": {
@@ -109,6 +111,10 @@
         "command": "semforge.addEntity",
         "title": "SemForge: Add Entity",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "semforge.doctor",
+        "title": "SemForge: Doctor (diagnose setup)"
       }
     ],
     "viewsContainers": {

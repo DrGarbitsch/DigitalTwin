@@ -213,3 +213,56 @@ def test_the_launch_configuration_opens_a_real_package():
     assert os.path.isdir(resolved)
     assert os.path.exists(os.path.join(resolved, 'kms', 'shacl.ttl')), \
         'the extension host should open a folder containing a package'
+
+
+# --- starting from scratch ---------------------------------------------------
+
+def test_the_kms_is_a_package_on_its_own(corpus_path):
+    """Opening kms/ directly must work: it is the folder you want to edit."""
+    import os
+
+    # corpus/kms -> corpus -> tests -> SemForge-SDK -> semantic-model
+    kms = os.path.abspath(
+        os.path.join(corpus_path, '..', '..', '..', '..', 'kms'))
+    assert package_root(os.path.join(kms, 'shacl.ttl')) == kms
+
+
+def test_the_extension_searches_upward_for_the_sdk():
+    """Open kms/ and the SDK is a SIBLING, not a child.
+
+    Searching only downwards fell through to the system python3, which has no
+    semforge -- so the server exited and the view showed nothing, with no way
+    to tell that from "there is nothing here".
+    """
+    source = open(os.path.join(_vscode_dir(), 'src', 'extension.js')).read()
+    assert 'function upwards(' in source
+    assert 'VENV_PATHS' in source
+    assert "['SemForge-SDK', 'venv', 'bin', 'python']" in source
+
+
+def test_the_extension_preflights_the_interpreter():
+    """A language server that exits immediately looks like one with nothing to
+    say, so the interpreter is checked before it is launched."""
+    source = open(os.path.join(_vscode_dir(), 'src', 'extension.js')).read()
+    assert 'function canImport(' in source
+    assert 'import semforge' in source
+    assert 'showErrorMessage' in source
+
+
+def test_a_doctor_command_exists_and_is_declared():
+    """Self-diagnosis beats hunting through an output channel."""
+    with open(os.path.join(_vscode_dir(), 'package.json')) as handle:
+        manifest = json.load(handle)
+    commands = {c['command'] for c in manifest['contributes']['commands']}
+    assert 'semforge.doctor' in commands
+
+    source = open(os.path.join(_vscode_dir(), 'src', 'extension.js')).read()
+    assert "registerCommand('semforge.doctor'" in source
+
+
+def test_activation_covers_a_package_without_shapes_open():
+    with open(os.path.join(_vscode_dir(), 'package.json')) as handle:
+        manifest = json.load(handle)
+    events = manifest['activationEvents']
+    assert any('model-instance.jsonld' in e for e in events)
+    assert any('shacl.ttl' in e for e in events)

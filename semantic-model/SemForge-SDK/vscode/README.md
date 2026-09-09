@@ -9,6 +9,69 @@ whole point of `architecture.md` §8.4.
 
 ---
 
+## Getting started
+
+**Once, ever:**
+
+```bash
+cd semantic-model/SemForge-SDK && make setup
+```
+
+That builds the venv and installs `semforge` into it. The extension finds it on
+its own — it searches upward from whatever folder you opened.
+
+**Then, every time:** open a folder in VS Code and click the SemForge icon in
+the activity bar. Nothing else. No flags, no launch configuration, no terminal.
+
+```bash
+code semantic-model/kms        # or the repo root, or anything between
+```
+
+### If the trees are empty
+
+Run **`SemForge: Doctor`** from the Command Palette (`Ctrl+Shift+P`). It prints
+the folder it sees, the interpreter it picked and where it came from, whether
+that interpreter can import `semforge`, and the exact command to fix it. Start
+there rather than in the output channel.
+
+The usual answer is that `make setup` has not been run, or was run before
+`semforge` became installable — in which case run it again and reload the
+window.
+
+### What counts as a package
+
+Any directory holding `knowledge.ttl`, `shacl.ttl` and `model-instance.jsonld`.
+`semantic-model/kms` is one. You can open the package itself, the repository
+root, or anything between.
+
+If you keep your interpreter somewhere the search will not find, set
+`semforge.pythonPath`.
+
+---
+
+## Working on the extension itself
+
+Only needed if you are changing the extension's own code:
+
+```bash
+cd semantic-model/SemForge-SDK/vscode
+npm install
+code --extensionDevelopmentPath="$PWD" ../../kms   # or press F5 in this folder
+```
+
+Packaging and installing it instead:
+
+```bash
+npx @vscode/vsce package
+code --install-extension semforge-0.1.0.vsix --force
+```
+
+Remember that VS Code loads extension JavaScript at window startup, so a change
+there needs **`Developer: Reload Window`** — `SemForge: Restart Language Server`
+only restarts the Python process.
+
+---
+
 ## What you get
 
 Open `shacl.ttl` in a package and the shapes are annotated in place.
