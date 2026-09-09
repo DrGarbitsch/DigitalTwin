@@ -54,3 +54,26 @@ def test_every_corpus_shape_is_located(corpus):
     index = index_file(corpus.sources['shapes'])
     for shape in node_shapes(corpus.shapes):
         assert index.locator(shape), f'{shape} has no locator'
+
+
+def test_a_subject_using_the_base_prefix_is_not_mistaken_for_a_directive():
+    """`base:` is a prefix in the kms, and ':' ends a word.
+
+    Matching `base\\b` threw away every statement with such a subject: they
+    parsed, but had no locator, so every jump to one landed nowhere and nothing
+    said why.
+    """
+    source = (
+        '@prefix base: <http://example.com/base/> .\n'
+        '@base <http://example.com/> .\n'
+        'base:MachineState a owl:Class .\n'
+        'base:Binding a owl:Class ;\n'
+        '    rdfs:label "binding" .\n'
+        'prefixish:Thing a owl:Class .\n'
+    )
+    index = TurtleIndex(source)
+    subjects = [block.subject for block in index.blocks]
+    assert subjects == ['http://example.com/base/MachineState',
+                        'http://example.com/base/Binding',
+                        'prefixish:Thing']
+    assert index.block_for('http://example.com/base/MachineState').start_line == 3

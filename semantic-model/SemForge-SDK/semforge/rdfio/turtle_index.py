@@ -28,7 +28,14 @@ remains the authority on what they mean.
 import re
 from dataclasses import dataclass
 
-DIRECTIVE = re.compile(r'^\s*(?:@?(?:prefix|base)\b)', re.IGNORECASE)
+# A directive, not a statement. The keyword must be either @-prefixed or
+# followed by whitespace (SPARQL-style `PREFIX x: <…>` / `BASE <…>`): `\b`
+# alone also matched `base:MachineState`, because ':' ends a word -- which threw
+# away every statement whose subject used the `base:` prefix, and the kms uses
+# it for the whole base_knowledge vocabulary. Silent: the statements parsed
+# fine, they just had no locator, so jumps to them went nowhere.
+DIRECTIVE = re.compile(r'^\s*(?:@(?:prefix|base)\b|(?:prefix|base)\s)',
+                       re.IGNORECASE)
 # The subject at the head of a statement: <iri>, prefix:name, or :name.
 SUBJECT = re.compile(r'\s*(?:<(?P<iri>[^>]*)>|(?P<curie>[A-Za-z_][\w.-]*:[\w.-]*|:[\w.-]+))')
 
