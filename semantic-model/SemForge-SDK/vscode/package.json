@@ -202,31 +202,6 @@
           "group": "inline"
         },
         {
-          "command": "semforge.editValue",
-          "when": "view == semforgeExamples && viewItem == exampleEditable",
-          "group": "inline"
-        },
-        {
-          "command": "semforge.addObservation",
-          "when": "view == semforgeExamples && viewItem == exampleSeries",
-          "group": "inline"
-        },
-        {
-          "command": "semforge.addObservation",
-          "when": "view == semforgeExamples && viewItem == exampleDataset",
-          "group": "inline"
-        },
-        {
-          "command": "semforge.addObservation",
-          "when": "view == semforgeExamples && viewItem == exampleEditable",
-          "group": "inline"
-        },
-        {
-          "command": "semforge.editValue",
-          "when": "view == semforgeExamples && viewItem == exampleSeries",
-          "group": "inline"
-        },
-        {
           "command": "semforge.addAttribute",
           "when": "view == semforgeExamples && viewItem == entity",
           "group": "inline"
@@ -238,13 +213,43 @@
         },
         {
           "command": "semforge.goToShape",
-          "when": "view == semforgeExamples && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attribute)$/",
+          "when": "view == semforgeExamples && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/",
           "group": "inline@0"
         },
         {
           "command": "semforge.showShapeForClass",
           "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
           "group": "inline"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeExamples && viewItem == exampleEditable",
+          "group": "inline@1"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeExamples && viewItem == exampleDataset",
+          "group": "inline@1"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeExamples && viewItem == exampleSeries",
+          "group": "inline@1"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleEditable",
+          "group": "inline@2"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleDataset",
+          "group": "inline@2"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeExamples && viewItem == exampleSeries",
+          "group": "inline@2"
         }
       ]
     }

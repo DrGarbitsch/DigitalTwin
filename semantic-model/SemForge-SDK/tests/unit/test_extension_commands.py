@@ -485,3 +485,68 @@ def test_the_reveal_lands_before_any_refresh_the_click_causes(tmp_path):
     assert 'reveal' in after, after
     assert 'refresh' in after, 'a different package should refresh'
     assert after.index('reveal') < after.index('refresh'), after
+
+
+# --- what a row can actually be asked to do -----------------------------------
+
+def _rows_for(tmp_path, roots):
+    """Every rendered row of the examples tree, with its contextValue."""
+    return _drive(tmp_path, {
+        'mode': 'items', 'provider': 'ExampleTreeProvider',
+        'uri': 'file:///pkg/shacl.ttl',
+        'replies': {'semforge/examples': {'roots': roots}},
+    }, target='examples.js')['rows']
+
+
+def _menu(command):
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    import re
+
+    values = set()
+    for entry in menus:
+        if entry['command'] != command or 'semforgeExamples' not in entry['when']:
+            continue
+        values |= set(re.findall(r"viewItem\s*==\s*(\w+)", entry['when']))
+        for group in re.findall(r"viewItem\s*=~\s*/([^/]+)/", entry['when']):
+            values |= set(re.findall(r"\w+", group))
+    return values
+
+
+def test_every_editable_row_can_be_edited(tmp_path, corpus):
+    """The bug this exists to catch: clicking hasState offered no way to change
+    it.
+
+    Every attribute carries a datasetId -- `@none` is the default instance, a
+    real value -- so every attribute landed on a contextValue whose menu had no
+    editValue entry. Driven through the real tree and the real provider, because
+    the mismatch is between the data, the JavaScript and package.json.
+    """
+    from semforge.cooked.examples import build_suite
+    from semforge.editor.server import _serialise_example
+
+    roots = [_serialise_example(node) for node in build_suite(corpus)]
+    rows = _rows_for(tmp_path, roots)
+    editable = [r for r in rows if r['editable'] and r['kind'] in
+                ('attribute', 'dataset')]
+    assert editable, 'no editable attribute rows at all'
+    offers_edit = _menu('semforge.editValue')
+    missing = {(r['label'], r['contextValue']) for r in editable
+               if r['contextValue'] not in offers_edit}
+    assert not missing, f'editable rows with no way to edit them: {sorted(missing)}'
+
+
+def test_no_read_only_row_offers_a_write(tmp_path, corpus):
+    """A subobject's rows are read-only, and were offered Add Observation."""
+    from semforge.cooked.examples import build_suite
+    from semforge.editor.server import _serialise_example
+
+    roots = [_serialise_example(node) for node in build_suite(corpus)]
+    rows = _rows_for(tmp_path, roots)
+    locked = [r for r in rows if not r['editable'] and r['kind'] in
+              ('attribute', 'dataset')]
+    assert locked, 'the corpus has no included subobjects any more'
+    writes = _menu('semforge.editValue') | _menu('semforge.addObservation')
+    offered = {(r['label'], r['contextValue']) for r in locked
+               if r['contextValue'] in writes}
+    assert not offered, f'read-only rows offered a write: {sorted(offered)}'

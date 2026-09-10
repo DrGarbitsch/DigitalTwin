@@ -188,16 +188,24 @@ class ExampleTreeProvider {
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || '';
-    // A row that stands for a datasetId can take a new observation, whether or
-    // not there is already a series under it.
+    // What this row can be asked to do. `editable` comes FIRST: every attribute
+    // carries a datasetId (`@none` is the default instance, and that is a real
+    // value), so keying on the datasetId alone sent read-only rows from an
+    // include to a contextValue whose menu offers writes -- and sent every
+    // ordinary attribute to one whose menu had no edit at all. That is why
+    // clicking hasState offered no way to change it.
     const series = raw.observations > 1;
-    item.contextValue = raw.datasetId
-      ? series
-        ? 'exampleSeries'
-        : 'exampleDataset'
-      : raw.editable
-      ? 'exampleEditable'
-      : CONTEXT_BY_KIND[raw.kind] || raw.kind;
+    if (raw.kind !== 'attribute' && raw.kind !== 'dataset') {
+      item.contextValue = CONTEXT_BY_KIND[raw.kind] || raw.kind;
+    } else if (!raw.editable) {
+      item.contextValue = 'attributeReadOnly';
+    } else if (series) {
+      item.contextValue = 'exampleSeries';
+    } else if (raw.datasetId) {
+      item.contextValue = 'exampleDataset';
+    } else {
+      item.contextValue = 'exampleEditable';
+    }
 
     if (raw.kind === 'suite') {
       // One test_<Shape> directory: its cases pass or they do not.
@@ -252,6 +260,14 @@ class ExampleTreeProvider {
     const lines = (raw.messages || []).slice();
     if (raw.kind === 'entity' && raw.file) {
       lines.push(`read from ${raw.file}`);
+    }
+    if (item.contextValue === 'attributeReadOnly') {
+      // An absent pencil with no explanation reads as a broken tree.
+      lines.push(
+        'Read-only here: this comes from an included subobject, so editing it ' +
+          'would change every case that includes it. Select the row to open ' +
+          'the file that declares it.'
+      );
     }
     if (lines.length) {
       item.tooltip = lines.join('\n');

@@ -250,7 +250,43 @@ async function runSelect() {
   }
 }
 
-const modes = { tree: runTree, locate: runLocate, select: runSelect };
+/**
+ * Every row the provider renders, with the contextValue its menus are matched
+ * against.
+ *
+ * Which actions a row offers is decided by that string and by package.json, and
+ * the two had drifted: every attribute carries a datasetId, so every attribute
+ * landed on a contextValue whose menu had no edit -- and clicking hasState
+ * offered no way to change it.
+ */
+async function runItems() {
+  const module = require(path.resolve(process.argv[3]));
+  const Provider = module[scenario.provider];
+  const provider = new Provider({ client });
+  provider.view = {};
+  provider.uri = scenario.uri;
+
+  const rows = [];
+  const walk = async (node) => {
+    for (const child of await provider.getChildren(node)) {
+      const item = provider.getTreeItem(child);
+      rows.push({
+        label: child.raw.label,
+        kind: child.raw.kind,
+        editable: !!child.raw.editable,
+        datasetId: child.raw.datasetId || '',
+        observations: child.raw.observations || 0,
+        contextValue: item.contextValue
+      });
+      await walk(child);
+    }
+  };
+  await walk(undefined);
+  seen.rows = rows;
+}
+
+const modes = { tree: runTree, locate: runLocate, select: runSelect,
+                items: runItems };
 ((modes[scenario.mode] || runCommand)())
   .then(() => console.log(JSON.stringify(seen)))
   .catch((error) => {

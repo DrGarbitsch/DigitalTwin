@@ -401,6 +401,11 @@ hasStrength                       2 datasets
 └── 1.5    urn:sensor:B · Property · 2 observations 📈
 ```
 
+Every editable attribute row carries the pencil (**change the value**), the ⚖
+(**its SHACL rule**) and **Add Observation**. A row from an *included* subobject
+carries only the ⚖ and says why on hover: editing it there would change every
+case that includes it, so select it to open the file that declares it.
+
 A row with the 📈 icon takes **Add Observation** (right-click). It asks for the
 value and an `observedAt`, joins the series for *its* `datasetId`, and copies
 the `type` from what is already there — a Property whose new instance arrived
