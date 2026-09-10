@@ -72,6 +72,31 @@ function findPackageUri() {
   return undefined;
 }
 
+/**
+ * Is this file inside the package the tree is already showing?
+ *
+ * Following the active editor is how a tree reaches a package in a window
+ * opened too high up. But refreshing for a file in the SAME package is pure
+ * churn -- it re-validates the whole package -- and worse than wasteful:
+ * firing onDidChangeTreeData makes VS Code drop its element handles, so a
+ * reveal that follows resolves nothing and logs "Failed to resolve tree node".
+ * Which is precisely what happened on every click, because the click opens a
+ * file.
+ */
+function samePackage(currentUri, candidateUri) {
+  if (!currentUri || !candidateUri) {
+    return false;
+  }
+  const directory = (uri) => {
+    const file = uri.startsWith('file://') ? uri.slice('file://'.length) : uri;
+    return path.dirname(decodeURIComponent(file));
+  };
+  const here = directory(currentUri);
+  const there = directory(candidateUri);
+  return there === here || there.startsWith(here + path.sep);
+}
+
+
 /** What to tell someone whose tree is empty. */
 function noPackageMessage() {
   const folders = (vscode.workspace.workspaceFolders || [])
@@ -84,4 +109,5 @@ function noPackageMessage() {
   );
 }
 
-module.exports = { ARTIFACTS, isPackage, findPackageUri, noPackageMessage };
+module.exports = { ARTIFACTS, isPackage, findPackageUri, noPackageMessage,
+                   samePackage };

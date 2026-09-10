@@ -25,12 +25,20 @@ const seen = {
   warnings: [],
   errors: [],
   revealed: [],
-  messages: []
+  messages: [],
+  // In order, because the order is the bug: VS Code drops its element handles
+  // when a tree fires onDidChangeTreeData, so a reveal after a refresh resolves
+  // nothing and logs "Failed to resolve tree node".
+  events: []
 };
 
 const noop = () => undefined;
 const registry = new Map();
 const selections = [];
+// VS Code fires this when a document is shown, and the trees listen to it. The
+// harness used to model it as a no-op, which hid a refresh landing in the middle
+// of a reveal.
+const editorListeners = [];
 
 const stub = {
   workspace: {
@@ -39,31 +47,46 @@ const stub = {
     createFileSystemWatcher: () => ({ dispose: noop }),
     onDidChangeConfiguration: noop,
     onDidSaveTextDocument: noop,
+    // A real document's uri answers both fsPath and toString; the trees use
+    // one to filter and the other to compare packages, so a stub with only
+    // fsPath made every opened file look like a different package.
     openTextDocument: (file) =>
-      Promise.resolve({ uri: { fsPath: file }, lineCount: 10000 })
+      Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000 })
   },
   window: {
     createTreeView: (id) => ({
       dispose: noop,
-      reveal: (node, options) =>
-        Promise.resolve(seen.revealed.push({ view: id, key: node.key,
-                                             options: options || {} })),
+      reveal: (node, options) => {
+        seen.events.push({ type: 'reveal', view: id, key: node.key });
+        return Promise.resolve(seen.revealed.push({
+          view: id, key: node.key, options: options || {} }));
+      },
       onDidChangeSelection: (handler) => {
         selections.push({ view: id, handler });
         return { dispose: noop };
       }
     }),
-    onDidChangeActiveTextEditor: noop,
+    onDidChangeActiveTextEditor: (handler) => {
+      editorListeners.push(handler);
+      return { dispose: noop };
+    },
     activeTextEditor: undefined,
     showTextDocument: (document, options) => {
       const editor = {
         document,
         selection: undefined,
-        revealRange: (range) =>
-          seen.shown.push({ file: document.uri.fsPath,
-                            line: range && range.start && range.start.line,
-                            preserveFocus: !!(options || {}).preserveFocus })
+        revealRange: (range) => {
+          seen.events.push({ type: 'shown', file: document.uri.fsPath });
+          return seen.shown.push({
+            file: document.uri.fsPath,
+            line: range && range.start && range.start.line,
+            preserveFocus: !!(options || {}).preserveFocus });
+        }
       };
+      stub.window.activeTextEditor = editor;
+      for (const listener of editorListeners) {
+        listener(editor);               // as VS Code does, synchronously
+      }
       return Promise.resolve(editor);
     },
     showQuickPick: (items, options) => {
@@ -108,7 +131,10 @@ const stub = {
     },
     executeCommand: noop
   },
-  EventEmitter: class { constructor() { this.event = noop; } fire() {} },
+  EventEmitter: class {
+    constructor() { this.event = noop; }
+    fire() { seen.events.push({ type: 'refresh' }); }
+  },
   ThemeIcon: class { constructor(i) { this.id = i; } },
   TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
@@ -219,6 +245,7 @@ async function runSelect() {
     return;
   }
   for (const entry of found) {
+    seen.events.push({ type: 'click', view: entry.view });
     await entry.handler({ selection: [scenario.node] });
   }
 }

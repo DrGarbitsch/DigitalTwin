@@ -135,6 +135,13 @@ stays in the tree, so you can arrow through a shape and watch the file follow.
 
 **Outline** lists every shape in the file.
 
+> Both halves of a click are ordered deliberately: the tree unfolds or reveals
+> first, the editor moves second. Opening a file can refresh a tree, and a
+> refresh makes VS Code drop the handles it uses to find nodes — a reveal after
+> that silently resolves nothing. For the same reason a tree no longer refreshes
+> when you open a file in the package it is already showing: that was a full
+> re-validation per click, and the refresh was what broke the reveal.
+
 ---
 
 ## Install

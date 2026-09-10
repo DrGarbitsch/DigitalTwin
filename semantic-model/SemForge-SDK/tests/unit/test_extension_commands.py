@@ -313,7 +313,8 @@ def test_clicking_a_usage_row_opens_the_file_and_shows_the_entity(tmp_path):
         'node': {'key': 'root/0:usage', 'raw': {
             'kind': 'usage', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
             'detail': 'hasState · model-instance.jsonld',
-            'definedAt': '/pkg/model-instance.jsonld:141', 'children': []}},
+            'definedAt': f'{tmp_path}/model-instance.jsonld:141',
+            'children': []}},
         'replies': {
             'semforge/examples': {'roots': [
                 {'kind': 'example', 'label': 'a case', 'children': [entity]}]},
@@ -321,8 +322,8 @@ def test_clicking_a_usage_row_opens_the_file_and_shows_the_entity(tmp_path):
             'semforge/tree': {'roots': []},
         },
     })
-    assert seen['shown'] == [{'file': '/pkg/model-instance.jsonld', 'line': 140,
-                              'preserveFocus': True}]
+    assert seen['shown'] == [{'file': f'{tmp_path}/model-instance.jsonld',
+                              'line': 140, 'preserveFocus': True}]
     shown_in_examples = [r for r in seen['revealed']
                          if r['view'] == 'semforgeExamples']
     assert shown_in_examples, \
@@ -332,6 +333,14 @@ def test_clicking_a_usage_row_opens_the_file_and_shows_the_entity(tmp_path):
     # the whole package, so one click would cost several seconds.
     fetches = [r for r in seen['requests'] if r['method'] == 'semforge/examples']
     assert len(fetches) <= 2, f'{len(fetches)} tree fetches for one click'
+    # Nothing may refresh a tree before the reveal. VS Code drops its element
+    # handles when a tree fires onDidChangeTreeData, so a reveal afterwards
+    # resolves nothing and logs "Failed to resolve tree node" -- which is what
+    # opening the file used to cause, through the active-editor listener.
+    order = [event['type'] for event in seen['events']]
+    after = order[order.index('click'):]
+    assert 'reveal' in after, order
+    assert 'refresh' not in after[:after.index('reveal')], order
 
 
 def test_clicking_an_instance_row_opens_the_entity_too(tmp_path):
@@ -412,3 +421,67 @@ def test_the_revealed_row_is_the_one_in_the_file_that_was_clicked(tmp_path):
     assert revealed, 'nothing was revealed'
     # Key carries the position, so the second root is the one that was shown.
     assert revealed[0]['key'].startswith('/1:'), revealed[0]['key']
+
+
+def test_opening_a_file_in_the_package_already_shown_refreshes_nothing(tmp_path):
+    """Following the active editor is for REACHING a package, not for churn.
+
+    Every click opens a file, so refreshing on that re-validated the whole
+    package on every click -- and the refresh dropped VS Code's element handles,
+    which is what broke reveal.
+    """
+    _package_at(str(tmp_path))
+    entity = {'kind': 'entity', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+              'file': f'{tmp_path}/model-instance.jsonld', 'children': []}
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'k', 'raw': {
+            'kind': 'instance', 'label': 'urn:filter:1',
+            'entity': 'urn:filter:1',
+            'file': f'{tmp_path}/model-instance.jsonld',
+            'definedAt': f'{tmp_path}/model-instance.jsonld:100',
+            'children': []}},
+        'replies': {
+            'semforge/examples': {'roots': [
+                {'kind': 'example', 'label': 'shipped', 'children': [entity]}]},
+            'semforge/knowledge': {'roots': []},
+            'semforge/tree': {'roots': []},
+        },
+    })
+    order = [event['type'] for event in seen['events']]
+    after = order[order.index('click'):]
+    assert 'refresh' not in after, after
+
+
+def test_the_reveal_lands_before_any_refresh_the_click_causes(tmp_path):
+    """A file in ANOTHER package does refresh -- the reveal must precede it.
+
+    This is the ordering guard: with the reveal after the file is opened, the
+    refresh invalidates it and VS Code logs "Failed to resolve tree node".
+    """
+    _package_at(str(tmp_path))
+    # A sibling, not a child: a package nested inside the one being shown
+    # counts as the same package, which is what keeps kms/examples quiet.
+    elsewhere = tmp_path.parent / (tmp_path.name + '-other')
+    _package_at(str(elsewhere))
+    entity = {'kind': 'entity', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+              'file': f'{elsewhere}/model-instance.jsonld', 'children': []}
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'k', 'raw': {
+            'kind': 'usage', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+            'file': f'{elsewhere}/model-instance.jsonld',
+            'definedAt': f'{elsewhere}/model-instance.jsonld:7',
+            'children': []}},
+        'replies': {
+            'semforge/examples': {'roots': [
+                {'kind': 'example', 'label': 'case', 'children': [entity]}]},
+            'semforge/knowledge': {'roots': []},
+            'semforge/tree': {'roots': []},
+        },
+    })
+    order = [event['type'] for event in seen['events']]
+    after = order[order.index('click'):]
+    assert 'reveal' in after, after
+    assert 'refresh' in after, 'a different package should refresh'
+    assert after.index('reveal') < after.index('refresh'), after

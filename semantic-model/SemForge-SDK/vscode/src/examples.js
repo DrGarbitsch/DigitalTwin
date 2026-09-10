@@ -10,7 +10,7 @@
 
 const vscode = require('vscode');
 
-const { findPackageUri, noPackageMessage } = require('./locate');
+const { findPackageUri, noPackageMessage, samePackage } = require('./locate');
 const { showLocation } = require('./reveal');
 
 // The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
@@ -376,13 +376,10 @@ function register(context, clientHolder, onChanged) {
       if (!selected) {
         return;
       }
-      if (selected.raw.definedAt) {
-        await showLocation(selected.raw.definedAt, false);
-      }
-      // A click on a collapsible row toggles it, so clicking an entity that
-      // was open closed it -- and what you asked for was to see it. reveal()
-      // can only expand, never collapse, so the row ends up open either way.
-      // The chevron still folds it: clicking the twistie does not select.
+      // Unfold first, move the editor second. Opening a file can refresh a
+      // tree, and a refresh makes VS Code drop its element handles -- a reveal
+      // after that resolves nothing and logs "Failed to resolve tree node",
+      // which is how the unfold looked like it was doing nothing.
       if ((selected.raw.children || []).length) {
         try {
           await view.reveal(selected, { expand: true, select: false, focus: false });
@@ -390,13 +387,25 @@ function register(context, clientHolder, onChanged) {
           // reveal throws if the node is gone after a refresh; nothing to do.
         }
       }
+      if (selected.raw.definedAt) {
+        await showLocation(selected.raw.definedAt, false);
+      }
     })
   );
 
   const track = (editor) => {
-    if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
-      provider.refresh(editor.document.uri.toString());
+    if (!editor || !/\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
+      return;
     }
+    const opened = editor.document.uri.toString();
+    // Only when it is a DIFFERENT package. Re-validating because somebody
+    // opened a file we are already showing is wasted work, and the refresh it
+    // fires invalidates any reveal in flight -- including the one the click
+    // that opened the file is waiting on.
+    if (samePackage(provider.uri, opened)) {
+      return;
+    }
+    provider.refresh(opened);
   };
   provider.refresh(findPackageUri());
   if (!provider.uri) {

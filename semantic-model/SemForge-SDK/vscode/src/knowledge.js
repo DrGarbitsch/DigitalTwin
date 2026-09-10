@@ -171,14 +171,16 @@ function register(context, clientHolder, onShape, onEntity) {
       if (!selected) {
         return;
       }
-      if (selected.raw.definedAt) {
-        await showLocation(selected.raw.definedAt, false);
-      }
       // Both kinds of row name an entity: an instance row says this class is
       // instantiated here, a usage row says this term is given as a value
       // there. Opening the file is half of showing it; the other half is the
       // row in the examples tree, where its verdicts and its other attributes
       // are.
+      //
+      // This happens BEFORE the file is opened, deliberately. Opening a file
+      // can refresh a tree, and a refresh makes VS Code drop its element
+      // handles, so a reveal afterwards resolves nothing -- it logged "Failed
+      // to resolve tree node" and looked like the click doing nothing.
       const names = selected.raw.kind === 'usage' ||
         selected.raw.kind === 'instance';
       if (names && selected.raw.entity && onEntity) {
@@ -192,6 +194,9 @@ function register(context, clientHolder, onShape, onEntity) {
         } catch (error) {
           // Gone after a refresh; nothing to reveal.
         }
+      }
+      if (selected.raw.definedAt) {
+        await showLocation(selected.raw.definedAt, false);
       }
     })
   );

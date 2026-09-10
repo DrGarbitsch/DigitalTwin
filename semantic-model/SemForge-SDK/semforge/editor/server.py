@@ -135,15 +135,30 @@ def document_symbol(ls, params):
     path = _uri_to_path(params.text_document.uri)
     if not path.endswith('.ttl') or not os.path.exists(path):
         return None
+    index = index_file(path)
+    lines = index.source.splitlines()
+
+    def width(number):
+        return len(lines[number]) if 0 <= number < len(lines) else 0
+
     symbols = []
-    for block in index_file(path).blocks:
+    for block in index.blocks:
+        name = block.raw_subject.strip()
+        if not name:
+            continue               # a symbol with no name is rejected outright
+        first, last = block.start_line - 1, block.end_line - 1
+        # The range must CONTAIN the selection range, and a one-line statement
+        # made both degenerate: (L,0)-(L,0) around (L,0)-(L,1). The client
+        # rejects that and the whole request fails, so the Outline was empty and
+        # the log said only "provider FAILED".
+        whole = types.Range(types.Position(first, 0),
+                            types.Position(last, width(last)))
+        subject = types.Range(
+            types.Position(first, 0),
+            types.Position(first, min(len(name), width(first))))
         symbols.append(types.DocumentSymbol(
-            name=block.raw_subject,
-            kind=types.SymbolKind.Class,
-            range=types.Range(types.Position(block.start_line - 1, 0),
-                              types.Position(block.end_line - 1, 0)),
-            selection_range=types.Range(types.Position(block.start_line - 1, 0),
-                                        types.Position(block.start_line - 1, 1))))
+            name=name, kind=types.SymbolKind.Class,
+            range=whole, selection_range=subject))
     return symbols
 
 

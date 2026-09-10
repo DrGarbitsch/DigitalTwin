@@ -438,3 +438,28 @@ def test_the_server_says_which_methods_it_has(session):
         assert expected in reported['methods'], expected
     assert reported['module'].endswith('semforge')
     assert reported['version']
+
+
+def test_the_outline_symbols_obey_the_clients_containment_rule(session):
+    """A selection range not contained in its range makes the client throw.
+
+    It throws on the BATCH, so one bad symbol empties the whole Outline and the
+    log says only "provider FAILED" -- which is what a one-line statement did:
+    range (L,0)-(L,0) around selectionRange (L,0)-(L,1).
+    """
+    session.send({'jsonrpc': '2.0', 'id': 39,
+                  'method': 'textDocument/documentSymbol',
+                  'params': {'textDocument':
+                             {'uri': 'file://' + session.document}}})
+    symbols = session.wait_for(lambda m: m.get('id') == 39)[0]['result']
+    assert symbols
+
+    def position(point):
+        return (point['line'], point['character'])
+
+    for symbol in symbols:
+        assert symbol['name'].strip(), symbol
+        whole, subject = symbol['range'], symbol['selectionRange']
+        assert position(whole['start']) <= position(subject['start'])
+        assert position(subject['end']) <= position(whole['end']), symbol
+        assert position(whole['start']) <= position(whole['end'])

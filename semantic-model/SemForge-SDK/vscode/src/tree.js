@@ -9,7 +9,7 @@
 
 const vscode = require('vscode');
 
-const { findPackageUri, noPackageMessage } = require('./locate');
+const { findPackageUri, noPackageMessage, samePackage } = require('./locate');
 const { showLocation } = require('./reveal');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -361,9 +361,18 @@ function register(context, clientHolder) {
   );
 
   const track = (editor) => {
-    if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
-      provider.refresh(editor.document.uri.toString());
+    if (!editor || !/\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
+      return;
     }
+    const opened = editor.document.uri.toString();
+    // Only when it is a DIFFERENT package. Re-validating because somebody
+    // opened a file we are already showing is wasted work, and the refresh it
+    // fires invalidates any reveal in flight -- including the one the click
+    // that opened the file is waiting on.
+    if (samePackage(provider.uri, opened)) {
+      return;
+    }
+    provider.refresh(opened);
   };
   provider.refresh(findPackageUri());
   if (!provider.uri) {
