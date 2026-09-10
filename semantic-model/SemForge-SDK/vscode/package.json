@@ -238,11 +238,6 @@
         },
         {
           "command": "semforge.addObservation",
-          "when": "view == semforgeExamples && viewItem == exampleEditable",
-          "group": "inline@2"
-        },
-        {
-          "command": "semforge.addObservation",
           "when": "view == semforgeExamples && viewItem == exampleDataset",
           "group": "inline@2"
         },

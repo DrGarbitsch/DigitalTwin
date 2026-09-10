@@ -527,11 +527,16 @@ def test_every_editable_row_can_be_edited(tmp_path, corpus):
 
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
-    editable = [r for r in rows if r['editable'] and r['kind'] in
-                ('attribute', 'dataset')]
-    assert editable, 'no editable attribute rows at all'
+    # EVERY editable row, whatever its kind. Restricting this to attribute rows
+    # is what let the second case through: an attribute with sub-attributes does
+    # not fold, so its value sits on an `instance` row -- hasState on the
+    # plasmacutter could not be edited while hasState on the filter could.
+    editable = [r for r in rows if r['editable']]
+    assert editable, 'no editable rows at all'
+    assert {r['kind'] for r in editable} >= {'attribute', 'instance'}, \
+        'the corpus no longer covers both folded and nested attributes'
     offers_edit = _menu('semforge.editValue')
-    missing = {(r['label'], r['contextValue']) for r in editable
+    missing = {(r['kind'], r['label'], r['contextValue']) for r in editable
                if r['contextValue'] not in offers_edit}
     assert not missing, f'editable rows with no way to edit them: {sorted(missing)}'
 
@@ -544,9 +549,27 @@ def test_no_read_only_row_offers_a_write(tmp_path, corpus):
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
     locked = [r for r in rows if not r['editable'] and r['kind'] in
-              ('attribute', 'dataset')]
+              ('attribute', 'dataset', 'instance', 'meta')]
     assert locked, 'the corpus has no included subobjects any more'
     writes = _menu('semforge.editValue') | _menu('semforge.addObservation')
     offered = {(r['label'], r['contextValue']) for r in locked
                if r['contextValue'] in writes}
     assert not offered, f'read-only rows offered a write: {sorted(offered)}'
+
+
+def test_only_a_row_standing_for_a_dataset_takes_an_observation(tmp_path, corpus):
+    """An observation joins an attribute's series under one datasetId.
+
+    An instance row or a metadata field is not that, and offering it there would
+    write with no attribute path -- the command would bail with a warning.
+    """
+    from semforge.cooked.examples import build_suite
+    from semforge.editor.server import _serialise_example
+
+    roots = [_serialise_example(node) for node in build_suite(corpus)]
+    rows = _rows_for(tmp_path, roots)
+    offers = _menu('semforge.addObservation')
+    for row in rows:
+        if row['contextValue'] in offers:
+            assert row['kind'] in ('attribute', 'dataset'), row
+            assert row['datasetId'], row

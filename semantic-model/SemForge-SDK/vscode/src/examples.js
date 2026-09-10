@@ -188,22 +188,32 @@ class ExampleTreeProvider {
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || '';
-    // What this row can be asked to do. `editable` comes FIRST: every attribute
-    // carries a datasetId (`@none` is the default instance, and that is a real
-    // value), so keying on the datasetId alone sent read-only rows from an
-    // include to a contextValue whose menu offers writes -- and sent every
-    // ordinary attribute to one whose menu had no edit at all. That is why
-    // clicking hasState offered no way to change it.
+    // What this row can be asked to do, decided by `editable` and nothing
+    // else. Two earlier versions keyed on other things and each hid an edit:
+    //
+    //   * on the datasetId -- but every attribute has one (`@none` is the
+    //     default instance, a real value), so nearly every row landed on a
+    //     contextValue whose menu had no edit at all;
+    //   * on the kind -- but an attribute with sub-attributes does not fold, so
+    //     its value sits on an `instance` row, and hasState on the plasmacutter
+    //     could not be changed while hasState on the filter could.
+    //
+    // Anything carrying a value is editable; a row that could carry one and is
+    // locked says so; everything else keeps its structural kind.
     const series = raw.observations > 1;
-    if (raw.kind !== 'attribute' && raw.kind !== 'dataset') {
-      item.contextValue = CONTEXT_BY_KIND[raw.kind] || raw.kind;
-    } else if (!raw.editable) {
-      item.contextValue = 'attributeReadOnly';
+    const holdsValue = ['attribute', 'dataset', 'instance', 'meta']
+      .includes(raw.kind);
+    if (!raw.editable) {
+      item.contextValue = holdsValue
+        ? 'attributeReadOnly'
+        : CONTEXT_BY_KIND[raw.kind] || raw.kind;
     } else if (series) {
       item.contextValue = 'exampleSeries';
     } else if (raw.datasetId) {
       item.contextValue = 'exampleDataset';
     } else {
+      // An instance, a metadata field or a nested value: editable, but not a
+      // row that stands for a datasetId, so no observation can be added to it.
       item.contextValue = 'exampleEditable';
     }
 
