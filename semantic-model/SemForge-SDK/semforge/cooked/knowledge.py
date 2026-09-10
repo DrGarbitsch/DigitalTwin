@@ -30,6 +30,8 @@ from rdflib.namespace import OWL, RDF, RDFS, SH
 from ..rdfio import index_file
 from ..validate.normalise import curie, local, owner_and_edge
 from ..validate.shapes import node_shapes
+# The NGSI-LD keys that are not attributes; one definition, two trees.
+from .examples import RESERVED
 
 SKIP = {str(RDFS.Datatype), str(OWL.Class), str(RDFS.Class)}
 
@@ -140,11 +142,25 @@ def _example_files(package):
     return out
 
 
-def _instances(package):
-    """{type local name: [(id, file, 'file:line')]} over every example file."""
+def _scan_examples(package):
+    """Read every example file once: what it instantiates, and where things are.
+
+    Two results, because both come from the same scan and reading the files
+    twice to keep them apart would be the only reason to separate them:
+
+      * instances  {type local name: [(id, file, 'file:line')]}
+      * places     {(entity id, attribute local name): ['file:line', ...]} and
+                   {(entity id, ''): [...]} for the entity itself
+
+    The second is what makes a usage row clickable. A row saying "urn:filter:1
+    uses this" that cannot open urn:filter:1 is a dead end -- and the same
+    entity id legitimately appears in several files, a good case and a bad one,
+    so one location is not enough.
+    """
     from .jsonloc import locate
 
-    out = {}
+    instances = {}
+    places = {}
     for path in _example_files(package):
         try:
             with open(path, encoding='utf-8') as handle:
@@ -162,12 +178,24 @@ def _instances(package):
                 continue
             identifier = str(entity.get('id') or entity.get('@id') or '')
             kind = str(entity.get('type') or entity.get('@type') or '')
-            if not identifier or not kind:
+            if not identifier:
                 continue
             line = index.get((position,))
-            out.setdefault(kind.split(':')[-1], []).append(
-                (identifier, path, f'{path}:{line}' if line else ''))
-    return out
+            at = f'{path}:{line}' if line else ''
+            if kind:
+                instances.setdefault(kind.split(':')[-1], []).append(
+                    (identifier, path, at))
+            if at:
+                places.setdefault((identifier, ''), []).append(at)
+            for key in entity:
+                if key in RESERVED:
+                    continue
+                where = index.get((position, key))
+                if where:
+                    places.setdefault(
+                        (identifier, key.split(':')[-1].rsplit('/', 1)[-1]),
+                        []).append(f'{path}:{where}')
+    return instances, places
 
 
 def _data_graph(package):
@@ -192,11 +220,14 @@ def _data_graph(package):
     return graph if len(graph) else package.model
 
 
-def _usages(graph):
-    """{individual IRI: [(entity, attribute)]} -- where the data mentions it.
+def _usages(graph, places):
+    """{individual IRI: [(entity, attribute, 'file:line')]} -- where the data
+    mentions it.
 
     This is the join that makes a vocabulary real: an individual no example
-    references is a term the model declares and never uses.
+    references is a term the model declares and never uses. The location comes
+    from the JSON scan rather than the graph, which has no positions -- and it
+    is what lets the row open the entity that does the using.
     """
     out = {}
     for subject, predicate, obj in graph:
@@ -206,7 +237,9 @@ def _usages(graph):
         if entity is None:
             continue
         name = local(edge) if edge is not None else local(predicate)
-        out.setdefault(str(obj), []).append((entity, name))
+        found = places.get((entity, name)) or places.get((entity, '')) or ['']
+        for at in found:
+            out.setdefault(str(obj), []).append((entity, name, at))
     return out
 
 
@@ -290,7 +323,10 @@ def _class_node(package, cls, context):
 
 def _individual_node(package, individual, context, constrained=False):
     label = next(package.knowledge.objects(individual, RDFS.label), None)
-    usages = context['usages'].get(str(individual), [])
+    # One row per place, so the count and the rows agree: the same term in the
+    # same attribute of the same entity in two example files is two places, and
+    # each opens a different file.
+    usages = sorted(set(context['usages'].get(str(individual), [])))
     internal = any(package.knowledge.subject_predicates(individual))
     node = KnowledgeNode(
         kind='individual', label=local(individual),
@@ -309,9 +345,13 @@ def _individual_node(package, individual, context, constrained=False):
         node.severity = 'warning'
         node.messages.append(
             'no example gives this as a value, so no case exercises it')
-    for entity, attribute in sorted(set(usages)):
+    for entity, attribute, at in usages:
+        detail = attribute
+        if at:
+            detail += ' · ' + os.path.basename(at.rsplit(':', 1)[0])
         node.children.append(KnowledgeNode(
-            kind='usage', label=f'{entity}', detail=attribute, entity=entity))
+            kind='usage', label=entity, detail=detail, entity=entity,
+            file=at.rsplit(':', 1)[0] if at else '', defined_at=at))
     return node
 
 
@@ -341,15 +381,16 @@ def build_knowledge(package):
                     pending.append(child)
 
     by_target = _shapes_by_target(package)
+    instances, places = _scan_examples(package)
     context = {
         'shapes_by_target': by_target,
-        'instances': _instances(package),
+        'instances': instances,
         'individuals': individuals,
         'used': used,
         'declared': classes - {
             c for c in classes
             if not any(package.knowledge.predicate_objects(c))},
-        'usages': _usages(_data_graph(package)),
+        'usages': _usages(_data_graph(package), places),
         'knowledge_index': index_file(package.sources['knowledge']),
         'shapes_index': index_file(package.sources['shapes']),
         'is_entity': lambda cls: cls in entity_family,

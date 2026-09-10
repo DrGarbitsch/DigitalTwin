@@ -193,11 +193,17 @@ function activate(context) {
   // The constraint view and the example view are two halves of one loop:
   // editing data should refresh the shapes' verdicts and vice versa.
   const constraints = cookedTree.register(context, clientHolder);
-  exampleTree.register(context, clientHolder, () => constraints.refresh());
-  // The third ingredient, joined to the first: the shape icon on a class row
-  // opens shacl.ttl AND shows that shape in the constraint tree.
-  knowledgeTree.register(context, clientHolder, (shape) =>
-    constraints.revealShape(shape)
+  const examples = exampleTree.register(context, clientHolder, () =>
+    constraints.refresh()
+  );
+  // The third ingredient, joined to the other two: the shape icon on a class
+  // row opens shacl.ttl and shows that shape in the constraint tree, and a
+  // usage row shows the entity doing the using in the examples tree.
+  knowledgeTree.register(
+    context,
+    clientHolder,
+    (shape) => constraints.revealShape(shape),
+    (entity) => examples.revealEntity(entity)
   );
 
   context.subscriptions.push(

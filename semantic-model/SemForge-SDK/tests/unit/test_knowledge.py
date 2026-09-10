@@ -170,3 +170,40 @@ def test_every_class_and_member_can_be_opened(tree, corpus):
             assert path == corpus.sources['knowledge']
             text = open(path, encoding='utf-8').read().splitlines()
             assert node.label.split(':')[-1] in text[int(line) - 1]
+
+
+# --- a usage row has to be openable ------------------------------------------
+
+def test_a_usage_row_carries_the_file_and_line_of_the_using_attribute(tree):
+    used = _find(tree, 'state_ON', 'individual')
+    rows = [n for n in used.children if n.kind == 'usage']
+    assert rows
+    for row in rows:
+        assert row.entity.startswith('urn:')
+        assert row.defined_at, f'{row.label} cannot be opened'
+        path, line = row.defined_at.rsplit(':', 1)
+        assert path.endswith('.jsonld') and int(line) > 0
+        text = open(path, encoding='utf-8').read().splitlines()
+        # The line is the attribute that gives the term, not the file's top.
+        assert row.detail.split(' · ')[0] in text[int(line) - 1]
+
+
+def test_the_same_term_in_two_files_gets_a_row_for_each(tree):
+    """The same entity id legitimately appears in a good case and a bad one.
+
+    One location for both would open the wrong file half the time.
+    """
+    used = _find(tree, 'state_ON', 'individual')
+    files = [n.defined_at.rsplit(':', 1)[0] for n in used.children]
+    assert len(set(files)) > 1, files
+    assert len(files) == len(set(zip(
+        [n.entity for n in used.children],
+        [n.detail for n in used.children])))
+
+
+def test_the_count_and_the_rows_agree(tree):
+    for label in ('state_ON', 'WC1', 'EN_1.4301'):
+        node = _find(tree, label, 'individual')
+        rows = [n for n in node.children if n.kind == 'usage']
+        assert f'used in {len(rows)} place(s)' in node.detail, \
+            f'{label}: {node.detail} but {len(rows)} rows'

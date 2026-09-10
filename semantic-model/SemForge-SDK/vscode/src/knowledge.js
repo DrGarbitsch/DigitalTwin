@@ -154,7 +154,7 @@ class KnowledgeTreeProvider {
   }
 }
 
-function register(context, clientHolder, onShape) {
+function register(context, clientHolder, onShape, onEntity) {
   const provider = new KnowledgeTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeKnowledge', {
     treeDataProvider: provider
@@ -173,6 +173,12 @@ function register(context, clientHolder, onShape) {
       }
       if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
+      }
+      // A usage row names an entity that gives this term as a value. Opening
+      // the file is half of showing it; the other half is the row in the
+      // examples tree, where its verdicts and its other attributes are.
+      if (selected.raw.kind === 'usage' && selected.raw.entity && onEntity) {
+        await onEntity(selected.raw.entity);
       }
       if ((selected.raw.children || []).length) {
         try {

@@ -295,3 +295,57 @@ def test_no_package_gives_a_message_naming_what_was_looked_for(tmp_path):
     for expected in ('shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld',
                      'one level below', str(tmp_path)):
         assert expected in seen['locate']['message']
+
+
+# --- clicking a usage row ----------------------------------------------------
+
+def test_clicking_a_usage_row_opens_the_file_and_shows_the_entity(tmp_path):
+    """A row saying "urn:filter:1 uses this term" has to be able to show it.
+
+    Clicking it did nothing: usage rows carried no location, and nothing
+    connected them to the examples tree where the entity lives.
+    """
+    _package_at(str(tmp_path))
+    entity = {'kind': 'entity', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+              'entityType': 'iffBaseEntities:Filter', 'children': []}
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'root/0:usage', 'raw': {
+            'kind': 'usage', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+            'detail': 'hasState · model-instance.jsonld',
+            'definedAt': '/pkg/model-instance.jsonld:141', 'children': []}},
+        'replies': {
+            'semforge/examples': {'roots': [
+                {'kind': 'example', 'label': 'a case', 'children': [entity]}]},
+            'semforge/knowledge': {'roots': []},
+            'semforge/tree': {'roots': []},
+        },
+    })
+    assert seen['shown'] == [{'file': '/pkg/model-instance.jsonld', 'line': 140,
+                              'preserveFocus': True}]
+    shown_in_examples = [r for r in seen['revealed']
+                         if r['view'] == 'semforgeExamples']
+    assert shown_in_examples, \
+        f'the entity was never shown in the examples tree: {seen["revealed"]}'
+    assert shown_in_examples[0]['options'].get('select') is True
+    # And it does not re-fetch the tree per level: the root fetch re-validates
+    # the whole package, so one click would cost several seconds.
+    fetches = [r for r in seen['requests'] if r['method'] == 'semforge/examples']
+    assert len(fetches) <= 2, f'{len(fetches)} tree fetches for one click'
+
+
+def test_clicking_a_class_row_does_not_chase_an_entity(tmp_path):
+    """Only a usage row names an entity; the others must not try."""
+    _package_at(str(tmp_path))
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'root/0:class', 'raw': {
+            'kind': 'class', 'label': 'base:MachineState',
+            'definedAt': '/pkg/knowledge.ttl:625', 'children': []}},
+        'replies': {'semforge/knowledge': {'roots': []},
+                    'semforge/tree': {'roots': []}},
+    })
+    assert seen['shown'] == [{'file': '/pkg/knowledge.ttl', 'line': 624,
+                              'preserveFocus': True}]
+    assert [r for r in seen['requests']
+            if r['method'] == 'semforge/examples'] == []

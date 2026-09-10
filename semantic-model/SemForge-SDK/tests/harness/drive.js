@@ -30,6 +30,7 @@ const seen = {
 
 const noop = () => undefined;
 const registry = new Map();
+const selections = [];
 
 const stub = {
   workspace: {
@@ -47,7 +48,10 @@ const stub = {
       reveal: (node, options) =>
         Promise.resolve(seen.revealed.push({ view: id, key: node.key,
                                              options: options || {} })),
-      onDidChangeSelection: () => ({ dispose: noop })
+      onDidChangeSelection: (handler) => {
+        selections.push({ view: id, handler });
+        return { dispose: noop };
+      }
     }),
     onDidChangeActiveTextEditor: noop,
     activeTextEditor: undefined,
@@ -199,7 +203,27 @@ async function runLocate() {
   };
 }
 
-const modes = { tree: runTree, locate: runLocate };
+/**
+ * Drive a click: select a row in one view and see what happens.
+ *
+ * This goes through the real wiring -- the extension's own providers and
+ * callbacks -- because the interesting part is the other view reacting, which no
+ * handler test in isolation can show.
+ */
+async function runSelect() {
+  const extension = require(path.resolve(process.argv[3]));
+  extension.activate({ subscriptions: [] });
+  const found = selections.filter((entry) => entry.view === scenario.view);
+  if (!found.length) {
+    seen.errors.push(`${scenario.view} registered no selection handler`);
+    return;
+  }
+  for (const entry of found) {
+    await entry.handler({ selection: [scenario.node] });
+  }
+}
+
+const modes = { tree: runTree, locate: runLocate, select: runSelect };
 ((modes[scenario.mode] || runCommand)())
   .then(() => console.log(JSON.stringify(seen)))
   .catch((error) => {

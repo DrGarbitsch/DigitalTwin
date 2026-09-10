@@ -104,6 +104,68 @@ class ExampleTreeProvider {
     return this.parents.get(node.key);
   }
 
+  /** The chain of (raw, key) from a root down to this entity's row. */
+  chainToEntity(entity) {
+    const walk = (raws, parentKey, chain) => {
+      for (let position = 0; position < raws.length; position += 1) {
+        const raw = raws[position];
+        const key = keyOf(raw, parentKey, position);
+        const here = chain.concat([{ raw, key }]);
+        if (raw.kind === 'entity' && raw.entity === entity) {
+          return here;
+        }
+        const deeper = walk(raw.children || [], key, here);
+        if (deeper) {
+          return deeper;
+        }
+      }
+      return undefined;
+    };
+    return walk(this.rawRoots || [], '', []);
+  }
+
+  /**
+   * Show an entity's row, expanding whatever is needed to get to it.
+   *
+   * reveal() only works on nodes the view has already realised, so each level
+   * down to the target is fetched first. Called from the knowledge view: a row
+   * saying "urn:filter:1 uses this term" should be able to show you
+   * urn:filter:1.
+   */
+  async revealEntity(entity) {
+    if (!this.rawRoots) {
+      await this.getChildren();
+    }
+    let chain = this.chainToEntity(entity);
+    if (!chain) {
+      await this.getChildren();            // the tree may have moved on
+      chain = this.chainToEntity(entity);
+    }
+    if (!chain || !this.view) {
+      return false;
+    }
+    // The chain is realised here rather than by calling getChildren down it:
+    // the root fetch re-validates the whole package, so one click would have
+    // cost a re-validation per level. wrap() and the parents map are all
+    // reveal() needs; VS Code walks the rest itself, from children it reads out
+    // of the raw nodes.
+    let parent;
+    let target;
+    for (const step of chain) {
+      target = this.wrap(step.raw, step.key);
+      if (parent) {
+        this.parents.set(step.key, parent);
+      }
+      parent = target;
+    }
+    try {
+      await this.view.reveal(target, { select: true, focus: false, expand: true });
+      return true;
+    } catch (error) {
+      return false;                       // not rendered yet; nothing to show
+    }
+  }
+
   getTreeItem(node) {
     const raw = node.raw;
     const hasChildren = (raw.children || []).length > 0;
@@ -217,7 +279,11 @@ class ExampleTreeProvider {
     }
     this.message(undefined);
     this.parents = new Map();
-    return (result.roots || []).map((raw, position) =>
+    // Kept so a row can be found without the view having expanded to it: the
+    // knowledge view asks for an entity by id, and that entity usually sits
+    // inside a suite nobody has opened yet.
+    this.rawRoots = result.roots || [];
+    return this.rawRoots.map((raw, position) =>
       this.wrap(raw, keyOf(raw, '', position)));
   }
 }
