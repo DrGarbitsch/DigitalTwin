@@ -7,10 +7,9 @@
  * the SDK, so the tree and the CLI cannot disagree about what a shape says.
  */
 
-const fs = require('fs');
-const path = require('path');
 const vscode = require('vscode');
 
+const { findPackageUri, noPackageMessage } = require('./locate');
 const { showLocation } = require('./reveal');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -154,19 +153,39 @@ class CookedTreeProvider {
     return item;
   }
 
+  message(text) {
+    if (this.view) {
+      this.view.message = text;
+    }
+  }
+
   async getChildren(node) {
     if (node) {
       return (node.raw.children || []).map((child) => this.wrap(child));
     }
     const client = this.clientHolder.client;
-    if (!client || !this.uri) {
+    if (!client) {
+      this.message('The language server is not running — run ' +
+        '"SemForge: Doctor".');
       return [];
     }
-    const result = await client.sendRequest('semforge/tree', { uri: this.uri });
+    if (!this.uri) {
+      this.message(noPackageMessage());
+      return [];
+    }
+    let result;
+    try {
+      result = await client.sendRequest('semforge/tree', { uri: this.uri });
+    } catch (error) {
+      this.message(`SemForge: ${error.message || error}`);
+      return [];
+    }
     if (result.error) {
       this.lastError = result.error;
+      this.message(`SemForge: ${result.error}`);
       return [];
     }
+    this.message(undefined);
     this.lastError = undefined;
     this._index(result.roots || []);
     return this.rawRoots.map((raw) => this.wrap(raw));
@@ -301,38 +320,13 @@ async function promptForValue(client, node) {
   });
 }
 
-/**
- * A package artifact inside the opened folder, as a URI string.
- *
- * The common flow is "open the folder, click the icon" with no editor open at
- * all. Anchoring only to the active editor left the tree empty in exactly that
- * case, with nothing to say why.
- */
-function defaultUri() {
-  const folders = vscode.workspace.workspaceFolders || [];
-  for (const folder of folders) {
-    const root = folder.uri.fsPath;
-    for (const name of ['shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld']) {
-      const candidate = path.join(root, name);
-      if (fs.existsSync(candidate)) {
-        return vscode.Uri.file(candidate).toString();
-      }
-    }
-  }
-  return undefined;
-}
-
 function register(context, clientHolder) {
   const provider = new CookedTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeConstraints', {
     treeDataProvider: provider
   });
+  provider.view = view;
   context.subscriptions.push(view);
-  if (!defaultUri() && !vscode.window.activeTextEditor) {
-    view.message =
-      'Open a folder holding knowledge.ttl, shacl.ttl and ' +
-      'model-instance.jsonld — or run "SemForge: Doctor".';
-  }
 
   // The knowledge view jumps here. Opening shacl.ttl alone would leave you to
   // find the same shape in this tree by hand, which is the work the jump exists
@@ -371,9 +365,9 @@ function register(context, clientHolder) {
       provider.refresh(editor.document.uri.toString());
     }
   };
-  track(vscode.window.activeTextEditor);
+  provider.refresh(findPackageUri());
   if (!provider.uri) {
-    provider.refresh(defaultUri());
+    track(vscode.window.activeTextEditor);
   }
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(track),

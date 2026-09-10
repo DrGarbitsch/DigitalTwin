@@ -283,6 +283,27 @@ def _serialise_knowledge(node):
     }
 
 
+@server.feature('semforge/methods')
+def methods(ls, params):
+    """What this server can answer, and where its code lives.
+
+    An extension newer than the server is invisible otherwise: the new icon is
+    there, the request comes back "method not found", and the click does
+    nothing. This makes that one line in the doctor.
+    """
+    import semforge
+
+    try:
+        registered = sorted(
+            name for name in server.protocol.fm.features
+            if name.startswith('semforge/'))
+    except Exception:                              # noqa: BLE001
+        registered = []
+    return {'methods': registered,
+            'module': os.path.dirname(os.path.abspath(semforge.__file__)),
+            'version': __version__}
+
+
 @server.feature('semforge/knowledge')
 def knowledge(ls, params):
     """The ontology: entity hierarchy and vocabularies, with their joins.

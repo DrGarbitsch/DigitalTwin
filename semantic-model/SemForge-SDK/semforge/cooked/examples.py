@@ -400,6 +400,9 @@ def _entity_nodes(path, report=None, editable=True):
             node.detail += f' · {counts[identifier]} violation(s)'
             node.messages = [m for (resource, _), (_, msgs) in findings.items()
                              if resource == identifier for m in msgs]
+        kind_name = str(entity.get('type') or entity.get('@type') or '')
+        if kind_name:
+            node.children.append(_type_node(identifier, kind_name))
         for key, value in entity.items():
             if key in RESERVED:
                 continue
@@ -412,6 +415,20 @@ def _entity_nodes(path, report=None, editable=True):
         _stamp_lines(node, path, index, [position])
         out.append(node)
     return out
+
+
+def _type_node(entity, entity_type):
+    """The entity's type, as a row of its own.
+
+    It is already the entity row's description, but a description is greyed out
+    and truncated in a narrow panel -- and the type is the most load-bearing
+    field an NGSI-LD entity has: it decides which shapes judge it at all. So it
+    gets a row, read-only, because changing a type is not an edit to one value
+    (every shape that targeted the old type stops applying).
+    """
+    return ExampleNode(kind='type', label='type', detail=entity_type,
+                       entity=entity, entity_type=entity_type,
+                       path=['type'], value=entity_type)
 
 
 def _stamp_type(node, entity_type):
@@ -467,12 +484,15 @@ def build_examples(package, report=None):
             node.messages = [m for (resource, _), (_, msgs) in findings.items()
                              if resource == identifier for m in msgs]
 
+        kind_name = str(entity.get('type') or entity.get('@type') or '')
+        if kind_name:
+            node.children.append(_type_node(identifier, kind_name))
         for key, value in entity.items():
             if key in RESERVED:
                 continue
             node.children.append(
                 _attribute_node(key, value, identifier, [key], findings))
-        _stamp_type(node, str(entity.get('type') or entity.get('@type') or ''))
+        _stamp_type(node, kind_name)
         root.children.append(node)
     return [root]
 

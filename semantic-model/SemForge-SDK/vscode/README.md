@@ -30,9 +30,18 @@ code semantic-model/kms        # or the repo root, or anything between
 ### If the trees are empty
 
 Run **`SemForge: Doctor`** from the Command Palette (`Ctrl+Shift+P`). It prints
-the folder it sees, the interpreter it picked and where it came from, whether
-that interpreter can import `semforge`, and the exact command to fix it. Start
-there rather than in the output channel.
+the folder it sees, the package it found, the interpreter it picked and where it
+came from, whether that interpreter can import `semforge`, **which directory the
+running server's code comes from and which methods it answers**, and the exact
+command to fix it. Start there rather than in the output channel.
+
+That second-to-last line matters more than it looks. The extension and the
+server are shipped separately — the `.vsix` is JavaScript, the server runs from
+your venv — so a server older than the extension shows every new icon and
+answers none of them: the click does nothing, with no error and nothing in the
+log. The doctor now says `This server is OLDER than the extension` and names the
+missing methods. The fix is **`SemForge: Restart Language Server`** or a window
+reload.
 
 The usual answer is that `make setup` has not been run, or was run before
 `semforge` became installable — in which case run it again and reload the
@@ -41,8 +50,15 @@ window.
 ### What counts as a package
 
 Any directory holding `knowledge.ttl`, `shacl.ttl` and `model-instance.jsonld`.
-`semantic-model/kms` is one. You can open the package itself, the repository
-root, or anything between.
+`semantic-model/kms` is one. Open the package itself or the folder above it —
+the trees look in each workspace folder and one level below it, so opening
+`semantic-model/` finds `kms/`. Open higher than that and they wait until you
+open a file inside a package.
+
+**If a tree is empty it now says why** in the panel itself: no package found (and
+what it looked for), the server not running, or whatever the server reported.
+An empty panel with no message was indistinguishable from a broken extension,
+which cost a day.
 
 If you keep your interpreter somewhere the search will not find, set
 `semforge.pythonPath`.
@@ -322,13 +338,15 @@ Entities arriving through `include` are read-only here: editing a subobject in
 place would change every case that includes it, which is a decision to take in
 that file rather than a side effect of editing one example.
 
-Under each entity is the data itself:
+Under each entity is the data itself, starting with its **type**:
 
 ```
 model-instance.jsonld            8 entities
 ├── urn:cutter:1                 Machine · 1 violation(s)     ⛔
+│   ├── type                     iffBaseEntities:Machine
 │   └── hasState                 base:state_ON · Property     ✎
 └── urn:filter:1                 Filter · 1 violation(s)      ⛔
+    ├── type                     iffBaseEntities:Filter
     ├── hasCartridge             "urn:cartridge:1" · Relationship  ✎
     └── hasStrength              0.6 · Property · 4 observations   📈
         ├── 0.9   2024-02-28T13:52:32.000Z · superseded
@@ -336,6 +354,12 @@ model-instance.jsonld            8 entities
         ├── 0.7   2024-02-28T13:52:34.000Z · superseded
         └── 0.6   2024-02-28T13:52:35.000Z · current
 ```
+
+The type is also the entity row's description, but a description is grey and
+truncated in a narrow panel — and the type is the most load-bearing field an
+NGSI-LD entity has, since it decides which shapes judge it at all. So it gets a
+row. It is read-only here: changing a type is not an edit to one value, because
+every shape that targeted the old type stops applying.
 
 **Instances are grouped by `datasetId`.** That is not cosmetic: an NGSI-LD
 attribute is identified by `(entity, name, datasetId)`, so several instances

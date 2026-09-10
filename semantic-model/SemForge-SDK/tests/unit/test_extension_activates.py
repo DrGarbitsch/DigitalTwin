@@ -99,10 +99,14 @@ def test_the_trees_anchor_to_the_folder_not_only_the_editor(corpus_path):
     Anchoring only to the active editor left the tree empty in exactly that
     case, with nothing to say why.
     """
-    for name in ('tree.js', 'examples.js'):
+    for name in ('tree.js', 'examples.js', 'knowledge.js'):
         source = open(os.path.join(SDK, 'vscode', 'src', name)).read()
-        assert 'function defaultUri(' in source, f'{name} has no folder fallback'
-        assert 'workspaceFolders' in source
+        # All three share one resolver now: each had its own copy, and the one
+        # in knowledge.js searched the folder root only -- which is empty when
+        # the window is opened one level above the package.
+        assert 'findPackageUri()' in source, f'{name} has no folder fallback'
+    shared = open(os.path.join(SDK, 'vscode', 'src', 'locate.js')).read()
+    assert 'workspaceFolders' in shared
 
 
 def test_clicking_a_row_unfolds_it(corpus_path):

@@ -422,3 +422,19 @@ def test_the_knowledge_tree_arrives_over_the_protocol(session):
     assert filters['shapeName'].endswith('FilterShape')
     assert any(r['kind'] == 'instance' and r['entity'].startswith('urn:')
                for r in rows)
+
+
+def test_the_server_says_which_methods_it_has(session):
+    """So "the server is older than the extension" is one line in the doctor.
+
+    That state is otherwise invisible: the new icon is there, the request comes
+    back method-not-found, and the click does nothing at all.
+    """
+    session.send({'jsonrpc': '2.0', 'id': 38, 'method': 'semforge/methods',
+                  'params': {}})
+    reported = session.wait_for(lambda m: m.get('id') == 38)[0]['result']
+    for expected in ('semforge/tree', 'semforge/examples', 'semforge/knowledge',
+                     'semforge/shapeFor', 'semforge/valueChoices'):
+        assert expected in reported['methods'], expected
+    assert reported['module'].endswith('semforge')
+    assert reported['version']

@@ -8,17 +8,22 @@
  * class in knowledge.ttl, one to the shape in shacl.ttl.
  */
 
-const fs = require('fs');
-const path = require('path');
 const vscode = require('vscode');
 
+const { findPackageUri, noPackageMessage } = require('./locate');
 const { showLocation } = require('./reveal');
 
 class KnowledgeTreeNode {
-  constructor(raw, packageUri) {
+  constructor(key, raw, packageUri) {
+    this.key = key;
     this.raw = raw;
     this.packageUri = packageUri;
   }
+}
+
+/** A node's address in the tree, stable across refetches. */
+function keyOf(raw, parentKey, position) {
+  return `${parentKey}/${position}:${raw.kind}:${raw.iri || raw.label}`;
 }
 
 class KnowledgeTreeProvider {
@@ -26,6 +31,10 @@ class KnowledgeTreeProvider {
     this.clientHolder = clientHolder;
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    // Keyed by address, not by the raw object: the server sends fresh objects
+    // on every fetch, and a view holding a wrapper from the previous fetch
+    // cannot resolve it -- which is the "Failed to resolve tree node" that made
+    // reveal() a no-op.
     this.nodes = new Map();
     this.parents = new Map();
   }
@@ -37,15 +46,20 @@ class KnowledgeTreeProvider {
     this._onDidChangeTreeData.fire();
   }
 
-  wrap(raw) {
-    if (!this.nodes.has(raw)) {
-      this.nodes.set(raw, new KnowledgeTreeNode(raw, this.uri));
+  wrap(raw, key) {
+    const existing = this.nodes.get(key);
+    if (existing) {
+      existing.raw = raw;             // same row, fresher data
+      existing.packageUri = this.uri;
+      return existing;
     }
-    return this.nodes.get(raw);
+    const made = new KnowledgeTreeNode(key, raw, this.uri);
+    this.nodes.set(key, made);
+    return made;
   }
 
   getParent(node) {
-    return this.parents.get(node.raw);
+    return this.parents.get(node.key);
   }
 
   getTreeItem(node) {
@@ -102,39 +116,42 @@ class KnowledgeTreeProvider {
 
   async getChildren(node) {
     if (node) {
-      return (node.raw.children || []).map((child) => {
-        this.parents.set(child, node);
-        return this.wrap(child);
+      return (node.raw.children || []).map((child, position) => {
+        const key = keyOf(child, node.key, position);
+        this.parents.set(key, node);
+        return this.wrap(child, key);
       });
     }
     const client = this.clientHolder.client;
-    if (!client || !this.uri) {
+    if (!client) {
+      this.view.message = 'The language server is not running — run ' +
+        '"SemForge: Doctor".';
       return [];
     }
-    const result = await client.sendRequest('semforge/knowledge', {
-      uri: this.uri
-    });
+    if (!this.uri) {
+      this.view.message = noPackageMessage();
+      return [];
+    }
+    let result;
+    try {
+      result = await client.sendRequest('semforge/knowledge', {
+        uri: this.uri
+      });
+    } catch (error) {
+      // An empty tree with no explanation is the failure mode this project
+      // keeps meeting. Say what went wrong where it is visible.
+      this.view.message = `SemForge: ${error.message || error}`;
+      return [];
+    }
     if (result.error) {
+      this.view.message = `SemForge: ${result.error}`;
       return [];
     }
-    this.nodes = new Map();
+    this.view.message = undefined;
     this.parents = new Map();
-    return (result.roots || []).map((raw) => this.wrap(raw));
+    return (result.roots || []).map((raw, position) =>
+      this.wrap(raw, keyOf(raw, '', position)));
   }
-}
-
-function defaultUri() {
-  const folders = vscode.workspace.workspaceFolders || [];
-  for (const folder of folders) {
-    const root = folder.uri.fsPath;
-    for (const name of ['knowledge.ttl', 'shacl.ttl', 'model-instance.jsonld']) {
-      const candidate = path.join(root, name);
-      if (fs.existsSync(candidate)) {
-        return vscode.Uri.file(candidate).toString();
-      }
-    }
-  }
-  return undefined;
 }
 
 function register(context, clientHolder, onShape) {
@@ -142,6 +159,7 @@ function register(context, clientHolder, onShape) {
   const view = vscode.window.createTreeView('semforgeKnowledge', {
     treeDataProvider: provider
   });
+  provider.view = view;
   context.subscriptions.push(view);
 
   // Selecting a class moves knowledge.ttl to its declaration; selecting an
@@ -166,8 +184,25 @@ function register(context, clientHolder, onShape) {
     })
   );
 
-  provider.refresh(defaultUri());
+  // Anchor on the package, and follow the editor as the other two trees do.
+  // Without the second half, opening a file inside a package did not help this
+  // tree at all -- and without the first, a window opened one level above the
+  // package showed nothing until a file happened to be opened.
+  const track = (editor) => {
+    if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
+      provider.refresh(editor.document.uri.toString());
+    }
+  };
+  provider.refresh(findPackageUri());
+  if (!provider.uri) {
+    track(vscode.window.activeTextEditor);
+  }
   context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (!provider.uri) {
+        track(editor);
+      }
+    }),
     vscode.workspace.onDidSaveTextDocument(() => provider.refresh())
   );
 

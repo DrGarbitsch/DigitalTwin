@@ -8,10 +8,9 @@
  * visible where the change was made.
  */
 
-const fs = require('fs');
-const path = require('path');
 const vscode = require('vscode');
 
+const { findPackageUri, noPackageMessage } = require('./locate');
 const { showLocation } = require('./reveal');
 
 // The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
@@ -19,6 +18,7 @@ const { showLocation } = require('./reveal');
 // package.json says loses its icons silently -- no error, no log line.
 const CONTEXT_BY_KIND = {
   suite: 'suite',
+  type: 'type',
   example: 'example',
   entity: 'entity',
   include: 'include',
@@ -29,10 +29,39 @@ const CONTEXT_BY_KIND = {
 };
 
 class ExampleTreeNode {
-  constructor(raw, packageUri) {
+  constructor(key, raw, packageUri) {
+    this.key = key;
     this.raw = raw;
     this.packageUri = packageUri;
   }
+}
+
+/**
+ * A node's address in the tree, stable across refetches.
+ *
+ * Identity by raw object breaks the moment anything refreshes -- and opening the
+ * file a click selected DOES refresh, because the tree follows the active
+ * editor. The view then cannot resolve the node being revealed and logs
+ * "Failed to resolve tree node", which is exactly how the unfold-on-click
+ * looked like it was doing nothing.
+ */
+function keyOf(raw, parentKey, position) {
+  const own = raw.entity || raw.label || raw.kind;
+  return `${parentKey}/${position}:${raw.kind}:${own}:${raw.datasetId || ''}`;
+}
+
+/** The attribute this row is about: the last name in its address.
+ *
+ * `attributePath[0]` is the TOP-level attribute, so on a sub-attribute row it
+ * named the parent -- the jump would land on the wrong shape and the value
+ * picker would offer the wrong class.
+ */
+function attributeOf(raw) {
+  const address = [].concat(raw.attributePath || [], raw.path || []);
+  const names = address.filter((part) => typeof part === 'string' &&
+    part !== 'value' && part !== 'object' && part !== 'json' &&
+    part !== 'valueList');
+  return names.length ? names[names.length - 1] : undefined;
 }
 
 class ExampleTreeProvider {
@@ -44,6 +73,12 @@ class ExampleTreeProvider {
     this.parents = new Map();
   }
 
+  message(text) {
+    if (this.view) {
+      this.view.message = text;
+    }
+  }
+
   refresh(uri) {
     if (uri) {
       this.uri = uri;
@@ -51,17 +86,22 @@ class ExampleTreeProvider {
     this._onDidChangeTreeData.fire();
   }
 
-  wrap(raw) {
-    if (!this.nodes.has(raw)) {
-      this.nodes.set(raw, new ExampleTreeNode(raw, this.uri));
+  wrap(raw, key) {
+    const existing = this.nodes.get(key);
+    if (existing) {
+      existing.raw = raw;             // same row, fresher data
+      existing.packageUri = this.uri;
+      return existing;
     }
-    return this.nodes.get(raw);
+    const made = new ExampleTreeNode(key, raw, this.uri);
+    this.nodes.set(key, made);
+    return made;
   }
 
   // reveal() refuses to work without this, and reveal is how a click unfolds
   // the row it selected.
   getParent(node) {
-    return this.parents.get(node.raw);
+    return this.parents.get(node.key);
   }
 
   getTreeItem(node) {
@@ -105,6 +145,12 @@ class ExampleTreeProvider {
       item.iconPath = new vscode.ThemeIcon(
         raw.severity ? 'error' : 'symbol-object'
       );
+    } else if (raw.kind === 'type') {
+      // The type decides which shapes judge the entity at all, so it reads as
+      // a field rather than as grey text beside the id.
+      item.iconPath = new vscode.ThemeIcon('symbol-class');
+      item.description = raw.detail;
+      item.tooltip = `${raw.entity} is a ${raw.detail}`;
     } else if (raw.kind === 'meta') {
       item.iconPath = new vscode.ThemeIcon('watch');
     } else if (series) {
@@ -138,46 +184,42 @@ class ExampleTreeProvider {
 
   async getChildren(node) {
     if (node) {
-      return (node.raw.children || []).map((child) => {
-        this.parents.set(child, node);
-        return this.wrap(child);
+      return (node.raw.children || []).map((child, position) => {
+        const key = keyOf(child, node.key, position);
+        this.parents.set(key, node);
+        return this.wrap(child, key);
       });
     }
     const client = this.clientHolder.client;
-    if (!client || !this.uri) {
+    if (!client) {
+      this.message('The language server is not running — run ' +
+        '"SemForge: Doctor".');
       return [];
     }
-    const result = await client.sendRequest('semforge/examples', {
-      uri: this.uri
-    });
+    if (!this.uri) {
+      this.message(noPackageMessage());
+      return [];
+    }
+    let result;
+    try {
+      result = await client.sendRequest('semforge/examples', {
+        uri: this.uri
+      });
+    } catch (error) {
+      // An empty tree with no explanation is the failure mode this project
+      // keeps meeting. Say what went wrong where it is visible.
+      this.message(`SemForge: ${error.message || error}`);
+      return [];
+    }
     if (result.error) {
+      this.message(`SemForge: ${result.error}`);
       return [];
     }
-    this.nodes = new Map();
+    this.message(undefined);
     this.parents = new Map();
-    return (result.roots || []).map((raw) => this.wrap(raw));
+    return (result.roots || []).map((raw, position) =>
+      this.wrap(raw, keyOf(raw, '', position)));
   }
-}
-
-/**
- * A package artifact inside the opened folder, as a URI string.
- *
- * The common flow is "open the folder, click the icon" with no editor open at
- * all. Anchoring only to the active editor left the tree empty in exactly that
- * case, with nothing to say why.
- */
-function defaultUri() {
-  const folders = vscode.workspace.workspaceFolders || [];
-  for (const folder of folders) {
-    const root = folder.uri.fsPath;
-    for (const name of ['shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld']) {
-      const candidate = path.join(root, name);
-      if (fs.existsSync(candidate)) {
-        return vscode.Uri.file(candidate).toString();
-      }
-    }
-  }
-  return undefined;
 }
 
 /**
@@ -197,7 +239,7 @@ async function askForValue(clientHolder, node, raw) {
       value: raw.value
     });
 
-  const attribute = (raw.attributePath || raw.path || [])[0];
+  const attribute = attributeOf(raw);
   if (!raw.entityType || !attribute) {
     return typeIt();
   }
@@ -246,6 +288,7 @@ function register(context, clientHolder, onChanged) {
   const view = vscode.window.createTreeView('semforgeExamples', {
     treeDataProvider: provider
   });
+  provider.view = view;
   context.subscriptions.push(view);
 
   // Selecting a row moves the .jsonld to it. Every node carries its own
@@ -274,20 +317,14 @@ function register(context, clientHolder, onChanged) {
     })
   );
 
-  if (!defaultUri() && !vscode.window.activeTextEditor) {
-    view.message =
-      'Open a folder holding knowledge.ttl, shacl.ttl and ' +
-      'model-instance.jsonld — or run "SemForge: Doctor".';
-  }
-
   const track = (editor) => {
     if (editor && /\.(ttl|jsonld)$/.test(editor.document.uri.fsPath)) {
       provider.refresh(editor.document.uri.toString());
     }
   };
-  track(vscode.window.activeTextEditor);
+  provider.refresh(findPackageUri());
   if (!provider.uri) {
-    provider.refresh(defaultUri());
+    track(vscode.window.activeTextEditor);
   }
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(track),
@@ -331,20 +368,30 @@ function register(context, clientHolder, onChanged) {
 
     vscode.commands.registerCommand('semforge.goToShape', async (node) => {
       const raw = node && node.raw;
-      const attribute = raw && (raw.attributePath || raw.path || [])[0];
+      const attribute = raw && attributeOf(raw);
       if (!raw || !attribute || !raw.entityType) {
         vscode.window.showWarningMessage(
-          'SemForge: no entity type on this row, so there is no shape to find.'
+          'SemForge: this row has no attribute and entity type to look a shape ' +
+            `up with (attribute ${attribute || '—'}, type ` +
+            `${(raw && raw.entityType) || '—'}). Reload the window if the ` +
+            'language server is older than the extension.'
         );
         return;
       }
-      const ask = (create) =>
-        clientHolder.client.sendRequest('semforge/shapeFor', {
-          uri: node.packageUri,
-          entityType: raw.entityType,
-          attribute,
-          create
-        });
+      const ask = async (create) => {
+        try {
+          return await clientHolder.client.sendRequest('semforge/shapeFor', {
+            uri: node.packageUri,
+            entityType: raw.entityType,
+            attribute,
+            create
+          });
+        } catch (error) {
+          // A rejected request used to vanish: no jump, no message, nothing in
+          // the log. That is indistinguishable from the command not running.
+          return { ok: false, error: `${error.message || error}` };
+        }
+      };
       let result = await ask(false);
       if (!result.ok && result.exists === false) {
         // Nothing constrains this attribute. Offer to write the empty property

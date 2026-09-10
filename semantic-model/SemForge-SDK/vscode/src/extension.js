@@ -14,6 +14,7 @@ const path = require('path');
 const vscode = require('vscode');
 const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
 
+const { findPackageUri } = require('./locate');
 const cookedTree = require('./tree');
 const exampleTree = require('./examples');
 const knowledgeTree = require('./knowledge');
@@ -218,6 +219,30 @@ function activate(context) {
       channel.appendLine(`  imports semforge: ${importable ? 'yes' : 'NO'}`);
       channel.appendLine(`SDK directory   ${sdk || '(not found)'}`);
       channel.appendLine(`language client ${client ? 'started' : 'not started'}`);
+      const found = findPackageUri();
+      channel.appendLine(`package         ${found || '(none found in this folder or one level below)'}`);
+
+      // What the RUNNING server can answer. An extension newer than the server
+      // shows its new icons and its new view, and every one of them does
+      // nothing -- which is indistinguishable from the feature being broken.
+      if (client) {
+        try {
+          const reported = await client.sendRequest('semforge/methods', {});
+          channel.appendLine(`server code     ${reported.module}`);
+          channel.appendLine(`server methods  ${(reported.methods || []).join(', ')}`);
+          const missing = ['semforge/knowledge', 'semforge/shapeFor',
+                           'semforge/valueChoices']
+            .filter((name) => !(reported.methods || []).includes(name));
+          if (missing.length) {
+            channel.appendLine('');
+            channel.appendLine(`This server is OLDER than the extension: it cannot answer ${missing.join(', ')}.`);
+            channel.appendLine('Run "SemForge: Restart Language Server", or reload the window.');
+          }
+        } catch (error) {
+          channel.appendLine('server methods  (the server did not answer ' +
+            'semforge/methods — it predates this extension entirely)');
+        }
+      }
       channel.appendLine('');
       if (!importable) {
         channel.appendLine('To fix:');
