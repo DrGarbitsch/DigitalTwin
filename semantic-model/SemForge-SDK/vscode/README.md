@@ -465,7 +465,7 @@ nothing reports today:
 | `FilterShape + 2 more` | which shapes judge instances of this class. The ⚖ icon opens the shape |
 | `checked by an inherited shape` | no shape of its own, but `sh:targetClass` reaches subclasses — `CutterShape` judges a `Plasmacutter` |
 | ⚠ `no shape` | nothing targets this type or anything above it, so nothing about it is ever checked |
-| `7 instance(s)` | how many examples instantiate it, counted across every suite — not only `model-instance.jsonld` |
+| `7 instance(s)` | how many examples instantiate it, counted across every suite — not only `model-instance.jsonld`. **Clicking one opens it and shows it in the Examples tree** |
 | `used in 7 place(s)` | an example gives this term as a value. Expand for which entity, attribute and file — **clicking one opens that file at that attribute and shows the entity in the Examples tree** |
 | ⚠ `unused` | no case gives this value, so nothing exercises the constraint that allows it |
 | ⚠ `no members` | a shape uses this class as `sh:class` and it has no individuals: no value can ever satisfy it |
@@ -479,11 +479,13 @@ relationship*, and its instances live in the data rather than in
 `knowledge.ttl`. An abstract root — subclasses, no instances — is not expected
 to have a shape of its own and is not flagged.
 
-Selecting a class or a member moves `knowledge.ttl` to its declaration;
-selecting an instance moves the `.jsonld` to the entity. Selecting a **usage**
-row does both halves of showing you the user: it opens the file at the attribute
-that gives the term, and reveals that entity's row in the Examples tree, where
-its verdicts and its other attributes are. The same entity id appears in a good
+Selecting a class or a member moves `knowledge.ttl` to its declaration.
+
+Selecting a row that names an entity — an **instance** ("this class is
+instantiated here") or a **usage** ("this term is given as a value there") —
+does both halves of showing it: the `.jsonld` opens at the entity, or at the
+attribute that gives the term, and the entity's row is revealed in the Examples
+tree, where its verdicts and its other attributes are. The same entity id appears in a good
 case and a bad one, so each file gets its own row rather than one row guessing
 which you meant.
 

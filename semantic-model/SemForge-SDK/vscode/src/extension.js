@@ -203,7 +203,7 @@ function activate(context) {
     context,
     clientHolder,
     (shape) => constraints.revealShape(shape),
-    (entity) => examples.revealEntity(entity)
+    (entity, file) => examples.revealEntity(entity, file)
   );
 
   context.subscriptions.push(

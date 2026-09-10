@@ -174,11 +174,17 @@ function register(context, clientHolder, onShape, onEntity) {
       if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }
-      // A usage row names an entity that gives this term as a value. Opening
-      // the file is half of showing it; the other half is the row in the
-      // examples tree, where its verdicts and its other attributes are.
-      if (selected.raw.kind === 'usage' && selected.raw.entity && onEntity) {
-        await onEntity(selected.raw.entity);
+      // Both kinds of row name an entity: an instance row says this class is
+      // instantiated here, a usage row says this term is given as a value
+      // there. Opening the file is half of showing it; the other half is the
+      // row in the examples tree, where its verdicts and its other attributes
+      // are.
+      const names = selected.raw.kind === 'usage' ||
+        selected.raw.kind === 'instance';
+      if (names && selected.raw.entity && onEntity) {
+        // The file comes along: the same id appears in a good case and a bad
+        // one, and the row you clicked named one of them.
+        await onEntity(selected.raw.entity, selected.raw.file);
       }
       if ((selected.raw.children || []).length) {
         try {

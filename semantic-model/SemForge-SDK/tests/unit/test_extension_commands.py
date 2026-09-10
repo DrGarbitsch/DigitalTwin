@@ -334,6 +334,34 @@ def test_clicking_a_usage_row_opens_the_file_and_shows_the_entity(tmp_path):
     assert len(fetches) <= 2, f'{len(fetches)} tree fetches for one click'
 
 
+def test_clicking_an_instance_row_opens_the_entity_too(tmp_path):
+    """An instance row says "this class is instantiated here".
+
+    Same promise as a usage row, so the same two halves: the file, and the row
+    in the examples tree.
+    """
+    _package_at(str(tmp_path))
+    entity = {'kind': 'entity', 'label': 'urn:filter:1', 'entity': 'urn:filter:1',
+              'entityType': 'iffBaseEntities:Filter', 'children': []}
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'root/0:instance', 'raw': {
+            'kind': 'instance', 'label': 'urn:filter:1',
+            'entity': 'urn:filter:1', 'detail': 'model-instance.jsonld',
+            'definedAt': '/pkg/model-instance.jsonld:100', 'children': []}},
+        'replies': {
+            'semforge/examples': {'roots': [
+                {'kind': 'example', 'label': 'a case', 'children': [entity]}]},
+            'semforge/knowledge': {'roots': []},
+            'semforge/tree': {'roots': []},
+        },
+    })
+    assert seen['shown'] == [{'file': '/pkg/model-instance.jsonld', 'line': 99,
+                              'preserveFocus': True}]
+    assert [r for r in seen['revealed'] if r['view'] == 'semforgeExamples'], \
+        f'the entity was never shown in the examples tree: {seen["revealed"]}'
+
+
 def test_clicking_a_class_row_does_not_chase_an_entity(tmp_path):
     """Only a usage row names an entity; the others must not try."""
     _package_at(str(tmp_path))
@@ -349,3 +377,38 @@ def test_clicking_a_class_row_does_not_chase_an_entity(tmp_path):
                               'preserveFocus': True}]
     assert [r for r in seen['requests']
             if r['method'] == 'semforge/examples'] == []
+
+
+def test_the_revealed_row_is_the_one_in_the_file_that_was_clicked(tmp_path):
+    """urn:cartridge:1 exists in the shipped model and in a subobject.
+
+    Revealing the first row with that id would show the wrong occurrence for
+    every click on the others -- wrong in the quietest possible way, since both
+    rows look identical.
+    """
+    _package_at(str(tmp_path))
+
+    def entity(file):
+        return {'kind': 'entity', 'label': 'urn:cartridge:1',
+                'entity': 'urn:cartridge:1', 'file': file, 'children': []}
+
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeKnowledge',
+        'node': {'key': 'k', 'raw': {
+            'kind': 'instance', 'label': 'urn:cartridge:1',
+            'entity': 'urn:cartridge:1', 'file': '/pkg/cartridge-fresh.jsonld',
+            'definedAt': '/pkg/cartridge-fresh.jsonld:2', 'children': []}},
+        'replies': {
+            'semforge/examples': {'roots': [
+                {'kind': 'example', 'label': 'shipped',
+                 'children': [entity('/pkg/model-instance.jsonld')]},
+                {'kind': 'example', 'label': 'subobject',
+                 'children': [entity('/pkg/cartridge-fresh.jsonld')]}]},
+            'semforge/knowledge': {'roots': []},
+            'semforge/tree': {'roots': []},
+        },
+    })
+    revealed = [r for r in seen['revealed'] if r['view'] == 'semforgeExamples']
+    assert revealed, 'nothing was revealed'
+    # Key carries the position, so the second root is the one that was shown.
+    assert revealed[0]['key'].startswith('/1:'), revealed[0]['key']

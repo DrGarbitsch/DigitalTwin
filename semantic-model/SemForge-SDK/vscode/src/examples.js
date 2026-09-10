@@ -104,15 +104,25 @@ class ExampleTreeProvider {
     return this.parents.get(node.key);
   }
 
-  /** The chain of (raw, key) from a root down to this entity's row. */
-  chainToEntity(entity) {
+  /**
+   * The chain of (raw, key) from a root down to this entity's row.
+   *
+   * `file` decides between occurrences: one id appears in a good case and a bad
+   * one, and revealing the good row for a click on the bad one would be wrong
+   * in the quietest possible way.
+   */
+  chainToEntity(entity, file) {
+    let fallback;
     const walk = (raws, parentKey, chain) => {
       for (let position = 0; position < raws.length; position += 1) {
         const raw = raws[position];
         const key = keyOf(raw, parentKey, position);
         const here = chain.concat([{ raw, key }]);
         if (raw.kind === 'entity' && raw.entity === entity) {
-          return here;
+          if (!file || raw.file === file) {
+            return here;
+          }
+          fallback = fallback || here;
         }
         const deeper = walk(raw.children || [], key, here);
         if (deeper) {
@@ -121,7 +131,7 @@ class ExampleTreeProvider {
       }
       return undefined;
     };
-    return walk(this.rawRoots || [], '', []);
+    return walk(this.rawRoots || [], '', []) || fallback;
   }
 
   /**
@@ -132,14 +142,14 @@ class ExampleTreeProvider {
    * saying "urn:filter:1 uses this term" should be able to show you
    * urn:filter:1.
    */
-  async revealEntity(entity) {
+  async revealEntity(entity, file) {
     if (!this.rawRoots) {
       await this.getChildren();
     }
-    let chain = this.chainToEntity(entity);
+    let chain = this.chainToEntity(entity, file);
     if (!chain) {
       await this.getChildren();            // the tree may have moved on
-      chain = this.chainToEntity(entity);
+      chain = this.chainToEntity(entity, file);
     }
     if (!chain || !this.view) {
       return false;
