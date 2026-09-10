@@ -40,7 +40,7 @@ ARTIFACTS = ('knowledge.ttl', 'shacl.ttl', 'model-instance.jsonld')
 class EditorFinding:
     line: int                 # 1-based
     severity: str             # error | warning | info | hint
-    kind: str                 # capability | view | unexercised | fires
+    kind: str                 # capability | view | unexercised | fires | identity
     message: str
     subject: str = ''
 
@@ -88,6 +88,21 @@ def analyse(root, profile_name='shacl2flink'):
 
     for diagnostic in check_package(package, builtin_profile(profile_name), index):
         at(diagnostic.subject, 'error', 'capability', diagnostic.message)
+
+    # Who is who across the examples. These land on the .jsonld file and line
+    # where the entity is defined -- the shapes file has nothing to do with it,
+    # and a locator for JSON exists now.
+    from ..expect.identity import duplicate_ids, missing_context
+
+    try:
+        for duplicate in list(missing_context(package)) + duplicate_ids(package):
+            for where, line in duplicate.places:
+                findings.setdefault(os.path.abspath(where), []).append(
+                    EditorFinding(line=line, severity=duplicate.severity,
+                                  kind='identity', message=duplicate.message,
+                                  subject=duplicate.entity))
+    except Exception:                              # noqa: BLE001
+        pass            # a malformed example is the validator's story to tell
 
     report = validate_package(package, strict=False)
 

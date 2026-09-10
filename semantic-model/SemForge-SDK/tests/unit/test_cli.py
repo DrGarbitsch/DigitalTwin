@@ -75,3 +75,47 @@ def test_accept_writes_the_residue(tmp_path, corpus_path):
     # Second accept is a no-op: nothing changed, so nothing to accept.
     again = CliRunner().invoke(cli, ['accept', str(package)])
     assert 'accepted residue for 0 example(s)' in again.output
+
+
+def test_test_reports_reused_ids_without_failing(corpus_path):
+    """The shipped suite reuses ids across cases deliberately.
+
+    Saying so is useful; refusing to run would reject the design rather than a
+    mistake.
+    """
+    result = CliRunner().invoke(cli, ['test', corpus_path])
+    assert 'Identity' in result.output
+    assert 'urn:filter:1' in result.output
+    assert '[across-files]' in result.output
+    assert result.exit_code == 0
+
+
+def test_test_fails_when_one_id_names_two_entities_in_a_case(tmp_path, corpus):
+    """There the definitions merge, so the case no longer tests what it says."""
+    import json
+    import shutil
+
+    package = tmp_path / 'pkg'
+    package.mkdir()
+    for role, name in (('knowledge', 'knowledge.ttl'), ('shapes', 'shacl.ttl'),
+                       ('model', 'model-instance.jsonld')):
+        shutil.copy(corpus.sources[role], package / name)
+    for extra in ('context.jsonld', 'semforge.yaml'):
+        shutil.copy(f'{corpus.path}/{extra}', package / extra)
+    examples = package / 'examples'
+    examples.mkdir()
+    published = ('https://industryfusion.github.io/contexts/staging/example/'
+                 'v0.2/context.jsonld')
+    for name in ('inc.jsonld', 'case.jsonld'):
+        with open(examples / name, 'w') as handle:
+            json.dump([{'id': 'urn:filter:99',
+                        'type': 'iffBaseEntities:Filter',
+                        '@context': published}], handle)
+    with open(examples / 'expectations.yaml', 'w') as handle:
+        handle.write('examples:\n  - path: case.jsonld\n'
+                     '    include: [inc.jsonld]\n    expect: invalid\n')
+
+    result = CliRunner().invoke(cli, ['test', str(package)])
+    assert 'urn:filter:99' in result.output
+    assert '[in-case]' in result.output
+    assert result.exit_code == 1

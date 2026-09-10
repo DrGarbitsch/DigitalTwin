@@ -31,10 +31,21 @@ def test_package_root_is_none_outside_a_package(tmp_path):
     assert package_root(str(tmp_path)) is None
 
 
-def test_findings_land_on_the_shapes_file(corpus_path):
+def test_findings_about_shapes_land_on_the_shapes_file(corpus_path):
+    """A violation is the shape's business, so it is reported against the shape.
+
+    Entity identity is the document's business and lands on the .jsonld -- the
+    one exception, and only because a JSON position index exists for it.
+    """
     findings, _ = analyse(corpus_path)
-    assert len(findings) == 1
     assert list(findings)[0].endswith('shacl.ttl')
+    for path, items in findings.items():
+        kinds = {finding.kind for finding in items}
+        if path.endswith('shacl.ttl'):
+            assert 'identity' not in kinds
+        else:
+            assert path.endswith('.jsonld'), path
+            assert kinds == {'identity'}, kinds
 
 
 def test_every_finding_has_a_real_line(analysis):

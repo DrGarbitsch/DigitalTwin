@@ -181,9 +181,13 @@ def compose(package, example):
     a well-formed entity at all, and repeating them in every case makes the
     difference between two cases hard to see and easy to get wrong.
 
-    Includes are composed BEFORE the example, so the example wins where both
-    describe the same entity -- that is what lets bad/filter-off replace the
-    filter the good case includes.
+    Includes are composed BEFORE the example, but that does NOT make the
+    example win: everything is parsed into one graph, so two definitions of the
+    same id MERGE -- an include saying `hasState ON` and a case saying OFF
+    produce an entity with both. Measured, in test_identity.py. To vary an
+    entity between cases, include a different subobject, which is what
+    bad/filter-off does; `semforge test` reports a shared id inside one case as
+    an error.
     """
     import os
 

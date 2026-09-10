@@ -214,8 +214,14 @@ class ExampleTreeProvider {
       // so it is shown read-only and edited where it is declared.
       item.iconPath = new vscode.ThemeIcon('references');
     } else if (raw.kind === 'entity') {
+      // A violation says the entity is wrong; a warning says we cannot be sure
+      // which entity it is. Same icon for both would conflate them.
       item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'error' : 'symbol-object'
+        raw.severity === 'violation'
+          ? 'error'
+          : raw.severity
+          ? 'warning'
+          : 'symbol-object'
       );
     } else if (raw.kind === 'type') {
       // The type decides which shapes judge the entity at all, so it reads as

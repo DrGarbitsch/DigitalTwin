@@ -202,6 +202,17 @@ def test(path, want_coverage, fail_on):
         click.echo(str(exc), err=True)
         sys.exit(2)
 
+    from ..expect.identity import duplicate_ids, missing_context
+
+    duplicates = missing_context(package) + duplicate_ids(package, expectations)
+    if duplicates:
+        click.echo('Identity')
+        for duplicate in duplicates:
+            marker = '  !!  ' if duplicate.severity == 'error' else '  ..  '
+            click.echo(f'{marker}{duplicate.entity}  [{duplicate.kind}]')
+            click.echo(f'        {duplicate.message}')
+        click.echo('')
+
     failed = 0
     for outcome in run_tests(paired):
         if outcome.passed:
@@ -224,7 +235,15 @@ def test(path, want_coverage, fail_on):
                 click.echo(f'\n{len(offenders)} constraint(s) are {fail_on}', err=True)
                 failed += len(offenders)
 
-    sys.exit(1 if failed else 0)
+    # An id naming two entities inside one case, or an entity with no context,
+    # is a broken test rather than a style question: the one merges two entities
+    # into one, the other validates nothing while passing.
+    broken = [d for d in duplicates if d.severity == 'error']
+    if broken:
+        click.echo(f'{len(broken)} id(s) name more than one entity in the same '
+                   f'case', err=True)
+
+    sys.exit(1 if failed or broken else 0)
 
 
 @cli.command('import')

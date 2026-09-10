@@ -1052,6 +1052,28 @@ finished would be the silent-success failure §7.4 exists to prevent. An
 inherited constraint counts as existing and is never copied down — that would be
 an override, which is a decision with its own command (§12.3, S1).
 
+#### 12.2.2 Identity across examples
+
+An NGSI-LD id identifies an entity, and a suite of examples bends that in three
+ways. Only two are mistakes, so they are reported separately rather than as one
+"duplicate id" complaint (`semforge/expect/identity.py`):
+
+| Situation | Severity | Why |
+|---|---|---|
+| the same id twice in one document | error | one entity carrying the attributes of both; nothing says which was meant |
+| the same id in a case and one of its includes | error | `compose` parses them into ONE graph, so the definitions **merge**. An include saying `hasState ON` and a case saying `OFF` yield an entity with both — there is no override, measured in `test_identity.py`. Vary an entity by including a different subobject |
+| the same id in documents never composed together | warning | legitimate: each case validates on its own, and this is how a variant of one thing is written. But the id no longer identifies one entity — the trees show it once per file, and an edit reaches one of them |
+| an entity with no `@context` | error | `id` and `type` are ordinary keys until a context maps them, so the entity expands to a blank node, no `sh:targetClass` matches it, and the case passes having validated nothing |
+
+The last one belongs here rather than with validation because it is the same
+failure shape as §7.4: a check that cannot fire is indistinguishable from one
+that is satisfied. An example that expands to nothing conforms perfectly.
+
+These are the first findings attributed to a `.jsonld` file rather than to
+`shacl.ttl` (§12.2, and the limit recorded against D8): a violation is the
+shape's business, but identity is the document's, and a JSON position index now
+exists to place it.
+
 ### 12.3 Raw/cooked synchronisation (D2)
 
 Both views project the same SIM; neither holds derived state.

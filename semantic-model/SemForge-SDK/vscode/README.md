@@ -368,6 +368,23 @@ NGSI-LD entity has, since it decides which shapes judge it at all. So it gets a
 row. It is read-only here: changing a type is not an edit to one value, because
 every shape that targeted the old type stops applying.
 
+**An id is checked for being one entity.** A row marked `id reused` means that
+id names a different entity in another file — legitimate in this suite (the
+filter switched off is written as a second `urn:filter:1`), but the id has
+stopped identifying one thing: the trees show it once per file and an edit
+reaches only one of them. Two cases are errors rather than warnings, and
+`semforge test` exits non-zero on them:
+
+| Case | Why it is an error |
+|---|---|
+| the same id twice in one file | one entity carrying the attributes of both, and nothing says which was meant |
+| the same id in a case *and* one of its includes | the files are parsed into one graph, so the definitions **merge** — an include saying `hasState ON` and a case saying `OFF` produce an entity with both. There is no override; vary an entity by including a different subobject |
+| an entity with no `@context` | `id` and `type` are ordinary keys until a context maps them, so it expands to a blank node, no `sh:targetClass` matches, and the case passes having validated nothing |
+
+The messages land in the Problems panel **on the `.jsonld` file and line** where
+the entity is defined — the first diagnostics this extension puts anywhere but
+`shacl.ttl`.
+
 **Instances are grouped by `datasetId`.** That is not cosmetic: an NGSI-LD
 attribute is identified by `(entity, name, datasetId)`, so several instances
 sharing one are the *same* attribute observed repeatedly, while different
@@ -551,10 +568,10 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 
 ## Limits worth knowing
 
-- **Diagnostics land on `shacl.ttl` only.** Violations are attributed to the
-  shape that raised them, not to the entity in `model-instance.jsonld` — mapping
-  a finding back to a JSON-LD line needs a JSON position index that does not
-  exist yet.
+- **Violations are attributed to the shape, not to the entity.** They land on
+  `shacl.ttl`, against the constraint you are editing. Entity-identity findings
+  are the exception and land on the `.jsonld` line, now that a JSON position
+  index exists; mapping every violation back to its entity is still not done.
 - **Cooked editing covers Core parameters only** — cardinality, datatype,
   class, nodeKind, ranges, lengths, pattern. That is deliberate rather than
   partial: those are the constraints that honestly fit one name and one scalar

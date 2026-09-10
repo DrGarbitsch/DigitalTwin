@@ -251,6 +251,7 @@ def build_suite(package, expectations=None):
     from ..validate.orchestrator import validate_graphs
 
     expectations = expectations or load_expectations(package.path)
+    notes = _identity_notes(package)
     by_suite = OrderedDict()
     loose = []
 
@@ -263,7 +264,7 @@ def build_suite(package, expectations=None):
             node = ExampleNode(kind='example', label=example.path,
                                detail=f'error: {exc}', severity='violation')
         else:
-            node = _example_root(package, example, report)
+            node = _example_root(package, example, report, notes)
 
         target = by_suite.setdefault(example.suite, []) if example.suite \
             else loose
@@ -282,7 +283,7 @@ def build_suite(package, expectations=None):
         roots.append(node)
 
     roots.extend(loose)
-    roots.append(_model_root(package))
+    roots.append(_model_root(package, notes))
     return roots
 
 
@@ -298,7 +299,7 @@ def _expected_shape(example, report):
     return ('ok', '')
 
 
-def _example_root(package, example, report):
+def _example_root(package, example, report, notes=None):
     import os
 
     status, severity = _expected_shape(example, report)
@@ -311,18 +312,19 @@ def _example_root(package, example, report):
                        else [])
 
     own = os.path.join(package.path, 'examples', example.path)
-    node.children.extend(_entity_nodes(own, report))
+    node.children.extend(_entity_nodes(own, report, notes=notes))
 
     for included in example.include:
         path = os.path.join(package.path, 'examples', included)
         folder = ExampleNode(kind='include', label=os.path.basename(included),
                              detail='included — edit it where it is declared')
-        folder.children.extend(_entity_nodes(path, report, editable=False))
+        folder.children.extend(
+            _entity_nodes(path, report, editable=False, notes=notes))
         node.children.append(folder)
     return node
 
 
-def _model_root(package):
+def _model_root(package, notes=None):
     from ..validate import validate_package
 
     node = ExampleNode(
@@ -330,7 +332,7 @@ def _model_root(package):
         detail='the model as shipped — not a declared example')
     node.children.extend(
         _entity_nodes(package.sources['model'], validate_package(
-            package, strict=False)))
+            package, strict=False), notes=notes))
     return node
 
 
@@ -369,7 +371,45 @@ def _stamp_lines(node, path, index, prefix):
         _stamp_lines(child, path, index, prefix)
 
 
-def _entity_nodes(path, report=None, editable=True):
+def _identity_notes(package):
+    """{entity id: (severity, [messages])} -- ids that name more than one thing.
+
+    Marked on the row rather than reported only in a panel: the tree is where
+    you see four rows called urn:filter:1 and wonder which one you are editing.
+    """
+    from ..expect.identity import duplicate_ids
+
+    notes = {}
+    try:
+        found = duplicate_ids(package)
+    except Exception:                              # noqa: BLE001
+        return notes
+    for duplicate in found:
+        severity, messages = notes.setdefault(
+            duplicate.entity, [duplicate.severity, []])
+        messages.append(duplicate.message)
+        if duplicate.severity == 'error':
+            notes[duplicate.entity][0] = 'error'
+    return notes
+
+
+def _note_identity(node, notes):
+    note = notes.get(node.entity)
+    if not note:
+        return
+    severity, messages = note
+    node.messages = list(node.messages) + list(messages)
+    # A violation outranks it: that one says the entity is wrong, this one says
+    # we cannot be sure which entity it is.
+    if node.severity != 'violation':
+        node.severity = 'violation' if severity == 'error' else 'warning'
+    if severity == 'error':
+        node.detail = ' · '.join(p for p in (node.detail, 'duplicate id') if p)
+    else:
+        node.detail = ' · '.join(p for p in (node.detail, 'id reused') if p)
+
+
+def _entity_nodes(path, report=None, editable=True, notes=None):
     from .jsonloc import locate
 
     with open(path, encoding='utf-8') as handle:
@@ -411,6 +451,7 @@ def _entity_nodes(path, report=None, editable=True):
                 _read_only(child)
             node.children.append(child)
         _stamp_type(node, str(entity.get('type') or entity.get('@type') or ''))
+        _note_identity(node, notes or {})
         _stamp_file(node, path)
         _stamp_lines(node, path, index, [position])
         out.append(node)
