@@ -341,9 +341,10 @@ A **bad** example that violates is `ok` — violating is its pass condition. One
 that stops violating is the failure, which is the regression a negative example
 exists to catch.
 
-Entities arriving through `include` are read-only here: editing a subobject in
-place would change every case that includes it, which is a decision to take in
-that file rather than a side effect of editing one example.
+Entities arriving through `include` are editable where they appear, and the
+write goes to the subobject. The tree says how many cases include that file and
+the edit asks before changing more than one of them — a decision worth taking
+deliberately, but not one worth forbidding.
 
 Under each entity is the data itself, starting with its **type**:
 
@@ -401,13 +402,19 @@ hasStrength                       2 datasets
 └── 1.5    urn:sensor:B · Property · 2 observations 📈
 ```
 
-**Anything carrying a value carries the pencil.** That includes the value of an
-attribute with sub-attributes, which does not fold onto the attribute row — the
-row beneath it is where the value lives, and it is editable there. **Add
-Observation** appears only on a row that stands for a `datasetId`, since that is
-what a series belongs to. A row from an *included* subobject carries only the ⚖
-and says why on hover: editing it there would change every case that includes
-it, so select it to open the file that declares it.
+**Anything carrying a value carries the pencil** — including the value of an
+attribute with sub-attributes, which does not fold onto the attribute row: the
+row beneath it is where the value lives. **Add Observation** appears only on a
+row that stands for a `datasetId`, since that is what a series belongs to. The
+only rows without a pencil are rows with no value of their own, and they say so
+on hover.
+
+**Rows from an included subobject are editable too.** They are ordinary JSON-LD
+files and the edit lands in the file the row came from. What is worth knowing is
+the reach: `workpiece-steel.jsonld` is included by three cases, so changing its
+height moves three verdicts. Those rows say `shared by 3 cases` and the edit
+asks once, listing them, before writing. A file only one case includes asks
+nothing.
 
 A row with the 📈 icon takes **Add Observation** (right-click). It asks for the
 value and an `observedAt`, joins the series for *its* `datasetId`, and copies

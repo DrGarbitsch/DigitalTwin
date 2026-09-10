@@ -432,8 +432,14 @@ def test_a_bad_example_that_fires_is_ok_not_a_failure(corpus):
     assert entity.severity == 'violation'
 
 
-def test_included_subobjects_are_shown_read_only(corpus):
-    """Editing one here would change every case that includes it."""
+def test_included_subobjects_are_editable_and_say_what_they_reach(corpus):
+    """A subobject is an ordinary JSON-LD file.
+
+    Refusing to edit it was a restriction the format does not have, and it read
+    as the tree being broken. What is true is that an edit reaches every case
+    that includes the file, so each row carries that list and the command asks
+    before writing.
+    """
     from semforge.cooked.examples import build_suite, flatten
 
     roots = {n.label: n for n in _cases(build_suite(corpus))}
@@ -441,8 +447,42 @@ def test_included_subobjects_are_shown_read_only(corpus):
     includes = [c for c in node.children if c.kind == 'include']
     assert {c.label for c in includes} == {
         'workpiece-steel.jsonld', 'cartridge-fresh.jsonld', 'filter-on.jsonld'}
-    assert all(not n.editable for include in includes
-               for _, n in flatten([include]))
+
+    rows = [n for include in includes for _, n in flatten([include])
+            if n.kind == 'attribute']
+    assert rows
+    assert any(n.editable for n in rows), 'included rows are still locked'
+
+    workpiece = next(c for c in includes if c.label == 'workpiece-steel.jsonld')
+    assert len(workpiece.shared_by) == 3, workpiece.shared_by
+    assert 'shared by 3 cases' in workpiece.detail
+    assert all(len(n.shared_by) == 3
+               for _, n in flatten([workpiece]) if n.kind == 'attribute')
+
+    # A file only one case includes needs no warning.
+    only = next(c for c in includes if c.label == 'filter-on.jsonld')
+    assert len(only.shared_by) == 1
+
+
+def test_editing_an_included_entity_writes_to_its_own_file(corpus, tmp_path):
+    """The edit lands in the subobject, not in the case that includes it."""
+    import shutil
+
+    from semforge.cooked.examples import build_suite, flatten, set_value
+    from semforge.package import load
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    package = load(str(target))
+
+    row = next(n for _, n in flatten(build_suite(package))
+               if n.kind == 'attribute' and n.entity == 'urn:workpiece:1'
+               and n.label == 'hasHeight' and n.shared_by and n.editable)
+    path, old, new = set_value(package, row.entity, row.path, '0.42',
+                               file=row.file)
+    assert path.endswith('workpiece-steel.jsonld')
+    assert new == '0.42' and old != new
+    assert '0.42' in open(path, encoding='utf-8').read()
 
 
 def test_the_examples_own_entities_stay_editable(corpus):
@@ -776,3 +816,48 @@ def test_every_node_knows_its_file(corpus):
     for _, node in flatten(build_suite(corpus)):
         if node.kind in ('entity', 'attribute', 'instance', 'dataset'):
             assert node.file, f'{node.kind} {node.label} has no file'
+
+
+def test_every_payload_can_be_edited_not_only_the_scalar_ones(corpus, tmp_path):
+    """A JsonProperty's `json` and a ListProperty's `valueList` are values too.
+
+    They showed a value and refused to change it, which is the worst of both --
+    and the input parses JSON, so a list and an object go in as such.
+    """
+    import shutil
+
+    from semforge.cooked.examples import build_suite, flatten, set_value
+    from semforge.package import load
+
+    target = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, target, symlinks=False)
+    package = load(str(target))
+
+    for label, written in (('hasJSON', '{"a": 1, "b": [2, 3]}'),
+                           ('hasList', '[4, 5, 6]')):
+        row = next(n for _, n in flatten(build_suite(package))
+                   if n.label == label and n.kind in ('attribute', 'instance')
+                   and n.editable)
+        path, _, after = set_value(package, row.entity, row.path, written,
+                                   file=row.file)
+        assert after == written
+        assert written.replace(' ', '') in \
+            open(path, encoding='utf-8').read().replace(' ', '').replace('\n', '')
+
+
+def test_a_row_is_read_only_only_when_it_has_no_value_of_its_own(corpus):
+    """What is left after includes and payloads became editable.
+
+    A container row -- an attribute whose instances carry sub-attributes -- has
+    no single value, so there is nothing to put in an input box. Anything else
+    refusing to be edited would be a bug.
+    """
+    from semforge.cooked.examples import build_suite, flatten
+
+    for _, node in flatten(build_suite(corpus)):
+        if node.kind not in ('attribute', 'dataset', 'instance', 'meta'):
+            continue
+        if node.editable:
+            continue
+        assert node.children, f'{node.label} is locked and has nothing beneath it'
+        assert not node.value, f'{node.label} shows a value it will not change'

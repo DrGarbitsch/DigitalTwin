@@ -261,6 +261,9 @@ def _serialise_example(node):
         'datasetId': node.dataset_id, 'observations': node.observations,
         'attributePath': list(node.attribute_path), 'file': node.file,
         'entityType': node.entity_type,
+        # Which cases include this file. The row is editable either way; this is
+        # what lets the edit say how far it reaches before making it.
+        'sharedBy': list(node.shared_by),
         # Without this the client has no location and selection reveals
         # nothing -- which is how the examples tree looked inert.
         'definedAt': node.defined_at,

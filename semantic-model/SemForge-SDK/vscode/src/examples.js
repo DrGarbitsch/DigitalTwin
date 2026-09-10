@@ -272,11 +272,18 @@ class ExampleTreeProvider {
       lines.push(`read from ${raw.file}`);
     }
     if (item.contextValue === 'attributeReadOnly') {
-      // An absent pencil with no explanation reads as a broken tree.
+      // An absent pencil with no explanation reads as a broken tree. The only
+      // rows left without one are rows with no value OF THEIR OWN -- the value
+      // is on the rows beneath them.
       lines.push(
-        'Read-only here: this comes from an included subobject, so editing it ' +
-          'would change every case that includes it. Select the row to open ' +
-          'the file that declares it.'
+        'No value on this row: edit the rows beneath it. (An attribute whose ' +
+          'instances carry sub-attributes has no single value of its own.)'
+      );
+    }
+    if ((raw.sharedBy || []).length > 1) {
+      lines.push(
+        `Shared: this file is included by ${raw.sharedBy.length} cases ` +
+          `(${raw.sharedBy.join(', ')}). An edit here changes all of them.`
       );
     }
     if (lines.length) {
@@ -331,6 +338,27 @@ class ExampleTreeProvider {
     return this.rawRoots.map((raw, position) =>
       this.wrap(raw, keyOf(raw, '', position)));
   }
+}
+
+/**
+ * Ask before changing a file more than one case includes.
+ *
+ * A subobject is an ordinary JSON-LD file and editing it is allowed -- refusing
+ * was a restriction the format does not have. What is worth a question is the
+ * reach: "a cutter running with its filter off" and "with it on" share the same
+ * workpiece, so changing the workpiece changes both verdicts.
+ */
+async function confirmShared(raw, what) {
+  const cases = raw.sharedBy || [];
+  if (cases.length < 2) {
+    return true;
+  }
+  const answer = await vscode.window.showWarningMessage(
+    `${what} ${raw.label} changes ${cases.length} cases that include this file.`,
+    { modal: true, detail: cases.join('\n') },
+    'Edit anyway'
+  );
+  return answer === 'Edit anyway';
 }
 
 /**
@@ -455,6 +483,9 @@ function register(context, clientHolder, onChanged) {
     vscode.commands.registerCommand('semforge.editValue', async (node) => {
       const raw = node && node.raw;
       if (!raw || !raw.editable) {
+        return;
+      }
+      if (!(await confirmShared(raw, 'Editing'))) {
         return;
       }
       // When the shape says sh:class, the value is an individual of that
@@ -652,6 +683,9 @@ function register(context, clientHolder, onChanged) {
     vscode.commands.registerCommand('semforge.addObservation', async (node) => {
       const raw = node && node.raw;
       if (!raw || !raw.attributePath || !raw.attributePath.length) {
+        return;
+      }
+      if (!(await confirmShared(raw, 'Adding an observation to'))) {
         return;
       }
       const value = await vscode.window.showInputBox({

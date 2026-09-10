@@ -114,7 +114,10 @@ const stub = {
     },
     showWarningMessage: (message) => {
       seen.warnings.push(message);
-      return Promise.resolve(undefined);
+      // A warning can be a question too -- "Edit anyway" lives on one -- so it
+      // answers with `answer` like the information messages. Without this a
+      // confirmation flow could only ever be declined in a test.
+      return Promise.resolve(scenario.answer);
     },
     showErrorMessage: (message) => {
       seen.errors.push(message);

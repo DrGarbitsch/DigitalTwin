@@ -45,6 +45,7 @@ class ExampleNode:
     file: str = ''             # the JSON file this node was read from
     defined_at: str = ''       # file:line, so selecting the row moves the editor
     entity_type: str = ''      # the entity's NGSI-LD type, for the shape jump
+    shared_by: list = field(default_factory=list)  # cases including this file
     dataset_id: str = ''       # the datasetId this row stands for
     observations: int = 0      # how many, when it is a series
     attribute_path: list = field(default_factory=list)  # where to append one
@@ -84,7 +85,12 @@ def _instance_node(instance, entity, path, findings):
             node.label = _render(instance[key])
             node.value = _render(instance[key])
             node.detail = kind
-            node.editable = key in ('value', 'object')
+            # Every payload, not just the scalar ones. A JsonProperty's `json`
+            # and a ListProperty's `valueList` are values as much as `value` is,
+            # and the input box parses JSON, so `[1, 2, 3]` and `{"a": 1}` go in
+            # as a list and an object. Excluding them left rows that showed a
+            # value and refused to change it.
+            node.editable = True
             node.path = list(path) + [key]
             break
     else:
@@ -252,6 +258,10 @@ def build_suite(package, expectations=None):
 
     expectations = expectations or load_expectations(package.path)
     notes = _identity_notes(package)
+    shared = {}
+    for example in expectations.examples:
+        for included in example.include:
+            shared.setdefault(included, []).append(example.path)
     by_suite = OrderedDict()
     loose = []
 
@@ -264,7 +274,7 @@ def build_suite(package, expectations=None):
             node = ExampleNode(kind='example', label=example.path,
                                detail=f'error: {exc}', severity='violation')
         else:
-            node = _example_root(package, example, report, notes)
+            node = _example_root(package, example, report, notes, shared)
 
         target = by_suite.setdefault(example.suite, []) if example.suite \
             else loose
@@ -299,7 +309,7 @@ def _expected_shape(example, report):
     return ('ok', '')
 
 
-def _example_root(package, example, report, notes=None):
+def _example_root(package, example, report, notes=None, shared=None):
     import os
 
     status, severity = _expected_shape(example, report)
@@ -316,10 +326,18 @@ def _example_root(package, example, report, notes=None):
 
     for included in example.include:
         path = os.path.join(package.path, 'examples', included)
+        cases = list(shared.get(included, [])) if shared else []
+        detail = 'included'
+        if len(cases) > 1:
+            detail += f' — shared by {len(cases)} cases'
         folder = ExampleNode(kind='include', label=os.path.basename(included),
-                             detail='included — edit it where it is declared')
-        folder.children.extend(
-            _entity_nodes(path, report, editable=False, notes=notes))
+                             detail=detail, shared_by=cases)
+        # Editable, because it is an ordinary JSON-LD file and there is nothing
+        # about being included that makes it unwritable. What matters is that an
+        # edit reaches every case that includes it, so the rows carry the list
+        # and the edit asks first.
+        folder.children.extend(_entity_nodes(path, report, notes=notes,
+                                             shared_by=cases))
         node.children.append(folder)
     return node
 
@@ -408,7 +426,8 @@ def _note_identity(node, notes):
     node.detail = ' · '.join(p for p in (node.detail, 'duplicate id') if p)
 
 
-def _entity_nodes(path, report=None, editable=True, notes=None):
+def _entity_nodes(path, report=None, editable=True, notes=None,
+                  shared_by=()):
     from .jsonloc import locate
 
     with open(path, encoding='utf-8') as handle:
@@ -449,6 +468,8 @@ def _entity_nodes(path, report=None, editable=True, notes=None):
             if not editable:
                 _read_only(child)
             node.children.append(child)
+        if shared_by:
+            _stamp_shared(node, list(shared_by))
         _stamp_type(node, str(entity.get('type') or entity.get('@type') or ''))
         _note_identity(node, notes or {})
         _stamp_file(node, path)
@@ -480,6 +501,18 @@ def _stamp_type(node, entity_type):
     node.entity_type = entity_type
     for child in node.children:
         _stamp_type(child, entity_type)
+
+
+def _stamp_shared(node, cases):
+    """Carry "this file is included by these cases" down to every row.
+
+    The rows are editable -- it is an ordinary JSON-LD file -- but an edit lands
+    in every case that includes it, and a row has to be able to say so before
+    the edit rather than after.
+    """
+    node.shared_by = cases
+    for child in node.children:
+        _stamp_shared(child, cases)
 
 
 def _read_only(node):
@@ -547,7 +580,21 @@ def _locate(document, entity_id, path):
             continue
         cursor = entity
         for step in path[:-1]:
-            cursor = cursor[step]
+            # An attribute with one instance may be written as a bare object or
+            # as a one-element array, and both mean the same attribute. The tree
+            # addresses instances by index either way, so index 0 against an
+            # object stays where it is rather than failing with KeyError: 0.
+            if isinstance(step, int) and isinstance(cursor, dict):
+                if step:
+                    raise PackageError(
+                        f'{entity_id}: instance {step} of a single-instance '
+                        f'attribute does not exist')
+                continue
+            try:
+                cursor = cursor[step]
+            except (KeyError, IndexError, TypeError):
+                raise PackageError(
+                    f'{entity_id}: no {step} to edit at this address')
         return cursor, path[-1]
     raise PackageError(f'no entity {entity_id} in this example')
 

@@ -573,3 +573,80 @@ def test_only_a_row_standing_for_a_dataset_takes_an_observation(tmp_path, corpus
         if row['contextValue'] in offers:
             assert row['kind'] in ('attribute', 'dataset'), row
             assert row['datasetId'], row
+
+
+# --- editing a file several cases include -------------------------------------
+
+def _shared_row(**overrides):
+    raw = {
+        'kind': 'attribute', 'label': 'hasHeight', 'entity': 'urn:workpiece:1',
+        'entityType': 'iffBaseEntities:Workpiece', 'editable': True,
+        'attributePath': ['iffBaseEntities:hasHeight'],
+        'path': ['iffBaseEntities:hasHeight', 0, 'value'],
+        'value': '5', 'children': [],
+        'file': '/pkg/examples/subobjects/workpiece-steel.jsonld',
+        'sharedBy': ['test_A/good/a.jsonld', 'test_B/bad/b.jsonld',
+                     'test_C/bad/c.jsonld'],
+    }
+    raw.update(overrides)
+    return {'key': 'k', 'raw': raw, 'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+def test_editing_a_shared_file_asks_how_far_it_reaches(tmp_path):
+    """A subobject is editable -- refusing was a restriction JSON-LD does not
+    have -- but the reach is worth a question: the same workpiece decides the
+    verdict of three cases."""
+    seen = _drive(tmp_path, {
+        'command': 'semforge.editValue', 'node': _shared_row(),
+        'answer': 'Edit anyway', 'input': '0.42',
+        'replies': {'semforge/valueChoices': {'choices': [], 'note': ''},
+                    'semforge/setValue': {'ok': True, 'old': '5', 'new': '0.42'}},
+    })
+    asked = seen['warnings'] + seen['info']
+    assert any('3 cases' in m for m in asked), asked
+    written = [r for r in seen['requests'] if r['method'] == 'semforge/setValue']
+    assert written and written[0]['params']['value'] == '0.42'
+    # And it writes where the row came from, not into model-instance.jsonld.
+    assert written[0]['params']['file'].endswith('workpiece-steel.jsonld')
+
+
+def test_declining_the_shared_warning_writes_nothing(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.editValue', 'node': _shared_row(),
+        'input': '0.42',
+        'replies': {'semforge/valueChoices': {'choices': [], 'note': ''},
+                    'semforge/setValue': {'ok': True}},
+    })
+    assert [r for r in seen['requests']
+            if r['method'] == 'semforge/setValue'] == []
+    assert seen['inputs'] == [], 'asked for a value before asking about reach'
+
+
+def test_a_file_only_one_case_includes_asks_nothing(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.editValue',
+        'node': _shared_row(sharedBy=['test_A/good/a.jsonld']),
+        'input': '0.42',
+        'replies': {'semforge/valueChoices': {'choices': [], 'note': ''},
+                    'semforge/setValue': {'ok': True, 'old': '5',
+                                          'new': '0.42'}},
+    })
+    assert seen['warnings'] == []
+    written = [r for r in seen['requests'] if r['method'] == 'semforge/setValue']
+    assert written, 'the edit was blocked by a question nobody needed'
+
+
+def test_an_included_row_offers_the_pencil(tmp_path, corpus):
+    """The rows under an include used to carry only the scales."""
+    from semforge.cooked.examples import build_suite
+    from semforge.editor.server import _serialise_example
+
+    roots = [_serialise_example(node) for node in build_suite(corpus)]
+    rows = _rows_for(tmp_path, roots)
+    shared = [r for r in rows if r['kind'] == 'attribute'
+              and r['contextValue'] in _menu('semforge.editValue')]
+    assert shared
+    # Nothing value-bearing is locked for being included any more; the only
+    # read-only rows left are rows with no value of their own.
+    locked = [r for r in rows if r['contextValue'] == 'attributeReadOnly']
+    assert all(not r['editable'] for r in locked)
