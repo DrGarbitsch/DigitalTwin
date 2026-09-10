@@ -77,17 +77,16 @@ def test_accept_writes_the_residue(tmp_path, corpus_path):
     assert 'accepted residue for 0 example(s)' in again.output
 
 
-def test_test_reports_reused_ids_without_failing(corpus_path):
-    """The shipped suite reuses ids across cases deliberately.
+def test_test_says_nothing_about_ids_reused_across_files(corpus_path):
+    """The shipped suite reuses ids deliberately, and the path tells them apart.
 
-    Saying so is useful; refusing to run would reject the design rather than a
-    mistake.
+    An Identity section listing all four would be noise in every run.
     """
     result = CliRunner().invoke(cli, ['test', corpus_path])
-    assert 'Identity' in result.output
-    assert 'urn:filter:1' in result.output
-    assert '[across-files]' in result.output
-    assert result.exit_code == 0
+    assert 'Identity' not in result.output
+    # The corpus has failing cases of its own, so only the absence of identity
+    # noise is asserted here.
+    assert 'urn:filter:1' not in result.output
 
 
 def test_test_fails_when_one_id_names_two_entities_in_a_case(tmp_path, corpus):

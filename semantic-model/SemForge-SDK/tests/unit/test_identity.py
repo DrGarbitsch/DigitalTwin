@@ -1,7 +1,6 @@
 """One id, one entity -- and the three different ways a suite bends that."""
 
 import json
-import os
 import shutil
 
 import pytest
@@ -57,26 +56,20 @@ def _expectations(path, text):
 
 # --- the corpus as shipped ----------------------------------------------------
 
-def test_the_shipped_examples_reuse_ids_across_cases(corpus):
-    """Which is legitimate -- and still worth saying, because the id has stopped
-    identifying one entity."""
-    found = duplicate_ids(corpus)
-    assert {d.entity for d in found} == {'urn:filter:1', 'urn:workpiece:1',
-                                         'urn:cartridge:1', 'urn:plasmacutter:1'}
-    assert {d.kind for d in found} == {'across-files'}
-    assert {d.severity for d in found} == {'warning'}
+def test_reusing_an_id_in_another_example_file_is_not_reported(corpus):
+    """`urn:filter:1` names a different entity in four files, on purpose.
+
+    "The filter, switched off" is written as a second urn:filter:1, and the file
+    is the rest of the address -- so the rows that name an entity show the path
+    and nothing is flagged. Reporting it was noise.
+    """
+    assert duplicate_ids(corpus) == []
 
 
-def test_a_reused_id_says_where_the_others_are(corpus):
-    filters = next(d for d in duplicate_ids(corpus) if d.entity == 'urn:filter:1')
-    files = [os.path.basename(path) for path, _ in filters.places]
-    assert 'filter-on.jsonld' in files and 'filter-off.jsonld' in files
-    assert 'model-instance.jsonld' in files
-    for path, line in filters.places:
-        text = open(path, encoding='utf-8').read().splitlines()
-        # The line is the entity, so a diagnostic lands where it is defined.
-        assert any('urn:filter:1' in text[number]
-                   for number in range(line - 1, min(line + 2, len(text))))
+def test_nothing_is_reported_about_the_shipped_examples_at_all(corpus):
+    from semforge.expect.identity import missing_context
+
+    assert duplicate_ids(corpus) == [] and missing_context(corpus) == []
 
 
 # --- the same id twice in one file ---------------------------------------------
@@ -130,8 +123,8 @@ def test_an_id_in_both_a_case_and_its_include_is_an_error(package):
     assert mine[0].case == 'case.jsonld'
 
 
-def test_a_merged_id_is_not_also_reported_as_reused(package):
-    """One finding per problem: the merge is the problem, not the reuse."""
+def test_a_merged_id_is_reported_once(package):
+    """One finding per problem."""
     _write(package / 'examples' / 'inc.jsonld', [_entity('urn:filter:78')])
     _write(package / 'examples' / 'case.jsonld',
            [_entity('urn:filter:78', 'base:state_OFF')])
@@ -143,11 +136,11 @@ def test_a_merged_id_is_not_also_reported_as_reused(package):
     assert len(mine) == 1
 
 
-def test_alternative_subobjects_are_not_an_error(package):
+def test_alternative_subobjects_are_not_reported(package):
     """Two variants of one entity, each included by a different case.
 
-    This is how the kms writes "the filter, but off", so flagging it as an error
-    would reject the design rather than a mistake.
+    This is how the kms writes "the filter, but off", so reporting it would
+    reject the design rather than a mistake.
     """
     _write(package / 'examples' / 'on.jsonld', [_entity('urn:filter:79')])
     _write(package / 'examples' / 'off.jsonld',
@@ -161,10 +154,8 @@ def test_alternative_subobjects_are_not_an_error(package):
                   '  - path: bad.jsonld\n    include: [off.jsonld]\n'
                   '    expect: valid\n')
 
-    mine = [d for d in duplicate_ids(load(str(package)))
-            if d.entity == 'urn:filter:79']
-    assert [d.severity for d in mine] == ['warning']
-    assert mine[0].kind == 'across-files'
+    assert [d for d in duplicate_ids(load(str(package)))
+            if d.entity == 'urn:filter:79'] == []
 
 
 def test_a_unique_id_is_not_reported(package):
@@ -232,12 +223,86 @@ def test_a_shared_context_on_the_document_counts(package):
             if f.entity.startswith('urn:filter:92')] == []
 
 
+# --- a reference to an entity nobody defines -----------------------------------
+
+def test_a_relationship_pointing_nowhere_is_an_error(package):
+    """In a case the composition is the whole world.
+
+    If nothing in it defines the target, every constraint about that target has
+    nothing to check and the case keeps passing -- which is what a half-finished
+    rename looks like.
+    """
+    from semforge.expect.identity import dangling_references
+
+    holder = _entity('urn:filter:85')
+    holder['iffBaseEntities:hasCartridge'] = {
+        'type': 'Relationship', 'object': 'urn:cartridge:404',
+        'observedAt': '2024-02-28T13:52:32.000Z'}
+    _write(package / 'examples' / 'case.jsonld', [holder])
+    _expectations(package, 'examples:\n  - path: case.jsonld\n    expect: valid\n')
+
+    found = dangling_references(load(str(package)))
+    mine = [f for f in found if f.entity == 'urn:cartridge:404']
+    assert len(mine) == 1
+    assert mine[0].severity == 'error'
+    assert 'nothing composed into the case' in mine[0].message
+    path, line = mine[0].places[0]
+    text = open(path, encoding='utf-8').read().splitlines()
+    assert 'urn:cartridge:404' in '\n'.join(text[line - 1:line + 1])
+
+
+def test_a_target_an_include_provides_is_not_dangling(package):
+    from semforge.expect.identity import dangling_references
+
+    target = _entity('urn:cartridge:86')
+    target['type'] = 'iffBaseEntities:FilterCartridge'
+    _write(package / 'examples' / 'inc.jsonld', [target])
+    holder = _entity('urn:filter:86')
+    holder['iffBaseEntities:hasCartridge'] = {
+        'type': 'Relationship', 'object': 'urn:cartridge:86',
+        'observedAt': '2024-02-28T13:52:32.000Z'}
+    _write(package / 'examples' / 'case.jsonld', [holder])
+    _expectations(package, 'examples:\n  - path: case.jsonld\n'
+                           '    include: [inc.jsonld]\n    expect: valid\n')
+
+    assert [f for f in dangling_references(load(str(package)))
+            if f.entity == 'urn:cartridge:86'] == []
+
+
+def test_renaming_an_id_in_a_subobject_is_caught(package):
+    """The exact shape of a half-finished rename."""
+    from semforge.expect.identity import dangling_references
+
+    target = _entity('urn:cartridge:87')
+    _write(package / 'examples' / 'inc.jsonld', [target])
+    holder = _entity('urn:filter:87')
+    holder['iffBaseEntities:hasCartridge'] = {
+        'type': 'Relationship', 'object': 'urn:cartridge:87',
+        'observedAt': '2024-02-28T13:52:32.000Z'}
+    _write(package / 'examples' / 'case.jsonld', [holder])
+    _expectations(package, 'examples:\n  - path: case.jsonld\n'
+                           '    include: [inc.jsonld]\n    expect: valid\n')
+    assert dangling_references(load(str(package))) == []
+
+    # Rename it in the subobject only, as an author would.
+    renamed = _entity('urn:cartridge:88')
+    _write(package / 'examples' / 'inc.jsonld', [renamed])
+    found = dangling_references(load(str(package)))
+    assert [f.entity for f in found] == ['urn:cartridge:87']
+
+
 # --- where it is surfaced ------------------------------------------------------
 
-def test_the_diagnostics_land_on_the_json_file_and_line(corpus_path):
+def test_the_diagnostics_land_on_the_json_file_and_line(package):
+    """A violation belongs to the shape; which entity this is belongs to the
+    document."""
     from semforge.editor.analysis import analyse
 
-    findings, _ = analyse(corpus_path)
+    _write(package / 'examples' / 'twice.jsonld',
+           [_entity('urn:filter:84'), _entity('urn:filter:84', 'base:state_OFF')])
+    _expectations(package, 'examples:\n  - path: twice.jsonld\n    expect: valid\n')
+
+    findings, _ = analyse(str(package))
     identity = {path: [f for f in items if f.kind == 'identity']
                 for path, items in findings.items()}
     identity = {path: items for path, items in identity.items() if items}
@@ -246,21 +311,43 @@ def test_the_diagnostics_land_on_the_json_file_and_line(corpus_path):
         assert path.endswith('.jsonld'), 'reported against the wrong artifact'
         text = open(path, encoding='utf-8').read().splitlines()
         for finding in items:
+            assert finding.severity == 'error'
             assert 1 <= finding.line <= len(text)
             assert finding.subject in '\n'.join(
                 text[finding.line - 1:finding.line + 2])
 
 
-def test_the_entity_rows_are_marked(corpus):
+def test_a_clean_package_publishes_no_identity_diagnostics(corpus_path):
+    from semforge.editor.analysis import analyse
+
+    findings, _ = analyse(corpus_path)
+    assert not [f for items in findings.values() for f in items
+                if f.kind == 'identity']
+    # Which also restores the older invariant: everything lands on shacl.ttl
+    # until something is actually wrong with a document.
+    assert [path for path in findings] == [
+        path for path in findings if path.endswith('shacl.ttl')]
+
+
+def test_no_entity_row_is_marked_for_a_reused_id(corpus):
+    """The shipped suite reuses ids legitimately; the rows stay clean."""
     from semforge.cooked.examples import build_suite, flatten
 
     rows = [n for _, n in flatten(build_suite(corpus)) if n.kind == 'entity']
-    reused = [n for n in rows if n.label == 'urn:filter:1']
-    assert reused and all('id reused' in n.detail for n in reused)
-    assert all(any('no longer identifies one entity' in m for m in n.messages)
-               for n in reused)
-    # A violation outranks it: that says the entity is wrong, this says we
-    # cannot be sure which entity it is.
-    assert {n.severity for n in reused} <= {'violation', 'warning'}
-    clean = [n for n in rows if n.label == 'urn:filter:8']
-    assert clean and all('id reused' not in n.detail for n in clean)
+    assert rows
+    assert not [n for n in rows if 'duplicate id' in n.detail]
+    # And every row still says which file it came from, which is what makes the
+    # four urn:filter:1 rows tellable apart.
+    assert all(n.file for n in rows)
+
+
+def test_a_real_duplicate_does_mark_the_row(package):
+    from semforge.cooked.examples import build_suite, flatten
+
+    _write(package / 'examples' / 'twice.jsonld',
+           [_entity('urn:filter:83'), _entity('urn:filter:83', 'base:state_OFF')])
+    _expectations(package, 'examples:\n  - path: twice.jsonld\n    expect: valid\n')
+
+    rows = [n for _, n in flatten(build_suite(load(str(package))))
+            if n.kind == 'entity' and n.label == 'urn:filter:83']
+    assert rows and all('duplicate id' in n.detail for n in rows)

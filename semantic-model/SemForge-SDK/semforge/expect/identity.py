@@ -1,10 +1,16 @@
-"""Who is who across the examples: one id, one entity.
+"""Who is who inside one case: an id, and the file it was read from.
 
-An NGSI-LD id identifies an entity. In a suite of examples that rule gets bent
-in three different ways, and only two of them are mistakes -- so they are
-reported separately rather than as one "duplicate id" complaint. A fourth check
-lives here for the same reason: an entity with no @context has no id at all, as
-far as the graph is concerned.
+An NGSI-LD id identifies an entity, and in a suite of examples the id alone is
+not the whole address -- the file is. `urn:filter:1` in
+`examples/subobjects/filter-on.jsonld` and `urn:filter:1` in
+`examples/subobjects/filter-off.jsonld` are the same thing in two states, and
+that is how a variant is written. Nothing is reported for it: the path
+distinguishes them, so everything that names an entity shows both.
+
+What IS reported is an id that cannot be resolved to one entity anyway: two
+entities the path cannot separate (inside one document, or inside one composed
+case), an entity with no @context, which has no id at all as far as the graph is
+concerned, and a reference to an id that nothing in the case defines.
 
   * **Twice in one file.** Always wrong. Nothing distinguishes the two, and
     whichever the reader means, the graph has one entity with both sets of
@@ -16,17 +22,16 @@ far as the graph is concerned.
     entity with both, not an entity that is off. Measured, not assumed -- and it
     is why `compose` cannot be used to override an included entity.
 
-  * **The same id in files that are never composed together.** Not an error:
-    each case is validated on its own, and reusing `urn:filter:1` for "the
-    filter, switched off" is how a variant of the same thing is written. But the
-    id has stopped identifying one entity -- it names four in the kms today --
-    so a reader cannot tell which is meant and an edit touches only one of them.
-    Reported as a warning, with where the others are.
-
   * **No `@context`.** `id` and `type` are ordinary keys until a context maps
     them, so the entity expands to a blank node, no shape targets it, and the
     case passes having validated nothing -- the same failure shape as a
     constraint that cannot fire.
+
+  * **A reference to nobody.** Within a case the composition is the world, so a
+    relationship whose object no file defines leaves every constraint about that
+    target with nothing to check. It is what a half-finished rename looks like:
+    an id changes in a subobject, the filters pointing at it go nowhere, and the
+    verdict moves somewhere unrelated.
 """
 
 import json
@@ -50,7 +55,7 @@ class Finding:
 class Duplicate:
     entity: str
     severity: str                              # error | warning
-    kind: str                                  # in-file | in-case | across-files
+    kind: str                                  # in-file | in-case
     places: list = field(default_factory=list)  # [(file, line)]
     message: str = ''
     case: str = ''                             # for in-case, which case
@@ -110,7 +115,8 @@ def _case_groups(package, expectations):
 
 
 def duplicate_ids(package, expectations=None):
-    """Every id that names more than one entity, worst first."""
+    """Every id that names more than one entity where the path cannot tell them
+    apart."""
     expectations = expectations if expectations is not None \
         else load_expectations(package.path)
 
@@ -156,37 +162,7 @@ def duplicate_ids(package, expectations=None):
                         'both. To vary an entity between cases, include a '
                         'different subobject instead.')))
 
-    # 3. The same id in files that never meet. Legitimate, but it stops being
-    #    an identifier.
-    groups = _case_groups(package, expectations)
-    composed = [members for members in groups.values()]
-    everywhere = {}
-    for path, entries in by_file.items():
-        for identifier, line in entries:
-            everywhere.setdefault(identifier, {}).setdefault(path, line)
-    for identifier, places in everywhere.items():
-        if len(places) < 2:
-            continue
-        # Anything already reported as a merge inside one case is not repeated.
-        together = any(len({p for p in places if p in members}) > 1
-                       for members in composed)
-        if together:
-            continue
-        listed = sorted(os.path.basename(p) for p in places)
-        found.append(Duplicate(
-            entity=identifier, severity='warning', kind='across-files',
-            places=sorted(places.items()),
-            message=(
-                f'{identifier} names a different entity in each of '
-                + ', '.join(listed) +
-                '. Nothing is invalid -- the cases are validated separately '
-                'and this is how a variant of the same thing is written -- but '
-                'the id no longer identifies one entity: a tree shows it once '
-                'per file and an edit reaches only one of them. Renaming means '
-                'updating whatever points at it.')))
-
-    order = {'error': 0, 'warning': 1}
-    return sorted(found, key=lambda d: (order[d.severity], d.entity, d.kind))
+    return sorted(found, key=lambda d: (d.entity, d.kind))
 
 
 def missing_context(package):
@@ -224,4 +200,88 @@ def missing_context(package):
                     'to a blank node, no sh:targetClass matches it, and the '
                     'case validates nothing while passing. Add the package\'s '
                     'published context URL, as the other examples do.')))
+    return found
+
+
+def _references(path):
+    """[(target id, line)] for every relationship object in a document."""
+    from ..cooked.jsonloc import locate
+
+    try:
+        with open(path, encoding='utf-8') as handle:
+            raw = handle.read()
+        document = json.loads(raw)
+    except Exception:                              # noqa: BLE001
+        return []
+    try:
+        index = locate(raw)
+    except Exception:                              # noqa: BLE001
+        index = {}
+
+    out = []
+
+    def walk(value, trail):
+        if isinstance(value, dict):
+            target = value.get('object')
+            if isinstance(target, str):
+                out.append((target, index.get(tuple(trail + ['object']))
+                            or index.get(tuple(trail)) or 1))
+            elif isinstance(target, dict) and isinstance(target.get('@id'), str):
+                out.append((target['@id'],
+                            index.get(tuple(trail + ['object'])) or 1))
+            for key, item in value.items():
+                walk(item, trail + [key])
+        elif isinstance(value, list):
+            for position, item in enumerate(value):
+                walk(item, trail + [position])
+
+    entities = document if isinstance(document, list) else [document]
+    for position, entity in enumerate(entities):
+        if isinstance(entity, dict):
+            walk(entity, [position])
+    return out
+
+
+def dangling_references(package, expectations=None):
+    """Relationships pointing at an entity no file in the case defines.
+
+    A Relationship's object is an entity id, and in a case the composition is
+    the whole world: if nothing in it defines the target, every constraint about
+    that target -- its class, its attributes -- has nothing to check. The case
+    keeps passing, which is the failure this tool exists to catch.
+
+    It is also what a half-finished rename looks like: change an id in a
+    subobject and the filters that point at it go nowhere, with the verdict
+    moving somewhere unrelated.
+    """
+    expectations = expectations if expectations is not None \
+        else load_expectations(package.path)
+
+    groups = _case_groups(package, expectations)
+    model = package.sources.get('model')
+    if model and os.path.exists(model):
+        groups.setdefault(os.path.basename(model),
+                          {os.path.abspath(model)})
+
+    found = []
+    for case, members in groups.items():
+        defined = set()
+        for path in members:
+            defined |= {identifier for identifier, _ in _entity_lines(path)}
+        for path in sorted(members):
+            for target, line in _references(path):
+                if target in defined or not target.startswith('urn:'):
+                    continue
+                where = os.path.relpath(path, package.path)
+                found.append(Finding(
+                    entity=target, severity='error', kind='dangling',
+                    places=[(path, line)],
+                    message=(
+                        f'{target} is referenced at {where}:{line}, and nothing '
+                        f'composed into the case {case} defines it '
+                        f'({len(members)} file(s)). Nothing about the target '
+                        'can be checked, so the case passes having tested less '
+                        'than it says. Include the file that defines it, or fix '
+                        'the reference -- a half-finished rename leaves exactly '
+                        'this behind.')))
     return found

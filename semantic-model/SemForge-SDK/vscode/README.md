@@ -368,22 +368,23 @@ NGSI-LD entity has, since it decides which shapes judge it at all. So it gets a
 row. It is read-only here: changing a type is not an edit to one value, because
 every shape that targeted the old type stops applying.
 
-**An id is checked for being one entity.** A row marked `id reused` means that
-id names a different entity in another file — legitimate in this suite (the
-filter switched off is written as a second `urn:filter:1`), but the id has
-stopped identifying one thing: the trees show it once per file and an edit
-reaches only one of them. Two cases are errors rather than warnings, and
-`semforge test` exits non-zero on them:
+**An id is not an address; the file is the rest of it.** The same
+`urn:filter:1` appears in four files — "the filter, switched off" is written as a
+second one, and each case is validated on its own — so every row that names an
+entity shows its path, and nothing is flagged for the reuse. Hover an entity row
+to see which file it was read from.
 
-| Case | Why it is an error |
+Three things *are* errors, reported on the `.jsonld` file and line and failing
+`semforge test`:
+
+| Case | Why |
 |---|---|
-| the same id twice in one file | one entity carrying the attributes of both, and nothing says which was meant |
+| the same id twice in one file | one entity carrying the attributes of both, and no path can tell them apart |
 | the same id in a case *and* one of its includes | the files are parsed into one graph, so the definitions **merge** — an include saying `hasState ON` and a case saying `OFF` produce an entity with both. There is no override; vary an entity by including a different subobject |
 | an entity with no `@context` | `id` and `type` are ordinary keys until a context maps them, so it expands to a blank node, no `sh:targetClass` matches, and the case passes having validated nothing |
+| a relationship pointing at an entity the case does not define | in a case the composition is the whole world, so nothing about the target gets checked and the case passes having tested less than it says. This is what a half-finished rename leaves behind: change an id in a subobject and the filters pointing at it go nowhere, while the verdict moves somewhere unrelated |
 
-The messages land in the Problems panel **on the `.jsonld` file and line** where
-the entity is defined — the first diagnostics this extension puts anywhere but
-`shacl.ttl`.
+Those are the only diagnostics this extension puts anywhere but `shacl.ttl`.
 
 **Instances are grouped by `datasetId`.** That is not cosmetic: an NGSI-LD
 attribute is identified by `(entity, name, datasetId)`, so several instances

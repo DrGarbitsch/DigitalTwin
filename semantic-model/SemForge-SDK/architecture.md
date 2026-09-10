@@ -1054,22 +1054,30 @@ an override, which is a decision with its own command (§12.3, S1).
 
 #### 12.2.2 Identity across examples
 
-An NGSI-LD id identifies an entity, and a suite of examples bends that in three
-ways. Only two are mistakes, so they are reported separately rather than as one
-"duplicate id" complaint (`semforge/expect/identity.py`):
+An id does not identify an entity on its own in a suite of examples: the
+document does the rest. `urn:filter:1` in `examples/subobjects/filter-on.jsonld`
+and `urn:filter:1` in `examples/subobjects/filter-off.jsonld` are one thing in
+two states, which is how a variant is written, and each case is validated
+separately. So every row that names an entity carries its package-relative path
+-- a basename would not do, since two example files are both called
+`filter-on.jsonld` -- and the reuse itself is not reported.
 
-| Situation | Severity | Why |
-|---|---|---|
-| the same id twice in one document | error | one entity carrying the attributes of both; nothing says which was meant |
-| the same id in a case and one of its includes | error | `compose` parses them into ONE graph, so the definitions **merge**. An include saying `hasState ON` and a case saying `OFF` yield an entity with both — there is no override, measured in `test_identity.py`. Vary an entity by including a different subobject |
-| the same id in documents never composed together | warning | legitimate: each case validates on its own, and this is how a variant of one thing is written. But the id no longer identifies one entity — the trees show it once per file, and an edit reaches one of them |
-| an entity with no `@context` | error | `id` and `type` are ordinary keys until a context maps them, so the entity expands to a blank node, no `sh:targetClass` matches it, and the case passes having validated nothing |
+What is reported is an id that names two entities where no path separates them
+(`semforge/expect/identity.py`):
 
-The last one belongs here rather than with validation because it is the same
+| Situation | Why it is an error |
+|---|---|
+| the same id twice in one document | one entity carrying the attributes of both; nothing says which was meant |
+| the same id in a case and one of its includes | `compose` parses them into ONE graph, so the definitions **merge**. An include saying `hasState ON` and a case saying `OFF` yield an entity with both -- there is no override, measured in `test_identity.py`. Vary an entity by including a different subobject |
+| an entity with no `@context` | `id` and `type` are ordinary keys until a context maps them, so the entity expands to a blank node, no `sh:targetClass` matches it, and the case passes having validated nothing |
+| a relationship whose object no file in the case defines | within a case the composition IS the world, so every constraint about the target has nothing to check and the case passes having tested less than it claims. It is also the signature of a half-finished rename: the id changes in a subobject and the references to it go nowhere |
+
+The last two belong here rather than with validation because they are the same
 failure shape as §7.4: a check that cannot fire is indistinguishable from one
-that is satisfied. An example that expands to nothing conforms perfectly.
+that is satisfied. An example that expands to nothing conforms perfectly, and a
+constraint about an entity that is not there never runs.
 
-These are the first findings attributed to a `.jsonld` file rather than to
+These are the only findings attributed to a `.jsonld` file rather than to
 `shacl.ttl` (§12.2, and the limit recorded against D8): a violation is the
 shape's business, but identity is the document's, and a JSON position index now
 exists to place it.

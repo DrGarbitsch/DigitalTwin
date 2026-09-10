@@ -245,6 +245,21 @@ def _usages(graph, places):
 
 # --- the tree -----------------------------------------------------------------
 
+def _relative(package, path):
+    """The path as the package sees it, which is what distinguishes entities.
+
+    `urn:filter:1` is not an address: it names a different entity in each of
+    four files, and the file is the rest of the address. A basename will not do
+    either -- `examples/subobjects/filter-on.jsonld` and
+    `examples/test_StateOnCutterShape/good/filter-on.jsonld` are both
+    filter-on.jsonld.
+    """
+    try:
+        return os.path.relpath(path, package.path)
+    except ValueError:                             # different drive on Windows
+        return path
+
+
 def _class_node(package, cls, context):
     shapes = context['shapes_by_target'].get(cls, [])
     instances = context['instances'].get(local(cls), [])
@@ -311,7 +326,10 @@ def _class_node(package, cls, context):
     for identifier, path, at in instances:
         node.children.append(KnowledgeNode(
             kind='instance', label=identifier,
-            detail=os.path.basename(path), entity=identifier,
+            # The path, not the basename: an id is not an address on its own
+            # (four files define urn:filter:1) and two of the example files are
+            # even called filter-on.jsonld.
+            detail=_relative(package, path), entity=identifier,
             entity_type=curie(package.knowledge, cls), file=path,
             defined_at=at))
 
@@ -348,7 +366,7 @@ def _individual_node(package, individual, context, constrained=False):
     for entity, attribute, at in usages:
         detail = attribute
         if at:
-            detail += ' · ' + os.path.basename(at.rsplit(':', 1)[0])
+            detail += ' · ' + _relative(package, at.rsplit(':', 1)[0])
         node.children.append(KnowledgeNode(
             kind='usage', label=entity, detail=detail, entity=entity,
             file=at.rsplit(':', 1)[0] if at else '', defined_at=at))

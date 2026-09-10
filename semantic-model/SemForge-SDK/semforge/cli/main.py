@@ -202,9 +202,12 @@ def test(path, want_coverage, fail_on):
         click.echo(str(exc), err=True)
         sys.exit(2)
 
-    from ..expect.identity import duplicate_ids, missing_context
+    from ..expect.identity import (dangling_references, duplicate_ids,
+                                   missing_context)
 
-    duplicates = missing_context(package) + duplicate_ids(package, expectations)
+    duplicates = (missing_context(package)
+                  + dangling_references(package, expectations)
+                  + duplicate_ids(package, expectations))
     if duplicates:
         click.echo('Identity')
         for duplicate in duplicates:

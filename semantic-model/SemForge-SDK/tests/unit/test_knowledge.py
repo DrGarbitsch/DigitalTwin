@@ -100,6 +100,26 @@ def test_a_truly_unchecked_type_is_flagged(tmp_path, corpus):
 
 # --- the join to the examples -------------------------------------------------
 
+def test_every_row_naming_an_entity_shows_its_path(tree):
+    """An id is not an address.
+
+    urn:filter:1 names a different entity in four files, which is how a variant
+    is written -- so the row has to say which file, and a basename will not do:
+    two of the example files are both called filter-on.jsonld.
+    """
+    rows = [n for _, n in flatten(tree) if n.kind in ('instance', 'usage')]
+    assert rows
+    filters = [n for n in rows if n.label == 'urn:filter:1']
+    assert len(filters) > 1, 'the id should appear once per file'
+    for node in filters:
+        assert '/' in node.detail or node.detail.endswith('.jsonld'), node.detail
+        assert not os.path.isabs(node.detail.split(' · ')[-1])
+    # Distinct paths, so the rows are tellable apart.
+    instances = [n.detail for n in filters if n.kind == 'instance']
+    assert len(set(instances)) == len(instances)
+    assert any('examples/subobjects/' in d for d in instances)
+
+
 def test_instances_are_counted_across_every_example_file(tree):
     """Counting only model-instance.jsonld would call types uninstantiated
     that the suites instantiate several times over."""

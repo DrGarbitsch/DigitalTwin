@@ -374,8 +374,9 @@ def _stamp_lines(node, path, index, prefix):
 def _identity_notes(package):
     """{entity id: (severity, [messages])} -- ids that name more than one thing.
 
-    Marked on the row rather than reported only in a panel: the tree is where
-    you see four rows called urn:filter:1 and wonder which one you are editing.
+    Only where the path cannot tell them apart: inside one document, or inside
+    one composed case. The same id in two example files is not flagged, because
+    the file is part of the address -- every row that names an entity shows it.
     """
     from ..expect.identity import duplicate_ids
 
@@ -403,10 +404,8 @@ def _note_identity(node, notes):
     # we cannot be sure which entity it is.
     if node.severity != 'violation':
         node.severity = 'violation' if severity == 'error' else 'warning'
-    if severity == 'error':
-        node.detail = ' · '.join(p for p in (node.detail, 'duplicate id') if p)
-    else:
-        node.detail = ' · '.join(p for p in (node.detail, 'id reused') if p)
+
+    node.detail = ' · '.join(p for p in (node.detail, 'duplicate id') if p)
 
 
 def _entity_nodes(path, report=None, editable=True, notes=None):

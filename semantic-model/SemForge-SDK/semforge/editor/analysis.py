@@ -92,10 +92,13 @@ def analyse(root, profile_name='shacl2flink'):
     # Who is who across the examples. These land on the .jsonld file and line
     # where the entity is defined -- the shapes file has nothing to do with it,
     # and a locator for JSON exists now.
-    from ..expect.identity import duplicate_ids, missing_context
+    from ..expect.identity import (dangling_references, duplicate_ids,
+                                   missing_context)
 
     try:
-        for duplicate in list(missing_context(package)) + duplicate_ids(package):
+        for duplicate in (list(missing_context(package))
+                          + list(dangling_references(package))
+                          + duplicate_ids(package)):
             for where, line in duplicate.places:
                 findings.setdefault(os.path.abspath(where), []).append(
                     EditorFinding(line=line, severity=duplicate.severity,

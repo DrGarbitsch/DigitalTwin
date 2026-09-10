@@ -247,11 +247,14 @@ class ExampleTreeProvider {
       item.iconPath = new vscode.ThemeIcon('symbol-field');
     }
 
-    if (raw.messages && raw.messages.length) {
-      item.tooltip = raw.messages.join('\n');
+    // The id is not an address: the same one appears in several example files,
+    // which is legitimate -- the file is the rest of it. So say which file.
+    const lines = (raw.messages || []).slice();
+    if (raw.kind === 'entity' && raw.file) {
+      lines.push(`read from ${raw.file}`);
     }
-    if (raw.messages && raw.messages.length) {
-      item.tooltip = raw.messages.join('\n');
+    if (lines.length) {
+      item.tooltip = lines.join('\n');
     }
     // No command on click. Clicking used to open the edit box, which is a
     // surprising thing for a single click to do -- and it replaced the one
