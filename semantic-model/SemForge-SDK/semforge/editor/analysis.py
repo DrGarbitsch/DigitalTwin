@@ -232,3 +232,19 @@ def definition_at(package, word):
                 if local(block.subject) == word or block.raw_subject == word:
                     return os.path.abspath(path), block.start_line
     return None
+
+
+def references_at(package, token, path=None, include_declaration=True):
+    """Every place the term under the cursor is used, as editor References.
+
+    `token` is the term as written, prefix included -- the local name alone
+    cannot tell base_shacl:CartridgeShape from filter_shacl:CartridgeShape --
+    and `path` is the file it was written in, whose prefixes or `@context`
+    decide what it means.
+    """
+    from .references import iris_named, references_to
+
+    found = references_to(package, iris_named(package, token, path))
+    if include_declaration:
+        return found
+    return [reference for reference in found if not reference.declaration]

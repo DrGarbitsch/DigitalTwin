@@ -25,6 +25,7 @@ It is not a Turtle parser and does not try to be. It locates statements; rdflib
 remains the authority on what they mean.
 """
 
+import bisect
 import re
 from dataclasses import dataclass
 
@@ -238,3 +239,84 @@ class PackageIndex:
 
     def __len__(self):
         return sum(len(index) for index in self.indexes.values())
+
+
+# --- terms ----------------------------------------------------------------------
+
+# A term as written: <iri>, or a prefixed name. The lookbehind keeps a match
+# from starting mid-word, which is what makes `https://…` inside a string read
+# as nothing rather than as the prefix `https`. A local name may contain '.' but
+# not end with one: in `ex:a .` the '.' terminates the statement.
+TERM = re.compile(
+    r'<(?P<iri>[^<>"{}|^`\\\s]*)>'
+    r'|(?<![\w.:-])(?P<curie>(?:[A-Za-z][\w.-]*)?:[\w-](?:[\w.-]*[\w-])?)')
+
+
+@dataclass(frozen=True)
+class Term:
+    """One term as it occurs in the text, and what it resolves to."""
+    raw: str              # as written
+    iri: str              # resolved, or the raw form when the prefix is unknown
+    start: int            # byte offset of the first character
+    end: int
+    line: int             # 1-based
+    column: int           # 0-based, of the first character
+    quoted: bool          # inside a string literal -- a SPARQL body, say
+
+
+def _resolve_term(match, prefixes, base):
+    if match.group('iri') is not None:
+        return _resolve(match.group(0), prefixes, base)
+    return _resolve(match.group('curie'), prefixes, base)
+
+
+def terms(source):
+    """Every term in a Turtle file, in order, comments excluded.
+
+    Strings are scanned too, because that is where a SPARQL constraint names the
+    attributes it reads: a rename that finds `sh:path` and misses the `SELECT`
+    has found half the uses. A query's own PREFIX declarations win over the
+    file's inside that string. Prose in a string that happens to spell a term
+    is reported as one -- it resolves to the same IRI, and a false positive in
+    a list is cheaper than a use nobody was told about.
+    """
+    prefixes, base = _prefixes(source)
+    newlines = [i for i, char in enumerate(source) if char == '\n']
+
+    def position(offset):
+        line = bisect.bisect_left(newlines, offset)
+        return line + 1, offset - (newlines[line - 1] + 1 if line else 0)
+
+    def found(match, local_prefixes, quoted):
+        line, column = position(match.start())
+        return Term(raw=match.group(0),
+                    iri=_resolve_term(match, local_prefixes, base),
+                    start=match.start(), end=match.end(),
+                    line=line, column=column, quoted=quoted)
+
+    out = []
+    i = 0
+    while i < len(source):
+        char = source[i]
+        if char == '#':
+            while i < len(source) and source[i] != '\n':
+                i += 1
+            continue
+        if char in '"\'':
+            end = _skip_string(source, i)
+            inner = dict(prefixes)
+            for declared in re.finditer(
+                    r'PREFIX\s+([\w.-]*):\s*<([^>]*)>',
+                    source[i:end], re.IGNORECASE):
+                inner[declared.group(1)] = declared.group(2)
+            out.extend(found(match, inner, True)
+                       for match in TERM.finditer(source, i, end))
+            i = end
+            continue
+        match = TERM.match(source, i)
+        if match:
+            out.append(found(match, prefixes, False))
+            i = match.end()
+            continue
+        i += 1
+    return out

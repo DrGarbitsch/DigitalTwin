@@ -113,7 +113,7 @@ def _children_of(package, cls):
          if isinstance(c, URIRef)), key=lambda c: local(c))
 
 
-def _example_files(package):
+def example_files(package):
     """Every JSON-LD document in the package, example suites included.
 
     Counting instances in model-instance.jsonld alone would call a type
@@ -121,10 +121,10 @@ def _example_files(package):
     """
     from ..expect.store import load_expectations
 
-    files = []
-    model = package.sources.get('model')
-    if model and os.path.exists(model):
-        files.append(model)
+    # Through files(), because the model may be a directory of documents: the
+    # source path is then the directory, and reading it read nothing.
+    files = [path for path in package.files('model')
+             if os.path.isfile(path)]
 
     try:
         expectations = load_expectations(package.path)
@@ -163,7 +163,7 @@ def _scan_examples(package):
 
     instances = {}
     places = {}
-    for path in _example_files(package):
+    for path in example_files(package):
         try:
             with open(path, encoding='utf-8') as handle:
                 raw = handle.read()
@@ -213,7 +213,7 @@ def _data_graph(package):
 
     graph = Graph()
     config = context_config(package.path)
-    for path in _example_files(package):
+    for path in example_files(package):
         try:
             document, _ = resolve_model_document(package.path, path, config)
             graph.parse(data=json.dumps(document), format='json-ld')

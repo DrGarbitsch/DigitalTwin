@@ -498,6 +498,17 @@ to the `owl:ObjectProperty` in `knowledge.ttl` that declares it. Nothing else in
 the toolchain can follow that link: the two files are related only through the
 graph.
 
+**Find all references** (`Shift+F12`) goes the other way, from any term to every
+place that names it: the `sh:path` that constrains it, the SPARQL body that
+reads it, the ontology, and every example case that carries it -- as a key, as a
+type, or as an IRI value like `{"@id": "base:state_OFF"}`. It works from a
+`.ttl` or a `.jsonld`, and matches on the expanded IRI rather than the text: a
+term is expanded the way the file it sits in would expand it (a Turtle file by
+its prefixes, a query by its own `PREFIX` lines, a document by its `@context`),
+so `iffBaseShacl:CartridgeShape` and `iffFilterShacl:CartridgeShape` stay two
+terms, and `iffBaseEntities:hasObject` is not taken for `ngsild:hasObject`.
+Only a name that cannot be expanded at all falls back to its local name.
+
 **One click shows the row and leaves it open.** Selecting a row moves the file
 to it *and* unfolds it. A click on a collapsible row toggles it, so the reveal
 that showed you an entity also folded it shut — you had to click twice to see

@@ -98,8 +98,47 @@ def test_the_server_advertises_what_the_extension_relies_on(session):
     reply = [m for m in session.messages if m.get('id') == 1][0]
     capabilities = reply['result']['capabilities']
     for capability in ('hoverProvider', 'definitionProvider',
-                       'documentSymbolProvider', 'textDocumentSync'):
+                       'referencesProvider', 'documentSymbolProvider',
+                       'textDocumentSync'):
         assert capabilities.get(capability), f'{capability} not advertised'
+
+
+def test_references_cross_from_a_shape_to_the_ontology_and_the_data(session):
+    """Shift+F12 on `sh:path iffBaseEntities:hasStrength` in shacl.ttl."""
+    # Diagnostics are what populate the server's package; wait for them.
+    assert session.wait_for(
+        lambda m: m.get('method') == 'textDocument/publishDiagnostics')
+    with open(session.document) as handle:
+        lines = handle.read().split('\n')
+    line = next(i for i, text in enumerate(lines)
+                if 'sh:path iffBaseEntities:hasStrength' in text)
+    character = lines[line].index('hasStrength')
+
+    def ask(request_id, include_declaration):
+        session.send({'jsonrpc': '2.0', 'id': request_id,
+                      'method': 'textDocument/references',
+                      'params': {'textDocument': {'uri': 'file://' + session.document},
+                                 'position': {'line': line, 'character': character},
+                                 'context': {'includeDeclaration': include_declaration}}})
+        replies = session.wait_for(lambda m: m.get('id') == request_id)
+        assert replies, 'no reply to textDocument/references'
+        assert 'error' not in replies[0], replies[0].get('error')
+        return replies[0]['result']
+
+    every = ask(9101, True)
+    files = {os.path.basename(location['uri']) for location in every}
+    assert {'shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld'} <= files
+    assert any(location['uri'].endswith('.jsonld') and '/examples/' in location['uri']
+               for location in every), 'no example case among the references'
+    here = [location for location in every
+            if location['uri'] == 'file://' + session.document
+            and location['range']['start']['line'] == line]
+    assert here and here[0]['range']['end']['character'] - \
+        here[0]['range']['start']['character'] == len('iffBaseEntities:hasStrength')
+
+    # Leaving the declaration out drops exactly one: the owl:ObjectProperty.
+    without = ask(9102, False)
+    assert len(without) == len(every) - 1
 
 
 def test_opening_a_shapes_file_publishes_diagnostics(session):

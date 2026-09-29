@@ -167,6 +167,29 @@ def test_word_extraction_at_a_cursor():
     assert _word_at(Document(), types.Position(9, 0)) == ''
 
 
+def test_token_extraction_keeps_the_prefix():
+    """References need the term as written; the local name is ambiguous."""
+    from lsprotocol import types
+
+    from semforge.editor.server import _token_at
+
+    class Document:
+        lines = ['    sh:path iffBaseEntities:hasStrength ;\n',
+                 ':CartridgeShape a sh:NodeShape .\n',
+                 '    "type": "iffBaseEntities:Filter",\n',
+                 '    sh:class <http://ex.org/Thing> .\n']
+
+    def at(line, character):
+        return _token_at(Document(), types.Position(line, character))
+
+    assert at(0, 30) == 'iffBaseEntities:hasStrength'
+    assert at(1, 3) == ':CartridgeShape'
+    assert at(2, 22) == 'iffBaseEntities:Filter'
+    assert at(2, 6) == 'type'
+    assert at(3, 20) == '<http://ex.org/Thing>'
+    assert at(9, 0) == ''
+
+
 def test_uri_round_trip():
     from semforge.editor.server import _path_to_uri, _uri_to_path
 

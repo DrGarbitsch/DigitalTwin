@@ -397,8 +397,21 @@ milestone is done when its criteria run green in CI against the corpus (§7).
 > TreeView over entity types, attributes and constraints, editing Core
 > parameters through the text-anchored writer, so a cooked edit IS a raw edit
 > and S1 holds by construction rather than by agreement. Changing `1` to `0`
-> rewrites one byte. find-references is still not built. On the real KMS, 89 constraints are evaluated -- 87 conformant,
+> rewrites one byte. On the real KMS, 89 constraints are evaluated -- 87 conformant,
 > 2 violated -- with the enumerator invariant holding (`complete: True`).
+>
+> **find-references has since landed. M6 is still open on S2**: nothing
+> marks an OWL axiom Core cannot project as `unprojected` yet. From the
+> `owl:ObjectProperty` in `knowledge.ttl` it reaches the `sh:path`, the SPARQL
+> bodies that read the term, and every corpus example carrying it -- asserted
+> against an independent scan of the files on disk, so a case the package
+> forgets to list fails the test. Matching is on the expanded IRI, never the
+> text, and building it found two bugs that were already there:
+> rdflib's `Context.expand` runs the keyword `@id` through `@vocab`, so a
+> `{"@id": ...}` value never expanded to anything; and the example lister read
+> the model role's source path, which for a directory-shaped model is the
+> directory itself, so the Knowledge view silently counted none of its
+> documents.
 >
 > **The H3 spike resolved in favour of the tokenizer, and better than the
 > fallback.** Turtle's statement grammar is small and what was needed is spans

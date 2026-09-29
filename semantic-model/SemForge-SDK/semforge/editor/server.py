@@ -5,7 +5,7 @@ the editor layer must not become the semantic engine -- and it is why every
 behaviour this exposes is testable without starting a server.
 
 LSP is used where the operation IS an LSP operation: diagnostics, hover,
-go-to-definition, document symbols. Operations with no natural LSP shape would
+go-to-definition, find-references, document symbols. Operations with no natural LSP shape would
 go on a dedicated channel instead; none are needed yet.
 """
 
@@ -16,7 +16,8 @@ from lsprotocol import types
 from pygls.lsp.server import LanguageServer
 
 from .. import __version__
-from .analysis import analyse, definition_at, hover_at, package_root
+from .analysis import (analyse, definition_at, hover_at, package_root,
+                       references_at)
 from ..validate import validate_package
 
 SEVERITY = {
@@ -26,6 +27,11 @@ SEVERITY = {
     'hint': types.DiagnosticSeverity.Hint,
 }
 WORD = re.compile(r'[A-Za-z_][\w.-]*:?[\w.-]*')
+# The term as written, prefix kept: an IRI, a prefixed name (the empty prefix
+# included), or a bare JSON-LD term. WORD drops the prefix, which is all
+# go-to-definition needs; references cannot, because the prefix is what tells
+# iffBaseShacl:CartridgeShape from iffFilterShacl:CartridgeShape.
+TOKEN = re.compile(r'<[^<>\s]*>|(?:[A-Za-z_][\w.-]*)?:[\w.-]+|[A-Za-z_@][\w.-]*')
 
 server = LanguageServer('semforge', __version__)
 _packages = {}
@@ -49,6 +55,17 @@ def _word_at(document, position):
     for match in WORD.finditer(line):
         if match.start() <= position.character <= match.end():
             return match.group(0).rstrip(':').split(':')[-1] or match.group(0)
+    return ''
+
+
+def _token_at(document, position):
+    try:
+        line = document.lines[position.line]
+    except IndexError:
+        return ''
+    for match in TOKEN.finditer(line):
+        if match.start() <= position.character <= match.end():
+            return match.group(0).rstrip('.')
     return ''
 
 
@@ -127,6 +144,26 @@ def definition(ls, params):
         uri=_path_to_uri(path),
         range=types.Range(types.Position(line - 1, 0),
                           types.Position(line - 1, 0)))
+
+
+@server.feature(types.TEXT_DOCUMENT_REFERENCES)
+def references(ls, params):
+    path = _uri_to_path(params.text_document.uri)
+    package = _packages.get(package_root(path))
+    if package is None:
+        return None
+    document = ls.workspace.get_text_document(params.text_document.uri)
+    found = references_at(package, _token_at(document, params.position), path,
+                          include_declaration=params.context.include_declaration)
+    return [types.Location(uri=_path_to_uri(reference.path),
+                           range=_range_of(reference))
+            for reference in found]
+
+
+def _range_of(reference):
+    line = reference.line - 1
+    return types.Range(types.Position(line, reference.column),
+                       types.Position(line, reference.column + reference.length))
 
 
 @server.feature(types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
