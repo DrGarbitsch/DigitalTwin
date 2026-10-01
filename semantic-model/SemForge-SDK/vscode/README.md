@@ -720,6 +720,19 @@ comment around it survives:
             sh:class iffFilterKnowledge:Wasteclass ] ]
 ```
 
+**Which namespace a new attribute gets.** By default the namespace of the type
+that carries it — an attribute of `iffBaseEntities:Cutter` is
+`iffBaseEntities:…`. But a namespace is ownership, not location: the kms's
+`hasWasteclass` is carried by a base type and owned by the filter extension,
+`iffFilterEntities:`. So after the name, when the package has more than one
+candidate, a picker shows each choice as the full name it would write
+(`iffFilterEntities:hasPressure`), the default first, then the namespaces that
+already hold attributes, then the rest — never a standard vocabulary (rdf, owl,
+sh, ngsild) and never a namespace that holds only shapes. Typing the prefix
+into the name (`iffFilterEntities:hasPressure`) skips the question. A prefix the
+package does not know is refused, not dropped — define it in the Project view
+first.
+
 If the attribute does not exist yet, the last entry, **New attribute…**,
 declares it in `knowledge.ttl` for the shape's type and carries straight on to
 the two questions above. The same flow is **SemForge: New attribute…**, which

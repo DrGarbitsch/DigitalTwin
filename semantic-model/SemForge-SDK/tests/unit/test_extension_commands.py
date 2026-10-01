@@ -960,7 +960,10 @@ def test_a_missing_attribute_is_declared_in_the_knowledge_first(tmp_path):
     assert declared, seen['requests']
     assert declared[0]['params'] == {
         'uri': 'file:///pkg/shacl.ttl', 'name': 'hasPressure',
-        'kind': 'Property', 'domain': 'e:Filter', 'label': 'bar at the inlet'}
+        'kind': 'Property', 'domain': 'e:Filter', 'label': 'bar at the inlet',
+        # No namespace asked (this canned server offers none): the server's
+        # default, the carrying type's namespace.
+        'namespace': None}
     assert seen['shown'][0]['file'] == '/pkg/knowledge.ttl'
     used = [r for r in seen['requests'] if r['method'] == 'semforge/addAttribute']
     assert used[0]['params']['name'] == 'e:hasPressure'
@@ -1470,6 +1473,45 @@ def test_new_attribute_declares_then_constrains_in_one_flow(tmp_path):
     methods = [r['method'] for r in seen['requests']]
     assert methods.index('semforge/addAttributeTerm') < \
         methods.index('semforge/addAttributeConstraint')
+
+
+NAMESPACES = {'namespaces': [
+    {'prefix': 'iffBaseEntities', 'namespace': 'http://example.com/base/',
+     'attributes': 17, 'default': True},
+    {'prefix': 'iffFilterEntities', 'namespace': 'http://example.com/filter/',
+     'attributes': 1, 'default': False}]}
+
+
+def test_the_namespace_is_asked_and_shows_the_full_name(tmp_path):
+    seen = _new_attribute(
+        tmp_path, picks=['Filter', 'iffFilterEntities:hasPressure', 'Property',
+                         'Not now'],
+        inputs=['hasPressure', ''],
+        extra={'semforge/attributeNamespaces': NAMESPACES})
+    offered = [i['label'] for i in seen['quickPicks'][1]['items']]
+    assert offered[1] == 'iffBaseEntities:hasPressure', 'the default comes first'
+    assert 'iffFilterEntities:hasPressure' in offered
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared[0]['namespace'] == 'iffFilterEntities'
+
+
+def test_the_default_namespace_is_sent_as_the_servers_default(tmp_path):
+    seen = _new_attribute(
+        tmp_path, picks=['Filter', 'iffBaseEntities:hasPressure', 'Property',
+                         'Not now'],
+        inputs=['hasPressure', ''],
+        extra={'semforge/attributeNamespaces': NAMESPACES})
+    assert _sent(seen, 'semforge/addAttributeTerm')[0]['namespace'] is None
+
+
+def test_a_prefix_typed_into_the_name_is_not_asked_again(tmp_path):
+    seen = _new_attribute(
+        tmp_path, picks=['Filter', 'Property', 'Not now'],
+        inputs=['iffFilterEntities:hasPressure', ''],
+        extra={'semforge/attributeNamespaces': NAMESPACES})
+    assert not _sent(seen, 'semforge/attributeNamespaces')
+    assert _sent(seen, 'semforge/addAttributeTerm')[0]['name'] == \
+        'iffFilterEntities:hasPressure'
 
 
 def test_new_attribute_may_stop_at_the_declaration(tmp_path):

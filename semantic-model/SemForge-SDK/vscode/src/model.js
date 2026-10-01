@@ -623,17 +623,74 @@ async function pickAttribute(client, packageUri, entityType, entity) {
   return declareAttribute(client, packageUri, entityType);
 }
 
+/**
+ * Which namespace the new attribute lives in. Returns a prefix (or IRI), ''
+ * for the server's default -- the carrying type's namespace -- or undefined
+ * when cancelled.
+ *
+ * Not asked when the name already says (`iffFilterEntities:hasX`), or when the
+ * package offers only one place. Otherwise the default comes first and each
+ * entry shows the full name it would produce, because "iffFilterEntities" is
+ * an abstraction and `iffFilterEntities:hasPressure` is what gets written.
+ */
+async function pickNamespace(client, packageUri, entityType, name) {
+  if (name.includes(':')) {
+    return '';
+  }
+  let answer;
+  try {
+    answer = await client.sendRequest('semforge/attributeNamespaces',
+      { uri: packageUri, domain: entityType });
+  } catch (error) {
+    return '';      // an older server: its default is the carrier's namespace
+  }
+  const spaces = (answer && answer.namespaces) || [];
+  if (spaces.length < 2) {
+    return '';
+  }
+  const items = [];
+  let section;
+  for (const space of spaces) {
+    const heading = space.default || space.attributes
+      ? 'Where this package keeps attributes' : 'Other namespaces in this package';
+    if (heading !== section) {
+      items.push({ label: heading, kind: vscode.QuickPickItemKind.Separator });
+      section = heading;
+    }
+    items.push({
+      label: space.prefix ? `${space.prefix}:${name}` : `<${space.namespace}${name}>`,
+      description: space.default
+        ? `default — the namespace of ${entityType.split(':').pop()}`
+        : space.attributes ? `holds ${space.attributes} attribute(s)` : '',
+      detail: space.namespace,
+      value: space.default ? '' : (space.prefix || space.namespace)
+    });
+  }
+  const picked = await vscode.window.showQuickPick(items, {
+    title: `Namespace for ${name}`,
+    placeHolder: 'the default is the namespace of the type that carries it',
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  return picked ? picked.value : undefined;
+}
+
 /** Declare an attribute in knowledge.ttl, and return it ready to use. */
 async function declareAttribute(client, packageUri, entityType) {
   const name = await vscode.window.showInputBox({
     title: 'New attribute',
-    prompt: 'Name, e.g. hasPressure — it is declared in the knowledge',
+    prompt: 'Name, e.g. hasPressure — or prefix:hasPressure to choose its ' +
+      'namespace. It is declared in the knowledge.',
     validateInput: (text) =>
       /^[A-Za-z][\w-]*$/.test((text || '').split(':').pop())
         ? undefined
         : 'A letter, then letters, digits, underscores or hyphens.'
   });
   if (!name) {
+    return undefined;
+  }
+  const namespace = await pickNamespace(client, packageUri, entityType, name);
+  if (namespace === undefined) {
     return undefined;
   }
   // Property or Relationship is not a style choice: it decides which key
@@ -658,7 +715,8 @@ async function declareAttribute(client, packageUri, entityType) {
     name,
     kind: kind.label,
     domain: entityType,
-    label
+    label,
+    namespace: namespace || null
   });
   if (!made || !made.ok) {
     vscode.window.showErrorMessage(

@@ -844,7 +844,69 @@ def _turtle_name(text, iri):
     return best[1] if best else f'<{text_iri}>'
 
 
-def add_attribute_term(package, name, kind, domain, label=''):
+def _resolve_namespace(package, namespace):
+    """A prefix or a namespace IRI, as the namespace IRI. Refuses the unknown."""
+    from ..package.prefixes import canonical_map
+
+    text = str(namespace).strip().strip('<>').rstrip(':')
+    if '://' in text or text.startswith('urn:'):
+        if not text.endswith(('/', '#')):
+            raise PackageError(f'{text} does not end in / or #, so a name '
+                               f'appended to it would run into it')
+        return text
+    known = canonical_map(package.path)
+    if text not in known:
+        raise PackageError(
+            f'{text}: is not a namespace this package knows. Define the prefix '
+            f'in the Project view (or semforge.yaml) first, or pick one of: '
+            f'{", ".join(sorted(p for p in known if p))}')
+    return known[text]
+
+
+def attribute_namespaces(package, domain=''):
+    """Where a new attribute may live, the likeliest first.
+
+    The carrier's own namespace is the default and comes first; then every
+    namespace that already holds an attribute, since that is where this
+    package keeps them; then the package's other namespaces. The standard
+    vocabularies (rdf, owl, sh, ngsild, ...) are never offered -- a term minted
+    in them would claim to be part of a standard it is not.
+    """
+    from ..package.prefixes import STANDARD, names_by_namespace
+    from .choices import attribute_terms, entity_types
+
+    names = names_by_namespace(package.path)
+    carrier = next((entry for entry in entity_types(package)[0]
+                    if domain and domain in (entry.term, entry.iri, entry.label)),
+                   None)
+    default = _namespace_of(carrier.iri) if carrier is not None else ''
+    holding = {}
+    for entry in attribute_terms(package):
+        if entry.ngsild:
+            space = _namespace_of(entry.iri)
+            holding[space] = holding.get(space, 0) + 1
+    standard = set(STANDARD.values())
+    # A namespace that names shapes and nothing else is the constraints'
+    # own; an attribute minted there would sit among the SHAPES.
+    shapes_only = {_namespace_of(shape) for shape in node_shapes(package.shapes)} \
+        - set(holding)
+
+    out = []
+    for space, prefix in names.items():
+        if space in standard or not prefix or \
+                (space in shapes_only and space != default):
+            continue
+        out.append({'prefix': prefix, 'namespace': space,
+                    'attributes': holding.get(space, 0),
+                    'default': space == default})
+    if default and default not in names:
+        out.append({'prefix': '', 'namespace': default,
+                    'attributes': holding.get(default, 0), 'default': True})
+    out.sort(key=lambda e: (not e['default'], -e['attributes'], e['prefix']))
+    return out
+
+
+def add_attribute_term(package, name, kind, domain, label='', namespace=None):
     """Declare a new attribute in the knowledge, carried by `domain`.
 
     The counterpart of `add_entity_type`, one level down and for the same
@@ -866,9 +928,20 @@ def add_attribute_term(package, name, kind, domain, label=''):
     a nested `sh:property` -- the same division that puts `sh:class` there.
 
     `rdfs:range` says which half of the encoding the attribute itself is.
+
+    The NAMESPACE defaults to the carrier's -- an attribute of
+    `iffBaseEntities:Cutter` is `iffBaseEntities:…` -- but is not bound to it:
+    the kms's `hasWasteclass` is carried by a base type and owned by the filter
+    extension, `iffFilterEntities:`. So `namespace` (a prefix or an IRI) or a
+    prefix written into `name` chooses it, and a prefix this package does not
+    know is refused rather than dropped: writing `iffFilterEntities:hasX` and
+    getting `iffBaseEntities:hasX` is a silently wrong answer.
     """
     from .choices import NGSILD, attribute_terms, entity_types
 
+    written_prefix, _, _ = (name or '').strip().rpartition(':')
+    if written_prefix and not namespace:
+        namespace = written_prefix
     local_name = (name or '').split(':')[-1].strip()
     if not local_name:
         raise PackageError('an attribute needs a name')
@@ -913,7 +986,9 @@ def add_attribute_term(package, name, kind, domain, label=''):
     # `hasFilter`, is one. An empty domain declares it without one.
     home = carrier.iri if carrier is not None else \
         (parent.iri if parent is not None else root)
-    iri = URIRef(_namespace_of(home) + local_name)
+    space = _resolve_namespace(package, namespace) if namespace \
+        else _namespace_of(home)
+    iri = URIRef(space + local_name)
     if any(entry.iri == str(iri) for entry in attribute_terms(package)):
         raise PackageError(f'{local_name} is already declared')
 

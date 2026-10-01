@@ -187,6 +187,57 @@ def test_a_type_with_no_shape_of_its_own_has_none(kms):
     assert own_shape(kms, 'iffBaseEntities:Lasercutter') is None
 
 
+# --- which namespace a new attribute is minted in -----------------------------
+
+CARRIER = 'iffBaseEntities:FilterCartridge'
+FILTER_ENTITIES = BASE + 'filter_entities/'
+
+
+def _declare(package, name, **kwargs):
+    from semforge.cooked.knowledge import add_attribute_term
+    return add_attribute_term(package, name, 'Property', CARRIER, **kwargs)['iri']
+
+
+def test_the_default_namespace_is_the_carriers(kms):
+    assert _declare(kms, 'hasAge') == BASE + 'base_entities/hasAge'
+
+
+def test_a_prefix_in_the_name_chooses_the_namespace(kms):
+    """The kms's own hasWasteclass: carried by a base type, owned by the
+    filter extension. Before, the prefix was dropped without a word."""
+    assert _declare(kms, 'iffFilterEntities:hasLifetime') == \
+        FILTER_ENTITIES + 'hasLifetime'
+
+
+def test_an_explicit_namespace_wins(kms):
+    assert _declare(kms, 'hasMass', namespace='iffFilterEntities') == \
+        FILTER_ENTITIES + 'hasMass'
+    assert _declare(load(kms.path), 'hasCharge', namespace=FILTER_ENTITIES) == \
+        FILTER_ENTITIES + 'hasCharge'
+
+
+@pytest.mark.parametrize('name, namespace', [
+    ('nope:hasX', None), ('hasX', 'nope'), ('hasX', 'https://example.org/no-slash')])
+def test_an_unknown_namespace_is_refused_not_dropped(kms, name, namespace):
+    before = open(kms.sources['knowledge'], encoding='utf-8').read()
+    with pytest.raises(PackageError):
+        _declare(kms, name, namespace=namespace)
+    assert open(kms.sources['knowledge'], encoding='utf-8').read() == before
+
+
+def test_the_namespace_choices_put_the_carriers_first(kms):
+    from semforge.cooked.knowledge import attribute_namespaces
+
+    spaces = attribute_namespaces(kms, CARRIER)
+    assert spaces[0]['prefix'] == 'iffBaseEntities' and spaces[0]['default']
+    assert spaces[1]['prefix'] == 'iffFilterEntities', \
+        'a namespace already holding attributes comes next'
+    prefixes = {s['prefix'] for s in spaces}
+    assert not prefixes & {'rdf', 'rdfs', 'owl', 'xsd', 'sh', 'ngsild'}
+    assert not prefixes & {'iffBaseShacl', 'iffFilterShacl'}, \
+        'a shapes-only namespace is no home for an attribute'
+
+
 # --- what is refused, and that a refusal writes nothing -----------------------
 
 @pytest.mark.parametrize('shape, attribute, kwargs, says', [

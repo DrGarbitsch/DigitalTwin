@@ -823,12 +823,29 @@ def add_attribute_term_feature(ls, params):
         made = add_attribute_term(package, _field(params, 'name'),
                                   _field(params, 'kind'),
                                   _field(params, 'domain'),
-                                  label=_field(params, 'label', ''))
+                                  label=_field(params, 'label', ''),
+                                  namespace=_field(params, 'namespace') or None)
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(package.sources['shapes']))
         return dict(made, ok=True, uri=_path_to_uri(made['file']))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/attributeNamespaces')
+def attribute_namespaces_feature(ls, params):
+    """Where a new attribute may live; the carrying type's namespace first."""
+    from ..cooked.knowledge import attribute_namespaces
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'namespaces': [], 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        return {'namespaces': attribute_namespaces(
+            package, _field(params, 'domain', ''))}
+    except Exception as exc:                       # noqa: BLE001
+        return {'namespaces': [], 'error': str(exc)}
 
 
 @server.feature('semforge/kinds')
