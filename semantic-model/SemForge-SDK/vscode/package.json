@@ -97,6 +97,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "semforge.addAttributeConstraint",
+        "title": "SemForge: Add Attribute to Shape",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.goToDefinition",
         "title": "SemForge: Go to Definition",
         "icon": "$(go-to-file)"
@@ -262,6 +267,11 @@
         {
           "command": "semforge.removeConstraint",
           "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addAttributeConstraint",
+          "when": "view == semforgeConstraints && viewItem == shape",
           "group": "inline"
         },
         {

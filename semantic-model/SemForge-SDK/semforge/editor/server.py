@@ -859,6 +859,48 @@ def set_constraint(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/attributeOptions')
+def attribute_options_feature(ls, params):
+    """The attributes that may be added to a shape, each with its state.
+
+    `free` ones can be added; `here` and `inherited` ones are listed anyway, so
+    the picker can say WHY an attribute the author expected is not offered
+    rather than leaving them to wonder whether it was declared at all.
+    """
+    from ..cooked.constrain import attribute_options
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'options': [], 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        return {'options': attribute_options(package, _field(params, 'shape'))}
+    except Exception as exc:                       # noqa: BLE001
+        return {'options': [], 'error': str(exc)}
+
+
+@server.feature('semforge/addAttributeConstraint')
+def add_attribute_constraint_feature(ls, params):
+    """Add an attribute to a shape as a complete two-layer property shape."""
+    from ..cooked.constrain import add_attribute_constraint
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        made = add_attribute_constraint(
+            package, _field(params, 'shape'), _field(params, 'attribute'),
+            required=bool(_field(params, 'required', False)),
+            datatype=_field(params, 'datatype') or None,
+            value_class=_field(params, 'valueClass') or None)
+        _packages.pop(root, None)                  # the file changed underneath
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True, uri=_path_to_uri(made['file']))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

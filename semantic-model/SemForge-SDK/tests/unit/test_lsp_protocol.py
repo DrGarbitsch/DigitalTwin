@@ -391,6 +391,56 @@ def test_creating_a_missing_shape_writes_the_file(tmp_path, corpus):
         live.close()
 
 
+def test_an_attribute_is_added_to_a_shape_over_the_protocol(tmp_path, corpus):
+    import shutil
+
+    package = tmp_path / 'pkg'
+    package.mkdir()
+    for role, name in (('knowledge', 'knowledge.ttl'), ('shapes', 'shacl.ttl'),
+                       ('model', 'model-instance.jsonld')):
+        shutil.copy(corpus.sources[role], package / name)
+    document = str(package / 'shacl.ttl')
+    shape = ('https://industryfusion.github.io/contexts/example/v0/'
+             'base_shacl/CartridgeShape')
+
+    live = Session(document)
+    try:
+        live.send({'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+                   'params': {'processId': os.getpid(),
+                              'rootUri': 'file://' + str(package),
+                              'capabilities': {}}})
+        assert live.wait_for(lambda m: m.get('id') == 1)
+        live.send({'jsonrpc': '2.0', 'method': 'initialized', 'params': {}})
+
+        live.send({'jsonrpc': '2.0', 'id': 41, 'method': 'semforge/attributeOptions',
+                   'params': {'uri': 'file://' + document, 'shape': shape}})
+        offered = live.wait_for(lambda m: m.get('id') == 41)[0]['result']
+        assert not offered.get('error'), offered.get('error')
+        free = [o for o in offered['options'] if o['status'] == 'free']
+        assert any(o['label'] == 'hasWasteclass' for o in free)
+        option = next(o for o in free if o['label'] == 'hasWasteclass')
+
+        live.send({'jsonrpc': '2.0', 'id': 42,
+                   'method': 'semforge/addAttributeConstraint',
+                   'params': {'uri': 'file://' + document, 'shape': shape,
+                              'attribute': option['iri'], 'required': True}})
+        made = live.wait_for(lambda m: m.get('id') == 42)[0]['result']
+        assert made['ok'], made.get('error')
+        text = open(document).read()
+        assert 'hasWasteclass' in text.splitlines()[made['line'] - 1]
+
+        # A second add of the same attribute is refused, not duplicated.
+        live.send({'jsonrpc': '2.0', 'id': 43,
+                   'method': 'semforge/addAttributeConstraint',
+                   'params': {'uri': 'file://' + document, 'shape': shape,
+                              'attribute': option['iri']}})
+        again = live.wait_for(lambda m: m.get('id') == 43)[0]['result']
+        assert not again['ok'] and 'already constrains' in again['error']
+        assert open(document).read() == text
+    finally:
+        live.close()
+
+
 def test_value_choices_arrive_over_the_protocol(session):
     """Editing a value offers what the shape allows, in the form the file
     wants."""

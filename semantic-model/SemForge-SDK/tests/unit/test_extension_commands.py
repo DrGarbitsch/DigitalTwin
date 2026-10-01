@@ -1322,3 +1322,91 @@ def test_deleting_another_package_leaves_the_current_one_alone(tmp_path):
     })
     assert not (tmp_path / 'beta').exists()
     assert 'alpha' in seen['statusBar'][-1], seen['statusBar']
+
+
+# --- adding an attribute to a shape ------------------------------------------
+
+def _shape_row(**overrides):
+    raw = {'kind': 'shape', 'label': 'iffBaseShacl:CartridgeShape',
+           'shape': 'http://example.com/CartridgeShape', 'path': [],
+           'parameter': '', 'value': '', 'editable': False,
+           'inheritedFrom': '', 'children': []}
+    raw.update(overrides)
+    return {'raw': raw, 'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+ATTRIBUTE_OPTIONS = {'options': [
+    {'iri': 'http://example.com/hasWasteclass',
+     'term': 'iffFilterEntities:hasWasteclass', 'label': 'hasWasteclass',
+     'kind': 'Property', 'comment': '', 'domain': 'iffBaseEntities:FilterCartridge',
+     'scoped': True, 'status': 'free', 'by': ''},
+    {'iri': 'http://example.com/isUsedFrom', 'term': 'iffFilterEntities:isUsedFrom',
+     'label': 'isUsedFrom', 'kind': 'Property', 'comment': '', 'domain': '',
+     'scoped': True, 'status': 'here', 'by': ''},
+]}
+
+
+def test_adding_an_attribute_asks_presence_and_value_then_writes(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['hasWasteclass', 'Required', 'Wasteclass'],
+        'replies': {
+            'semforge/attributeOptions': ATTRIBUTE_OPTIONS,
+            # Asked twice for a Property: the datatypes, then the classes.
+            'semforge/choices': [
+                {'choices': [{'value': 'xsd:string', 'label': 'xsd:string',
+                              'detail': ''}]},
+                {'choices': [{'value': 'iffFilterKnowledge:Wasteclass',
+                              'label': 'Wasteclass', 'detail': 'vocabulary class'}]}],
+            'semforge/addAttributeConstraint': {
+                'ok': True, 'file': '/pkg/shacl.ttl', 'line': 45},
+        },
+    })
+    assert seen['errors'] == []
+    first = [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert 'isUsedFrom' in first, 'a constrained attribute must still be listed'
+    written = [r for r in seen['requests']
+               if r['method'] == 'semforge/addAttributeConstraint']
+    assert len(written) == 1
+    params = written[0]['params']
+    assert params['attribute'] == 'http://example.com/hasWasteclass'
+    assert params['shape'] == 'http://example.com/CartridgeShape'
+    assert params['required'] is True
+    assert params['valueClass'] == 'iffFilterKnowledge:Wasteclass'
+    assert params['datatype'] is None
+    assert seen['shown'], 'the new constraint was not opened'
+
+
+def test_picking_an_attribute_already_constrained_explains_and_writes_nothing(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['isUsedFrom'],
+        'replies': {'semforge/attributeOptions': ATTRIBUTE_OPTIONS},
+    })
+    assert any('already constrained' in m for m in seen['info'])
+    assert not [r for r in seen['requests']
+                if r['method'] == 'semforge/addAttributeConstraint']
+
+
+def test_an_inherited_shape_takes_no_attribute(tmp_path):
+    """Adding to an inherited shape would write into the SUPERTYPE's shape."""
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint',
+        'node': _shape_row(inheritedFrom='http://example.com/MachineShape'),
+        'replies': {'semforge/attributeOptions': ATTRIBUTE_OPTIONS},
+    })
+    assert seen['requests'] == []
+
+
+def test_a_refused_add_reaches_the_user(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['hasWasteclass', 'Optional', 'Any value'],
+        'replies': {
+            'semforge/attributeOptions': ATTRIBUTE_OPTIONS,
+            'semforge/choices': {'choices': []},
+            'semforge/addAttributeConstraint': {
+                'ok': False, 'error': 'the knowledge gives hasWasteclass to X'},
+        },
+    })
+    assert any('gives hasWasteclass' in e for e in seen['errors'])

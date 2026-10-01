@@ -199,6 +199,7 @@ const stub = {
     }
   },
   ThemeIcon: class { constructor(i) { this.id = i; } },
+  QuickPickItemKind: { Separator: -1, Default: 0 },
   TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   Position: class { constructor(line, character) { this.line = line; this.character = character; } },

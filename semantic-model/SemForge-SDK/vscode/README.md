@@ -685,6 +685,47 @@ supertype and applies here because `sh:targetClass` reaches subclasses. `Filter`
 shows `MachineShape`'s `hasState` for that reason — the constraint was never
 missing from Filter, only from the tree. Right-click offers **Go to Definition** and **Declare on This Type**.
 
+**Adding an attribute to a shape** is the **+** on one of the type's *own*
+shape rows (an inherited shape has none — adding there would write into the
+supertype's shape). It offers the attributes the knowledge gives that type,
+and lists the ones it cannot add too, so the one you came for is never silently
+missing:
+
+```text
+Add an attribute to iffBaseShacl:CartridgeShape
+── Declared for this type ─────────────────────────────
+  hasWasteclass   Property · iffFilterEntities:hasWasteclass
+── Already constrained ────────────────────────────────
+  isUsedFrom      already constrained by this shape — edit it there
+  hasState        already constrained by iffBaseShacl:MachineShape
+```
+
+Then it asks two things: **Optional** (`sh:minCount 0`) or **Required**
+(`sh:minCount 1`), and what the **value** must be — for a Relationship, which
+entity type it points at; for a Property, a datatype (`xsd:double`, …) or a
+vocabulary class whose individuals are the allowed values. The kind is never
+asked: it is the attribute's `rdfs:range` in the knowledge. What is written is
+the full two-layer encoding, inserted into the shape's own statement so every
+comment around it survives:
+
+```turtle
+    sh:property [ sh:path iffFilterEntities:hasWasteclass ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNode ;
+        sh:property [ sh:path ngsild:hasValue ;
+            sh:minCount 1 ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:IRI ;
+            sh:class iffFilterKnowledge:Wasteclass ] ]
+```
+
+It refuses, and writes nothing, for an attribute the knowledge does not
+declare, one it gives to a different type (required here it would be demanded
+of entities that never carry it), a sub-attribute, one this shape already
+constrains, and one a supertype's shape constrains — that is an override, and
+**Declare on This Type** is the command that says whether it would take effect.
+
 **Go to Definition navigates both views**: it reveals and expands the declaring
 shape in the tree *and* moves the `.ttl` to the line. Jumping only the editor
 would leave you to find the declaring shape in the tree by hand, which is the
@@ -994,6 +1035,7 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: Go to the shape for this class` | the ⚖ icon on a knowledge class |
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
+| `SemForge: Add Attribute to Shape` | the + on a shape in the Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 
 ## Settings
 
