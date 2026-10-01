@@ -103,6 +103,34 @@ def _inherited_constraints(package, shape):
     return found
 
 
+def own_shape(package, entity_type):
+    """The node shape that targets this type itself, or None.
+
+    Its OWN shape, not the nearest one: a new attribute of Filter belongs in
+    FilterShape, and writing it into MachineShape because Filter inherits from
+    Machine would demand it of every Cutter too. When a type has several shapes
+    of its own -- a structural one and SPARQL rule shapes, say -- the one that
+    already carries sh:property groups is the one attributes go in.
+    """
+    from ..validate.shapes import node_shapes
+    from .choices import entity_types
+
+    wanted = str(entity_type or '').strip('<>')
+    if not wanted:
+        return None
+    # The type as the knowledge declares it -- term, IRI or local name -- so
+    # the comparison is on IRIs and two namespaces' `Filter` stay two.
+    iri = next((entry.iri for entry in entity_types(package)[0]
+                if wanted in (entry.iri, entry.term, entry.label)), wanted)
+    candidates = [shape for shape in node_shapes(package.shapes)
+                  if iri in {str(t) for t in _shape_targets(package, shape)}]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda s: (-len(list(package.shapes.objects(s, SH.property))),
+                                   str(s)))
+    return str(candidates[0])
+
+
 def attribute_options(package, shape):
     """What the add-attribute picker offers for this shape, and in what state.
 
@@ -278,4 +306,12 @@ def add_attribute_constraint(package, shape, attribute, required=False,
             'attribute': entry.iri, 'kind': kind}
 
 
-__all__ = ['attribute_options', 'add_attribute_constraint', 'PAYLOAD_PATH']
+def shape_targets(package, shape):
+    """The target classes of a shape, as terms the model would write."""
+    from .choices import model_term
+
+    return [model_term(package, t) for t in _shape_targets(package, shape)]
+
+
+__all__ = ['attribute_options', 'add_attribute_constraint', 'own_shape',
+           'shape_targets', 'PAYLOAD_PATH']

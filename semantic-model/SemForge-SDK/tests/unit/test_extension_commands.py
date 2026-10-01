@@ -1410,3 +1410,112 @@ def test_a_refused_add_reaches_the_user(tmp_path):
         },
     })
     assert any('gives hasWasteclass' in e for e in seen['errors'])
+
+
+# --- "SemForge: New attribute…" ------------------------------------------------
+
+ENTITY_TYPES = {'root': 'http://example.com/Entity', 'types': [
+    {'iri': 'http://example.com/Filter', 'term': 'iffBaseEntities:Filter',
+     'label': 'Filter', 'parent': 'iffBaseEntities:Machine',
+     'shape': 'iffBaseShacl:FilterShape',
+     'ownShape': 'http://example.com/FilterShape', 'instances': 2,
+     'isRoot': False},
+    {'iri': 'http://example.com/Lasercutter', 'term': 'iffBaseEntities:Lasercutter',
+     'label': 'Lasercutter', 'parent': 'iffBaseEntities:Cutter',
+     'shape': 'iffBaseShacl:CutterShape', 'ownShape': '', 'instances': 0,
+     'isRoot': False}]}
+
+DECLARED = {'ok': True, 'iri': 'http://example.com/hasPressure',
+            'term': 'iffBaseEntities:hasPressure', 'label': 'hasPressure',
+            'kind': 'Property', 'domain': 'iffBaseEntities:Filter',
+            'file': '/pkg/knowledge.ttl', 'line': 80}
+
+
+def _new_attribute(tmp_path, picks, inputs, extra=None):
+    _package_at(str(tmp_path))
+    replies = {'semforge/entityTypes': ENTITY_TYPES,
+               'semforge/addAttributeTerm': DECLARED,
+               'semforge/choices': {'choices': [
+                   {'value': 'xsd:double', 'label': 'xsd:double', 'detail': ''}]},
+               'semforge/addAttributeConstraint': {
+                   'ok': True, 'file': '/pkg/shacl.ttl', 'line': 120}}
+    replies.update(extra or {})
+    return _drive(tmp_path, {'command': 'semforge.newAttribute',
+                             'picks': picks, 'inputs': inputs,
+                             'replies': replies})
+
+
+def _sent(seen, method):
+    return [r['params'] for r in seen['requests'] if r['method'] == method]
+
+
+def test_new_attribute_declares_then_constrains_in_one_flow(tmp_path):
+    seen = _new_attribute(
+        tmp_path, picks=['Filter', 'Property', 'Required', 'xsd:double'],
+        inputs=['hasPressure', 'bar, absolute'])
+    assert seen['errors'] == [], seen['errors']
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared and declared[0]['domain'] == 'iffBaseEntities:Filter'
+    assert declared[0]['name'] == 'hasPressure'
+    assert declared[0]['kind'] == 'Property'
+    constrained = _sent(seen, 'semforge/addAttributeConstraint')
+    assert len(constrained) == 1
+    # From a type rather than a tree row: the server picks the type's OWN shape.
+    assert constrained[0]['entityType'] == 'iffBaseEntities:Filter'
+    assert constrained[0]['shape'] is None
+    assert constrained[0]['attribute'] == 'iffBaseEntities:hasPressure'
+    assert constrained[0]['required'] is True
+    assert constrained[0]['datatype'] == 'xsd:double'
+    # Declared before constrained: the order the model needs.
+    methods = [r['method'] for r in seen['requests']]
+    assert methods.index('semforge/addAttributeTerm') < \
+        methods.index('semforge/addAttributeConstraint')
+
+
+def test_new_attribute_may_stop_at_the_declaration(tmp_path):
+    seen = _new_attribute(tmp_path, picks=['Filter', 'Property', 'Not now'],
+                          inputs=['hasPressure', ''])
+    assert _sent(seen, 'semforge/addAttributeTerm')
+    assert not _sent(seen, 'semforge/addAttributeConstraint')
+
+
+def test_a_type_without_its_own_shape_is_declared_and_says_so(tmp_path):
+    """Writing it into the INHERITED shape would demand it of every sibling."""
+    seen = _new_attribute(tmp_path, picks=['Lasercutter', 'Property'],
+                          inputs=['hasPower', ''])
+    assert _sent(seen, 'semforge/addAttributeTerm')
+    assert not _sent(seen, 'semforge/addAttributeConstraint')
+    assert any('No shape targets Lasercutter' in m for m in seen['info'])
+
+
+def test_new_attribute_without_a_package_says_so(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.newAttribute', 'replies': {}})
+    assert seen['requests'] == []
+    assert any('no package is open' in w for w in seen['warnings'])
+
+
+def test_the_constraint_picker_can_declare_a_new_attribute(tmp_path):
+    """From a shape's +: the type comes from the shape, the constraint goes
+    into THAT shape, and there is no "Not now" -- the author asked for one."""
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['$(add) New attribute…', 'Property', 'Optional', 'Any value'],
+        'inputs': ['hasLifetime', ''],
+        'replies': {
+            'semforge/attributeOptions': dict(
+                ATTRIBUTE_OPTIONS, targets=['iffBaseEntities:FilterCartridge']),
+            'semforge/addAttributeTerm': dict(DECLARED, term='iffBaseEntities:hasLifetime',
+                                              label='hasLifetime'),
+            'semforge/choices': {'choices': []},
+            'semforge/addAttributeConstraint': {
+                'ok': True, 'file': '/pkg/shacl.ttl', 'line': 40},
+        },
+    })
+    assert seen['errors'] == [], seen['errors']
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared[0]['domain'] == 'iffBaseEntities:FilterCartridge'
+    constrained = _sent(seen, 'semforge/addAttributeConstraint')
+    assert constrained[0]['shape'] == 'http://example.com/CartridgeShape'
+    assert constrained[0]['attribute'] == 'iffBaseEntities:hasLifetime'
+    presence = [i['label'] for i in seen['quickPicks'][2]['items']]
+    assert presence == ['Optional', 'Required']

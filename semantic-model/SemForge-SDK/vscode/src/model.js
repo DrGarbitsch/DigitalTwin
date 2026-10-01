@@ -972,4 +972,4 @@ function register(context, clientHolder, session, onChanged) {
   return provider;
 }
 
-module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND };
+module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND, declareAttribute };

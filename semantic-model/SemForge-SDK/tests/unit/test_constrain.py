@@ -167,6 +167,26 @@ def test_a_required_attribute_makes_data_without_it_fail(tmp_path):
     assert ('MinCountConstraintComponent', 'hasSpeed') in fired, fired
 
 
+# --- which shape a type's new attribute goes in -------------------------------
+
+def test_a_type_s_own_shape_is_its_structural_one(kms):
+    """Filter has FilterShape and two SPARQL shapes of its own; attributes go
+    in the one that already carries sh:property groups -- never in an
+    inherited MachineShape."""
+    from semforge.cooked.constrain import own_shape
+
+    for spelling in ('iffBaseEntities:Filter', BASE + 'base_entities/Filter',
+                     'Filter'):
+        assert own_shape(kms, spelling) == FILTER, spelling
+
+
+def test_a_type_with_no_shape_of_its_own_has_none(kms):
+    from semforge.cooked.constrain import own_shape
+
+    # Lasercutter is judged by CutterShape and MachineShape, both inherited.
+    assert own_shape(kms, 'iffBaseEntities:Lasercutter') is None
+
+
 # --- what is refused, and that a refusal writes nothing -----------------------
 
 @pytest.mark.parametrize('shape, attribute, kwargs, says', [

@@ -720,6 +720,19 @@ comment around it survives:
             sh:class iffFilterKnowledge:Wasteclass ] ]
 ```
 
+If the attribute does not exist yet, the last entry, **New attribute…**,
+declares it in `knowledge.ttl` for the shape's type and carries straight on to
+the two questions above. The same flow is **SemForge: New attribute…**, which
+starts by asking for the type instead and is reachable without the tree: the
+Command Palette, the SemForge item in the status bar, right-click on a `.ttl`
+or `.jsonld` (editor or Explorer) → **SemForge**, and the **symbol** button in
+the Constraints and Knowledge view titles. VS Code gives an extension no menu of
+its own beside *File* and *Edit*, so these are the places one can live. Started
+that way it offers **Not now** too — declaring alone is a fine place to stop —
+and a type with no shape of its own is declared and told so, rather than having
+the attribute written into an inherited shape, where it would be demanded of
+every sibling type.
+
 It refuses, and writes nothing, for an attribute the knowledge does not
 declare, one it gives to a different type (required here it would be demanded
 of entities that never carry it), a sub-attribute, one this shape already
@@ -1035,6 +1048,7 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: Go to the shape for this class` | the ⚖ icon on a knowledge class |
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
+| `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Knowledge view title |
 | `SemForge: Add Attribute to Shape` | the + on a shape in the Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 
 ## Settings

@@ -27,7 +27,7 @@ EXPECTED = {
     'semforge.restart', 'semforge.revalidate', 'semforge.doctor',
     'semforge.editConstraint', 'semforge.removeConstraint',
     'semforge.refreshTree', 'semforge.goToDefinition', 'semforge.overrideHere',
-    'semforge.addAttributeConstraint',
+    'semforge.addAttributeConstraint', 'semforge.newAttribute',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
@@ -246,6 +246,31 @@ def test_the_packaged_sources_include_the_new_module():
         source = handle.read()
     assert "require('./init')" in source
     assert os.path.exists(os.path.join(SDK, 'vscode', 'src', 'init.js'))
+
+
+def test_new_attribute_is_reachable_wherever_a_menu_can_be():
+    """VS Code gives an extension no top-level menu, so "New attribute…" goes
+    everywhere it may: a SemForge submenu on .ttl/.jsonld files (editor and
+    Explorer right-click), the Constraints and Knowledge view titles, and the
+    palette. NOT the project submenu, which stays project-level."""
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        contributes = json.load(handle)['contributes']
+    menus = contributes['menus']
+
+    assert 'semforge.model' in {s['id'] for s in contributes['submenus']}
+    assert 'semforge.newAttribute' in [e['command'] for e in menus['semforge.model']]
+    for place in ('editor/context', 'explorer/context'):
+        entry = next(e for e in menus[place] if e.get('submenu') == 'semforge.model')
+        assert '.ttl' in entry['when'] and '.jsonld' in entry['when']
+    titled = {e['when'] for e in menus['view/title']
+              if e.get('command') == 'semforge.newAttribute'}
+    assert titled == {'view == semforgeConstraints', 'view == semforgeKnowledge'}
+    assert 'semforge.newAttribute' not in [
+        e.get('command') for e in menus['semforge.project']]
+    # Hidden from nowhere: the palette is the one place every user has.
+    hidden = {e['command'] for e in menus.get('commandPalette', [])
+              if e.get('when') == 'false'}
+    assert 'semforge.newAttribute' not in hidden
 
 
 def test_the_project_actions_live_in_one_submenu():

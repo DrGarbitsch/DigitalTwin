@@ -157,6 +157,8 @@ const MENU = [
   { label: '$(settings-gear) Project settings',
     command: 'semforgeProject.focus',
     description: 'name, contexts, namespaces — in the Project view' },
+  { label: '$(symbol-field) New attribute…', command: 'semforge.newAttribute',
+    description: 'declare it in the knowledge, then constrain it on its shape' },
   { label: '$(check) Revalidate', command: 'semforge.revalidate',
     description: 're-run analysis over the package' },
   { label: '$(new-folder) New project…', command: 'semforge.newProject',

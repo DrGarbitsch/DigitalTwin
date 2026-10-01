@@ -97,6 +97,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "semforge.newAttribute",
+        "title": "SemForge: New attribute\u2026",
+        "icon": "$(symbol-field)"
+      },
+      {
         "command": "semforge.addAttributeConstraint",
         "title": "SemForge: Add Attribute to Shape",
         "icon": "$(add)"
@@ -256,6 +261,16 @@
           "submenu": "semforge.project",
           "when": "view == semforgeProject",
           "group": "navigation@9"
+        },
+        {
+          "command": "semforge.newAttribute",
+          "when": "view == semforgeConstraints",
+          "group": "navigation@1"
+        },
+        {
+          "command": "semforge.newAttribute",
+          "when": "view == semforgeKnowledge",
+          "group": "navigation@1"
         }
       ],
       "view/item/context": [
@@ -378,6 +393,32 @@
           "submenu": "semforge.project",
           "when": "explorerResourceIsFolder",
           "group": "navigation@30"
+        },
+        {
+          "submenu": "semforge.model",
+          "when": "!explorerResourceIsFolder && (resourceExtname == .ttl || resourceExtname == .jsonld)",
+          "group": "navigation@30"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "semforge.model",
+          "when": "resourceExtname == .ttl || resourceExtname == .jsonld",
+          "group": "navigation@90"
+        }
+      ],
+      "semforge.model": [
+        {
+          "command": "semforge.newAttribute",
+          "group": "1_model@1"
+        },
+        {
+          "command": "semforge.revalidate",
+          "group": "8_check@1"
+        },
+        {
+          "command": "semforge.doctor",
+          "group": "9_help@1"
         }
       ]
     },
@@ -404,6 +445,11 @@
         "id": "semforge.project",
         "label": "SemForge",
         "icon": "$(file-directory-create)"
+      },
+      {
+        "id": "semforge.model",
+        "label": "SemForge",
+        "icon": "$(symbol-field)"
       }
     ]
   },

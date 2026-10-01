@@ -633,6 +633,7 @@ def entity_types_feature(ls, params):
     stays silent and the entity reads as validated.
     """
     from ..cooked.choices import entity_types
+    from ..cooked.constrain import own_shape
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
@@ -648,6 +649,9 @@ def entity_types_feature(ls, params):
         return {'root': hierarchy,
                 'types': [{'iri': t.iri, 'term': t.term, 'label': t.label,
                            'parent': t.parent, 'shape': t.shape,
+                           # `shape` is the nearest judging shape, inherited
+                           # or not; a NEW attribute belongs in its own one.
+                           'ownShape': own_shape(package, t.iri) or '',
                            'instances': t.instances, 'isRoot': t.is_root}
                           for t in found]}
     except Exception as exc:                       # noqa: BLE001
@@ -867,30 +871,46 @@ def attribute_options_feature(ls, params):
     the picker can say WHY an attribute the author expected is not offered
     rather than leaving them to wonder whether it was declared at all.
     """
-    from ..cooked.constrain import attribute_options
+    from ..cooked.constrain import attribute_options, shape_targets
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'options': [], 'error': 'not a SemForge package'}
     try:
         package = _package_for(root)
-        return {'options': attribute_options(package, _field(params, 'shape'))}
+        shape = _field(params, 'shape')
+        # The targets let the picker's "New attribute..." declare the new term
+        # for the type this shape judges, without asking again.
+        return {'options': attribute_options(package, shape),
+                'targets': shape_targets(package, shape)}
     except Exception as exc:                       # noqa: BLE001
         return {'options': [], 'error': str(exc)}
 
 
 @server.feature('semforge/addAttributeConstraint')
 def add_attribute_constraint_feature(ls, params):
-    """Add an attribute to a shape as a complete two-layer property shape."""
-    from ..cooked.constrain import add_attribute_constraint
+    """Add an attribute to a shape as a complete two-layer property shape.
+
+    `shape` names the shape; `entityType` instead means that type's OWN shape,
+    which is what a flow that starts from a type rather than a tree row has.
+    """
+    from ..cooked.constrain import add_attribute_constraint, own_shape
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'ok': False, 'error': 'not a SemForge package'}
     try:
         package = _package_for(root)
+        shape = _field(params, 'shape')
+        if not shape:
+            entity_type = _field(params, 'entityType', '')
+            shape = own_shape(package, entity_type)
+            if shape is None:
+                return {'ok': False,
+                        'error': f'no shape targets {entity_type} itself, so '
+                                 f'there is nowhere to constrain it'}
         made = add_attribute_constraint(
-            package, _field(params, 'shape'), _field(params, 'attribute'),
+            package, shape, _field(params, 'attribute'),
             required=bool(_field(params, 'required', False)),
             datatype=_field(params, 'datatype') or None,
             value_class=_field(params, 'valueClass') or None)

@@ -11,6 +11,7 @@ const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
 const { showLocation } = require('./reveal');
+const { constrainAttribute, newAttribute } = require('./attribute');
 
 // Candidate values come from the server, never from a list in here. Which
 // classes may be offered is an ontology question -- entity types on one side of
@@ -361,13 +362,6 @@ async function pickAttribute(client, node) {
     return undefined;
   }
   const options = result.options || [];
-  if (!options.length) {
-    vscode.window.showInformationMessage(
-      `SemForge: the knowledge gives ${node.raw.label} no attributes. ` +
-        'Declare one in the Knowledge view first.'
-    );
-    return undefined;
-  }
   const items = [];
   let section;
   for (const option of options) {
@@ -387,6 +381,16 @@ async function pickAttribute(client, node) {
       option
     });
   }
+  // The attribute may not exist yet. Declaring it is the knowledge's business,
+  // but making the author leave this picker for another view to do it was the
+  // friction: the shape already says which type it is for.
+  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  items.push({
+    label: '$(add) New attribute…',
+    description: 'declare it in the knowledge, then constrain it here',
+    create: true,
+    targets: result.targets || []
+  });
   const picked = await vscode.window.showQuickPick(items, {
     title: `Add an attribute to ${node.raw.label}`,
     placeHolder: 'the attributes the knowledge says this type carries',
@@ -396,6 +400,9 @@ async function pickAttribute(client, node) {
   if (!picked) {
     return undefined;
   }
+  if (picked.create) {
+    return { create: true, targets: picked.targets };
+  }
   if (picked.option.status !== 'free') {
     vscode.window.showInformationMessage(
       `SemForge: ${picked.option.label} is ${picked.detail}.`
@@ -403,58 +410,6 @@ async function pickAttribute(client, node) {
     return undefined;
   }
   return picked.option;
-}
-
-async function valueChoices(client, packageUri, path, parameter) {
-  try {
-    const result = await client.sendRequest('semforge/choices', {
-      uri: packageUri, path, parameter, search: null
-    });
-    return result.choices || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-/**
- * What the value must be. Asked, not read: the knowledge says which KIND an
- * attribute is, and deliberately leaves what its value may be to the shapes.
- * Returns {datatype, valueClass}, or undefined when cancelled.
- */
-async function pickValue(client, packageUri, option) {
-  const anything = { label: 'Any value', detail: 'constrain only that a value is there', value: {} };
-  let items;
-  if (option.kind === 'Relationship') {
-    const entities = await valueChoices(
-      client, packageUri, [option.term, 'ngsild:hasObject'], 'sh:class');
-    items = [{ ...anything, label: 'Any entity' }].concat(entities.map((c) => ({
-      label: c.label, description: c.value, detail: c.detail,
-      value: { valueClass: c.value }
-    })));
-  } else if (option.kind === 'Property') {
-    const [datatypes, classes] = await Promise.all([
-      valueChoices(client, packageUri, [option.term, 'ngsild:hasValue'], 'sh:datatype'),
-      valueChoices(client, packageUri, [option.term, 'ngsild:hasValue'], 'sh:class')
-    ]);
-    items = [anything,
-      { label: 'A literal', kind: vscode.QuickPickItemKind.Separator }]
-      .concat(datatypes.map((c) => ({
-        label: c.label, description: 'datatype', value: { datatype: c.value }
-      })))
-      .concat([{ label: 'A vocabulary term', kind: vscode.QuickPickItemKind.Separator }])
-      .concat(classes.map((c) => ({
-        label: c.label, description: c.value, detail: c.detail,
-        value: { valueClass: c.value }
-      })));
-  } else {
-    return {};      // a JSON, list or geo payload has no class or datatype to ask
-  }
-  const picked = await vscode.window.showQuickPick(items, {
-    title: `${option.label}: what must its value be?`,
-    matchOnDescription: true,
-    matchOnDetail: true
-  });
-  return picked ? picked.value : undefined;
 }
 
 function register(context, clientHolder, session) {
@@ -586,36 +541,23 @@ function register(context, clientHolder, session) {
       if (!option) {
         return;
       }
-      const presence = await vscode.window.showQuickPick([
-        { label: 'Optional', description: 'sh:minCount 0',
-          detail: 'checked when present, fine when absent', required: false },
-        { label: 'Required', description: 'sh:minCount 1',
-          detail: 'every entity of this type must carry it', required: true }
-      ], { title: `${option.label} on ${raw.label}` });
-      if (!presence) {
-        return;
+      const target = { shape: raw.shape, label: raw.label };
+      let done;
+      if (option.create) {
+        if (!option.targets.length) {
+          vscode.window.showErrorMessage(
+            `SemForge: ${raw.label} has no sh:targetClass, so there is no ` +
+              'type to declare the attribute for.');
+          return;
+        }
+        done = await newAttribute(client, node.packageUri,
+          { ...target, entityType: option.targets[0] });
+      } else {
+        done = await constrainAttribute(client, node.packageUri, option, target, false);
       }
-      const value = await pickValue(client, node.packageUri, option);
-      if (value === undefined) {
-        return;
-      }
-      const result = await client.sendRequest('semforge/addAttributeConstraint', {
-        uri: node.packageUri,
-        shape: raw.shape,
-        attribute: option.iri,
-        required: presence.required,
-        datatype: value.datatype || null,
-        valueClass: value.valueClass || null
-      });
-      if (!result.ok) {
-        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
-        return;
-      }
-      vscode.window.setStatusBarMessage(
-        `SemForge: ${option.label} added to ${raw.label}`, 5000);
-      provider.refresh();
-      if (result.line) {
-        await showLocation(`${result.file}:${result.line}`, false);
+      if (done) {
+        provider.refresh();
+        vscode.commands.executeCommand('semforge.refreshKnowledge');
       }
     }),
 

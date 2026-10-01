@@ -437,6 +437,28 @@ def test_an_attribute_is_added_to_a_shape_over_the_protocol(tmp_path, corpus):
         again = live.wait_for(lambda m: m.get('id') == 43)[0]['result']
         assert not again['ok'] and 'already constrains' in again['error']
         assert open(document).read() == text
+
+        # "New attribute…": declare, then constrain by TYPE -- the server picks
+        # the type's own shape, which for Filter is FilterShape, not the
+        # MachineShape it inherits. A full IRI, because this bare copy has no
+        # semforge.yaml or context to say what `iffBaseEntities:` means.
+        FILTER_IRI = ('https://industryfusion.github.io/contexts/example/v0/'
+                      'base_entities/Filter')
+        live.send({'jsonrpc': '2.0', 'id': 44, 'method': 'semforge/addAttributeTerm',
+                   'params': {'uri': 'file://' + document, 'name': 'hasPressure',
+                              'kind': 'Property',
+                              'domain': FILTER_IRI}})
+        declared = live.wait_for(lambda m: m.get('id') == 44)[0]['result']
+        assert declared['ok'], declared.get('error')
+        live.send({'jsonrpc': '2.0', 'id': 45,
+                   'method': 'semforge/addAttributeConstraint',
+                   'params': {'uri': 'file://' + document,
+                              'entityType': FILTER_IRI,
+                              'attribute': declared['term'],
+                              'datatype': 'xsd:double'}})
+        made = live.wait_for(lambda m: m.get('id') == 45)[0]['result']
+        assert made['ok'], made.get('error')
+        assert made['shape'].endswith('base_shacl/FilterShape')
     finally:
         live.close()
 
