@@ -101,6 +101,7 @@ async function constrainAttribute(client, packageUri, option, target, optional) 
     uri: packageUri,
     shape: target.shape || null,
     entityType: target.entityType || null,
+    parentPath: target.parentPath || null,
     attribute: option.iri || option.term,
     required: presence.required,
     datatype: value.datatype || null,

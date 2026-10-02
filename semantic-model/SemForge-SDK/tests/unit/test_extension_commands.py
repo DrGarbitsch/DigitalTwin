@@ -1742,3 +1742,114 @@ def test_remove_this_use_is_not_in_the_palette():
         menus = json.load(handle)['contributes']['menus']
     hidden = {e['command'] for e in menus['commandPalette'] if e['when'] == 'false'}
     assert hidden == {'semforge.removeUse'}
+
+
+# --- sub-attributes ---------------------------------------------------------------
+
+def _constraint_attribute_row():
+    return {'raw': {'kind': 'attribute', 'label': 'iffBaseEntities:hasFilter',
+                    'shape': 'http://example.com/CutterShape',
+                    'path': ['iffBaseEntities:hasFilter'], 'parameter': '',
+                    'value': '', 'editable': False, 'inheritedFrom': '',
+                    'children': []},
+            'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+SUB_OPTIONS = {'targets': ['iffBaseEntities:hasFilter'],
+               'carrier': 'iffBaseEntities:hasFilter', 'options': [
+                   {'iri': 'http://example.com/hasConfidence',
+                    'term': 'iffBaseEntities:hasConfidence', 'label': 'hasConfidence',
+                    'kind': 'Property', 'comment': '', 'domain': 'ngsild:Relationship',
+                    'scoped': False, 'status': 'free', 'by': ''},
+                   {'iri': 'http://example.com/hasTrust',
+                    'term': 'iffBaseEntities:hasTrust', 'label': 'hasTrust',
+                    'kind': 'Property', 'comment': '', 'domain': 'ngsild:Relationship',
+                    'scoped': True, 'status': 'here', 'by': ''}]}
+
+
+def test_the_plus_on_an_attribute_row_nests_inside_it(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint',
+        'node': _constraint_attribute_row(),
+        'picks': ['hasConfidence', 'Optional', 'Any value'],
+        'replies': {'semforge/attributeOptions': SUB_OPTIONS,
+                    'semforge/choices': {'choices': []},
+                    'semforge/addAttributeConstraint': {
+                        'ok': True, 'file': '/pkg/shacl.ttl', 'line': 68}}})
+    assert seen['errors'] == [], seen['errors']
+    asked = _sent(seen, 'semforge/attributeOptions')
+    assert asked[0]['parentPath'] == ['iffBaseEntities:hasFilter']
+    written = _sent(seen, 'semforge/addAttributeConstraint')
+    assert written[0]['parentPath'] == ['iffBaseEntities:hasFilter']
+    assert written[0]['shape'] == 'http://example.com/CutterShape'
+    offered = [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert '$(add) New sub-attribute…' in offered
+
+
+def test_new_sub_attribute_declares_it_carried_by_the_parent(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint',
+        'node': _constraint_attribute_row(),
+        'picks': ['$(add) New sub-attribute…', 'Property', 'Optional', 'Any value'],
+        'inputs': ['hasLatency', ''],
+        'replies': {'semforge/attributeOptions': SUB_OPTIONS,
+                    'semforge/addAttributeTerm': dict(
+                        DECLARED, term='iffBaseEntities:hasLatency', label='hasLatency'),
+                    'semforge/choices': {'choices': []},
+                    'semforge/addAttributeConstraint': {
+                        'ok': True, 'file': '/pkg/shacl.ttl', 'line': 70}}})
+    assert seen['errors'] == [], seen['errors']
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared[0]['domain'] == 'iffBaseEntities:hasFilter', \
+        'a sub-attribute is declared with its parent attribute as carrier'
+    written = _sent(seen, 'semforge/addAttributeConstraint')
+    assert written[0]['parentPath'] == ['iffBaseEntities:hasFilter']
+    assert written[0]['attribute'] == 'iffBaseEntities:hasLatency'
+
+
+def _model_attribute_row(**overrides):
+    raw = {'kind': 'attribute', 'label': 'hasFilter', 'entity': 'urn:plasmacutter:1',
+           'entityType': 'iffBaseEntities:Plasmacutter', 'editable': True,
+           'attributePath': ['iffBaseEntities:hasFilter'],
+           'path': ['iffBaseEntities:hasFilter', 0, 'object'],
+           'datasetId': '@none', 'file': '/pkg/model-instance.jsonld',
+           'value': 'urn:filter:1', 'children': []}
+    raw.update(overrides)
+    return {'raw': raw, 'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+def test_add_sub_attribute_in_the_data_goes_under_the_row(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addSubAttribute', 'node': _model_attribute_row(),
+        'pick': 'iffBaseEntities:hasConfidence', 'input': '0.9',
+        'replies': {
+            'semforge/attributes': {'attributes': [
+                {'iri': 'http://example.com/hasConfidence',
+                 'term': 'iffBaseEntities:hasConfidence', 'kind': 'Property',
+                 'constrained': True, 'parents': ['iffBaseEntities:hasFilter'],
+                 'comment': ''}]},
+            'semforge/valueChoices': {'choices': [], 'note': ''},
+            'semforge/addAttribute': {'ok': True, 'kind': 'Property'}}})
+    assert seen['errors'] == [], seen['errors']
+    asked = _sent(seen, 'semforge/attributes')
+    assert asked[0].get('parent') == 'iffBaseEntities:hasFilter'
+    added = _sent(seen, 'semforge/addAttribute')
+    assert added[0]['under'] == ['iffBaseEntities:hasFilter']
+    assert added[0]['underDataset'] == '@none'
+    assert added[0]['name'] == 'iffBaseEntities:hasConfidence'
+
+
+def test_add_sub_attribute_is_offered_on_value_rows_only(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addSubAttribute',
+        'node': _model_attribute_row(kind='entity', attributePath=[]),
+        'replies': {}})
+    assert seen['requests'] == []
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    rows = [e for e in menus if e.get('command') == 'semforge.addSubAttribute']
+    assert rows and all(e['group'] != 'inline' for e in rows)
+    plus = [e for e in menus if e.get('command') == 'semforge.addAttributeConstraint']
+    assert {e['when'] for e in plus} == {
+        'view == semforgeConstraints && viewItem == shape',
+        'view == semforgeConstraints && viewItem == attribute'}

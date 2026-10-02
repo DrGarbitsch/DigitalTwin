@@ -752,6 +752,33 @@ of entities that never carry it), a sub-attribute, one this shape already
 constrains, and one a supertype's shape constrains — that is an override, and
 **Declare on This Type** is the command that says whether it would take effect.
 
+**Sub-attributes.** In NGSI-LD an attribute can carry attributes of its own —
+the kms's `hasTrust` hangs off `hasFilter`, `hasXXXWorkpiece` off `hasState`.
+The **+** on an *attribute* row in the Constraints view adds one: it offers what
+the knowledge allows inside that attribute (a sub-attribute's `rdfs:domain` is
+the parent's kind of node, `ngsild:Relationship` or `ngsild:Property`), ends in
+**New sub-attribute…** to declare one carried by that attribute, and writes the
+same two layers an attribute gets, *inside* the parent's `sh:property [ … ]`:
+
+```turtle
+    sh:property [ sh:path iffBaseEntities:hasFilter ;
+        …
+        sh:property [ sh:path iffBaseEntities:hasConfidence ;
+            sh:minCount 0 ;
+            sh:maxCount 1 ;
+            sh:nodeKind sh:BlankNode ;
+            sh:property [ sh:path ngsild:hasValue ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:double ] ] ]
+```
+
+In the Model view, right-click an attribute → **SemForge: Add Sub-attribute**
+puts one into that attribute instance — the one the row shows, chosen by its
+datasetId when the attribute has several. An entity attribute is refused
+inside another attribute, a sub-attribute is refused inside a parent of the
+wrong kind, and a duplicate is refused; none of them write anything.
+
 **Deleting an attribute** is a right-click on its row in the Knowledge or
 Constraints view (**SemForge: Delete attribute…**; from the palette it asks
 which). An attribute is never in one place, so nothing is removed before you

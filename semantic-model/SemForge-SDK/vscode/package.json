@@ -142,6 +142,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "semforge.addSubAttribute",
+        "title": "SemForge: Add Sub-attribute",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.addEntity",
         "title": "SemForge: Add Entity",
         "icon": "$(new-file)"
@@ -387,6 +392,16 @@
           "command": "semforge.deleteAttribute",
           "when": "view == semforgeConstraints && viewItem == attribute",
           "group": "9_danger@1"
+        },
+        {
+          "command": "semforge.addAttributeConstraint",
+          "when": "view == semforgeConstraints && viewItem == attribute",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.addSubAttribute",
+          "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries)$/",
+          "group": "1_add@1"
         }
       ],
       "semforge.project": [

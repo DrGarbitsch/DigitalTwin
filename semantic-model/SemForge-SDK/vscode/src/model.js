@@ -583,11 +583,12 @@ function whereItBelongs(attribute) {
  * declared without a domain come last rather than being hidden -- a package may
  * simply not have said.
  */
-async function pickAttribute(client, packageUri, entityType, entity) {
-  const answer = await client.sendRequest('semforge/attributes', {
-    uri: packageUri,
-    entityType: entityType || ''
-  });
+async function pickAttribute(client, packageUri, entityType, entity, parent) {
+  // With `parent` the question is what may nest inside that attribute: the
+  // knowledge's answer for a sub-attribute, not the entity type's.
+  const answer = await client.sendRequest('semforge/attributes', parent
+    ? { uri: packageUri, parent }
+    : { uri: packageUri, entityType: entityType || '' });
   if (!answer || answer.error) {
     vscode.window.showErrorMessage(
       `SemForge: ${(answer && answer.error) || 'the attributes could not be read'}`
@@ -605,13 +606,17 @@ async function pickAttribute(client, packageUri, entityType, entity) {
     attribute
   }));
   items.push({
-    label: '$(add) New attribute…',
-    description: 'declare it in the knowledge, then use it',
+    label: parent ? '$(add) New sub-attribute…' : '$(add) New attribute…',
+    description: parent
+      ? `declare it in the knowledge as carried by ${parent}, then use it`
+      : 'declare it in the knowledge, then use it',
     create: true
   });
 
   const chosen = await vscode.window.showQuickPick(items, {
-    placeHolder: `Attribute for ${entity} — from the knowledge`,
+    placeHolder: parent
+      ? `Sub-attribute inside ${parent} on ${entity} — from the knowledge`
+      : `Attribute for ${entity} — from the knowledge`,
     matchOnDescription: true
   });
   if (!chosen) {
@@ -620,7 +625,7 @@ async function pickAttribute(client, packageUri, entityType, entity) {
   if (!chosen.create) {
     return chosen.attribute;
   }
-  return declareAttribute(client, packageUri, entityType);
+  return declareAttribute(client, packageUri, parent || entityType);
 }
 
 /**
@@ -885,61 +890,92 @@ function register(context, clientHolder, session, onChanged) {
       provider.refresh()
     ),
 
+    vscode.commands.registerCommand('semforge.addSubAttribute', async (node) => {
+      const raw = node && node.raw;
+      if (!raw || !['attribute', 'dataset'].includes(raw.kind) ||
+          !(raw.attributePath || []).length) {
+        vscode.window.showInformationMessage(
+          'SemForge: pick an attribute in the data to add a sub-attribute to.');
+        return;
+      }
+      return addAttributeTo(node, {
+        under: raw.attributePath,
+        dataset: raw.datasetId || null,
+        parent: raw.attributePath.filter((s) => typeof s === 'string').pop()
+      });
+    }),
+
     vscode.commands.registerCommand('semforge.addAttribute', async (node) => {
       const raw = node && node.raw;
       if (!raw || raw.kind !== 'entity') {
         return;
       }
-      // Same rule as the type, one level down: the attribute's NAME is what a
-      // shape's sh:path matches, so one the knowledge has never heard of is
-      // not a broken document but an invisible one. So it is chosen, not
-      // typed -- and a missing one is declared in the knowledge first.
-      const attribute = await pickAttribute(
-        clientHolder.client, node.packageUri, raw.entityType, raw.entity);
-      if (!attribute) {
-        return;
-      }
-      // The shape decides what this may be, and it is inherited -- hasState
-      // on anything descending from Machine takes an individual of
-      // base:MachineState. Asking the server for those beats a text box in
-      // exactly the case where a text box is worst: a new entity carrying an
-      // attribute you have just inherited.
-      const value = await chooseValue(
-        clientHolder.client, node.packageUri, raw.entityType, attribute.term,
-        {
-          title: `${attribute.term} on ${raw.entity}`,
-          prompt: attribute.kind === 'Relationship'
-            ? 'An entity IRI — a Relationship points at another entity.'
-            : 'JSON is parsed. A literal, or {"@id": "…"} for a vocabulary term.'
-        });
-      if (value === undefined) {
-        return;
-      }
-      const result = await clientHolder.client.sendRequest(
-        'semforge/addAttribute',
-        {
-          uri: node.packageUri,
-          entity: raw.entity,
-          file: raw.file,
-          name: attribute.term,
-          kind: attribute.kind || '',
-          value
-        }
-      );
-      if (result.ok) {
-        vscode.window.setStatusBarMessage(
-          `SemForge: ${attribute.term} added as ${result.kind}`,
-          5000
-        );
-        provider.refresh();
-        if (onChanged) {
-          onChanged();
-        }
-      } else {
-        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
-      }
-    }),
+      return addAttributeTo(node);
+    })
+  );
 
+  /**
+   * Add an attribute to an entity -- or, with `nested`, a sub-attribute inside
+   * the attribute instance it addresses. One flow for both, so a sub-attribute
+   * is picked from the knowledge, declared first when missing, and given a
+   * value exactly as an attribute is.
+   */
+  async function addAttributeTo(node, nested) {
+    const raw = node.raw;
+    // Same rule as the type, one level down: the attribute's NAME is what a
+    // shape's sh:path matches, so one the knowledge has never heard of is
+    // not a broken document but an invisible one. So it is chosen, not
+    // typed -- and a missing one is declared in the knowledge first.
+    const attribute = await pickAttribute(
+      clientHolder.client, node.packageUri, raw.entityType, raw.entity,
+      nested && nested.parent);
+    if (!attribute) {
+      return;
+    }
+    // The shape decides what this may be, and it is inherited -- hasState
+    // on anything descending from Machine takes an individual of
+    // base:MachineState. Asking the server for those beats a text box in
+    // exactly the case where a text box is worst: a new entity carrying an
+    // attribute you have just inherited.
+    const value = await chooseValue(
+      clientHolder.client, node.packageUri, raw.entityType, attribute.term,
+      {
+        title: `${attribute.term} on ${raw.entity}`,
+        prompt: attribute.kind === 'Relationship'
+          ? 'An entity IRI — a Relationship points at another entity.'
+          : 'JSON is parsed. A literal, or {"@id": "…"} for a vocabulary term.'
+      });
+    if (value === undefined) {
+      return;
+    }
+    const result = await clientHolder.client.sendRequest(
+      'semforge/addAttribute',
+      {
+        uri: node.packageUri,
+        entity: raw.entity,
+        file: raw.file,
+        name: attribute.term,
+        kind: attribute.kind || '',
+        value,
+        under: nested ? nested.under : null,
+        underDataset: nested ? nested.dataset : null
+      }
+    );
+    if (result.ok) {
+      vscode.window.setStatusBarMessage(
+        `SemForge: ${attribute.term} added as ${result.kind}`,
+        5000
+      );
+      provider.refresh();
+      if (onChanged) {
+        onChanged();
+      }
+    } else {
+      vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+    }
+  }
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('semforge.addEntity', async (node) => {
       const raw = node && node.raw;
       const file = raw && (raw.file || (raw.children || []).map((c) => c.file)[0]);

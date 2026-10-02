@@ -315,3 +315,117 @@ def shape_targets(package, shape):
 
 __all__ = ['attribute_options', 'add_attribute_constraint', 'own_shape',
            'shape_targets', 'PAYLOAD_PATH']
+
+
+# --- sub-attributes -------------------------------------------------------------
+
+def _parent_group(package, shape, parent_path):
+    """(file, text, group, parent IRI) for the attribute a sub-attribute goes in."""
+    from .tree import _locate
+
+    if not parent_path:
+        raise PackageError('a sub-attribute needs the attribute it goes inside')
+    path, text, group = _locate(package, str(shape), list(parent_path))
+    parent = _resolve(package, parent_path[-1])
+    if parent is None:
+        raise PackageError(f'{parent_path[-1]} is not a term this package can '
+                           f'resolve')
+    return path, text, group, str(parent)
+
+
+def _children_of(package, group):
+    return {str(_resolve(package, child.path)) for child in group.children
+            if child.path}
+
+
+def sub_attribute_options(package, shape, parent_path):
+    """What may nest inside one attribute's property shape, and its state.
+
+    The knowledge says what is ALLOWED inside: a sub-attribute's rdfs:domain is
+    the class of the attribute node that carries it -- ngsild:Relationship for
+    `hasTrust`, ngsild:Property for `hasXXXWorkpiece` (choices.sub_attributes_for).
+    Those already PLACED inside this parent somewhere come first.
+    """
+    from .choices import sub_attributes_for
+
+    _, _, group, parent = _parent_group(package, shape, parent_path)
+    here = _children_of(package, group)
+    out = []
+    for entry in sub_attributes_for(package, parent):
+        out.append({'iri': entry.iri, 'term': entry.term, 'label': entry.label,
+                    'kind': entry.kind or 'Property', 'comment': entry.comment,
+                    'domain': entry.domain,
+                    'scoped': bool(entry.parents),
+                    'status': 'here' if entry.iri in here else 'free',
+                    'by': ''})
+    out.sort(key=lambda o: (o['status'] != 'free', not o['scoped'],
+                            o['label'].lower()))
+    return out
+
+
+def add_sub_attribute_constraint(package, shape, parent_path, attribute,
+                                 required=False, datatype=None,
+                                 value_class=None):
+    """Nest `attribute` inside the property shape at `parent_path`.
+
+    The same two layers an entity attribute gets -- the sub-attribute node, and
+    its value -- written INSIDE the parent's `sh:property [ ... ]`, which is how
+    the NGSI-LD encoding hangs a sub-attribute off the parent's attribute node.
+    Refuses what the knowledge does not allow inside this parent, and what is
+    already there.
+    """
+    import re
+
+    from .choices import sub_attributes_for
+    from .knowledge import _turtle_name
+    from .tree import _write_verified
+    from ..rdfio.writer import INDENT, _block_lines
+
+    path, text, group, parent = _parent_group(package, shape, parent_path)
+    entry = _attribute(package, attribute)
+    name = entry.label
+    allowed = {e.iri for e in sub_attributes_for(package, parent)}
+    if entry.iri not in allowed:
+        if not (entry.parents or entry.carrier_kind):
+            raise PackageError(
+                f'{name} is carried by an entity, not by an attribute: the '
+                f'knowledge gives it rdfs:domain '
+                f'{local(entry.domain_iri) if entry.domain_iri else "nothing"}. '
+                f'Add it to the shape itself instead.')
+        raise PackageError(
+            f'{name} cannot nest inside {local(parent)}: its rdfs:domain says '
+            f'it is carried by a {entry.carrier_kind or "different"} node, and '
+            f'{local(parent)} is not one.')
+    if entry.iri in _children_of(package, group):
+        raise PackageError(f'{local(parent)} already carries {name} here; edit '
+                           f'that constraint instead')
+
+    kind = entry.kind or 'Property'
+    inner = _value_layer(package, kind, datatype, value_class, name)
+
+    def term(node):
+        return str(node) if isinstance(node, int) else _turtle_name(text, node)
+
+    pairs = [(term(SH.minCount), '1' if required else '0'),
+             (term(SH.maxCount), '1'),
+             (term(SH.nodeKind), term(SH.BlankNode)),
+             (term(SH.property),
+              [(term(SH.path), term(URIRef(PAYLOAD_PATH[kind])))]
+              + [(term(p), term(v)) for p, v in inner])]
+
+    # Inside the parent, one level deeper than the line that opens it.
+    line_start = text.rfind('\n', 0, group.start) + 1
+    base = re.match(r'[ \t]*', text[line_start:]).group(0)
+    indent = base + INDENT
+    block = (f'{term(SH.property)} [ {term(SH.path)} {term(URIRef(entry.iri))} ;\n'
+             + '\n'.join(_block_lines(indent, pairs)))
+
+    at = group.end - 1
+    while at > group.start and text[at - 1].isspace():
+        at -= 1
+    separator = '' if text[at - 1] in '[;' else ' ;'
+    updated = text[:at] + f'{separator}\n{indent}{block}' + text[at:]
+    _write_verified(path, updated)
+    line = updated.count('\n', 0, at) + 2
+    return {'file': path, 'line': line, 'shape': str(shape),
+            'attribute': entry.iri, 'kind': kind, 'parent': parent}

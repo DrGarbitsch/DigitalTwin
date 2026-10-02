@@ -879,6 +879,11 @@ def attribute_namespaces(package, domain=''):
     carrier = next((entry for entry in entity_types(package)[0]
                     if domain and domain in (entry.term, entry.iri, entry.label)),
                    None)
+    if carrier is None and domain:
+        # A sub-attribute's carrier is another attribute; its namespace is the
+        # natural home, as an entity type's is for an ordinary attribute.
+        carrier = next((entry for entry in attribute_terms(package)
+                        if domain in (entry.term, entry.iri, entry.label)), None)
     default = _namespace_of(carrier.iri) if carrier is not None else ''
     holding = {}
     for entry in attribute_terms(package):

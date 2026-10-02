@@ -353,9 +353,12 @@ const STATUS_NOTE = {
  * Picking one of those says why instead of adding it.
  */
 async function pickAttribute(client, node) {
+  // On an attribute row the question is what may nest INSIDE it.
+  const parentPath = node.raw.kind === 'attribute' ? node.raw.path : null;
   const result = await client.sendRequest('semforge/attributeOptions', {
     uri: node.packageUri,
-    shape: node.raw.shape
+    shape: node.raw.shape,
+    parentPath
   });
   if (result.error) {
     vscode.window.showErrorMessage(`SemForge: ${result.error}`);
@@ -367,7 +370,10 @@ async function pickAttribute(client, node) {
   for (const option of options) {
     const heading = option.status !== 'free'
       ? 'Already constrained'
-      : option.scoped ? 'Declared for this type' : 'Declared without a domain';
+      : parentPath
+        ? (option.scoped ? 'Already placed inside it elsewhere'
+                         : 'Allowed inside it by the knowledge')
+        : option.scoped ? 'Declared for this type' : 'Declared without a domain';
     if (heading !== section) {
       items.push({ label: heading, kind: vscode.QuickPickItemKind.Separator });
       section = heading;
@@ -386,13 +392,17 @@ async function pickAttribute(client, node) {
   // friction: the shape already says which type it is for.
   items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
   items.push({
-    label: '$(add) New attribute…',
-    description: 'declare it in the knowledge, then constrain it here',
+    label: parentPath ? '$(add) New sub-attribute…' : '$(add) New attribute…',
+    description: parentPath
+      ? `declare it in the knowledge as carried by ${node.raw.label}, then constrain it here`
+      : 'declare it in the knowledge, then constrain it here',
     create: true,
     targets: result.targets || []
   });
   const picked = await vscode.window.showQuickPick(items, {
-    title: `Add an attribute to ${node.raw.label}`,
+    title: parentPath
+      ? `Add a sub-attribute inside ${node.raw.label}`
+      : `Add an attribute to ${node.raw.label}`,
     placeHolder: 'the attributes the knowledge says this type carries',
     matchOnDescription: true,
     matchOnDetail: true
@@ -531,9 +541,12 @@ function register(context, clientHolder, session) {
     vscode.commands.registerCommand('semforge.addAttributeConstraint', async (node) => {
       const raw = node && node.raw;
       const client = clientHolder.client;
-      if (!raw || raw.kind !== 'shape' || raw.inheritedFrom || !client) {
+      const nests = raw && raw.kind === 'attribute';
+      if (!raw || !['shape', 'attribute'].includes(raw.kind) || raw.inheritedFrom ||
+          !client) {
         vscode.window.showInformationMessage(
-          'SemForge: pick one of this type\'s own shapes to add an attribute to.'
+          'SemForge: pick one of this type\'s own shapes, or one of its ' +
+            'attributes, to add to.'
         );
         return;
       }
@@ -541,7 +554,10 @@ function register(context, clientHolder, session) {
       if (!option) {
         return;
       }
-      const target = { shape: raw.shape, label: raw.label };
+      // On an attribute row the new constraint goes INSIDE that attribute's
+      // property shape: the NGSI-LD sub-attribute, hung off its node.
+      const target = { shape: raw.shape, label: raw.label,
+                       parentPath: nests ? raw.path : undefined };
       let done;
       if (option.create) {
         if (!option.targets.length) {

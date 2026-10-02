@@ -697,6 +697,10 @@ def add_attribute_feature(ls, params):
             package, _field(params, 'entity'), _field(params, 'name'),
             kind=_field(params, 'kind'), value=_field(params, 'value'),
             file=_field(params, 'file'),
+            # A sub-attribute: the address of the attribute instance it hangs
+            # off, as the Model-view row carries it.
+            under=list(_field(params, 'under') or []) or None,
+            dataset=_field(params, 'underDataset') or None,
             observedAt=_field(params, 'observedAt'),
             datasetId=_field(params, 'datasetId'))
         _packages.pop(root, None)
@@ -1039,7 +1043,8 @@ def attribute_options_feature(ls, params):
     the picker can say WHY an attribute the author expected is not offered
     rather than leaving them to wonder whether it was declared at all.
     """
-    from ..cooked.constrain import attribute_options, shape_targets
+    from ..cooked.constrain import (attribute_options, shape_targets,
+                                    sub_attribute_options)
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
@@ -1047,6 +1052,12 @@ def attribute_options_feature(ls, params):
     try:
         package = _package_for(root)
         shape = _field(params, 'shape')
+        parent_path = list(_field(params, 'parentPath') or [])
+        if parent_path:
+            # Inside an attribute: what may nest there, and the attribute
+            # itself as the carrier a NEW sub-attribute is declared for.
+            return {'options': sub_attribute_options(package, shape, parent_path),
+                    'targets': [parent_path[-1]], 'carrier': parent_path[-1]}
         # The targets let the picker's "New attribute..." declare the new term
         # for the type this shape judges, without asking again.
         return {'options': attribute_options(package, shape),
@@ -1062,7 +1073,8 @@ def add_attribute_constraint_feature(ls, params):
     `shape` names the shape; `entityType` instead means that type's OWN shape,
     which is what a flow that starts from a type rather than a tree row has.
     """
-    from ..cooked.constrain import add_attribute_constraint, own_shape
+    from ..cooked.constrain import (add_attribute_constraint,
+                                    add_sub_attribute_constraint, own_shape)
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
@@ -1077,6 +1089,16 @@ def add_attribute_constraint_feature(ls, params):
                 return {'ok': False,
                         'error': f'no shape targets {entity_type} itself, so '
                                  f'there is nowhere to constrain it'}
+        parent_path = list(_field(params, 'parentPath') or [])
+        if parent_path:
+            made = add_sub_attribute_constraint(
+                package, shape, parent_path, _field(params, 'attribute'),
+                required=bool(_field(params, 'required', False)),
+                datatype=_field(params, 'datatype') or None,
+                value_class=_field(params, 'valueClass') or None)
+            _packages.pop(root, None)
+            _publish(ls, _path_to_uri(made['file']))
+            return dict(made, ok=True, uri=_path_to_uri(made['file']))
         made = add_attribute_constraint(
             package, shape, _field(params, 'attribute'),
             required=bool(_field(params, 'required', False)),

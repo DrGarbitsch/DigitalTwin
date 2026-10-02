@@ -764,8 +764,45 @@ def _write(source, document, text):
     return rendered
 
 
+def _attribute_node_at(entity, under, entity_id, dataset=None):
+    """The attribute instance `under` addresses inside an entity.
+
+    `under` is the attribute path a Model-view row carries: keys, and the
+    instance index of each enclosing attribute. The last attribute is picked
+    the way the tree shows it -- by datasetId, then the current observation --
+    because a row stands for one dataset, and an index inside that dataset is
+    not an index into the list the document holds.
+    """
+    from ..ngsild.build import KINDS
+
+    node = entity
+    for position, step in enumerate(under):
+        if isinstance(step, int):
+            if isinstance(node, list):
+                node = node[step]
+            continue
+        if isinstance(node, list):
+            node = node[0] if len(node) == 1 else None
+        if not isinstance(node, dict) or step not in node:
+            raise PackageError(f'{entity_id} has no {step} at that place')
+        node = node[step]
+    if isinstance(node, list):
+        groups = _group_by_dataset(node)
+        wanted = dataset or (next(iter(groups)) if len(groups) == 1 else None)
+        if wanted not in groups:
+            raise PackageError(
+                f'that attribute has {len(groups)} datasets on {entity_id}; '
+                f'add the sub-attribute on one dataset\'s row')
+        members = groups[wanted]
+        node = _member_at(members, _current_index(members))
+    if not isinstance(node, dict) or node.get('type') not in KINDS:
+        raise PackageError('that is not an attribute; a sub-attribute hangs off '
+                           'an attribute node (a Property or a Relationship)')
+    return node
+
+
 def add_attribute(package, entity_id, name, kind=None, value=None,
-                  file=None, **metadata):
+                  file=None, under=None, dataset=None, **metadata):
     """Add a legal NGSI-LD attribute to an entity.
 
     The kind decides which key carries the payload, and the shapes are asked
@@ -800,9 +837,29 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
                    and str(e.get('id') or e.get('@id')) == entity_id), None)
     if entity is None:
         raise PackageError(f'no entity {entity_id} in {source}')
-    if name in entity:
+
+    # `under`: a sub-attribute, hung off the attribute instance it addresses
+    # rather than off the entity -- and only one the knowledge allows there.
+    carrier = entity
+    if under:
+        from .choices import sub_attributes_for
+
+        carrier = _attribute_node_at(entity, under, entity_id, dataset)
+        parent = next(step for step in reversed(under) if isinstance(step, str))
+        allowed = sub_attributes_for(package, parent)
+        if not any(name in (e.term, e.iri) for e in allowed):
+            raise PackageError(
+                f'{name} is not something {parent} may carry: the knowledge '
+                f'allows {", ".join(e.term for e in allowed) or "nothing"} '
+                f'inside it')
+        if not kind:
+            kind = next((e.kind for e in declared
+                         if name in (e.term, e.iri)), '') or 'Property'
+
+    if name in carrier:
         raise PackageError(
-            f'{entity_id} already has {name}; add an observation to it instead')
+            f'{entity_id} already has {name} there; add an observation to it '
+            f'instead')
 
     if not kind:
         kind = kind_for_shape(package, str(entity.get('type', '')), name) \
@@ -812,7 +869,7 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
     except (TypeError, ValueError):
         parsed = value
 
-    entity[name] = attribute(kind, parsed, **metadata)
+    carrier[name] = attribute(kind, parsed, **metadata)
     _write(source, document, text)
     return source, kind
 
