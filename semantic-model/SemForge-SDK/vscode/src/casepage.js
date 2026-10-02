@@ -59,7 +59,11 @@ function card(entity) {
       '<div class="dim">no attributes</div>'}</div>`;
 }
 
-function claimRow(claim, unasserted) {
+const ASSERT_TIP = 'Assert it if the case MEANS this: it then fails the day this stops ' +
+  'firing. If it fired only because the data is incomplete, fix the data instead, ' +
+  'so the case fails for exactly one reason.';
+
+function claimRow(claim, unasserted, index, at) {
   const explained = claim.explained || {};
   const where = claim.resource ? ` on <span class="mono">${escape(claim.resource)}</span>` : '';
   const status = unasserted ? chip('also fired', 'warn',
@@ -67,9 +71,15 @@ function claimRow(claim, unasserted) {
     'is not what the case means it to be.')
     : claim.holds ? chip('holds', 'ok') : chip('does not hold', 'bad');
   const parts = claim.constraint.split('/');
-  return `<div class="claim">${status}<span class="what">` +
+  const actions = unasserted
+    ? `<span class="acts"><button data-assert="${index}" title="${escape(ASSERT_TIP)}">` +
+      'Assert it</button>' +
+      (at ? `<button data-open="${escape(at)}">Open in .jsonld</button>` : '') + '</span>'
+    : '';
+  return `<div class="claim${unasserted ? ' extra' : ''}">${status}<span class="what">` +
     `${escape(explained.text || parts.slice(1).join(' · ').replace('ConstraintComponent', ''))}` +
-    `${where} <span class="dim">· ${escape(parts[0].split(':').pop())}</span></span></div>`;
+    `${where} <span class="dim">· ${escape(parts[0].split(':').pop())}</span></span>` +
+    `${actions}</div>`;
 }
 
 function renderCasePage(page, options) {
@@ -79,6 +89,11 @@ function renderCasePage(page, options) {
   const unasserted = page.unasserted || [];
   const files = page.files || [];
   const crumbs = (page.case || '').split('/').slice(0, -1).map(escape).join(' › ');
+  // Where each entity is written, so "Open in .jsonld" lands on it.
+  const located = {};
+  files.forEach((file) => file.cards.forEach((c) => {
+    if (c.id && !located[c.id]) { located[c.id] = `${c.file}:${c.line}`; }
+  }));
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -109,6 +124,8 @@ function renderCasePage(page, options) {
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
            padding: 3px 10px; border-radius: 2px; cursor: pointer; }
   .claims { display: grid; gap: 6px; }
+  .claim.extra { grid-template-columns: auto 1fr auto; }
+  .acts { display: flex; gap: 6px; }
   .claim { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline;
            padding: 6px 10px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .failures { margin: 8px 0 0; padding-left: 1.2em; color: var(--vscode-errorForeground, #f14c4c); }
@@ -145,7 +162,7 @@ ${(page.failures || []).length
 <h2>Claims</h2>
 ${claims.length || unasserted.length
     ? `<div class="claims">${claims.map((c) => claimRow(c, false)).join('')}` +
-      `${unasserted.map((c) => claimRow(c, true)).join('')}</div>`
+      `${unasserted.map((c, i) => claimRow(c, true, i, located[c.resource])).join('')}</div>`
     : `<p class="dim">This case asserts nothing${page.expect === 'valid'
       ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}
 
@@ -160,10 +177,13 @@ ${files.map((file) => `<div class="file"><div class="head">
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert]');
     if (!target) { return; }
     event.preventDefault();
-    if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
+    if (target.dataset.assert !== undefined) {
+      vscode.postMessage({ command: 'assert', index: Number(target.dataset.assert) });
+    }
+    else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
@@ -219,6 +239,7 @@ class CasePages {
         `padding:20px"><p>SemForge: ${escape(page.error)}</p></body></html>`;
       return;
     }
+    this.page = page;
     this.panel.title = `⚑ ${page.name}`;
     this.panel.webview.html = renderCasePage(page,
       { nonce: crypto.randomBytes(16).toString('base64') });
@@ -228,7 +249,9 @@ class CasePages {
     if (!message || !this.current) {
       return;
     }
-    if (message.command === 'open' && message.at) {
+    if (message.command === 'assert') {
+      await this.assert(message.index);
+    } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
     } else if (message.command === 'type' && message.name) {
       await vscode.commands.executeCommand('semforge.openTypePage',
@@ -236,6 +259,30 @@ class CasePages {
     } else if (message.command === 'refresh') {
       await this.render();
     }
+  }
+
+  /** "Assert it": the firing becomes a claim, written into the case's
+   *  expectations.yaml, and the page re-renders with it under holds. */
+  async assert(index) {
+    const firing = this.page && (this.page.unasserted || [])[index];
+    if (!firing) {
+      return;
+    }
+    const result = await this.clientHolder.client.sendRequest('semforge/addAssert', {
+      uri: this.current.packageUri, case: this.page.case,
+      constraint: firing.constraint, resource: firing.resource });
+    if (!result.ok) {
+      vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      return;
+    }
+    vscode.window.setStatusBarMessage(
+      `SemForge: ${this.page.name} now asserts ` +
+        `${firing.constraint.split('/').slice(1, 2).join('')} on ${firing.resource}`, 5000);
+    if (result.note) {
+      vscode.window.showWarningMessage(`SemForge: ${result.note}`);
+    }
+    await this.render();
+    vscode.commands.executeCommand('semforge.refreshModel');
   }
 
   refresh() {

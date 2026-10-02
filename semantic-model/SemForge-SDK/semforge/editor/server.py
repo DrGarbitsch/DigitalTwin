@@ -1336,6 +1336,25 @@ def health_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/addAssert')
+def add_assert_feature(ls, params):
+    """Assert a firing a case did not claim (the case page's "Assert it")."""
+    from ..expect.store import add_assert
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = add_assert(_package_for(root), _field(params, 'case'),
+                          _field(params, 'constraint'),
+                          _field(params, 'resource', '') or '')
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

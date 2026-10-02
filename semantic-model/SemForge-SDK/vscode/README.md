@@ -861,6 +861,19 @@ that order:
 Ids, attributes and files link to their line; an entity's type opens the
 type page.
 
+**Assert it.** Each *also fired* line has two buttons. **Assert it** turns the
+firing into a claim: the assert is added to that case in its
+`expectations.yaml` (comments and layout kept) and the line moves to *holds*.
+That matters because an unasserted firing is checked by nothing unless a
+residue is pinned — if the constraint stopped firing, `semforge test` would
+stay green. Asserted, the case fails the day it stops. **Open in .jsonld** is
+the other answer: when the firing only happened because the case's data is
+incomplete (the kms's `without-cartridge` filter has a `hasState` without the
+`hasXXXWorkpiece` MachineShape requires), fix the data so the case fails for
+exactly one reason, rather than pinning the accident as expected. The button's
+tooltip says so. A duplicate assert, or one on a constraint no shape declares,
+is refused; a case with a pinned residue is told to `semforge accept` again.
+
 **Summary trees.** The trees are for finding things; the type page is where a
 type is read and edited. So by default the trees show one row per meaningful
 thing, said once (the `semforge.trees.detail` setting, `summary`):

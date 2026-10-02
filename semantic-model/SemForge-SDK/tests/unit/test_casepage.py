@@ -197,3 +197,106 @@ def test_the_model_row_says_it_is_not_a_case(tmp_path):
         'replies': {}}, 'extension.js')
     assert seen['requests'] == [] and seen['webviews'] == []
     assert any('not a test case' in m for m in seen['info'])
+
+
+# --- "Assert it" ------------------------------------------------------------------------
+
+UNASSERTED = 'iffBaseShacl:MachineShape/hasXXXWorkpiece/MinCountConstraintComponent'
+
+
+@pytest.fixture
+def kms(tmp_path, corpus_path):
+    target = tmp_path / 'kms'
+    shutil.copytree(corpus_path, target, symlinks=False,
+                    ignore=shutil.ignore_patterns('.semforge'))
+    return str(target)
+
+
+def _yaml_of(root):
+    return os.path.join(root, 'examples', 'test_FilterShape', 'bad', 'expectations.yaml')
+
+
+def test_asserting_adds_exactly_the_claim_and_keeps_the_file(kms):
+    from semforge.expect.store import add_assert
+    from semforge.package import load
+
+    path = _yaml_of(kms)
+    with open(path, encoding='utf-8') as handle:
+        original = '# kept: a comment the edit must not drop\n' + handle.read()
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(original)
+
+    made = add_assert(load(kms), WITHOUT, UNASSERTED, 'urn:filter:9')
+    assert made['note'] == ''
+    with open(path, encoding='utf-8') as handle:
+        after = handle.read()
+    # Two lines more, and they are the new assert -- the existing one's
+    # `resource: urn:filter:9` line is identical text, so compare positions.
+    old_lines, new_lines = original.splitlines(), after.splitlines()
+    assert len(new_lines) == len(old_lines) + 2
+    assert [line.strip() for line in new_lines[-2:]] == [f'- constraint: {UNASSERTED}',
+                                                         'resource: urn:filter:9']
+    assert new_lines[:-2] == old_lines
+    assert after.startswith('# kept: a comment the edit must not drop')
+
+    page = build_case_page(load(kms), WITHOUT)
+    assert page['unasserted'] == [] and all(c['holds'] for c in page['claims'])
+    assert page['passed']
+
+
+@pytest.mark.parametrize('constraint, resource, says', [
+    ('iffBaseShacl:FilterShape/hasCartridge/MinCountConstraintComponent', 'urn:filter:9',
+     'already asserts'),
+    ('iffBaseShacl:NoSuchShape/hasX/MinCountConstraintComponent', 'urn:filter:9',
+     'no shape declares'),
+])
+def test_an_assert_that_cannot_mean_anything_is_refused(kms, constraint, resource, says):
+    from semforge.expect.store import add_assert
+    from semforge.package import load
+
+    with open(_yaml_of(kms), encoding='utf-8') as handle:
+        before = handle.read()
+    with pytest.raises(PackageError, match=says):
+        add_assert(load(kms), WITHOUT, constraint, resource)
+    with open(_yaml_of(kms), encoding='utf-8') as handle:
+        assert handle.read() == before
+
+
+def test_a_pinned_residue_is_called_out(kms):
+    from semforge.expect.store import add_assert
+    from semforge.package import load
+
+    path = _yaml_of(kms)
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(text.replace('    expect: invalid\n',
+                                  '    expect: invalid\n    residue: abc123\n', 1))
+    made = add_assert(load(kms), WITHOUT, UNASSERTED, 'urn:filter:9')
+    assert 'semforge accept' in made['note']
+
+
+def test_assert_it_sits_only_on_what_fired_unasserted(tmp_path, without):
+    html = _render(tmp_path, without)
+    assert html.count('data-assert="') == len(without['unasserted']) == 1
+    card = _cards(without)['urn:filter:9']
+    assert f'data-open="{card["file"]}:{card["line"]}">Open in .jsonld' in html
+    assert 'fix the data instead' in html, 'the tooltip says when not to'
+
+
+def test_clicking_assert_it_writes_and_re_renders(tmp_path, without):
+    scenario = {
+        'command': 'semforge.openCasePage',
+        'node': {'raw': {'kind': 'example', 'label': 'without-cartridge.jsonld',
+                         'file': without['file'], 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'assert', 'index': 0}],
+        'replies': {'semforge/casePage': dict(without, ok=True),
+                    'semforge/addAssert': {'ok': True, 'file': '/pkg/x.yaml', 'note': ''}}}
+    seen = _node(tmp_path, scenario, 'extension.js')
+    assert seen['errors'] == [], seen['errors']
+    sent = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addAssert']
+    assert sent == [{'uri': 'file:///pkg/shacl.ttl', 'case': WITHOUT,
+                     'constraint': UNASSERTED, 'resource': 'urn:filter:9'}]
+    assert len([r for r in seen['requests'] if r['method'] == 'semforge/casePage']) == 2
+    assert any(e['command'] == 'semforge.refreshModel' for e in seen['executed'])

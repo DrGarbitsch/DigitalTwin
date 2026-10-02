@@ -243,3 +243,60 @@ def discover(package_path, folder=None):
             if name.endswith(('.jsonld', '.json')):
                 found.append(os.path.relpath(os.path.join(current, name), root))
     return sorted(found)
+
+
+def add_assert(package, case, constraint, resource=''):
+    """Assert that `constraint` fires on `resource` in one case.
+
+    What the case page's "Assert it" does: a firing the case did not claim
+    becomes one it does, so `semforge test` fails the day it stops -- an
+    unasserted firing is checked by nothing unless a residue is pinned.
+
+    The entry is found in the expectations.yaml that declares the case and
+    extended in place, comments and layout kept. Refused: a constraint no
+    shape declares (it could never hold), and an assert the case already
+    makes. Returns {'file', 'note'}; the note says when a pinned residue now
+    has to be accepted again, because an asserted result leaves the residue.
+    """
+    from ..sanity import known_constraints
+
+    example = next((e for e in load_expectations(package.path).examples
+                    if e.path == case or os.path.abspath(
+                        os.path.join(examples_root(package.path), e.path))
+                    == os.path.abspath(case)), None)
+    if example is None:
+        raise PackageError(f'{case} is not a declared test case')
+    if constraint not in known_constraints(package):
+        raise PackageError(f'{constraint} is a constraint no shape declares; '
+                           f'an assert on it could never hold')
+    if (resource, constraint) in example.asserted_keys():
+        raise PackageError(f'{os.path.basename(example.path)} already asserts '
+                           f'{constraint}' + (f' on {resource}' if resource else ''))
+
+    source = example.source
+    written = os.path.relpath(
+        os.path.join(examples_root(package.path), example.path),
+        os.path.dirname(source))
+    with open(source, encoding='utf-8') as handle:
+        raw = _yaml().load(handle) or {}
+    entry = next((e for e in raw.get('examples') or []
+                  if os.path.normpath(e.get('path', '')) == os.path.normpath(written)),
+                 None)
+    if entry is None:
+        raise PackageError(f'{os.path.basename(source)} no longer declares '
+                           f'{written}; the file has changed')
+    from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+    item = CommentedMap()
+    item['constraint'] = constraint
+    if resource:
+        item['resource'] = resource
+    if not entry.get('asserts'):
+        entry['asserts'] = CommentedSeq()
+    entry['asserts'].append(item)
+    with open(source, 'w', encoding='utf-8') as handle:
+        _yaml().dump(raw, handle)
+    note = (f'{os.path.basename(example.path)} pins a residue, and an asserted '
+            f'result leaves it: run `semforge accept` to pin the new one'
+            if entry.get('residue') else '')
+    return {'file': source, 'note': note}
