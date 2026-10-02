@@ -168,6 +168,50 @@ function givenFromTerm(term) {
   return { name: term, namespace: '' };
 }
 
+/**
+ * A sub-attribute, declared from its parent's row in the Knowledge view.
+ *
+ * The declaration is the knowledge's: carried by the parent attribute, so its
+ * rdfs:domain becomes the parent's kind of node. The constraint has no tree
+ * row to say where it goes, so it is offered inside each property shape that
+ * constrains the parent -- or not at all, which is a fine place to stop.
+ */
+async function newSubAttribute(client, packageUri, parent) {
+  const made = await declareAttribute(client, packageUri, parent.iri);
+  if (!made) {
+    return undefined;
+  }
+  let places = [];
+  try {
+    const answer = await client.sendRequest('semforge/attributePlaces',
+      { uri: packageUri, attribute: parent.iri });
+    places = (answer && answer.places) || [];
+  } catch (error) {
+    places = [];
+  }
+  if (!places.length) {
+    vscode.window.showInformationMessage(
+      `SemForge: ${made.label} is declared, carried by ${parent.label}. No ` +
+        `shape constrains ${parent.label} yet, so there is no property shape ` +
+        'to nest it in.');
+    return made;
+  }
+  const picked = await vscode.window.showQuickPick(
+    places.map((place) => ({
+      label: `Constrain inside ${place.shapeName} › ${place.path.join(' › ')}`,
+      description: `${place.file.split('/').pop()}:${place.line}`,
+      place
+    })).concat([NOT_NOW]),
+    { title: `${made.label}: constrain it now?` });
+  if (!picked || picked.skip) {
+    return made;
+  }
+  await constrainAttribute(client, packageUri, made,
+    { shape: picked.place.shape, parentPath: picked.place.path,
+      label: `${picked.place.shapeName} › ${parent.label}` }, false);
+  return made;
+}
+
 async function newAttribute(client, packageUri, preset, given) {
   if (!client) {
     vscode.window.showErrorMessage(
@@ -391,6 +435,22 @@ function register(context, clientHolder, session, refresh) {
       const packageUri = (fix && fix.packageUri) || session.uri;
       const made = await newAttribute(clientHolder.client, packageUri, undefined,
         fix && fix.iri ? givenFromTerm(fix.iri) : undefined);
+      if (made && refresh) {
+        refresh();
+      }
+    }),
+
+    vscode.commands.registerCommand('semforge.newSubAttribute', async (node) => {
+      const raw = node && node.raw;
+      const client = clientHolder.client;
+      if (!raw || !raw.iri || !client) {
+        vscode.window.showInformationMessage(
+          'SemForge: pick an attribute in the Knowledge view to add a ' +
+            'sub-attribute to.');
+        return;
+      }
+      const made = await newSubAttribute(client, node.packageUri || session.uri,
+        { iri: raw.iri, label: (raw.label || '').split(':').pop() });
       if (made && refresh) {
         refresh();
       }

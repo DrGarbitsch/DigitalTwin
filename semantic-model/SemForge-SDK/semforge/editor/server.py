@@ -1111,6 +1111,21 @@ def add_attribute_constraint_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/attributePlaces')
+def attribute_places_feature(ls, params):
+    """Where an attribute is constrained: each shape and sh:path chain."""
+    from ..cooked.constrain import attribute_places
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'places': [], 'error': 'not a SemForge package'}
+    try:
+        return {'places': attribute_places(_package_for(root),
+                                           _field(params, 'attribute'))}
+    except Exception as exc:                       # noqa: BLE001
+        return {'places': [], 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

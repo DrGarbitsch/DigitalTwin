@@ -35,6 +35,8 @@ The refusals are the point as much as the write:
     whether the change tightens or can never take effect.
 """
 
+import os
+
 from rdflib import URIRef
 from rdflib.namespace import SH, XSD
 
@@ -429,3 +431,40 @@ def add_sub_attribute_constraint(package, shape, parent_path, attribute,
     line = updated.count('\n', 0, at) + 2
     return {'file': path, 'line': line, 'shape': str(shape),
             'attribute': entry.iri, 'kind': kind, 'parent': parent}
+
+
+def attribute_places(package, attribute):
+    """Every property shape constraining `attribute`, at any depth.
+
+    [{shape, shapeName, path, file, line}] where `path` is the chain of
+    sh:path tokens leading to it -- the address a sub-attribute constraint
+    needs. A sub-attribute declared from the Knowledge view has no tree row to
+    say WHICH constraint of its parent it belongs in; this is the list it is
+    chosen from.
+    """
+    from ..rdfio import TurtleIndex
+    from ..validate.normalise import curie as name_of
+
+    wanted = str(_resolve(package, attribute) or attribute)
+    out = []
+    for path in package.files('shapes'):
+        if not os.path.isfile(path):
+            continue
+        with open(path, encoding='utf-8') as handle:
+            text = handle.read()
+
+        def walk(groups, chain, statement):
+            for group in groups:
+                here = chain + [group.path]
+                if group.path and str(_resolve(package, group.path)) == wanted:
+                    out.append({
+                        'shape': statement.subject,
+                        'shapeName': name_of(package.shapes,
+                                             URIRef(statement.subject)),
+                        'path': here, 'file': path,
+                        'line': text.count('\n', 0, group.start) + 1})
+                walk(group.children, here, statement)
+
+        for statement in TurtleIndex(text).blocks:
+            walk(property_blocks(text, statement), [], statement)
+    return out

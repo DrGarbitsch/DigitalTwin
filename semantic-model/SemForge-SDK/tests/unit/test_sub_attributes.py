@@ -75,6 +75,17 @@ def test_a_new_sub_attribute_defaults_to_its_carriers_namespace(kms):
     assert spaces[0]['default'] and spaces[0]['prefix'] == 'iffBaseEntities'
 
 
+def test_the_places_an_attribute_is_constrained_include_nested_ones(kms):
+    from semforge.cooked.constrain import attribute_places
+
+    package = load(kms)
+    places = attribute_places(package, 'iffBaseEntities:hasTrust')
+    assert [(p['shapeName'], p['path']) for p in places] == [
+        ('iffBaseShacl:CutterShape', ['iffBaseEntities:hasFilter',
+                                      'iffBaseEntities:hasTrust'])]
+    assert attribute_places(package, 'iffBaseEntities:hasNothing') == []
+
+
 # --- the constraint, nested -----------------------------------------------------
 
 def test_a_property_sub_attribute_nests_with_both_layers(kms):

@@ -102,6 +102,11 @@
         "icon": "$(symbol-field)"
       },
       {
+        "command": "semforge.newSubAttribute",
+        "title": "SemForge: New sub-attribute\u2026",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.deleteAttribute",
         "title": "SemForge: Delete attribute\u2026",
         "icon": "$(trash)"
@@ -401,6 +406,16 @@
         {
           "command": "semforge.addSubAttribute",
           "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries)$/",
+          "group": "1_add@1"
+        },
+        {
+          "command": "semforge.newSubAttribute",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(attribute|attributeWithShape)$/",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.newSubAttribute",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(attribute|attributeWithShape)$/",
           "group": "1_add@1"
         }
       ],

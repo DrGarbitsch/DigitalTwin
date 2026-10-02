@@ -1853,3 +1853,58 @@ def test_add_sub_attribute_is_offered_on_value_rows_only(tmp_path):
     assert {e['when'] for e in plus} == {
         'view == semforgeConstraints && viewItem == shape',
         'view == semforgeConstraints && viewItem == attribute'}
+
+
+def _knowledge_attribute_row():
+    return {'raw': {'kind': 'attribute', 'label': 'iffBaseEntities:hasFilter',
+                    'iri': 'http://example.com/hasFilter', 'children': []},
+            'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+PLACES = {'places': [{'shape': 'http://example.com/CutterShape',
+                      'shapeName': 'iffBaseShacl:CutterShape',
+                      'path': ['iffBaseEntities:hasFilter'],
+                      'file': '/pkg/shacl.ttl', 'line': 47}]}
+
+
+def test_the_knowledge_view_declares_a_sub_attribute_and_nests_it(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newSubAttribute', 'node': _knowledge_attribute_row(),
+        'picks': ['Property',
+                  'Constrain inside iffBaseShacl:CutterShape › iffBaseEntities:hasFilter',
+                  'Optional', 'Any value'],
+        'inputs': ['hasLatency', ''],
+        'replies': {'semforge/attributeNamespaces': {'namespaces': []},
+                    'semforge/addAttributeTerm': dict(
+                        DECLARED, term='iffBaseEntities:hasLatency', label='hasLatency'),
+                    'semforge/attributePlaces': PLACES,
+                    'semforge/choices': {'choices': []},
+                    'semforge/addAttributeConstraint': {
+                        'ok': True, 'file': '/pkg/shacl.ttl', 'line': 70}}})
+    assert seen['errors'] == [], seen['errors']
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared[0]['domain'] == 'http://example.com/hasFilter'
+    written = _sent(seen, 'semforge/addAttributeConstraint')
+    assert written[0]['shape'] == 'http://example.com/CutterShape'
+    assert written[0]['parentPath'] == ['iffBaseEntities:hasFilter']
+
+
+def test_a_parent_constrained_nowhere_is_declared_and_says_so(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newSubAttribute', 'node': _knowledge_attribute_row(),
+        'picks': ['Property'], 'inputs': ['hasLatency', ''],
+        'replies': {'semforge/attributeNamespaces': {'namespaces': []},
+                    'semforge/addAttributeTerm': dict(
+                        DECLARED, term='iffBaseEntities:hasLatency', label='hasLatency'),
+                    'semforge/attributePlaces': {'places': []}}})
+    assert _sent(seen, 'semforge/addAttributeTerm')
+    assert not _sent(seen, 'semforge/addAttributeConstraint')
+    assert any('No shape constrains hasFilter' in m for m in seen['info'])
+
+
+def test_the_knowledge_view_offers_new_sub_attribute_on_attribute_rows():
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    rows = [e for e in menus if e.get('command') == 'semforge.newSubAttribute']
+    assert {e['group'] for e in rows} == {'inline', '1_add@1'}
+    assert all('semforgeKnowledge' in e['when'] for e in rows)
