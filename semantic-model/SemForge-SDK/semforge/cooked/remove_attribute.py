@@ -344,13 +344,49 @@ def plan_attribute_removal(package, attribute):
 
 # --- the removal ----------------------------------------------------------------
 
+def remove_declaration(package, attribute, force=False):
+    """Delete only the declaration; every use stays where it is.
+
+    The author's call, and a legitimate one -- the term may be moving to
+    another ontology, or the uses are about to be rewritten by hand. What it
+    leaves is visible, not silent: the editor reports each remaining use as
+    naming an undeclared term. `force` is the yes to doing it while in use.
+    Returns (plan, notes), the notes naming what now points at nothing.
+    """
+    plan = plan_attribute_removal(package, attribute)
+    declared = [d for d in plan.dependents if d.kind == 'declaration']
+    if not declared:
+        raise PackageError(f'{plan.label} is not declared in any knowledge '
+                           f'file, so there is no declaration to remove')
+    left = [d for d in plan.dependents if d.kind != 'declaration']
+    if left and not force:
+        raise PackageError(f'{plan.label} is in use ({len(left)} use(s) would '
+                           f'name an undeclared term); confirm to remove the '
+                           f'declaration anyway')
+    writes = {}
+    for path in package.files('knowledge'):
+        updated = _knowledge_without(path, plan.iri)
+        if updated is not None:
+            writes[path] = updated
+    for path, text in writes.items():
+        with open(path, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+    notes = []
+    if left:
+        notes.append(f'{len(left)} use(s) of {plan.label} remain and now name '
+                     f'an undeclared term; the Problems panel lists them until '
+                     f'it is declared again or they are removed')
+    return plan, notes
+
+
 def remove_attribute(package, attribute, force=False):
     """Delete the attribute and every removable dependent, all or nothing.
 
     Refuses while anything blocks (SPARQL, other ontology statements). Refuses
     an attribute in use unless `force` -- the caller has shown the plan and the
     author said yes. Returns the plan that was carried out, plus a `notes` list
-    of things to look at afterwards.
+    of things to look at afterwards. `remove_declaration` is the other choice:
+    the declaration alone, every use left in place.
     """
     from ..editor.references import _Expander
     from ..expect.store import _yaml, load_expectations

@@ -777,7 +777,16 @@ the model and every example, and each expectation assert naming one of those
 constraints — computed and verified first, then written all at once, or not at
 all. A case left expecting a violation it no longer asserts is called out.
 
-Two kinds of use **block** it instead: a SPARQL constraint or rule that reads
+The other button, **Delete declaration only**, removes the statement in
+`knowledge.ttl` and nothing else — every shape, key, assert and query stays as
+it is. Use it when the term is moving to another ontology, or when you would
+rather rewrite its uses by hand. It is offered whenever the attribute is in
+use, including when the full delete is blocked, since it touches none of the
+blockers. What it leaves is not silent: each remaining use shows in the
+Problems panel as naming an undeclared term, until it is declared again or the
+use is removed.
+
+Two kinds of use **block** the full delete: a SPARQL constraint or rule that reads
 the attribute, and a shape or ontology statement that names it outside a
 property shape (the kms's `CartridgeShape` uses `hasCartridge` inside a two-hop
 inverse path). A query is not a list of parts — cutting the attribute out of it

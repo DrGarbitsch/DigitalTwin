@@ -1613,7 +1613,8 @@ def test_deleting_an_attribute_in_use_lists_every_dependent_first(tmp_path):
         assert where in warning, f'{where} not shown before deleting'
     sent = _sent(seen, 'semforge/removeAttribute')
     assert sent == [{'uri': 'file:///pkg/shacl.ttl',
-                     'attribute': 'http://example.com/hasWidth', 'force': True}]
+                     'attribute': 'http://example.com/hasWidth', 'force': True,
+                     'declarationOnly': False}]
 
 
 def test_declining_deletes_nothing(tmp_path):
@@ -1623,7 +1624,7 @@ def test_declining_deletes_nothing(tmp_path):
 
 def test_a_blocked_attribute_is_not_deleted_and_says_where(tmp_path):
     seen = _delete(tmp_path, BLOCKED_PLAN, answer='Open the first one')
-    assert 'cannot be deleted yet' in seen['warnings'][0]
+    assert 'cannot be deleted with its dependents' in seen['warnings'][0]
     assert 'FilterStrengthShape' in seen['warnings'][0]
     assert not _sent(seen, 'semforge/removeAttribute')
     assert seen['shown'] and seen['shown'][0]['file'] == '/pkg/shacl.ttl'
@@ -1657,3 +1658,23 @@ def test_a_constraint_row_is_deleted_by_its_path(tmp_path):
     seen = _delete(tmp_path, IN_USE_PLAN, node=node)
     asked = _sent(seen, 'semforge/attributeRemovalPlan')
     assert asked[0]['attribute'] == 'iffBaseEntities:hasTrust'
+
+
+def test_the_declaration_alone_can_be_deleted_and_the_uses_stay(tmp_path):
+    seen = _delete(tmp_path, IN_USE_PLAN, answer='Delete declaration only')
+    sent = _sent(seen, 'semforge/removeAttribute')
+    assert sent and sent[0]['declarationOnly'] is True and sent[0]['force'] is True
+
+
+def test_a_blocked_attribute_can_still_lose_its_declaration(tmp_path):
+    """The SPARQL that blocks the full delete is not touched by this one."""
+    seen = _delete(tmp_path, BLOCKED_PLAN, answer='Delete declaration only')
+    assert 'declaration alone' in seen['warnings'][0]
+    sent = _sent(seen, 'semforge/removeAttribute')
+    assert sent and sent[0]['declarationOnly'] is True
+
+
+def test_an_unused_attribute_is_not_offered_the_declaration_only_choice(tmp_path):
+    seen = _delete(tmp_path, UNUSED_PLAN, answer='Delete declaration only')
+    assert not _sent(seen, 'semforge/removeAttribute'), \
+        'there are no uses to leave behind, so the choice must not exist'

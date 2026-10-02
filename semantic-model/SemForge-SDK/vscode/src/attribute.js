@@ -250,13 +250,17 @@ async function pickAttributeToDelete(client, packageUri) {
   return picked ? picked.iri : undefined;
 }
 
+const DECLARATION_ONLY = 'Delete declaration only';
+const EVERYTHING = Symbol('everything');
+
 /**
  * Delete an attribute, after showing everything that goes with it.
  *
  * Three answers, depending on the plan. Something blocks (a SPARQL body, an
- * ontology statement): say what and where, offer to open the first, delete
- * nothing. In use: list every dependent and ask for one yes to remove them
- * all. Used nowhere: an ordinary confirmation.
+ * ontology statement): say what and where, offer to open the first. In use:
+ * list every dependent and ask for one yes to remove them all. Used nowhere:
+ * an ordinary confirmation. Whenever there are uses, "Delete declaration
+ * only" is the other answer -- the term goes, its uses stay.
  */
 async function deleteAttribute(client, packageUri, attribute) {
   const plan = await client.sendRequest('semforge/attributeRemovalPlan',
@@ -266,40 +270,65 @@ async function deleteAttribute(client, packageUri, attribute) {
     return false;
   }
   const blocking = plan.dependents.filter((d) => !d.removable);
-  if (blocking.length) {
-    const open = await vscode.window.showWarningMessage(
-      `${plan.label} cannot be deleted yet: ${blocking.length} use(s) must be ` +
-        'edited by hand first.',
-      { modal: true, detail: describePlan(plan) },
-      'Open the first one'
-    );
-    if (open === 'Open the first one') {
-      await showLocation(`${blocking[0].file}:${blocking[0].line}`, true);
-    }
-    return false;
-  }
   const others = plan.dependents.filter((d) => d.kind !== 'declaration');
-  const button = others.length
-    ? `Delete with ${others.length} dependent(s)`
-    : 'Delete';
-  const answer = await vscode.window.showWarningMessage(
-    others.length
-      ? `${plan.label} is in use. Delete it and everything that depends on it?`
-      : `Delete ${plan.label}? It is declared and used nowhere.`,
-    { modal: true, detail: describePlan(plan) },
-    button
-  );
-  if (answer !== button) {
+  const declared = plan.dependents.some((d) => d.kind === 'declaration');
+  // The declaration alone, every use left where it is. Offered whenever there
+  // ARE uses -- including when they block the full delete, since it touches
+  // none of them. What it leaves is not silent: the Problems panel reports
+  // each remaining use as naming an undeclared term.
+  const declarationOnly = declared && others.length ? DECLARATION_ONLY : undefined;
+
+  // Only an answer that was OFFERED counts: the declaration-only choice does
+  // not exist for an attribute nothing uses, whatever comes back.
+  let answer;
+  let offered;
+  if (blocking.length) {
+    offered = ['Open the first one', declarationOnly].filter(Boolean);
+    answer = await vscode.window.showWarningMessage(
+      `${plan.label} cannot be deleted with its dependents: ${blocking.length} ` +
+        'use(s) must be edited by hand first. You can still delete the ' +
+        'declaration alone and leave every use in place.',
+      { modal: true, detail: describePlan(plan) },
+      ...offered
+    );
+    if (answer === 'Open the first one') {
+      await showLocation(`${blocking[0].file}:${blocking[0].line}`, true);
+      return false;
+    }
+  } else {
+    const everything = others.length
+      ? `Delete with ${others.length} dependent(s)`
+      : 'Delete';
+    offered = [everything, declarationOnly].filter(Boolean);
+    answer = await vscode.window.showWarningMessage(
+      others.length
+        ? `${plan.label} is in use. Delete it and everything that depends on ` +
+          'it, or only its declaration?'
+        : `Delete ${plan.label}? It is declared and used nowhere.`,
+      { modal: true, detail: describePlan(plan) },
+      ...offered
+    );
+    if (answer === everything) {
+      answer = EVERYTHING;
+      offered.push(EVERYTHING);
+    }
+  }
+  if (!offered.includes(answer) ||
+      (answer !== EVERYTHING && answer !== DECLARATION_ONLY)) {
     return false;
   }
-  const result = await client.sendRequest('semforge/removeAttribute',
-    { uri: packageUri, attribute: plan.iri, force: true });
+  const onlyDeclaration = answer === DECLARATION_ONLY;
+  const result = await client.sendRequest('semforge/removeAttribute', {
+    uri: packageUri, attribute: plan.iri, force: true,
+    declarationOnly: onlyDeclaration
+  });
   if (!result.ok) {
     vscode.window.showErrorMessage(`SemForge: ${result.error}`);
     return false;
   }
-  vscode.window.setStatusBarMessage(
-    `SemForge: ${plan.label} deleted with ${others.length} dependent(s)`, 6000);
+  vscode.window.setStatusBarMessage(onlyDeclaration
+    ? `SemForge: the declaration of ${plan.label} deleted; ${others.length} use(s) left`
+    : `SemForge: ${plan.label} deleted with ${others.length} dependent(s)`, 6000);
   for (const note of result.notes || []) {
     vscode.window.showWarningMessage(`SemForge: ${note}`);
   }

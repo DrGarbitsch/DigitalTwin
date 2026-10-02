@@ -14,7 +14,8 @@ import pytest
 from rdflib import Graph, URIRef
 from rdflib.namespace import SH
 
-from semforge.cooked.remove_attribute import plan_attribute_removal, remove_attribute
+from semforge.cooked.remove_attribute import (plan_attribute_removal,
+                                              remove_attribute, remove_declaration)
 from semforge.errors import PackageError
 from semforge.package import load
 
@@ -212,3 +213,49 @@ def test_data_keeps_its_layout(kms):
     removed = [line for line in before.splitlines() if line not in after.splitlines()]
     assert any('hasWidth' in line for line in removed)
     assert len(removed) <= 4, f'more than the key was rewritten: {removed}'
+
+
+# --- the declaration alone ----------------------------------------------------
+
+def test_the_declaration_alone_goes_and_every_use_stays(kms):
+    before = _snapshot(kms)
+    _, notes = remove_declaration(kms, WIDTH, force=True)
+    after = _snapshot(kms)
+    changed = {path for path in before if before[path] != after[path]}
+    assert changed == {'knowledge.ttl'}
+    fresh = load(kms.path)
+    assert (URIRef(WIDTH), None, None) not in fresh.knowledge
+    assert (None, SH.path, URIRef(WIDTH)) in fresh.shapes, 'the shape stays'
+    assert notes and 'undeclared' in notes[0]
+
+
+def test_what_is_left_is_reported_not_silent(kms):
+    """The leftovers surface as vocabulary errors in the editor."""
+    from semforge.editor import analyse
+
+    remove_declaration(kms, WIDTH, force=True)
+    findings, _ = analyse(kms.path)
+    flagged = [f for items in findings.values() for f in items
+               if f.kind == 'vocabulary' and 'hasWidth' in f.message]
+    assert flagged, 'a use of an undeclared attribute went unreported'
+
+
+def test_the_declaration_goes_even_where_sparql_blocks_the_full_delete(kms):
+    shapes_before = _snapshot(kms)['shacl.ttl']
+    remove_declaration(kms, 'iffBaseEntities:hasStrength', force=True)
+    assert _snapshot(kms)['shacl.ttl'] == shapes_before
+    assert (URIRef(BASE + 'base_entities/hasStrength'), None, None) \
+        not in load(kms.path).knowledge
+
+
+def test_declaration_only_still_needs_the_authors_yes_when_in_use(kms):
+    before = _snapshot(kms)
+    with pytest.raises(PackageError, match='in use'):
+        remove_declaration(kms, WIDTH)
+    assert _snapshot(kms) == before
+
+
+def test_an_undeclared_term_has_no_declaration_to_remove(kms):
+    remove_declaration(kms, WIDTH, force=True)
+    with pytest.raises(PackageError, match='not declared'):
+        remove_declaration(load(kms.path), WIDTH, force=True)

@@ -877,15 +877,18 @@ def remove_attribute_feature(ls, params):
     attribute in use is refused, so a client that skipped the plan cannot
     delete more than it displayed.
     """
-    from ..cooked.remove_attribute import remove_attribute
+    from ..cooked.remove_attribute import remove_attribute, remove_declaration
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'ok': False, 'error': 'not a SemForge package'}
     try:
         package = _package_for(root)
-        plan, notes = remove_attribute(package, _field(params, 'attribute'),
-                                       force=bool(_field(params, 'force', False)))
+        # `declarationOnly`: the declaration goes, every use stays.
+        remove = remove_declaration if _field(params, 'declarationOnly') \
+            else remove_attribute
+        plan, notes = remove(package, _field(params, 'attribute'),
+                             force=bool(_field(params, 'force', False)))
         _packages.pop(root, None)
         for path in package.files('shapes'):
             _publish(ls, _path_to_uri(path))
