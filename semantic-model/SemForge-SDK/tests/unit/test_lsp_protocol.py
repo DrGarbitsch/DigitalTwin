@@ -525,6 +525,21 @@ def test_a_sanity_finding_is_fixed_and_its_squiggle_cleared(tmp_path, corpus_pat
         live.close()
 
 
+def test_the_type_page_arrives_over_the_protocol_and_is_cached(session):
+    def ask(request_id):
+        session.send({'jsonrpc': '2.0', 'id': request_id, 'method': 'semforge/typePage',
+                      'params': {'uri': 'file://' + session.document,
+                                 'entityType': 'iffBaseEntities:Filter'}})
+        return session.wait_for(lambda m: m.get('id') == request_id)[0]['result']
+
+    first = ask(61)
+    assert first['ok'], first.get('error')
+    assert first['label'] == 'Filter'
+    assert {a['label'] for a in first['attributes']} >= {'hasStrength', 'hasCartridge'}
+    second = ask(62)
+    assert second['cached'] and second['attributes'] == first['attributes']
+
+
 def test_value_choices_arrive_over_the_protocol(session):
     """Editing a value offers what the shape allows, in the form the file
     wants."""

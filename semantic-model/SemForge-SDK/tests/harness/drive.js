@@ -28,6 +28,7 @@ const seen = {
   messages: [],
   statusBar: [],
   deleted: [],
+  webviews: [],
   // Each view's own state -- its subtitle says which package it is showing,
   // and its message is what an empty panel tells you instead of nothing.
   views: {},
@@ -161,6 +162,27 @@ const stub = {
     createOutputChannel: () => ({ appendLine: noop, show: noop }),
     setStatusBarMessage: (message) => seen.messages.push(message),
     withProgress: (options, task) => task({ report: noop }),
+    // A webview panel that records what it was given: its title, every HTML
+    // it was set to, and a way for the scenario to "click" in it by posting
+    // the messages the page's script would post.
+    createWebviewPanel: (viewType, title, column, options) => {
+      const record = { viewType, title, options, html: [], receivers: [] };
+      seen.webviews.push(record);
+      const panel = {
+        visible: true,
+        get title() { return record.title; },
+        set title(value) { record.title = value; },
+        reveal: () => { record.revealed = (record.revealed || 0) + 1; },
+        onDidDispose: noop,
+        webview: {
+          set html(value) { record.html.push(value); },
+          get html() { return record.html[record.html.length - 1]; },
+          onDidReceiveMessage: (fn) => record.receivers.push(fn),
+          cspSource: 'vscode-resource:'
+        }
+      };
+      return panel;
+    },
     // The status bar is where "which package am I on" is answered, so a test
     // has to be able to read it.
     createStatusBarItem: () => {
@@ -201,6 +223,7 @@ const stub = {
   },
   ThemeIcon: class { constructor(i) { this.id = i; } },
   QuickPickItemKind: { Separator: -1, Default: 0 },
+  ViewColumn: { Active: -1, Beside: -2, One: 1 },
   ProgressLocation: { SourceControl: 1, Window: 10, Notification: 15 },
   TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
@@ -264,6 +287,16 @@ async function runCommand() {
     return;
   }
   await handler(scenario.node);
+  // Clicks inside a webview, in order, after the command opened it.
+  for (const message of scenario.webviewMessages || []) {
+    const panel = seen.webviews[seen.webviews.length - 1];
+    for (const receive of (panel && panel.receivers) || []) {
+      await receive(message);
+    }
+  }
+  for (const panel of seen.webviews) {
+    delete panel.receivers;                     // functions do not serialise
+  }
 }
 
 async function runTree() {
@@ -363,8 +396,14 @@ async function runItems() {
   seen.rows = rows;
 }
 
+// A pure renderer, called directly: what HTML a payload becomes.
+async function runRender() {
+  const module = require(path.resolve(process.argv[3]));
+  seen.html = module[scenario.function](scenario.payload, scenario.options || {});
+}
+
 const modes = { tree: runTree, locate: runLocate, select: runSelect,
-                items: runItems };
+                items: runItems, render: runRender };
 ((modes[scenario.mode] || runCommand)())
   .then(() => console.log(JSON.stringify(seen)))
   .catch((error) => {

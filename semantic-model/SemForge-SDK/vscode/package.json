@@ -224,6 +224,11 @@
         "command": "semforge.deleteCache",
         "title": "SemForge: Delete cache\u2026",
         "icon": "$(trash)"
+      },
+      {
+        "command": "semforge.openTypePage",
+        "title": "SemForge: Open entity type page",
+        "icon": "$(preview)"
       }
     ],
     "viewsContainers": {
@@ -437,6 +442,21 @@
           "command": "semforge.deleteCache",
           "when": "view == semforgeProject && viewItem == cache",
           "group": "inline@2"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeConstraints && viewItem == type",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
+          "group": "inline"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeModel && viewItem == entity",
+          "group": "1_add@2"
         }
       ],
       "semforge.project": [

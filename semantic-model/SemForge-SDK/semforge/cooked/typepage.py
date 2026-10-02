@@ -1,0 +1,370 @@
+"""The entity type page: everything about one type, on one screen.
+
+The sidebar trees print the SHACL encoding a parameter per row -- Filter alone
+is 39 rows -- and split "what is a Filter, and is it healthy?" across three
+views. This assembles the answer once: where the type sits, every attribute it
+must or may carry (its own and inherited, sub-attributes under their parent),
+the rules that judge it, which cases exercise it, and what is wrong with its
+instances in the model.
+
+It reads the constraint tree rather than the shapes graph, so the page and the
+tree cannot disagree about what a shape says; it only re-presents it, in the
+vocabulary of the model rather than of SHACL:
+
+    sh:minCount 1 · sh:maxCount 1               required · one
+    hasObject · sh:class C                      → C
+    hasValue · sh:class C                       one of C
+    sh:or of number datatypes                   number
+    sh:minInclusive 0 · sh:maxInclusive 100     0 – 100
+
+Anything the vocabulary does not cover is shown verbatim, never dropped.
+Protocol-free, like the rest of cooked/: the LSP server serialises the result.
+"""
+
+import os
+import re
+
+from rdflib import Literal, URIRef
+from rdflib.namespace import RDF, RDFS, SH
+
+from ..errors import PackageError
+from ..validate.normalise import curie
+
+NUMBER_TYPES = {'xsd:double', 'xsd:decimal', 'xsd:integer', 'xsd:float',
+                'xsd:int', 'xsd:long', 'xsd:short', 'xsd:nonNegativeInteger',
+                'xsd:positiveInteger'}
+DATATYPE_WORDS = {'xsd:string': 'text', 'xsd:boolean': 'true / false',
+                  'xsd:dateTime': 'date and time', 'xsd:date': 'date',
+                  'xsd:anyURI': 'URL'}
+COUNT_PARAMETERS = {'sh:minCount', 'sh:maxCount'}
+# Parameters the vocabulary renders; anything else on a slot is shown verbatim.
+RENDERED = COUNT_PARAMETERS | {'sh:class', 'sh:datatype', 'sh:nodeKind',
+                               'sh:minInclusive', 'sh:maxInclusive',
+                               'sh:minExclusive', 'sh:maxExclusive', 'sh:in'}
+
+
+# --- the vocabulary ---------------------------------------------------------------
+
+def _short(term):
+    """`iffBaseEntities:Filter` -> `Filter`; inside one package the prefix
+    rarely tells the reader anything."""
+    return str(term).strip('<>').rsplit('/', 1)[-1].rsplit('#', 1)[-1].split(':')[-1]
+
+
+def _number(text):
+    try:
+        value = float(text)
+    except (TypeError, ValueError):
+        return str(text)
+    return str(int(value)) if value.is_integer() else str(value)
+
+
+def presence(minimum, maximum):
+    """The cardinality of an attribute, as a person would say it."""
+    low = int(float(minimum)) if minimum not in (None, '') else 0
+    high = int(float(maximum)) if maximum not in (None, '') else None
+    if high == 0:
+        return 'forbidden'
+    if low == 0 and high == 1:
+        return 'optional'
+    if low == 0 and high is None:
+        return 'any number'
+    if low == 1 and high == 1:
+        return 'required · one'
+    if high is None:
+        return f'at least {low}'
+    if low == high:
+        return f'exactly {low}'
+    return f'{low} to {high}' if low else f'at most {high}'
+
+
+def _numbers_only(alternatives):
+    """Is an sh:or a choice between number datatypes only? The kms writes
+    `( [sh:datatype xsd:double] [sh:datatype xsd:integer] )` for "a number"."""
+    found = re.findall(r'sh:datatype\s+([\w:]+)', str(alternatives))
+    return bool(found) and all(datatype in NUMBER_TYPES for datatype in found)
+
+
+def value_text(kind, parameters, raw):
+    """What the value must be: `→ Filter`, `one of MachineState`, `number ·
+    0 – 100`. `parameters` are the value layer's {name: value}; `raw` the
+    parameters the tree could only show verbatim (sh:or and the like)."""
+    parts = []
+    cls = parameters.get('sh:class')
+    datatype = parameters.get('sh:datatype')
+    if cls:
+        parts.append(f'→ {_short(cls)}' if kind == 'Relationship'
+                     else f'one of {_short(cls)}')
+    elif datatype:
+        parts.append('number' if datatype in NUMBER_TYPES
+                     else DATATYPE_WORDS.get(datatype, datatype))
+    elif any(name == 'sh:or' and _numbers_only(value) for name, value in raw):
+        parts.append('number')
+    low = parameters.get('sh:minInclusive') or parameters.get('sh:minExclusive')
+    high = parameters.get('sh:maxInclusive') or parameters.get('sh:maxExclusive')
+    if low is not None and high is not None:
+        parts.append(f'{_number(low)} – {_number(high)}')
+    elif low is not None:
+        parts.append(f'≥ {_number(low)}')
+    elif high is not None:
+        parts.append(f'≤ {_number(high)}')
+    if parameters.get('sh:in'):
+        parts.append('one of: ' + ' · '.join(
+            _short(v) for v in str(parameters['sh:in']).strip('()').split()))
+    if not parts:
+        parts.append('an entity' if kind == 'Relationship' else 'any value')
+    return ' · '.join(parts)
+
+
+# --- the type --------------------------------------------------------------------
+
+def _type_entry(package, entity_type):
+    from .choices import entity_types
+
+    wanted = str(entity_type or '').strip('<>')
+    for entry in entity_types(package)[0]:
+        if wanted in (entry.iri, entry.term, entry.label):
+            return entry
+    raise PackageError(f'{entity_type} is not an entity type this package '
+                       f'declares')
+
+
+def _ancestors(package, iri):
+    """[root, ..., parent] -- the breadcrumb."""
+    chain, current, seen = [], URIRef(iri), set()
+    while current not in seen:
+        seen.add(current)
+        parents = [p for p in package.knowledge.objects(current, RDFS.subClassOf)
+                   if isinstance(p, URIRef)]
+        if not parents:
+            break
+        current = parents[0]
+        chain.insert(0, str(current))
+    return chain
+
+
+def _family(package, iri):
+    """The type and everything below it: an instance of a Plasmacutter is an
+    instance of a Cutter for every page that asks."""
+    found, pending = {str(iri)}, [URIRef(iri)]
+    while pending:
+        current = pending.pop()
+        for child in package.knowledge.subjects(RDFS.subClassOf, current):
+            if str(child) not in found:
+                found.add(str(child))
+                pending.append(child)
+    return found
+
+
+# --- attributes, from the constraint tree --------------------------------------------
+
+def _params(node):
+    """{parameter: value} of a tree node's direct constraint children, and the
+    raw-only ones as [(name, text)]."""
+    params, raw = {}, []
+    for child in node.children:
+        if child.kind == 'constraint' and child.parameter:
+            params[child.parameter] = child.value
+        elif child.kind == 'raw' and not child.label.startswith('SPARQL'):
+            raw.append((child.label.replace(' (raw only)', ''), child.value))
+    return params, raw
+
+
+def _attribute_rows(package, node, kind_of, depth, coverage, violated):
+    """One row per attribute node, its sub-attributes after it."""
+    own, raw_outer = _params(node)
+    slot = next((c for c in node.children if c.kind == 'slot'), None)
+    value_params, raw = _params(slot) if slot is not None else ({}, [])
+    token = node.detail or node.label
+    iri = str(_resolve_token(package, token))
+    kind = kind_of.get(iri) or ('Relationship' if slot is not None and
+                                slot.detail.endswith('hasObject') else 'Property')
+    shape_name = curie(package.shapes, URIRef(node.shape)) if node.shape else ''
+    # Verbatim is for what the vocabulary could NOT say; an sh:or it already
+    # rendered as "number" is not shown twice.
+    extra = [f'{name} {value}' for name, value in raw + raw_outer
+             if not (name == 'sh:or' and _numbers_only(value))]
+    extra += [f'{name} {value}' for name, value in value_params.items()
+              if name not in RENDERED]
+    tested = coverage.get((shape_name, _short(token)), 'untested')
+    rows = [{
+        'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
+        'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
+        'value': value_text(kind, value_params, raw),
+        'verbatim': extra,
+        'shape': node.shape, 'shapeName': shape_name,
+        'inherited': bool(node.inherited_from),
+        'inheritedFrom': _short(node.inherited_class) if node.inherited_class else '',
+        'depth': depth, 'tested': tested,
+        'violations': violated.get((shape_name, _short(token)), []),
+        'definedAt': node.defined_at,
+    }]
+    for child in node.children:
+        if child.kind == 'attribute':
+            rows += _attribute_rows(package, child, kind_of, depth + 1,
+                                    coverage, violated)
+    return rows
+
+
+def _resolve_token(package, token):
+    from .constrain import _resolve
+
+    return _resolve(package, token) or token
+
+
+# --- rules -----------------------------------------------------------------------
+
+def _rule_text(package, shape):
+    """What a SPARQL shape is for: its sh:message, its comment, or nothing."""
+    graph = package.shapes
+    for sparql in graph.objects(URIRef(shape), SH.sparql):
+        for message in graph.objects(sparql, SH.message):
+            if isinstance(message, Literal) and '{' not in str(message):
+                return str(message)
+    for holder in [URIRef(shape)] + list(graph.objects(URIRef(shape), SH.rule)):
+        for comment in graph.objects(holder, RDFS.comment):
+            return str(comment)
+    return ''
+
+
+def _rules(package, shape_nodes, coverage):
+    rows = []
+    for shape_node in shape_nodes:
+        for child in shape_node.children:
+            if child.kind != 'raw' or not child.label.startswith('SPARQL'):
+                continue
+            name = curie(package.shapes, URIRef(shape_node.shape))
+            is_rule = child.label == 'SPARQL rule'
+            rows.append({
+                'shape': shape_node.shape, 'shapeName': name,
+                'kind': 'rule' if is_rule else 'constraint',
+                'text': _rule_text(package, shape_node.shape),
+                'inherited': bool(shape_node.inherited_from),
+                'inheritedFrom': _short(shape_node.inherited_class)
+                if shape_node.inherited_class else '',
+                # A rule CONSTRUCTS; "never fired" would be a category error.
+                'tested': '' if is_rule else coverage.get((name, ''), 'untested'),
+                'definedAt': child.defined_at or shape_node.defined_at})
+    return rows
+
+
+# --- the data ----------------------------------------------------------------------
+
+def _cases(package):
+    """[(example, graph, report)] for every declared case."""
+    from ..expect.store import compose, load_expectations
+    from ..validate.orchestrator import validate_graphs
+
+    out = []
+    for example in load_expectations(package.path).examples:
+        try:
+            graph = compose(package, example)
+        except PackageError:
+            continue
+        out.append((example, graph, validate_graphs(
+            graph, package.shapes, package.knowledge, strict=False)))
+    return out
+
+
+def _coverage(cases):
+    """{(shape CURIE, attribute local name or ''): 'both ways' | 'fires only'
+    | 'never fired'} across every case, per attribute rather than per
+    parameter: the page asks whether an attribute's constraints are tested."""
+    from ..expect import coverage
+
+    out = {}
+    for entry in coverage([(example, report) for example, _, report in cases]):
+        parts = entry.constraint.split('/')
+        key = (parts[0], parts[1] if len(parts) == 3 else '')
+        status = ('both ways' if entry.has_firing and entry.has_conforming
+                  else 'fires only' if entry.has_firing else 'never fired')
+        rank = {'never fired': 0, 'fires only': 1, 'both ways': 2}
+        if key not in out or rank[status] > rank[out[key]]:
+            out[key] = status
+    return out
+
+
+def build_type_page(package, entity_type):
+    """The payload the entity type page renders. Reads only."""
+    from ..expect.runner import constraint_ref, run_tests
+    from ..sanity import known_constraints
+    from ..validate import validate_package
+    from .choices import attribute_terms
+    from .tree import build_tree
+
+    entry = _type_entry(package, entity_type)
+    family = _family(package, entry.iri)
+    root = next((r for r in build_tree(package) if r.target_class == entry.iri), None)
+    shape_nodes = root.children if root is not None else []
+
+    cases = _cases(package)
+    coverage = _coverage(cases)
+    kind_of = {a.iri: a.kind for a in attribute_terms(package) if a.kind}
+
+    # What is wrong in the MAIN model, per (shape, attribute), for this type.
+    report = validate_package(package, strict=False)
+    model_types = {str(s): {str(o) for o in package.model.objects(s, RDF.type)}
+                   for s in set(package.model.subjects(RDF.type, None))}
+    violated = {}
+    for violation in report.violations:
+        if model_types.get(str(violation.resource), set()) & family:
+            shape = violation.shape_curie or _short(violation.shape)
+            violated.setdefault((shape, violation.attribute or ''), []).append(
+                str(violation.resource))
+
+    attributes = []
+    for shape_node in shape_nodes:
+        for child in shape_node.children:
+            if child.kind == 'attribute':
+                attributes += _attribute_rows(package, child, kind_of, 0,
+                                              coverage, violated)
+
+    outcomes = {o.example: o for o in run_tests(
+        [(example, report) for example, _, report in cases],
+        known_constraints(package))}
+    exercised = []
+    for example, graph, case_report in cases:
+        typed = sorted({str(s) for s, o in graph.subject_objects(RDF.type)
+                        if str(o) in family})
+        if not typed:
+            continue
+        outcome = outcomes.get(example.path)
+        exercised.append({
+            'case': example.path, 'description': example.description,
+            'expect': example.expect, 'entities': typed,
+            'passed': bool(outcome and outcome.passed),
+            'file': os.path.join(_examples_root(package), example.path)})
+
+    instances = []
+    for subject, types in sorted(model_types.items()):
+        if types & family:
+            problems = [v for v in report.violations if str(v.resource) == subject]
+            instances.append({'id': subject, 'type': _short(next(iter(types & family))),
+                              'violations': [f'{constraint_ref(v)}' for v in problems]})
+
+    rules = _rules(package, shape_nodes, coverage)
+    own_shapes = [n.label for n in shape_nodes if not n.inherited_from]
+    return {
+        'iri': entry.iri, 'term': entry.term, 'label': entry.label,
+        'crumbs': [_short(a) for a in _ancestors(package, entry.iri)],
+        'subtypes': sorted(_short(c) for c in family - {entry.iri}),
+        'ownShapes': own_shapes,
+        'shapeAt': next((n.defined_at for n in shape_nodes
+                         if not n.inherited_from), ''),
+        'attributes': attributes, 'rules': rules,
+        'exercisedBy': exercised, 'instances': instances,
+        'summary': {
+            'cases': len(exercised),
+            'casesFailing': sum(1 for e in exercised if not e['passed']),
+            'instances': len(instances),
+            'instancesViolating': sum(1 for i in instances if i['violations']),
+            'neverFired': sum(1 for a in attributes if a['tested'] == 'never fired')
+            + sum(1 for r in rules if r['tested'] == 'never fired'),
+        },
+    }
+
+
+def _examples_root(package):
+    from ..expect.store import examples_root
+
+    return examples_root(package.path)

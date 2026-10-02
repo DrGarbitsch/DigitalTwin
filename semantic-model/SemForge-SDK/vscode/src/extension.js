@@ -24,6 +24,7 @@ const initPackage = require('./init');
 const deleteProject = require('./delete');
 const newAttribute = require('./attribute');
 const projectCache = require('./cache');
+const typePages = require('./typepage');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -255,6 +256,8 @@ function activate(context) {
   deleteProject.register(context, clientHolder, session, refreshAll);
   // Rescan and delete the per-package cache of what the views show.
   projectCache.register(context, clientHolder, session, refreshAll);
+  // One page per entity type, in the editor area: read there, find in the trees.
+  typePages.register(context, clientHolder, session);
   // Declare an attribute and constrain it, from wherever an extension may put
   // a menu entry -- VS Code gives extensions no top-level menu of their own.
   newAttribute.register(context, clientHolder, session, () => {

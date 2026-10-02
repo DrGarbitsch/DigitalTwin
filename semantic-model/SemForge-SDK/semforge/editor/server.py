@@ -1229,6 +1229,24 @@ def attribute_places_feature(ls, params):
         return {'places': [], 'error': str(exc)}
 
 
+@server.feature('semforge/typePage')
+def type_page_feature(ls, params):
+    """Everything about one entity type, for the type page. Cached per type."""
+    from ..cooked.typepage import build_type_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    entity_type = str(_field(params, 'entityType', '') or '')
+    key = 'type-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', entity_type)[-120:]
+    try:
+        page = _view(root, key, lambda: {
+            'page': build_type_page(_package_for(root), entity_type)})
+        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

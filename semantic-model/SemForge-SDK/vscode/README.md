@@ -820,6 +820,31 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**The entity type page.** The trees are for finding things; reading one type's
+whole story in them took three views and, for Filter, 39 rows. The
+<kbd>⬡</kbd> button on a type in the Constraints view or a class in the
+Knowledge view (also: right-click an entity in the Model view, or
+**SemForge: Open entity type page** in the palette) opens one page in the
+editor area with all of it:
+
+- **where it sits**: a breadcrumb up the hierarchy (click to open a parent's
+  page) and its subtypes;
+- **its attributes, own and inherited**, one row each, in the model's words
+  instead of SHACL — `required · one`, `number · 0 – 100`, `→ FilterCartridge`,
+  `one of MachineState`. Inherited rows are dimmed and say where from;
+  sub-attributes sit indented under their parent. Anything the vocabulary
+  cannot say is shown verbatim, never hidden;
+- **Tested**: whether any test case makes the attribute's constraints fire
+  (*both ways* / *fires only* / *never fired* — a constraint that cannot fire
+  looks exactly like one that is satisfied);
+- **Model**: how many entities in the model violate it;
+- **its rules** (SPARQL), with their message and whether they ever fired;
+- **the cases that exercise it** and whether they pass, and **its instances in
+  the model** with what is wrong with each.
+
+Every name links to its line in the `.ttl` or `.jsonld`. The page is read-only
+for now; it is one reused tab, refreshes on save, and is served from the cache.
+
 **The cache: why reloading is fast, and how to distrust it.** What every view
 and the Problems panel show is stored beside the package, in
 `.semforge/cache/views/` (one JSON file per view, never committed — it carries
