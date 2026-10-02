@@ -125,13 +125,14 @@ def test_a_class_that_is_not_an_entity_type_is_refused(corpus):
 
 # --- the renderer ------------------------------------------------------------------
 
-def _render(tmp_path, payload, nonce='TESTNONCE'):
+def _render(tmp_path, payload, nonce='TESTNONCE', focus=None):
     node = shutil.which('node')
     if node is None:
         pytest.skip('node is not installed')
     scenario = tmp_path / 'scenario.json'
     scenario.write_text(json.dumps({'mode': 'render', 'function': 'renderTypePage',
-                                    'payload': payload, 'options': {'nonce': nonce}}))
+                                    'payload': payload,
+                                    'options': {'nonce': nonce, 'focus': focus}}))
     out = subprocess.run([node, DRIVE, str(tmp_path), os.path.join(SRC, 'typepage.js'),
                           str(scenario)], capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr[-800:]
@@ -162,6 +163,42 @@ def test_nothing_from_the_package_reaches_the_page_unescaped(tmp_path, filter_pa
     assert '<img src=x' not in html
     assert '<script>alert' not in html
     assert '&lt;script&gt;alert(2)' in html
+
+
+def _focused_row(html):
+    assert html.count('id="focus"') == 1, 'exactly one row is marked'
+    return html.split('id="focus"', 1)[1].split('</tr>', 1)[0]
+
+
+def test_a_clicked_attribute_is_marked_and_scrolled_to(tmp_path, filter_page):
+    """Clicking an attribute in a tree opens its type's page AT that attribute."""
+    row = filter_page['attributes'][-1]
+    html = _render(tmp_path, filter_page, focus={'path': row['path']})
+    assert f'>{row["label"]}<' in _focused_row(html)
+    assert "getElementById('focus')" in html and 'scrollIntoView' in html
+
+
+def test_a_constraint_row_marks_the_attribute_it_belongs_to(tmp_path, filter_page):
+    """A full-mode constraint row's path runs below its attribute's: the
+    deepest row on the page that the path passes through is the one meant."""
+    row = filter_page['attributes'][0]
+    html = _render(tmp_path, filter_page,
+                   focus={'path': row['path'] + ['https://example.com/hasValue']})
+    assert f'>{row["label"]}<' in _focused_row(html)
+
+
+def test_the_knowledge_tree_marks_by_attribute_alone(tmp_path, filter_page):
+    row = filter_page['attributes'][-1]
+    html = _render(tmp_path, filter_page, focus={'attribute': row['attribute']})
+    assert f'>{row["label"]}<' in _focused_row(html)
+
+
+def test_no_focus_marks_nothing_and_glyphs_are_gone(tmp_path, filter_page):
+    html = _render(tmp_path, filter_page)
+    assert 'id="focus"' not in html
+    # Indentation is a class: the CSP drops inline style attributes, which is
+    # why the page used to fall back on a "└" glyph.
+    assert '└' not in html and ' style="' not in html
 
 
 def test_an_empty_type_says_so_instead_of_rendering_nothing(tmp_path):
@@ -201,7 +238,7 @@ def test_a_type_row_opens_its_page_and_links_navigate(tmp_path, filter_page):
     assert asked[0]['entityType'] == filter_page['iri']
     assert asked[1]['entityType'] == 'Machine', 'a breadcrumb opens that type'
     assert len(seen['webviews']) == 1, 'one panel, reused'
-    assert seen['webviews'][0]['title'] == '⬡ Filter'
+    assert seen['webviews'][0]['title'] == 'Filter · type'
     assert seen['shown'][0]['file'] == '/pkg/shacl.ttl'
 
 

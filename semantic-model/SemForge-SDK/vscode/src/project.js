@@ -15,7 +15,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation } = require('./reveal');
+const { showLocation, icon } = require('./reveal');
 
 class ProjectTreeNode {
   constructor(key, raw, packageUri) {
@@ -99,18 +99,18 @@ class ProjectTreeProvider {
     // the pencil off rows that carry a value -- twice.
     item.contextValue = raw.editable ? 'setting' : raw.kind;
 
+    // A problem colours the row's own icon rather than replacing it.
+    const tone = raw.severity ? 'warning' : '';
     if (raw.kind === 'group' || raw.kind === 'project') {
-      item.iconPath = new vscode.ThemeIcon('project');
-    } else if (raw.severity) {
-      item.iconPath = new vscode.ThemeIcon('warning');
+      item.iconPath = icon('project', tone);
     } else if (raw.kind === 'cache') {
-      item.iconPath = new vscode.ThemeIcon('database');
+      item.iconPath = icon('database', tone);
     } else if (raw.kind === 'namespaces' || raw.kind === 'namespaceEntry') {
-      item.iconPath = new vscode.ThemeIcon('symbol-namespace');
+      item.iconPath = icon('symbol-namespace', tone);
     } else if (raw.editable) {
-      item.iconPath = new vscode.ThemeIcon('settings-gear');
+      item.iconPath = icon('settings-gear', tone);
     } else {
-      item.iconPath = new vscode.ThemeIcon('info');
+      item.iconPath = icon('info', tone);
     }
 
     const lines = [];

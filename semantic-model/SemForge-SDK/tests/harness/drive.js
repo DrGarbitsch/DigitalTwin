@@ -49,7 +49,7 @@ const editorListeners = [];
 
 const stub = {
   workspace: {
-    getConfiguration: () => ({ get: () => '' }),
+    getConfiguration: () => ({ get: (key) => (scenario.config || {})[key] || '' }),
     workspaceFolders: [{ uri: { fsPath: process.argv[2] } }],
     createFileSystemWatcher: () => ({ dispose: noop }),
     onDidChangeConfiguration: noop,
@@ -167,7 +167,7 @@ const stub = {
     // it was set to, and a way for the scenario to "click" in it by posting
     // the messages the page's script would post.
     createWebviewPanel: (viewType, title, column, options) => {
-      const record = { viewType, title, options, html: [], receivers: [] };
+      const record = { viewType, title, column, options, html: [], receivers: [] };
       seen.webviews.push(record);
       const panel = {
         visible: true,
@@ -227,7 +227,8 @@ const stub = {
       }
     }
   },
-  ThemeIcon: class { constructor(i) { this.id = i; } },
+  ThemeIcon: class { constructor(i, c) { this.id = i; this.color = c; } },
+  ThemeColor: class { constructor(i) { this.id = i; } },
   QuickPickItemKind: { Separator: -1, Default: 0 },
   ViewColumn: { Active: -1, Beside: -2, One: 1 },
   ProgressLocation: { SourceControl: 1, Window: 10, Notification: 15 },
@@ -393,7 +394,9 @@ async function runItems() {
         editable: !!child.raw.editable,
         datasetId: child.raw.datasetId || '',
         observations: child.raw.observations || 0,
-        contextValue: item.contextValue
+        contextValue: item.contextValue,
+        icon: item.iconPath && item.iconPath.id,
+        color: item.iconPath && item.iconPath.color && item.iconPath.color.id
       });
       await walk(child);
     }

@@ -24,6 +24,7 @@ import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SDK = os.path.dirname(os.path.dirname(HERE))
+FULL_ONLY = ' && config.semforge.trees.detail == full'
 DRIVE = os.path.join(SDK, 'tests', 'harness', 'drive.js')
 SRC = os.path.join(SDK, 'vscode', 'src')
 
@@ -1741,7 +1742,8 @@ def test_remove_this_use_is_not_in_the_palette():
     with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
         menus = json.load(handle)['contributes']['menus']
     hidden = {e['command'] for e in menus['commandPalette'] if e['when'] == 'false'}
-    assert hidden == {'semforge.removeUse'}
+    # Open source likewise: it opens the row it was invoked on.
+    assert hidden == {'semforge.removeUse', 'semforge.openSource'}
 
 
 # --- sub-attributes ---------------------------------------------------------------
@@ -1850,7 +1852,7 @@ def test_add_sub_attribute_is_offered_on_value_rows_only(tmp_path):
     rows = [e for e in menus if e.get('command') == 'semforge.addSubAttribute']
     assert rows and all(e['group'] != 'inline' for e in rows)
     plus = [e for e in menus if e.get('command') == 'semforge.addAttributeConstraint']
-    assert {e['when'] for e in plus} == {
+    assert {e['when'].replace(FULL_ONLY, '') for e in plus} == {
         'view == semforgeConstraints && viewItem == shape',
         'view == semforgeConstraints && viewItem == attribute'}
 

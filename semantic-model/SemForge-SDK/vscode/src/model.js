@@ -12,7 +12,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
 
 // The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
 // string and nothing else: a row whose contextValue drifts from what
@@ -58,6 +58,16 @@ function keyOf(raw, parentKey, position) {
  * named the parent -- the jump would land on the wrong shape and the value
  * picker would offer the wrong class.
  */
+/** The test case a row belongs to (the row itself, or an ancestor). */
+function caseOf(provider, node) {
+  for (let at = node; at; at = provider.getParent(at)) {
+    if (at.raw.kind === 'example') {
+      return at.raw.file ? at : undefined;
+    }
+  }
+  return undefined;
+}
+
 function attributeOf(raw) {
   const address = [].concat(raw.attributePath || [], raw.path || []);
   const names = address.filter((part) => typeof part === 'string' &&
@@ -239,57 +249,42 @@ class ModelTreeProvider {
       item.contextValue = 'exampleEditable';
     }
 
+    // One icon per kind: beaker for the tests, an object for an entity, a
+    // field for an attribute. Pass, fail and warning are the icon's colour
+    // and the description's words -- never a different icon, or a failing
+    // case would stop looking like a case.
+    const tone = raw.severity === 'violation' || raw.severity === 'error'
+      ? 'error' : raw.severity ? 'warning' : '';
     if (raw.kind === 'group') {
       // Tests and Main: the two kinds of data, judged by different rules.
-      item.iconPath = new vscode.ThemeIcon(
-        raw.label === 'Main' ? 'edit' : 'beaker'
-      );
-    } else if (raw.kind === 'suite') {
-      // One test_<Shape> directory: its cases pass or they do not.
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'testing-failed-icon' : 'folder-library'
-      );
-    } else if (raw.kind === 'example') {
+      item.iconPath = icon(raw.label === 'Main' ? 'symbol-object' : 'beaker', tone);
+    } else if (raw.kind === 'suite' || raw.kind === 'example') {
       // A declared case: green when it did what it says, red when it did not.
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'testing-failed-icon' : 'beaker'
-      );
-    } else if (raw.kind === 'include') {
-      // A subobject. Editing it here would change every case that includes it,
-      // so it is shown read-only and edited where it is declared.
-      item.iconPath = new vscode.ThemeIcon('references');
-    } else if (raw.kind === 'entity') {
-      // A violation says the entity is wrong; a warning says we cannot be sure
-      // which entity it is. Same icon for both would conflate them.
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity === 'violation'
-          ? 'error'
-          : raw.severity
-          ? 'warning'
-          : 'symbol-object'
-      );
+      item.iconPath = icon('beaker', raw.severity ? 'error' : 'ok');
+    } else if (raw.kind === 'include' || raw.kind === 'entity') {
+      // An include is a subobject. Editing it here would change every case
+      // that includes it, so it is shown read-only and edited where declared.
+      item.iconPath = icon('symbol-object', tone);
     } else if (raw.kind === 'type') {
       // The type decides which shapes judge the entity at all, so it reads as
       // a field rather than as grey text beside the id.
-      item.iconPath = new vscode.ThemeIcon('symbol-class');
+      item.iconPath = icon('symbol-class');
       item.description = raw.detail;
       item.tooltip = `${raw.entity} is a ${raw.detail}`;
-    } else if (raw.kind === 'meta') {
-      item.iconPath = new vscode.ThemeIcon('watch');
-    } else if (series) {
-      // A time series: the row shows the value validation reads, the children
-      // are the observations behind it.
-      item.iconPath = new vscode.ThemeIcon('graph-line');
-      item.tooltip =
-        `${raw.observations} observations for datasetId ${raw.datasetId}\n` +
-        'The row shows the one validation reads (latest observedAt).\n' +
-        'Right-click to add another.';
-    } else if (raw.severity) {
-      item.iconPath = new vscode.ThemeIcon('warning');
-    } else if (raw.editable) {
-      item.iconPath = new vscode.ThemeIcon('edit');
     } else {
-      item.iconPath = new vscode.ThemeIcon('symbol-field');
+      // Attributes, their instances, metadata and time series alike: what
+      // each one is goes in the description ("3 observations").
+      item.iconPath = icon('symbol-field', tone);
+      if (series) {
+        if (!/observation/.test(item.description || '')) {
+          item.description = [item.description, `${raw.observations} observations`]
+            .filter(Boolean).join(' · ');
+        }
+        item.tooltip =
+          `${raw.observations} observations for datasetId ${raw.datasetId}\n` +
+          'The row shows the one validation reads (latest observedAt).\n' +
+          'Right-click to add another.';
+      }
     }
 
     // The id is not an address: the same one appears in several example files,
@@ -768,7 +763,14 @@ function register(context, clientHolder, session, onChanged) {
           // reveal throws if the node is gone after a refresh; nothing to do.
         }
       }
-      if (selected.raw.definedAt) {
+      // A row inside a test case opens the case page, its entity marked: the
+      // page shows the claims and the data together, which the .jsonld does
+      // not. Rows outside a case (the model scratchpad) have no page yet.
+      const holder = treeClick() === 'page' ? caseOf(provider, selected) : undefined;
+      if (holder) {
+        await vscode.commands.executeCommand('semforge.openCasePage', holder,
+          { focus: selected.raw.entity || undefined, preserveFocus: true });
+      } else if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }
     })

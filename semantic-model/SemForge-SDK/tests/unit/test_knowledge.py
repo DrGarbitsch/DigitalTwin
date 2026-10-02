@@ -23,6 +23,24 @@ def _all(tree, kind):
     return [n for _, n in flatten(tree) if n.kind == kind]
 
 
+# --- what a click opens ---------------------------------------------------------
+
+def test_a_class_says_whether_it_has_a_type_page(tree):
+    """Entity types open their page; vocabulary classes have none yet."""
+    assert _find(tree, 'iffBaseEntities:Machine', 'class').role == 'entityType'
+    assert _find(tree, 'base:MachineState', 'class').role == 'vocabulary'
+
+
+def test_an_attribute_knows_the_type_whose_page_it_is_on(tree):
+    machine = _find(tree, 'iffBaseEntities:Machine', 'class').iri
+    carrier = _find(tree, 'iffBaseEntities:Machine', 'carrier')
+    assert carrier.role == 'entityType' and carrier.iri == machine
+    state = next(n for n in carrier.children if n.label == 'iffBaseEntities:hasState')
+    assert state.entity_type == machine
+    # A sub-attribute is on the same page, nested under its parent.
+    assert all(child.entity_type == machine for child in state.children)
+
+
 # --- the hierarchy ------------------------------------------------------------
 
 def test_the_groups_are_what_the_knowledge_declares_and_what_it_assumes(tree):

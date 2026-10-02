@@ -31,6 +31,7 @@ EXPECTED = {
     'semforge.deleteAttribute', 'semforge.removeUse', 'semforge.addSubAttribute',
     'semforge.newSubAttribute', 'semforge.rescan', 'semforge.deleteCache',
     'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openHealthPage',
+    'semforge.openSource',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
@@ -184,6 +185,11 @@ def test_every_menu_when_clause_names_a_context_value_that_exists():
     seen = 0
     for entry in menus:
         when = entry['when']
+        if entry['command'] == 'semforge.openSource':
+            # Every row of the three trees has a source; no viewItem to check.
+            assert when == 'view =~ /^semforge(Constraints|Model|Knowledge)$/'
+            seen += 1
+            continue
         view = re.search(r"view\s*==\s*(\w+)", when).group(1)
         source = sources[view]
         values = re.findall(r"viewItem\s*==\s*(\w+)", when)

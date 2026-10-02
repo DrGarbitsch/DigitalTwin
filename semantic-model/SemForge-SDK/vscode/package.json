@@ -62,10 +62,23 @@
           ],
           "default": "summary",
           "enumDescriptions": [
-            "One row per attribute, said in the type page's words (\"required \u00b7 one \u00b7 \u2192 Filter\"); details and edits on the type page.",
+            "One row per attribute, said in the type page's words (\"required · one · → Filter\"); details and edits on the type page.",
             "Every SHACL parameter as its own row, editable in place."
           ],
           "description": "How much the Constraints, Model and Knowledge trees show."
+        },
+        "semforge.trees.click": {
+          "type": "string",
+          "enum": [
+            "page",
+            "source"
+          ],
+          "default": "page",
+          "enumDescriptions": [
+            "A click opens the row's page (entity type, test case) in one reused tab; the .ttl/.jsonld is a right-click away (\"Open source\").",
+            "A click moves the .ttl/.jsonld editor to the row, as before."
+          ],
+          "description": "What a click on a row in the Constraints, Model and Knowledge trees opens."
         }
       }
     },
@@ -78,7 +91,7 @@
       },
       {
         "command": "semforge.newProject",
-        "title": "SemForge: New project\u2026",
+        "title": "SemForge: New project…",
         "icon": "$(file-directory-create)"
       },
       {
@@ -111,17 +124,17 @@
       },
       {
         "command": "semforge.newAttribute",
-        "title": "SemForge: New attribute\u2026",
-        "icon": "$(symbol-field)"
+        "title": "SemForge: New attribute…",
+        "icon": "$(add)"
       },
       {
         "command": "semforge.newSubAttribute",
-        "title": "SemForge: New sub-attribute\u2026",
+        "title": "SemForge: New sub-attribute…",
         "icon": "$(add)"
       },
       {
         "command": "semforge.deleteAttribute",
-        "title": "SemForge: Delete attribute\u2026",
+        "title": "SemForge: Delete attribute…",
         "icon": "$(trash)"
       },
       {
@@ -220,7 +233,7 @@
       },
       {
         "command": "semforge.deleteProject",
-        "title": "Delete project\u2026",
+        "title": "Delete project…",
         "category": "SemForge",
         "icon": "$(trash)"
       },
@@ -235,7 +248,7 @@
       },
       {
         "command": "semforge.deleteCache",
-        "title": "SemForge: Delete cache\u2026",
+        "title": "SemForge: Delete cache…",
         "icon": "$(trash)"
       },
       {
@@ -252,6 +265,11 @@
         "command": "semforge.openHealthPage",
         "title": "SemForge: Open package health",
         "icon": "$(pulse)"
+      },
+      {
+        "command": "semforge.openSource",
+        "title": "SemForge: Open source",
+        "icon": "$(go-to-file)"
       }
     ],
     "viewsContainers": {
@@ -339,71 +357,141 @@
         {
           "command": "semforge.editConstraint",
           "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "2_row@1"
+        },
+        {
+          "command": "semforge.editConstraint",
+          "when": "view == semforgeConstraints && viewItem == editable && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.removeConstraint",
           "when": "view == semforgeConstraints && viewItem == editable",
+          "group": "2_row@2"
+        },
+        {
+          "command": "semforge.removeConstraint",
+          "when": "view == semforgeConstraints && viewItem == editable && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.addAttributeConstraint",
           "when": "view == semforgeConstraints && viewItem == shape",
+          "group": "2_row@3"
+        },
+        {
+          "command": "semforge.addAttributeConstraint",
+          "when": "view == semforgeConstraints && viewItem == shape && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.goToDefinition",
           "when": "view == semforgeConstraints && viewItem == inherited",
+          "group": "2_row@4"
+        },
+        {
+          "command": "semforge.goToDefinition",
+          "when": "view == semforgeConstraints && viewItem == inherited && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.overrideHere",
           "when": "view == semforgeConstraints && viewItem == inherited",
+          "group": "2_row@5"
+        },
+        {
+          "command": "semforge.overrideHere",
+          "when": "view == semforgeConstraints && viewItem == inherited && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.addAttribute",
           "when": "view == semforgeModel && viewItem == entity",
+          "group": "2_row@6"
+        },
+        {
+          "command": "semforge.addAttribute",
+          "when": "view == semforgeModel && viewItem == entity && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.addEntity",
           "when": "view == semforgeModel && viewItem == example",
+          "group": "2_row@7"
+        },
+        {
+          "command": "semforge.addEntity",
+          "when": "view == semforgeModel && viewItem == example && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.goToShape",
           "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/",
+          "group": "2_row@8"
+        },
+        {
+          "command": "semforge.goToShape",
+          "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/ && config.semforge.trees.detail == full",
           "group": "inline@0"
         },
         {
           "command": "semforge.showShapeForClass",
           "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
+          "group": "2_row@9"
+        },
+        {
+          "command": "semforge.showShapeForClass",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/ && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.editValue",
           "when": "view == semforgeModel && viewItem == exampleEditable",
+          "group": "2_row@10"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeModel && viewItem == exampleEditable && config.semforge.trees.detail == full",
           "group": "inline@1"
         },
         {
           "command": "semforge.editValue",
           "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@11"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeModel && viewItem == exampleDataset && config.semforge.trees.detail == full",
           "group": "inline@1"
         },
         {
           "command": "semforge.editValue",
           "when": "view == semforgeModel && viewItem == exampleSeries",
+          "group": "2_row@12"
+        },
+        {
+          "command": "semforge.editValue",
+          "when": "view == semforgeModel && viewItem == exampleSeries && config.semforge.trees.detail == full",
           "group": "inline@1"
         },
         {
           "command": "semforge.addObservation",
           "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@13"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeModel && viewItem == exampleDataset && config.semforge.trees.detail == full",
           "group": "inline@2"
         },
         {
           "command": "semforge.addObservation",
           "when": "view == semforgeModel && viewItem == exampleSeries",
+          "group": "2_row@14"
+        },
+        {
+          "command": "semforge.addObservation",
+          "when": "view == semforgeModel && viewItem == exampleSeries && config.semforge.trees.detail == full",
           "group": "inline@2"
         },
         {
@@ -414,6 +502,11 @@
         {
           "command": "semforge.showShapeForClass",
           "when": "view == semforgeKnowledge && viewItem == attributeWithShape",
+          "group": "2_row@15"
+        },
+        {
+          "command": "semforge.showShapeForClass",
+          "when": "view == semforgeKnowledge && viewItem == attributeWithShape && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
@@ -444,6 +537,11 @@
         {
           "command": "semforge.addAttributeConstraint",
           "when": "view == semforgeConstraints && viewItem == attribute",
+          "group": "2_row@16"
+        },
+        {
+          "command": "semforge.addAttributeConstraint",
+          "when": "view == semforgeConstraints && viewItem == attribute && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
@@ -453,7 +551,7 @@
         },
         {
           "command": "semforge.newSubAttribute",
-          "when": "view == semforgeKnowledge && viewItem =~ /^(attribute|attributeWithShape)$/",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(attribute|attributeWithShape)$/ && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
@@ -474,11 +572,21 @@
         {
           "command": "semforge.openTypePage",
           "when": "view == semforgeConstraints && viewItem == type",
+          "group": "2_row@17"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeConstraints && viewItem == type && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
           "command": "semforge.openTypePage",
           "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
+          "group": "2_row@18"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/ && config.semforge.trees.detail == full",
           "group": "inline"
         },
         {
@@ -494,7 +602,17 @@
         {
           "command": "semforge.openCasePage",
           "when": "view == semforgeModel && viewItem == example",
+          "group": "2_row@19"
+        },
+        {
+          "command": "semforge.openCasePage",
+          "when": "view == semforgeModel && viewItem == example && config.semforge.trees.detail == full",
           "group": "inline@0"
+        },
+        {
+          "command": "semforge.openSource",
+          "when": "view =~ /^semforge(Constraints|Model|Knowledge)$/",
+          "group": "navigation@0"
         }
       ],
       "semforge.project": [
@@ -560,13 +678,17 @@
         {
           "command": "semforge.removeUse",
           "when": "false"
+        },
+        {
+          "command": "semforge.openSource",
+          "when": "false"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "semforgeProject",
-        "contents": "No SemForge package in this folder.\n\nA package is knowledge (the ontology), constraints (SHACL over the NGSI-LD encoding) and the model (a scratchpad plus the example suite).\n[New project\u2026](command:semforge.newProject)\n[Create a package here](command:semforge.initPackage)\n[Run the doctor](command:semforge.doctor)"
+        "contents": "No SemForge package in this folder.\n\nA package is knowledge (the ontology), constraints (SHACL over the NGSI-LD encoding) and the model (a scratchpad plus the example suite).\n[New project…](command:semforge.newProject)\n[Create a package here](command:semforge.initPackage)\n[Run the doctor](command:semforge.doctor)"
       },
       {
         "view": "semforgeConstraints",

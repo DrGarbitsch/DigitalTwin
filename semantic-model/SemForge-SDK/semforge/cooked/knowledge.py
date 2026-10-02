@@ -53,6 +53,8 @@ class KnowledgeNode:
     entity_type: str = ''
     file: str = ''
     severity: str = ''         # warning -- a join that is missing
+    # What a click opens: 'entityType' has a page, 'vocabulary' has not (yet).
+    role: str = ''
     messages: list = field(default_factory=list)
     children: list = field(default_factory=list)
 
@@ -427,6 +429,9 @@ def build_knowledge(package):
             kind='group', label='Entity types',
             detail=f'{len(entity_family)} type(s) under {local(root)}')
         entities.children.append(_class_node(package, root, context))
+        for _, node in flatten(entities.children):
+            if node.kind == 'class':
+                node.role = 'entityType'
         if any(n.severity for _, n in flatten(entities.children)):
             entities.severity = 'warning'
         roots.append(entities)
@@ -443,6 +448,9 @@ def build_knowledge(package):
             detail=f'{len(others)} class(es)')
         for cls in tops:
             vocabulary.children.append(_class_node(package, cls, context))
+        for _, node in flatten(vocabulary.children):
+            if node.kind == 'class':
+                node.role = 'vocabulary'
         if any(n.severity for _, n in flatten(vocabulary.children)):
             vocabulary.severity = 'warning'
         roots.append(vocabulary)
@@ -576,10 +584,13 @@ def _attributes_group(package, context):
     of the encoding it is. For an ontology relation: nothing uses it, in the
     data or in the ontology itself.
     """
-    from .choices import attribute_terms, model_term
+    from .choices import attribute_terms, entity_types, model_term
     from .shapelink import find_property_shape
 
     declared = attribute_terms(package)
+    types = {}
+    for entry in entity_types(package)[0]:
+        types.setdefault(entry.term, entry.iri)
     if not declared:
         return None
 
@@ -619,6 +630,9 @@ def _attributes_group(package, context):
         # The join the view exists for: where this attribute is CONSTRAINED.
         # An attribute row that cannot reach its property shape leaves you to
         # find it by hand, which is the work the view removes.
+        if carrier in types and entry.ngsild:
+            # Its row on the carrier's type page is where a click lands.
+            node.entity_type = types[carrier]
         if carrier and entry.ngsild:
             found = find_property_shape(package, carrier, entry.term)
             if found:
@@ -660,7 +674,8 @@ def _attributes_group(package, context):
     for carrier in sorted(carriers):
         holder = KnowledgeNode(
             kind='carrier', label=carrier,
-            iri=by_term[carrier].iri if carrier in by_term else '',
+            iri=types.get(carrier) or (by_term[carrier].iri if carrier in by_term else ''),
+            role='entityType' if carrier in types else '',
             detail=f'{len(carriers[carrier])} attribute(s)')
         for entry in sorted(carriers[carrier], key=lambda e: e.term):
             made = node_for(entry, frozenset(), carrier)

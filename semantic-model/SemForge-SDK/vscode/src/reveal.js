@@ -48,4 +48,27 @@ function treeDetail() {
   return value === 'full' ? 'full' : 'summary';
 }
 
-module.exports = { splitLocation, showLocation, treeDetail };
+/** What a click on a tree row opens: its page, or its place in the source. */
+function treeClick() {
+  const value = vscode.workspace.getConfiguration('semforge').get('trees.click');
+  return value === 'source' ? 'source' : 'page';
+}
+
+// Status is the icon's COLOUR, never a different icon: a row keeps the shape
+// that says what it is, and the description says in words what is wrong.
+const TONES = {
+  error: 'list.errorForeground',
+  violation: 'list.errorForeground',
+  warning: 'list.warningForeground',
+  ok: 'testing.iconPassed',
+  inherited: 'disabledForeground'
+};
+
+function icon(name, tone) {
+  const colour = TONES[tone];
+  return colour
+    ? new vscode.ThemeIcon(name, new vscode.ThemeColor(colour))
+    : new vscode.ThemeIcon(name);
+}
+
+module.exports = { splitLocation, showLocation, treeDetail, treeClick, icon };

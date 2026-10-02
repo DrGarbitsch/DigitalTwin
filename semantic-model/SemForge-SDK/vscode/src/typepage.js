@@ -48,11 +48,39 @@ function action(name, index, text, title) {
     `${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`;
 }
 
-function attributeRows(attributes) {
+/**
+ * Which attribute row a tree click meant. The Constraints tree knows the path
+ * (its deepest row on the page is the longest prefix: a full-mode constraint
+ * row sits below its attribute); the Knowledge tree knows only the attribute.
+ */
+function focusIndex(attributes, focus) {
+  if (!focus) {
+    return -1;
+  }
+  let best = -1;
+  let length = 0;
+  const wanted = focus.path || [];
+  attributes.forEach((row, index) => {
+    const path = row.path || [];
+    if (path.length > length && path.length <= wanted.length &&
+        path.every((step, at) => step === wanted[at])) {
+      best = index;
+      length = path.length;
+    }
+  });
+  if (best < 0 && focus.attribute) {
+    best = attributes.findIndex((row) => row.attribute === focus.attribute);
+  }
+  return best;
+}
+
+function attributeRows(attributes, focused) {
   return attributes.map((row, index) => {
-    const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '']
-      .filter(Boolean).join(' ');
-    const indent = row.depth ? ` style="padding-left:${12 + row.depth * 18}px"` : '';
+    const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '',
+      index === focused ? 'focus' : ''].filter(Boolean).join(' ');
+    // A class, not a style attribute: the page's CSP admits only its own
+    // nonce'd stylesheet, so an inline style would be silently dropped.
+    const indent = row.depth ? ` class="depth${Math.min(row.depth, 4)}"` : '';
     const verbatim = row.verbatim.length
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '';
     const tested = row.tested && row.tested !== 'untested'
@@ -65,9 +93,8 @@ function attributeRows(attributes) {
     const model = row.violations.length
       ? chip(`${row.violations.length} in the model`, 'bad', row.violations.join('\n'))
       : '';
-    return `<tr class="${classes}">` +
-      `<td${indent}>${row.depth ? '<span class="dim">└ </span>' : ''}` +
-      `${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}</td>` +
+    return `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
+      `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
@@ -159,6 +186,10 @@ function renderTypePage(page, options) {
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.inh td { color: var(--vscode-descriptionForeground); }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
+  tr.focus td { background: var(--vscode-editor-selectionHighlightBackground, rgba(128,128,128,.2)); }
+  tr.focus td:first-child { box-shadow: inset 3px 0 0 var(--vscode-focusBorder, #0078d4); }
+  td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
+  td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
   .kind { font-size: 0.84em; padding: 0 6px; border-radius: 3px;
           background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
   .mono, .verbatim { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
@@ -190,7 +221,7 @@ function renderTypePage(page, options) {
 <h2>Attributes · own and inherited</h2>
 ${attributes.length ? `<div class="table"><table>
 <thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Declared in</th><th>Tested</th><th>Model</th><th></th></tr></thead>
-<tbody>${attributeRows(attributes)}</tbody></table></div>`
+<tbody>${attributeRows(attributes, focusIndex(attributes, options && options.focus))}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
 <h2>Rules</h2>
@@ -217,6 +248,8 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  const focused = document.getElementById('focus');
+  if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-action]');
     if (!target) { return; }
@@ -251,22 +284,35 @@ class TypePages {
     this.current = undefined;          // { packageUri, entityType }
   }
 
-  async show(packageUri, entityType) {
+  /**
+   * `focus` marks one attribute row ({path} from the Constraints tree,
+   * {attribute} from the Knowledge tree). `preserveFocus` leaves the keyboard
+   * where it was: a click in a tree opens the page beside the reader's
+   * browsing, and the next arrow key should move in the tree, not the page.
+   */
+  async show(packageUri, entityType, focus, preserveFocus) {
     const client = this.clientHolder.client;
     if (!client || !packageUri || !entityType) {
       vscode.window.showWarningMessage(
         'SemForge: no package is open, or the language server is not running.');
       return;
     }
-    this.current = { packageUri, entityType };
+    const same = this.panel && this.current && this.current.packageUri === packageUri &&
+      this.current.entityType === entityType &&
+      JSON.stringify(this.current.focus) === JSON.stringify(focus);
+    this.current = { packageUri, entityType, focus };
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
-        'semforgeTypePage', 'Entity type', vscode.ViewColumn.Active,
+        'semforgeTypePage', 'Entity type',
+        { viewColumn: vscode.ViewColumn.Active, preserveFocus: !!preserveFocus },
         { enableScripts: true, localResourceRoots: [] });
       this.panel.onDidDispose(() => { this.panel = undefined; });
       this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
     } else {
-      this.panel.reveal(undefined, false);
+      this.panel.reveal(undefined, !!preserveFocus);
+      if (same) {
+        return;                        // clicked again: already showing it
+      }
     }
     await this.render();
   }
@@ -292,9 +338,9 @@ class TypePages {
       return;
     }
     this.page = page;
-    this.panel.title = `⬡ ${page.label}`;
+    this.panel.title = `${page.label} · type`;
     this.panel.webview.html = renderTypePage(page,
-      { nonce: crypto.randomBytes(16).toString('base64') });
+      { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }
 
   async receive(message) {
@@ -515,6 +561,17 @@ function typeOf(node) {
     raw.entityType || raw.iri || undefined;
 }
 
+/** The attribute row a tree row points at on its type's page, if any. */
+function focusOf(node) {
+  const raw = node && node.raw;
+  if (!raw || raw.kind === 'type' || raw.kind === 'class' || raw.kind === 'carrier') {
+    return undefined;
+  }
+  const path = Array.isArray(raw.path) && raw.path.length ? raw.path : undefined;
+  const attribute = raw.kind === 'attribute' && raw.iri ? raw.iri : undefined;
+  return path || attribute ? { path, attribute } : undefined;
+}
+
 async function pickType(client, packageUri) {
   const answer = await client.sendRequest('semforge/entityTypes', { uri: packageUri });
   const picked = await vscode.window.showQuickPick(
@@ -526,7 +583,7 @@ async function pickType(client, packageUri) {
 function register(context, clientHolder, session) {
   const pages = new TypePages(clientHolder, session);
   context.subscriptions.push(
-    vscode.commands.registerCommand('semforge.openTypePage', async (node) => {
+    vscode.commands.registerCommand('semforge.openTypePage', async (node, options) => {
       const client = clientHolder.client;
       const packageUri = (node && node.packageUri) || session.uri;
       if (!client || !packageUri) {
@@ -536,7 +593,8 @@ function register(context, clientHolder, session) {
       }
       const entityType = node && node.raw ? typeOf(node) : await pickType(client, packageUri);
       if (entityType) {
-        await pages.show(packageUri, entityType);
+        await pages.show(packageUri, entityType, focusOf(node),
+          !!(options && options.preserveFocus));
       }
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
@@ -544,4 +602,4 @@ function register(context, clientHolder, session) {
   return pages;
 }
 
-module.exports = { register, renderTypePage, TypePages, typeOf, escape };
+module.exports = { register, renderTypePage, TypePages, typeOf, focusOf, focusIndex, escape };

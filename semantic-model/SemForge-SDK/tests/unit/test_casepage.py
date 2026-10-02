@@ -128,10 +128,19 @@ def _node(tmp_path, scenario, target):
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 
-def _render(tmp_path, page):
+def _render(tmp_path, page, focus=None):
     return _node(tmp_path, {'mode': 'render', 'function': 'renderCasePage',
-                            'payload': page, 'options': {'nonce': 'n1'}},
+                            'payload': page, 'options': {'nonce': 'n1', 'focus': focus}},
                  'casepage.js')['html']
+
+
+def test_a_clicked_entity_s_card_is_marked(tmp_path, without):
+    """A click on an entity in the Model tree opens its case AT that entity."""
+    wanted = without['files'][-1]['cards'][-1]['id']
+    html = _render(tmp_path, without, focus=wanted)
+    assert html.count('id="focus"') == 1
+    assert wanted in html.split('id="focus"', 1)[1].split('</div>', 2)[0]
+    assert '└' not in _render(tmp_path, without)
 
 
 def test_the_page_shows_claims_and_cards(tmp_path, without):
@@ -163,7 +172,7 @@ def test_a_case_row_opens_its_page_and_a_type_link_opens_the_type_page(tmp_path,
     assert seen['errors'] == [], seen['errors']
     asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/casePage']
     assert asked[0]['case'] == without['file']
-    assert seen['webviews'][0]['title'] == '⚑ without-cartridge.jsonld'
+    assert seen['webviews'][0]['title'] == 'without-cartridge · test case'
     typed = [e for e in seen['executed'] if e['command'] == 'semforge.openTypePage']
     assert typed[0]['args'][0]['raw']['targetClass'] == 'Filter'
     assert seen['shown'][0]['file'] == without['file']

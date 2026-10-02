@@ -134,8 +134,7 @@ def slim_constraints(roots):
                 # A path walked backwards -- the kms's "one cartridge per
                 # filter" rule. Its label in the full tree is the raw path.
                 node['term'] = node.get('label')
-                node['label'] = f'← {inverse}'
-                summary = f'inverse path · {summary}'
+                node['label'] = f'inverse of {inverse}'
             node['detail'] = summary + (f' · from {origin.rsplit("/", 1)[-1]}'
                                         if node.get('inheritedFrom') and origin else '')
             node['children'] = [c for c in node.get('children', [])
@@ -152,6 +151,7 @@ def slim_constraints(roots):
                     (f' · {node["detail"].split(" — ")[0]}'
                      if node.get('inheritedFrom') else '')
                 node['children'] = []
+                node['rule'] = True
         for child in node['children']:
             walk(child)
 

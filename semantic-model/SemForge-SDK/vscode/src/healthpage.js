@@ -175,7 +175,7 @@ class HealthPage {
         `padding:20px"><p>SemForge: ${escape(page.error)}</p></body></html>`;
       return;
     }
-    this.panel.title = `◉ ${page.name}`;
+    this.panel.title = `${page.name} · health`;
     this.panel.webview.html = renderHealthPage(page,
       { nonce: crypto.randomBytes(16).toString('base64') });
   }

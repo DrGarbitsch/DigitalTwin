@@ -10,7 +10,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
 const { constrainAttribute, newAttribute } = require('./attribute');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -146,33 +146,38 @@ class CookedTreeProvider {
       ? 'editable'
       : raw.kind;
 
+    // One icon per kind of row. Whether it is inherited, editable or locked is
+    // said by the icon's colour and the description, not by swapping the
+    // icon: a tree where the same thing wears four different symbols cannot
+    // be scanned.
+    const tone = raw.inheritedFrom ? 'inherited' : '';
     if (raw.kind === 'type') {
-      item.iconPath = new vscode.ThemeIcon('symbol-class');
+      item.iconPath = icon('symbol-class');
     } else if (raw.kind === 'shape') {
-      item.iconPath = new vscode.ThemeIcon('symbol-interface');
+      item.iconPath = icon(raw.rule ? 'symbol-event' : 'symbol-interface', tone);
     } else if (raw.kind === 'attribute') {
-      item.iconPath = new vscode.ThemeIcon('symbol-field');
+      item.iconPath = icon('symbol-field', tone);
     } else if (raw.kind === 'slot') {
-      item.iconPath = new vscode.ThemeIcon('symbol-property');
-    } else if (raw.inheritedFrom) {
+      item.iconPath = icon('symbol-property', tone);
+    } else if (raw.kind === 'raw') {
+      item.iconPath = icon('symbol-event', tone);
+    } else {
+      item.iconPath = icon('symbol-constant', tone);
+    }
+    if (raw.inheritedFrom) {
       // Shown because it APPLIES here: sh:targetClass reaches subclasses, so a
       // shape on Machine validates every Filter. Not editable in place --
       // SHACL conjoins, so a constraint added on the subtype is evaluated
       // alongside this one rather than instead of it.
-      item.iconPath = new vscode.ThemeIcon('type-hierarchy-super');
       item.tooltip =
         `Inherited from ${raw.inheritedClass.split('/').pop()}\n` +
         `Declared at ${raw.definedAt}\n\n` +
         'Right-click to jump there, or to declare it on this type.';
-    } else if (raw.editable) {
-      item.iconPath = new vscode.ThemeIcon('edit');
-      item.tooltip =
-        `${raw.parameter} = ${raw.value}\n` +
-        'Selecting shows it in the file; the pencil edits it.';
-    } else {
+    } else if (raw.kind === 'constraint' && raw.editable) {
+      item.tooltip = `${raw.parameter} = ${raw.value}\nRight-click to edit it.`;
+    } else if (raw.kind === 'constraint' || raw.kind === 'raw') {
       // Shown, not offered. A tree that hid what it cannot edit would be
       // lying about what the shape contains.
-      item.iconPath = new vscode.ThemeIcon('lock-small');
       item.tooltip = raw.detail || 'raw only — edit in the .ttl file';
     }
     return item;
@@ -461,7 +466,16 @@ function register(context, clientHolder, session) {
   context.subscriptions.push(
     view.onDidChangeSelection(async (event) => {
       const selected = event.selection && event.selection[0];
-      if (selected && selected.raw.definedAt) {
+      if (!selected) {
+        return;
+      }
+      // Every row here belongs to an entity type, and the type page says in
+      // full what the row says in brief -- so a click opens it, with the
+      // attribute marked, and the keyboard stays in the tree to go on browsing.
+      if (treeClick() === 'page' && (selected.raw.typeClass || selected.raw.targetClass)) {
+        await vscode.commands.executeCommand('semforge.openTypePage', selected,
+          { preserveFocus: true });
+      } else if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }
     })

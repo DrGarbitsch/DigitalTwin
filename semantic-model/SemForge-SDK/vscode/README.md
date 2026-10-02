@@ -514,10 +514,28 @@ to it *and* unfolds it. A click on a collapsible row toggles it, so the reveal
 that showed you an entity also folded it shut — you had to click twice to see
 what one click was supposed to show. The chevron still folds it.
 
-**Selecting anything moves the `.ttl` to it.** Every node carries its own
-`file:line` — an attribute, a single `sh:minCount`, not just the shape — so the
-editor lands on the line you picked rather than the top of the block. Focus
-stays in the tree, so you can arrow through a shape and watch the file follow.
+**A click opens the row's page.** Tree → page → source: a click on a type or
+an attribute in Constraints opens that type's page with the attribute marked; a
+row inside a test case in Model opens the case page with its entity marked; an
+entity type or one of its attributes in Knowledge opens the type page. One tab
+is reused, and focus stays in the tree, so you can arrow through the rows and
+watch the page follow. Rows that have no page yet — vocabulary, the model
+scratchpad, settings — still move the editor to their source.
+
+**The source is a right-click away**: **SemForge: Open source** on any row of
+the three trees. Every node carries its own `file:line` — an attribute, a
+single `sh:minCount`, not just the shape — so the editor lands on the line you
+picked rather than the top of the block. To have a click do that instead, as it
+used to, set *Settings → SemForge → Trees: Click* to `source`.
+
+**One icon per kind**, the same in every view: `symbol-class` an entity type,
+`symbol-field` an attribute, `symbol-event` a rule, `beaker` a test suite or
+case, `symbol-object` an entity in the data, `symbol-enum` a vocabulary and
+`symbol-enum-member` its values. Status is the icon's **colour** — red failing
+or violated, yellow a warning, green a passing case, grey inherited — and the
+description says it in words; a row never changes its icon to say it is wrong.
+In summary mode rows have no hover buttons: their actions are on the right-click
+menu and on the page. *Trees: Detail* `full` brings the buttons back.
 
 **Outline** lists every shape in the file.
 
@@ -680,7 +698,8 @@ The edit rewrites
 leaves every comment in the file intact — then re-validates, so the Problems
 panel follows immediately.
 
-A **⇧ hierarchy icon** means the constraint is inherited: it is declared on a
+A **greyed icon** and `from Machine` in the description mean the constraint is
+inherited: it is declared on a
 supertype and applies here because `sh:targetClass` reaches subclasses. `Filter`
 shows `MachineShape`'s `hasState` for that reason — the constraint was never
 missing from Filter, only from the tree. Right-click offers **Go to Definition** and **Declare on This Type**.
@@ -840,8 +859,8 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
-over up to nine levels. The preview button on a case under **Tests** in the Model
-view (or **SemForge: Open test case page**) opens a page that answers them in
+over up to nine levels. A click on a case under **Tests** in the Model view, or on
+any row inside it (or **SemForge: Open test case page**), opens a page that answers them in
 that order:
 
 - **the claim**: *expects invalid · passes*, with `semforge test`'s own failure
@@ -880,7 +899,7 @@ thing, said once (the `semforge.trees.detail` setting, `summary`):
 
 | View | Summary | `full` |
 |---|---|---|
-| Constraints | `hasCartridge — required · one · → FilterCartridge`; a query-only shape is one row (`FilterStrengthShape — SPARQL constraint`); an inverse path reads `← hasCartridge`. 43 rows for the kms | every SHACL parameter as a row, editable in place (192 rows) |
+| Constraints | `hasCartridge — required · one · → FilterCartridge`; a query-only shape is one row (`FilterStrengthShape — SPARQL constraint`); an inverse path reads `inverse of hasCartridge`. 43 rows for the kms | every SHACL parameter as a row, editable in place (192 rows) |
 | Model | the entity's type in its row (`urn:filter:9 — Filter · 2 violation(s)`), each value once (`hasStrength — 0.6`) | a separate `type` row, `0.6 — 0.6 · Property` |
 | Knowledge | `3 shape(s)` instead of the list; an id in several files is one row, its files beneath | every file's row |
 
@@ -891,11 +910,11 @@ each parameter is. Switch with *Settings → SemForge → Trees: Detail*; all
 trees redraw at once.
 
 **The entity type page.** The trees are for finding things; reading one type's
-whole story in them took three views and, for Filter, 39 rows. The
-<kbd>⬡</kbd> button on a type in the Constraints view or a class in the
+whole story in them took three views and, for Filter, 39 rows. A click
+on a type or attribute in the Constraints view, or on an entity type in the
 Knowledge view (also: right-click an entity in the Model view, or
 **SemForge: Open entity type page** in the palette) opens one page in the
-editor area with all of it:
+editor area — its tab reads `Filter · type` — with all of it:
 
 - **where it sits**: a breadcrumb up the hierarchy (click to open a parent's
   page) and its subtypes;

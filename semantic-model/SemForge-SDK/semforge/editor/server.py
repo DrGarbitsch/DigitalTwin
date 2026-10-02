@@ -482,7 +482,7 @@ def _serialise_knowledge(node):
         'shape': node.shape, 'shapeName': node.shape_name,
         'shapeAt': node.shape_at,
         'entity': node.entity, 'entityType': node.entity_type,
-        'file': node.file,
+        'file': node.file, 'role': node.role,
         'severity': node.severity, 'messages': list(node.messages),
         'children': [_serialise_knowledge(child) for child in node.children],
     }

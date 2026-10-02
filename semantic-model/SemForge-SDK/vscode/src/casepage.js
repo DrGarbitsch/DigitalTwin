@@ -33,9 +33,9 @@ function problem(violation) {
 }
 
 function attributeRows(rows, file, depth) {
-  return rows.map((row) => `<div class="attr" style="padding-left:${depth * 16}px">` +
-    `<span class="name">${depth ? '<span class="dim">└ </span>' : ''}` +
-    `${open(row.name, file, row.line, row.term)}</span>` +
+  // Indented by a class: the CSP admits only the nonce'd stylesheet.
+  return rows.map((row) => `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
+    `<span class="name">${open(row.name, file, row.line, row.term)}</span>` +
     `<span class="value">${escape(row.value)}` +
     `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : ''}` +
     `</span>` +
@@ -47,9 +47,9 @@ function anyViolation(rows) {
   return (rows || []).some((row) => row.violations.length || anyViolation(row.children));
 }
 
-function card(entity) {
+function card(entity, focused) {
   const bad = entity.violations.length || anyViolation(entity.attributes);
-  return `<div class="card${bad ? ' bad' : ''}">` +
+  return `<div class="card${bad ? ' bad' : ''}${focused ? ' focus" id="focus' : ''}">` +
     `<div class="title">${open(entity.id || '(no id)', entity.file, entity.line)}` +
     `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
       ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}</div>` +
@@ -89,6 +89,15 @@ function renderCasePage(page, options) {
   const unasserted = page.unasserted || [];
   const files = page.files || [];
   const crumbs = (page.case || '').split('/').slice(0, -1).map(escape).join(' › ');
+  // The entity a tree click named: its first card is marked and scrolled to.
+  let pending = options && options.focus;
+  const mark = (c) => {
+    if (pending && c.id === pending) {
+      pending = undefined;
+      return true;
+    }
+    return false;
+  };
   // Where each entity is written, so "Open in .jsonld" lands on it.
   const located = {};
   files.forEach((file) => file.cards.forEach((c) => {
@@ -135,6 +144,10 @@ function renderCasePage(page, options) {
   .card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 4px;
           padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
   .card.bad { border-color: var(--vscode-errorForeground, #f14c4c); }
+  .card.focus { box-shadow: 0 0 0 2px var(--vscode-focusBorder, #0078d4);
+                background: var(--vscode-editor-selectionHighlightBackground, transparent); }
+  .attr.depth1 { padding-left: 16px; } .attr.depth2 { padding-left: 32px; }
+  .attr.depth3 { padding-left: 48px; } .attr.depth4 { padding-left: 64px; }
   .card .title { font-weight: 600; margin-bottom: 4px; }
   .attr { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: 2px 12px; }
   .attr .value { font-family: var(--vscode-editor-font-family); font-size: 0.92em;
@@ -172,10 +185,12 @@ ${files.map((file) => `<div class="file"><div class="head">
   ${open(file.relative, file.path, 1)}
   ${file.sharedBy.length ? `<span class="dim" title="${escape(file.sharedBy.join('\n'))}">· shared with ` +
     `${file.sharedBy.length} other case(s) — an edit here changes them too</span>` : ''}
-</div><div class="cards">${file.cards.map(card).join('')}</div></div>`).join('')}
+</div><div class="cards">${file.cards.map((c) => card(c, mark(c))).join('')}</div></div>`).join('')}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  const focused = document.getElementById('focus');
+  if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert]');
     if (!target) { return; }
@@ -198,21 +213,29 @@ class CasePages {
     this.current = undefined;
   }
 
-  async show(packageUri, caseFile) {
+  /** `focus` is an entity id to mark; `preserveFocus` keeps the keyboard in
+   *  the tree the click came from. */
+  async show(packageUri, caseFile, focus, preserveFocus) {
     if (!this.clientHolder.client || !packageUri || !caseFile) {
       vscode.window.showWarningMessage(
         'SemForge: no package is open, or the language server is not running.');
       return;
     }
-    this.current = { packageUri, caseFile };
+    const same = this.panel && this.current && this.current.packageUri === packageUri &&
+      this.current.caseFile === caseFile && this.current.focus === focus;
+    this.current = { packageUri, caseFile, focus };
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
-        'semforgeCasePage', 'Test case', vscode.ViewColumn.Active,
+        'semforgeCasePage', 'Test case',
+        { viewColumn: vscode.ViewColumn.Active, preserveFocus: !!preserveFocus },
         { enableScripts: true, localResourceRoots: [] });
       this.panel.onDidDispose(() => { this.panel = undefined; });
       this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
     } else {
-      this.panel.reveal(undefined, false);
+      this.panel.reveal(undefined, !!preserveFocus);
+      if (same) {
+        return;                        // clicked again: already showing it
+      }
     }
     await this.render();
   }
@@ -240,9 +263,9 @@ class CasePages {
       return;
     }
     this.page = page;
-    this.panel.title = `⚑ ${page.name}`;
+    this.panel.title = `${page.name.replace(/\.jsonld$/, '')} · test case`;
     this.panel.webview.html = renderCasePage(page,
-      { nonce: crypto.randomBytes(16).toString('base64') });
+      { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }
 
   async receive(message) {
@@ -317,7 +340,7 @@ async function pickCase(client, packageUri) {
 function register(context, clientHolder, session) {
   const pages = new CasePages(clientHolder);
   context.subscriptions.push(
-    vscode.commands.registerCommand('semforge.openCasePage', async (node) => {
+    vscode.commands.registerCommand('semforge.openCasePage', async (node, options) => {
       const client = clientHolder.client;
       const packageUri = (node && node.packageUri) || session.uri;
       if (!client || !packageUri) {
@@ -335,7 +358,8 @@ function register(context, clientHolder, session) {
       }
       const caseFile = node && node.raw ? node.raw.file : await pickCase(client, packageUri);
       if (caseFile) {
-        await pages.show(packageUri, caseFile);
+        await pages.show(packageUri, caseFile, options && options.focus,
+          !!(options && options.preserveFocus));
       }
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())

@@ -27,6 +27,7 @@ const projectCache = require('./cache');
 const typePages = require('./typepage');
 const casePages = require('./casepage');
 const healthPage = require('./healthpage');
+const { showLocation } = require('./reveal');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -270,6 +271,17 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration('semforge.trees.detail')) {
         refreshAll();
+      }
+    }),
+    // A click opens a row's page; its place in the .ttl/.jsonld is here.
+    vscode.commands.registerCommand('semforge.openSource', async (node) => {
+      const raw = node && node.raw;
+      const at = raw && (raw.definedAt || raw.shapeAt || (raw.file && `${raw.file}:1`));
+      if (at) {
+        await showLocation(at, true);
+      } else if (raw) {
+        vscode.window.showInformationMessage(
+          `SemForge: ${raw.label} is not written in any one file.`);
       }
     }));
   // Declare an attribute and constrain it, from wherever an extension may put

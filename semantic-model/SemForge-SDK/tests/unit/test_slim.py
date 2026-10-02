@@ -74,8 +74,8 @@ def test_a_query_only_shape_is_one_row(full):
 
 def test_an_inverse_path_gets_a_readable_label(full):
     slim = slim_constraints(full['constraints'])
-    inverse = [n for _, n in _walk(slim) if n['label'] == '← hasCartridge']
-    assert inverse and inverse[0]['detail'].startswith('inverse path')
+    inverse = [n for _, n in _walk(slim) if n['label'] == 'inverse of hasCartridge']
+    assert inverse and 'inverse' not in inverse[0]['detail']
 
 
 def test_an_ambiguous_name_keeps_its_prefix(full):

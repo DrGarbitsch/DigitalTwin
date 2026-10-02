@@ -11,7 +11,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
 
 class KnowledgeTreeNode {
   constructor(key, raw, packageUri) {
@@ -108,36 +108,26 @@ class KnowledgeTreeProvider {
       item.contextValue = raw.kind;
     }
 
+    // One icon per kind, the same one the other trees use for it; a warning
+    // colours the icon and the tooltip says what is wrong.
+    const tone = raw.severity ? 'warning' : '';
+    const GROUPS = { 'Entity types': 'symbol-class', 'Vocabulary classes': 'symbol-enum',
+      Attributes: 'symbol-field', 'NGSI-LD vocabulary': 'symbol-enum' };
     if (raw.kind === 'group') {
-      item.iconPath = new vscode.ThemeIcon('library');
+      item.iconPath = icon(GROUPS[raw.label] || 'symbol-namespace', tone);
     } else if (raw.kind === 'carrier') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-class'
-      );
+      item.iconPath = icon(raw.role === 'entityType' ? 'symbol-class' : 'symbol-field', tone);
     } else if (raw.kind === 'attribute') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-field'
-      );
-    } else if (raw.kind === 'term') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-constant'
-      );
+      item.iconPath = icon('symbol-field', tone);
     } else if (raw.kind === 'relation') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-property'
-      );
+      item.iconPath = icon('symbol-property', tone);
     } else if (raw.kind === 'class') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-class'
-      );
-    } else if (raw.kind === 'individual') {
-      item.iconPath = new vscode.ThemeIcon(
-        raw.severity ? 'warning' : 'symbol-enum-member'
-      );
-    } else if (raw.kind === 'instance') {
-      item.iconPath = new vscode.ThemeIcon('symbol-object');
+      item.iconPath = icon(raw.role === 'vocabulary' ? 'symbol-enum' : 'symbol-class', tone);
+    } else if (raw.kind === 'individual' || raw.kind === 'term') {
+      item.iconPath = icon('symbol-enum-member', tone);
     } else {
-      item.iconPath = new vscode.ThemeIcon('references');
+      // An instance or a usage: an entity in the data.
+      item.iconPath = icon('symbol-object', tone);
     }
 
     const lines = (raw.messages || []).slice();
@@ -235,8 +225,16 @@ function register(context, clientHolder, session, onShape, onEntity) {
           // Gone after a refresh; nothing to reveal.
         }
       }
-      if (selected.raw.definedAt) {
-        await showLocation(selected.raw.definedAt, false);
+      // An entity type and its attributes have a page; vocabulary, relations
+      // and the data rows above still open where they are written.
+      const raw = selected.raw;
+      const page = raw.role === 'entityType' ||
+        (raw.kind === 'attribute' && raw.entityType);
+      if (page && treeClick() === 'page') {
+        await vscode.commands.executeCommand('semforge.openTypePage', selected,
+          { preserveFocus: true });
+      } else if (raw.definedAt) {
+        await showLocation(raw.definedAt, false);
       }
     })
   );
