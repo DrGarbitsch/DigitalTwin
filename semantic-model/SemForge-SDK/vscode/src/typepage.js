@@ -17,6 +17,10 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
+const { pickValue } = require('./attribute');
+
+const REFRESH_VIEWS = ['semforge.refreshTree', 'semforge.refreshKnowledge',
+  'semforge.refreshModel'];
 
 function escape(value) {
   return String(value === undefined || value === null ? '' : value)
@@ -39,8 +43,13 @@ function openable(text, at, extra) {
     : escape(text);
 }
 
+function action(name, index, text, title) {
+  return `<a href="#" class="act" data-action="${name}" data-row="${index}"` +
+    `${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`;
+}
+
 function attributeRows(attributes) {
-  return attributes.map((row) => {
+  return attributes.map((row, index) => {
     const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '']
       .filter(Boolean).join(' ');
     const indent = row.depth ? ` style="padding-left:${12 + row.depth * 18}px"` : '';
@@ -60,11 +69,20 @@ function attributeRows(attributes) {
       `<td${indent}>${row.depth ? '<span class="dim">└ </span>' : ''}` +
       `${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
-      `<td>${escape(row.presence)}</td>` +
-      `<td>${escape(row.value)}${verbatim}</td>` +
+      `<td>${row.inherited ? escape(row.presence)
+        : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
+      `<td>${row.inherited ? escape(row.value)
+        : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
+          : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
+      `${verbatim}</td>` +
       `<td><span class="mono">${escape(row.shapeName.split(':').pop())}</span>` +
       `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>` +
-      `<td>${tested}</td><td>${model}</td></tr>`;
+      `<td>${tested}</td><td>${model}</td>` +
+      `<td class="acts">${row.inherited
+        ? `<button data-action="override" data-row="${index}" title="Declare a stricter ` +
+          'constraint on this type\'s own shape">Override…</button>'
+        : `<button data-action="menu" data-row="${index}" title="More actions">⋯</button>`}` +
+      '</td></tr>';
   }).join('');
 }
 
@@ -149,6 +167,13 @@ function renderTypePage(page, options) {
   .rule { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline;
           padding: 6px 10px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
+  a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
+  a.act:hover, a.act:focus-visible { color: var(--vscode-textLink-foreground); text-decoration: none; }
+  td.acts { text-align: right; }
+  td.acts button { padding: 0 8px; }
+  button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+                   border-color: var(--vscode-button-background); }
+  button.primary:hover { background: var(--vscode-button-hoverBackground); }
   ul { margin: 0; padding-left: 1.1em; }
   li { margin: 2px 0; }
 </style></head><body>
@@ -156,13 +181,15 @@ function renderTypePage(page, options) {
 <h1>${escape(page.label)}</h1>
 <div class="chips">${chips}</div>
 <div class="bar">
+  ${page.ownShape ? '<button class="primary" data-action="addAttribute">+ Attribute</button>'
+    : '<span class="dim">No shape of its own yet, so attributes are added to a supertype\'s page.</span>'}
   ${page.shapeAt ? `<button data-open="${escape(page.shapeAt)}">Open the shape in .ttl</button>` : ''}
   <button data-refresh="1">Refresh</button>
 </div>
 
 <h2>Attributes · own and inherited</h2>
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Declared in</th><th>Tested</th><th>Model</th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Declared in</th><th>Tested</th><th>Model</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes)}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
@@ -191,10 +218,14 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-action]');
     if (!target) { return; }
     event.preventDefault();
-    if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
+    if (target.dataset.action) {
+      vscode.postMessage({ command: target.dataset.action,
+                           row: target.dataset.row === undefined ? -1 : Number(target.dataset.row) });
+    }
+    else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
@@ -260,6 +291,7 @@ class TypePages {
       this.panel.webview.html = renderMessage('Entity type', `SemForge: ${page.error}`);
       return;
     }
+    this.page = page;
     this.panel.title = `⬡ ${page.label}`;
     this.panel.webview.html = renderTypePage(page,
       { nonce: crypto.randomBytes(16).toString('base64') });
@@ -267,6 +299,19 @@ class TypePages {
 
   async receive(message) {
     if (!message || !this.current) {
+      return;
+    }
+    const edit = EDITS[message.command];
+    if (edit) {
+      const row = this.page && this.page.attributes
+        ? this.page.attributes[message.row] : undefined;
+      const changed = await edit(this, row);
+      if (changed) {
+        await this.render();
+        for (const command of REFRESH_VIEWS) {
+          vscode.commands.executeCommand(command);
+        }
+      }
       return;
     }
     if (message.command === 'open' && message.at) {
@@ -285,6 +330,180 @@ class TypePages {
     }
   }
 }
+
+// --- editing: each answers one click, and says whether anything changed --------------
+
+async function request(pages, method, params) {
+  const result = await pages.clientHolder.client.sendRequest(method,
+    Object.assign({ uri: pages.current.packageUri }, params));
+  if (!result.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+    return false;
+  }
+  return result;
+}
+
+async function editPresence(pages, row) {
+  if (!row) {
+    return false;
+  }
+  const picked = await vscode.window.showQuickPick([
+    { label: 'Required', description: 'sh:minCount 1', value: 'required' },
+    { label: 'Optional', description: 'sh:minCount 0', value: 'optional' }
+  ], { title: `${row.label}: present on every ${pages.page.label}?` });
+  if (!picked) {
+    return false;
+  }
+  return Boolean(await request(pages, 'semforge/editAttribute',
+    { shape: row.shape, path: row.path, presence: picked.value }));
+}
+
+async function editValue(pages, row) {
+  if (!row || !row.valueEditable) {
+    if (row && row.valueLocked) {
+      vscode.window.showInformationMessage(`SemForge: ${row.label}'s value is ${row.valueLocked}.`);
+    }
+    return false;
+  }
+  const value = await pickValue(pages.clientHolder.client, pages.current.packageUri,
+    { kind: row.kind, term: row.term, label: row.label });
+  if (value === undefined) {
+    return false;
+  }
+  return Boolean(await request(pages, 'semforge/editAttribute', {
+    shape: row.shape, path: row.path,
+    value: value.datatype || value.valueClass ? value : { kind: 'any' }
+  }));
+}
+
+function describeParameter(parameter) {
+  return { label: `${parameter.parameter} ${parameter.value}`,
+    description: parameter.layer === 'value' ? 'on the value' : 'on the attribute',
+    parameter };
+}
+
+async function editParameter(pages, row) {
+  const picked = await vscode.window.showQuickPick(row.parameters.map(describeParameter),
+    { title: `${row.label}: which constraint?` });
+  if (!picked) {
+    return false;
+  }
+  const { parameter } = picked;
+  const value = await vscode.window.showInputBox({
+    title: `${row.label} · ${parameter.parameter}`, value: parameter.value,
+    prompt: 'A Turtle term: a number, a prefixed name, or "text" in quotes.'
+  });
+  if (value === undefined || value === parameter.value) {
+    return false;
+  }
+  return Boolean(await request(pages, 'semforge/setConstraint', {
+    shape: row.shape, path: parameter.path, parameter: parameter.parameter, value }));
+}
+
+async function rowMenu(pages, row) {
+  if (!row) {
+    return false;
+  }
+  const shapeName = row.shapeName.split(':').pop();
+  const choices = [
+    { label: '$(edit) Edit a constraint…', description: 'a range, a count, a class', run: editParameter },
+    { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
+      run: async () => {
+        await vscode.commands.executeCommand('semforge.addAttributeConstraint', {
+          raw: { kind: 'attribute', shape: row.shape, path: row.path,
+            label: row.term, inheritedFrom: '' },
+          packageUri: pages.current.packageUri });
+        return true;
+      } },
+    { label: `$(remove) Remove from ${shapeName}…`,
+      description: 'the attribute stays declared', run: removeFromShape },
+    { label: '$(trash) Delete the attribute everywhere…',
+      description: 'shows every dependent first',
+      run: async () => {
+        await vscode.commands.executeCommand('semforge.deleteAttribute', {
+          raw: { iri: row.attribute }, packageUri: pages.current.packageUri });
+        return true;
+      } },
+    { label: '$(go-to-file) Open in .ttl',
+      run: async () => { await showLocation(row.definedAt, true); return false; } }
+  ];
+  const picked = await vscode.window.showQuickPick(choices, { title: row.label });
+  return picked ? picked.run(pages, row) : false;
+}
+
+async function removeFromShape(pages, row) {
+  const shapeName = row.shapeName.split(':').pop();
+  const answer = await vscode.window.showWarningMessage(
+    `Remove ${row.label} from ${shapeName}?`,
+    { modal: true, detail: `Its property shape — every constraint on it, and ` +
+      `any sub-attribute nested in it — is taken out of ${shapeName}. The ` +
+      'attribute stays declared in the knowledge, and stays constrained wherever ' +
+      'else it is. The data is not touched.' },
+    'Remove');
+  if (answer !== 'Remove') {
+    return false;
+  }
+  return Boolean(await request(pages, 'semforge/removeProperty',
+    { shape: row.shape, path: row.path }));
+}
+
+async function override(pages, row) {
+  if (!row) {
+    return false;
+  }
+  if (!pages.page.ownShape) {
+    vscode.window.showInformationMessage(
+      `SemForge: ${pages.page.label} has no shape of its own to declare it on.`);
+    return false;
+  }
+  const picked = await vscode.window.showQuickPick(row.parameters.map(describeParameter),
+    { title: `${row.label}: which inherited constraint to tighten on ${pages.page.label}?` });
+  if (!picked) {
+    return false;
+  }
+  const { parameter } = picked;
+  const value = await vscode.window.showInputBox({
+    title: `${parameter.parameter} on ${pages.page.label}`, value: parameter.value,
+    prompt: `Inherited from ${row.inheritedFrom}: ${parameter.value}. SHACL conjoins, ` +
+      'so this can only make the constraint stricter.'
+  });
+  if (value === undefined) {
+    return false;
+  }
+  const send = (force) => pages.clientHolder.client.sendRequest('semforge/override', {
+    uri: pages.current.packageUri, targetShape: pages.page.ownShape,
+    path: parameter.path, parameter: parameter.parameter,
+    inheritedValue: parameter.value, value, force });
+  let result = await send(false);
+  if (!result.ok && (result.effect === 'weaker' || result.effect === 'same')) {
+    const choice = await vscode.window.showWarningMessage(
+      `${parameter.parameter} ${parameter.value} → ${value} is ${result.effect}. ${result.error}`,
+      { modal: true }, 'Add it anyway');
+    if (choice !== 'Add it anyway') {
+      return false;
+    }
+    result = await send(true);
+  }
+  if (!result.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+    return false;
+  }
+  return true;
+}
+
+async function addAttribute(pages) {
+  if (!pages.page.ownShape) {
+    return false;
+  }
+  await vscode.commands.executeCommand('semforge.addAttributeConstraint', {
+    raw: { kind: 'shape', shape: pages.page.ownShape, label: pages.page.ownShapeName,
+      inheritedFrom: '' },
+    packageUri: pages.current.packageUri });
+  return true;
+}
+
+const EDITS = { presence: editPresence, value: editValue, menu: rowMenu,
+  override, addAttribute };
 
 /** The entity type a tree row stands for, whichever tree it is in. */
 function typeOf(node) {

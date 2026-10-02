@@ -1247,6 +1247,44 @@ def type_page_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/editAttribute')
+def edit_attribute_feature(ls, params):
+    """Change an attribute's presence or what its value must be (type page)."""
+    from ..cooked.constrain import edit_attribute
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = edit_attribute(_package_for(root), _field(params, 'shape'),
+                              list(_field(params, 'path') or []),
+                              presence=_field(params, 'presence') or None,
+                              value=_field(params, 'value') or None)
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/removeProperty')
+def remove_property_feature(ls, params):
+    """Take one attribute's property shape out of one shape."""
+    from ..cooked.constrain import remove_property_group
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = remove_property_group(_package_for(root), _field(params, 'shape'),
+                                     list(_field(params, 'path') or []))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

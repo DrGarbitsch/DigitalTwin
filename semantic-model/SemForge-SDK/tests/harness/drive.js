@@ -29,6 +29,7 @@ const seen = {
   statusBar: [],
   deleted: [],
   webviews: [],
+  executed: [],
   // Each view's own state -- its subtitle says which package it is showing,
   // and its message is what an empty panel tells you instead of nothing.
   views: {},
@@ -199,7 +200,12 @@ const stub = {
       registry.set(id, handler);
       return { dispose: noop };
     },
-    executeCommand: noop
+    // Recorded, not run: a command that hands work to another one is tested
+    // by what it asked for. Running it too would need that command's replies.
+    executeCommand: (command, ...args) => {
+      seen.executed.push({ command, args });
+      return Promise.resolve(undefined);
+    }
   },
   EventEmitter: class {
     // Subscribing used to be a no-op, so nothing an emitter fired ever

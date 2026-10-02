@@ -842,8 +842,24 @@ editor area with all of it:
 - **the cases that exercise it** and whether they pass, and **its instances in
   the model** with what is wrong with each.
 
-Every name links to its line in the `.ttl` or `.jsonld`. The page is read-only
-for now; it is one reused tab, refreshes on save, and is served from the cache.
+Every name links to its line in the `.ttl` or `.jsonld`. It is one reused tab,
+refreshes on save, and is served from the cache.
+
+**Editing on the page.** What is dashed-underlined is clickable, and every
+action is a visible button rather than a hover icon:
+
+| On | Click | Does |
+|---|---|---|
+| your own attribute | **Presence** | Required or Optional (`sh:minCount`) |
+| your own attribute | **Value** | what the value must be — an entity type, a datatype, a vocabulary class, or any value; ranges and counts are kept. A value written with `sh:or`/`sh:in` is not rewritten by a picker; the tooltip says so |
+| your own attribute | **⋯** | edit one constraint (a range, a count, a class) · add a sub-attribute · remove it from this shape · delete the attribute everywhere · open in `.ttl` |
+| an inherited attribute | **Override…** | a stricter constraint on this type's own shape — warns when the change could never take effect |
+| the header | **+ Attribute** | the attribute picker, for this type's own shape |
+
+Each edit is the same text-anchored, verified write as everywhere else, and
+reads like a hand edit: swapping one class for another changes one line, and
+nothing leaves a blank line behind. The page and the three trees refresh after
+it.
 
 **The cache: why reloading is fast, and how to distrust it.** What every view
 and the Problems panel show is stored beside the package, in

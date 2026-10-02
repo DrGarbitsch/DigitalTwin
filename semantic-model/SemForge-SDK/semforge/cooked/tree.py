@@ -430,8 +430,20 @@ def override_constraint(package, shape, path_chain, parameter, value):
     holder = package.index('shapes').file_for(shape)
     if holder is None:
         raise PackageError(f'{shape} is not in any shapes file')
-    updated = add_property_constraint(
-        holder, shape, attribute, [(parameter, value)])
+    if len(path_chain) == 1:
+        parameters = [(parameter, value)]
+    elif len(path_chain) == 2:
+        # A value-layer parameter (sh:class on hasObject, a range on
+        # hasValue): it goes inside a value layer of the new property shape.
+        # Put on the attribute node it would constrain the blank node itself
+        # and could never be satisfied.
+        parameters = [('sh:property', [('sh:path', path_chain[1]),
+                                       (parameter, value)])]
+    else:
+        raise PackageError(
+            'overriding a constraint inside a sub-attribute the shape does not '
+            'carry yet is not supported; add the attribute first')
+    updated = add_property_constraint(holder, shape, attribute, parameters)
     _write_verified(holder, updated)
     return holder, 'added-attribute'
 

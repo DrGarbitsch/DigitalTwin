@@ -468,3 +468,183 @@ def attribute_places(package, attribute):
         for statement in TurtleIndex(text).blocks:
             walk(property_blocks(text, statement), [], statement)
     return out
+
+
+# --- editing an attribute in place (the type page) ------------------------------------
+
+def _group_in(text, shape, path_chain):
+    """The property group at `path_chain` in `shape`, read from `text`."""
+    from ..rdfio import TurtleIndex, find_block
+
+    block = TurtleIndex(text).block_for(str(shape))
+    if block is None:
+        raise PackageError(f'{shape} is not in this file any more')
+    group = find_block(property_blocks(text, block), list(path_chain))
+    if group is None:
+        raise PackageError(f'no property shape at {" / ".join(path_chain)} in '
+                           f'{local(shape)}; the file has changed')
+    return group
+
+
+def _value_slot(package, group):
+    """The value layer's sh:path token inside an attribute group, or None."""
+    for child in group.children:
+        resolved = str(_resolve(package, child.path) or '')
+        if resolved in PAYLOAD_PATH.values():
+            return child.path
+    return None
+
+
+def _set(text, group, name, value):
+    """Change a parameter where it stands, or add it on a line of its own."""
+    from ..rdfio import set_parameter
+
+    if group.parameter(name) is None:
+        return _add_line(text, group, name, value)
+    return set_parameter(text, group, name, value)
+
+
+def _add_line(text, group, name, value):
+    """A new parameter as the group's last, on its own line, indented like
+    the others -- the way the file is written by hand."""
+    import re
+
+    at = group.end - 1                      # the closing ']'
+    while at > group.start and text[at - 1].isspace():
+        at -= 1
+    body = text[group.start + 1:at]
+    if '\n' not in body:
+        separator = '' if text[at - 1] in '[;' else ' ;'
+        return text[:at] + f'{separator} {name} {value}' + text[at:]
+    last_line = body.rsplit('\n', 1)[-1]
+    indent = re.match(r'[ \t]*', last_line).group(0)
+    separator = '' if text[at - 1] == ';' else ' ;'
+    return text[:at] + f'{separator}\n{indent}{name} {value}' + text[at:]
+
+
+def _remove_line(text, group, name):
+    """Remove a parameter, and the line it stood on when it stood alone.
+
+    When it was the first thing after the group's `[`, the next parameter is
+    pulled up onto that line, so `sh:property [ sh:class X ;` does not leave
+    `sh:property [` dangling with nothing after it.
+    """
+    from ..rdfio import remove_parameter
+
+    _, end, _ = group.parameter(name)
+    start = text.rfind(name, group.start, end)
+    updated = remove_parameter(text, group, name)
+    line_start = updated.rfind('\n', 0, start) + 1
+    line_end = updated.find('\n', start)
+    line_end = len(updated) if line_end == -1 else line_end
+    before = updated[line_start:start]
+    after = updated[start:line_end]
+    if after.strip():
+        return updated
+    if not before.strip():
+        return updated[:line_start] + updated[line_end + 1:]
+    if before.rstrip().endswith('['):
+        following = line_end + 1
+        while following < len(updated) and updated[following] in ' \t':
+            following += 1
+        return updated[:start].rstrip(' \t') + ' ' + updated[following:]
+    return updated[:start].rstrip(' \t') + updated[line_end:]
+
+
+def edit_attribute(package, shape, path_chain, presence=None, value=None):
+    """Change how an attribute is constrained, from the type page.
+
+    `presence` is 'required' or 'optional' and sets the attribute layer's
+    sh:minCount; sh:maxCount is left alone. `value` replaces what the value
+    must be: {'kind': 'any'} drops the class / datatype, {'datatype': ...} or
+    {'valueClass': ...} sets one, through the same checks as adding an
+    attribute. Ranges and every other parameter of the value layer stay.
+
+    A value layer written with sh:or or sh:in is refused rather than rewritten:
+    those are choices the vocabulary cannot round-trip, and a picker that
+    silently replaced one would change what the shape means.
+    Returns {'file', 'line'}.
+    """
+    from .tree import _write_verified
+    from .knowledge import _turtle_name
+
+    shape = str(shape)
+    holder = package.index('shapes').file_for(URIRef(shape))
+    if holder is None:
+        raise PackageError(f'{shape} is not in any shapes file')
+    with open(holder, encoding='utf-8') as handle:
+        text = handle.read()
+    chain = list(path_chain)
+
+    if presence is not None:
+        if presence not in ('required', 'optional'):
+            raise PackageError(f'presence is required or optional, not {presence}')
+        group = _group_in(text, shape, chain)
+        text = _set(text, group, _turtle_name(text, SH.minCount),
+                    '1' if presence == 'required' else '0')
+
+    if value is not None:
+        group = _group_in(text, shape, chain)
+        slot = _value_slot(package, group)
+        if slot is None:
+            raise PackageError(f'{chain[-1]} has no value layer to constrain; '
+                               f'edit it in the .ttl')
+        layer = _group_in(text, shape, chain + [slot])
+        slot_text = text[layer.start:layer.end]
+        if 'sh:or' in slot_text or 'sh:in' in slot_text:
+            raise PackageError(
+                f'the value of {local(str(_resolve(package, chain[-1])))} is '
+                f'written with sh:or or sh:in; change it in the .ttl so its '
+                f'meaning is not rewritten behind your back')
+        attribute = str(_resolve(package, chain[-1]))
+        entry = _attribute(package, attribute)
+        kind = entry.kind or 'Property'
+        new = [] if value.get('kind') == 'any' else _value_layer(
+            package, kind, value.get('datatype') or None,
+            value.get('valueClass') or None, entry.label)
+        wanted = {}
+        for predicate, obj in new:
+            if predicate not in (SH.minCount, SH.maxCount):
+                wanted[_turtle_name(text, predicate)] = _turtle_name(text, obj)
+        # Change what is still wanted where it stands; drop what is not;
+        # add the rest. A class swapped for another class rewrites one value.
+        for name in ('sh:class', 'sh:datatype', 'sh:nodeKind'):
+            target = _group_in(text, shape, chain + [slot])
+            if target.parameter(name) is None:
+                continue
+            if name in wanted:
+                text = _set(text, target, name, wanted.pop(name))
+            else:
+                text = _remove_line(text, target, name)
+        for name, written in wanted.items():
+            target = _group_in(text, shape, chain + [slot])
+            text = _set(text, target, name, written)
+
+    _write_verified(holder, text)
+    group = _group_in(text, shape, chain)
+    return {'file': holder, 'line': text.count('\n', 0, group.start) + 1}
+
+
+def remove_property_group(package, shape, path_chain):
+    """Take one attribute's property shape out of one shape -- the attribute
+    stays declared, and stays constrained wherever else it is."""
+    from .remove_attribute import _remove_span
+    from .tree import _write_verified
+    from ..rdfio import TurtleIndex, find_block
+
+    shape = str(shape)
+    holder = package.index('shapes').file_for(URIRef(shape))
+    if holder is None:
+        raise PackageError(f'{shape} is not in any shapes file')
+    with open(holder, encoding='utf-8') as handle:
+        text = handle.read()
+    statement = TurtleIndex(text).block_for(shape)
+    chain = list(path_chain)
+    group = _group_in(text, shape, chain)
+    parent = find_block(property_blocks(text, statement), chain[:-1]) \
+        if len(chain) > 1 else None
+    start, end = (parent.start + 1, parent.end - 1) if parent else \
+        (statement.start, statement.end)
+    updated = _remove_span(text, group, start, end)
+    _write_verified(holder, updated)
+    return {'file': holder, 'line': text.count('\n', 0, group.start) + 1}

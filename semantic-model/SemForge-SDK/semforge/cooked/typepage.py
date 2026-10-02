@@ -187,6 +187,17 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     extra += [f'{name} {value}' for name, value in value_params.items()
               if name not in RENDERED]
     tested = coverage.get((shape_name, _short(token)), 'untested')
+    # Every parameter with the address an edit needs: its sh:path chain (the
+    # value layer's includes the slot) and its name. "Edit a parameter" and
+    # "Override" act on exactly these.
+    parameters = [{'parameter': c.parameter, 'value': c.value,
+                   'path': list(c.path_chain), 'layer': layer}
+                  for layer, holder in (('attribute', node), ('value', slot))
+                  if holder is not None
+                  for c in holder.children
+                  if c.kind == 'constraint' and c.parameter]
+    blocked = [name for name, _ in raw if name in ('sh:or', 'sh:in')] or \
+        (['sh:in'] if 'sh:in' in value_params else [])
     rows = [{
         'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
@@ -196,6 +207,13 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'inherited': bool(node.inherited_from),
         'inheritedFrom': _short(node.inherited_class) if node.inherited_class else '',
         'depth': depth, 'tested': tested,
+        'path': list(node.path_chain), 'parameters': parameters,
+        # The value picker rewrites class / datatype / nodeKind; a value
+        # written with sh:or or sh:in is a choice it cannot round-trip.
+        'valueEditable': slot is not None and not blocked,
+        'valueLocked': (f'written with {blocked[0]}; edit it in the .ttl'
+                        if blocked else '' if slot is not None
+                        else 'no value layer; edit it in the .ttl'),
         'violations': violated.get((shape_name, _short(token)), []),
         'definedAt': node.defined_at,
     }]
@@ -344,11 +362,17 @@ def build_type_page(package, entity_type):
 
     rules = _rules(package, shape_nodes, coverage)
     own_shapes = [n.label for n in shape_nodes if not n.inherited_from]
+    from .constrain import own_shape
+    own = own_shape(package, entry.iri)
     return {
         'iri': entry.iri, 'term': entry.term, 'label': entry.label,
         'crumbs': [_short(a) for a in _ancestors(package, entry.iri)],
         'subtypes': sorted(_short(c) for c in family - {entry.iri}),
         'ownShapes': own_shapes,
+        # The shape ＋ Attribute and Override write into: the type's own
+        # structural shape, never an inherited one.
+        'ownShape': own or '',
+        'ownShapeName': curie(package.shapes, URIRef(own)) if own else '',
         'shapeAt': next((n.defined_at for n in shape_nodes
                          if not n.inherited_from), ''),
         'attributes': attributes, 'rules': rules,
