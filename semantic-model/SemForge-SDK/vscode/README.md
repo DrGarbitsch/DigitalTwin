@@ -820,6 +820,22 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**Summary trees.** The trees are for finding things; the type page is where a
+type is read and edited. So by default the trees show one row per meaningful
+thing, said once (the `semforge.trees.detail` setting, `summary`):
+
+| View | Summary | `full` |
+|---|---|---|
+| Constraints | `hasCartridge — required · one · → FilterCartridge`; a query-only shape is one row (`FilterStrengthShape — SPARQL constraint`); an inverse path reads `← hasCartridge`. 43 rows for the kms | every SHACL parameter as a row, editable in place (192 rows) |
+| Model | the entity's type in its row (`urn:filter:9 — Filter · 2 violation(s)`), each value once (`hasStrength — 0.6`) | a separate `type` row, `0.6 — 0.6 · Property` |
+| Knowledge | `3 shape(s)` instead of the list; an id in several files is one row, its files beneath | every file's row |
+
+Prefixes are dropped wherever the local name is unambiguous in that tree; the
+two `CartridgeShape`s keep theirs. In summary mode **Override…** and right-click
+→ **Open entity type page** on any Constraints row go to the type page, where
+each parameter is. Switch with *Settings → SemForge → Trees: Detail*; all
+trees redraw at once.
+
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. The
 <kbd>⬡</kbd> button on a type in the Constraints view or a class in the

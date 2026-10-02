@@ -10,7 +10,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation } = require('./reveal');
+const { showLocation, treeDetail } = require('./reveal');
 const { constrainAttribute, newAttribute } = require('./attribute');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -75,6 +75,9 @@ class CookedTreeProvider {
     this.owners = new Map();
 
     const walk = (raw, parentRaw, owner) => {
+      // Every row knows its type, so "Open entity type page" works from any
+      // of them -- in summary mode that page is where a row is edited.
+      raw.typeClass = owner.targetClass;
       this.nodes.set(raw, new ConstraintNode(raw, this.uri));
       this.parents.set(raw, parentRaw);
       this.owners.set(raw, owner);
@@ -84,6 +87,7 @@ class CookedTreeProvider {
     roots.forEach((root) => {
       const owner = {
         label: root.label,
+        targetClass: root.targetClass,
         // The type's OWN shape -- an override is added there, never to the
         // inherited shape the constraint came from.
         shape: (root.children.find((c) => !c.inheritedFrom) || {}).shape
@@ -196,7 +200,8 @@ class CookedTreeProvider {
     }
     let result;
     try {
-      result = await client.sendRequest('semforge/tree', { uri: this.uri });
+      result = await client.sendRequest('semforge/tree',
+        { uri: this.uri, detail: treeDetail() });
     } catch (error) {
       this.message(`SemForge: ${error.message || error}`);
       return [];
@@ -603,6 +608,14 @@ function register(context, clientHolder, session) {
 
     vscode.commands.registerCommand('semforge.overrideHere', async (node) => {
       const raw = node && node.raw;
+      if (raw && raw.inheritedFrom && !raw.parameter && raw.typeClass) {
+        // A summary row stands for an attribute, not one parameter: the
+        // override is chosen on the type page, where every parameter is.
+        vscode.window.setStatusBarMessage(
+          'SemForge: choose the constraint to tighten on the type page', 5000);
+        return vscode.commands.executeCommand('semforge.openTypePage',
+          { raw: { targetClass: raw.typeClass }, packageUri: node.packageUri });
+      }
       if (!raw || !raw.inheritedFrom || !raw.parameter) {
         vscode.window.showInformationMessage(
           'SemForge: pick an inherited constraint to declare on this type.'

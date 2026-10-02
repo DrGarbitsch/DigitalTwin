@@ -53,6 +53,19 @@
           ],
           "default": "off",
           "description": "Trace the communication between VS Code and the SemForge language server."
+        },
+        "semforge.trees.detail": {
+          "type": "string",
+          "enum": [
+            "summary",
+            "full"
+          ],
+          "default": "summary",
+          "enumDescriptions": [
+            "One row per attribute, said in the type page's words (\"required \u00b7 one \u00b7 \u2192 Filter\"); details and edits on the type page.",
+            "Every SHACL parameter as its own row, editable in place."
+          ],
+          "description": "How much the Constraints, Model and Knowledge trees show."
         }
       }
     },
@@ -457,6 +470,11 @@
           "command": "semforge.openTypePage",
           "when": "view == semforgeModel && viewItem == entity",
           "group": "1_add@2"
+        },
+        {
+          "command": "semforge.openTypePage",
+          "when": "view == semforgeConstraints && viewItem =~ /^(shape|attribute|inherited)$/",
+          "group": "navigation@1"
         }
       ],
       "semforge.project": [

@@ -511,8 +511,8 @@ function typeOf(node) {
   if (!raw) {
     return undefined;
   }
-  return raw.targetClass || (raw.kind === 'class' && raw.iri) || raw.entityType ||
-    raw.iri || undefined;
+  return raw.targetClass || raw.typeClass || (raw.kind === 'class' && raw.iri) ||
+    raw.entityType || raw.iri || undefined;
 }
 
 async function pickType(client, packageUri) {

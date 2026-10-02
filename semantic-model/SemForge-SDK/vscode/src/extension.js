@@ -258,6 +258,14 @@ function activate(context) {
   projectCache.register(context, clientHolder, session, refreshAll);
   // One page per entity type, in the editor area: read there, find in the trees.
   typePages.register(context, clientHolder, session);
+
+  // Summary or full trees: switching re-asks every tree at once.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('semforge.trees.detail')) {
+        refreshAll();
+      }
+    }));
   // Declare an attribute and constrain it, from wherever an extension may put
   // a menu entry -- VS Code gives extensions no top-level menu of their own.
   newAttribute.register(context, clientHolder, session, () => {

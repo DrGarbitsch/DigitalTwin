@@ -39,4 +39,13 @@ async function showLocation(at, focus) {
   );
 }
 
-module.exports = { splitLocation, showLocation };
+/**
+ * How much the trees show: 'summary' (one row per attribute, said in the type
+ * page's words) or 'full' (every SHACL parameter, editable in place).
+ */
+function treeDetail() {
+  const value = vscode.workspace.getConfiguration('semforge').get('trees.detail');
+  return value === 'full' ? 'full' : 'summary';
+}
+
+module.exports = { splitLocation, showLocation, treeDetail };

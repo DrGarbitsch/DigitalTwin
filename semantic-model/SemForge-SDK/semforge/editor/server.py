@@ -353,12 +353,23 @@ def _serialise(node):
     }
 
 
-def _view(root, key, compute):
-    """A view's payload, from the disk cache while the package is unchanged."""
+def _view(root, key, compute, params=None):
+    """A view's payload, from the disk cache while the package is unchanged.
+
+    With `detail: summary` in the request the tree comes back slimmed
+    (editor/slim.py). The full payload is what is cached; the summary is a
+    cheap pass over it, so one entry serves both modes.
+    """
     from .cache import cached
+    from .slim import SLIM
 
     payload, hit = cached(root, key, compute)
-    return dict(payload, cached=hit)
+    payload = dict(payload, cached=hit)
+    if params is not None and _field(params, 'detail') == 'summary' \
+            and key in SLIM and payload.get('roots'):
+        payload['roots'] = SLIM[key](payload['roots'])
+        payload['detail'] = 'summary'
+    return payload
 
 
 def _package_for(root):
@@ -389,7 +400,7 @@ def cooked_tree(ls, params):
     try:
         return _view(root, 'constraints', lambda: {
             'root': root,
-            'roots': [_serialise(node) for node in build_tree(_package_for(root))]})
+            'roots': [_serialise(node) for node in build_tree(_package_for(root))]}, params)
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -459,7 +470,7 @@ def model(ls, params):
         return _view(root, 'model', lambda: {
             'root': root,
             'roots': [_serialise_example(n)
-                      for n in build_suite(_package_for(root))]})
+                      for n in build_suite(_package_for(root))]}, params)
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -545,7 +556,7 @@ def knowledge(ls, params):
         return _view(root, 'knowledge', lambda: {
             'root': root,
             'roots': [_serialise_knowledge(n)
-                      for n in build_knowledge(_package_for(root))]})
+                      for n in build_knowledge(_package_for(root))]}, params)
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 

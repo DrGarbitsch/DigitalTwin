@@ -12,7 +12,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation } = require('./reveal');
+const { showLocation, treeDetail } = require('./reveal');
 
 // The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
 // string and nothing else: a row whose contextValue drifts from what
@@ -344,7 +344,8 @@ class ModelTreeProvider {
     let result;
     try {
       result = await client.sendRequest('semforge/model', {
-        uri: this.uri
+        uri: this.uri,
+        detail: treeDetail()
       });
     } catch (error) {
       // An empty tree with no explanation is the failure mode this project

@@ -11,7 +11,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation } = require('./reveal');
+const { showLocation, treeDetail } = require('./reveal');
 
 class KnowledgeTreeNode {
   constructor(key, raw, packageUri) {
@@ -174,7 +174,8 @@ class KnowledgeTreeProvider {
     let result;
     try {
       result = await client.sendRequest('semforge/knowledge', {
-        uri: this.uri
+        uri: this.uri,
+        detail: treeDetail()
       });
     } catch (error) {
       // An empty tree with no explanation is the failure mode this project
