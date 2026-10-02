@@ -349,6 +349,10 @@ def _example_root(package, example, report, notes=None, shared=None):
                        else [])
 
     own = os.path.join(package.examples_dir, example.path)
+    # The case's own file: what identifies the case to its page, and where
+    # selecting the row lands.
+    node.file = os.path.abspath(own)
+    node.defined_at = f'{node.file}:1'
     node.children.extend(_entity_nodes(own, report, notes=notes))
 
     for included in example.include:

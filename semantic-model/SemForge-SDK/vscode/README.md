@@ -820,6 +820,29 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**The test case page.** A case answers three questions — what it claims,
+whether the claims hold, what data it uses — and the Model tree spread them
+over up to nine levels. The preview button on a case under **Tests** in the Model
+view (or **SemForge: Open test case page**) opens a page that answers them in
+that order:
+
+- **the claim**: *expects invalid · passes*, with `semforge test`'s own failure
+  messages when it does not — the page runs the case exactly as the test
+  runner does, so the two cannot disagree;
+- **claims**: each assert, *holds* or *does not hold*, in plain words
+  ("hasCartridge is required but missing on urn:filter:9"); then everything
+  that fired without being asserted, marked *also fired* — either a second
+  problem the case found, or a sign the data is not what the case means it
+  to be;
+- **data**: the case's own file and each include as sections (an include
+  says how many other cases share it, because an edit there changes them
+  too), one card per entity with its attributes and sub-attributes. A
+  violation sits on the attribute it is about — a missing sub-attribute on
+  the attribute it belongs inside — with SHACL's raw message as the tooltip.
+
+Ids, attributes and files link to their line; an entity's type opens the
+type page.
+
 **Summary trees.** The trees are for finding things; the type page is where a
 type is read and edited. So by default the trees show one row per meaningful
 thing, said once (the `semforge.trees.detail` setting, `summary`):

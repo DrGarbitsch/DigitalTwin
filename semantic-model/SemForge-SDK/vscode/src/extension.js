@@ -25,6 +25,7 @@ const deleteProject = require('./delete');
 const newAttribute = require('./attribute');
 const projectCache = require('./cache');
 const typePages = require('./typepage');
+const casePages = require('./casepage');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -258,6 +259,8 @@ function activate(context) {
   projectCache.register(context, clientHolder, session, refreshAll);
   // One page per entity type, in the editor area: read there, find in the trees.
   typePages.register(context, clientHolder, session);
+  // One page per test case: its claims, whether they hold, its data.
+  casePages.register(context, clientHolder, session);
 
   // Summary or full trees: switching re-asks every tree at once.
   context.subscriptions.push(

@@ -1296,6 +1296,24 @@ def remove_property_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/casePage')
+def case_page_feature(ls, params):
+    """One test case: its claims, whether they hold, its data. Cached."""
+    from ..cooked.casepage import build_case_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    case = str(_field(params, 'case', '') or '')
+    key = 'case-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', case)[-120:]
+    try:
+        page = _view(root, key, lambda: {
+            'page': build_case_page(_package_for(root), case)})
+        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

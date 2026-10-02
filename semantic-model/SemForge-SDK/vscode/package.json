@@ -242,6 +242,11 @@
         "command": "semforge.openTypePage",
         "title": "SemForge: Open entity type page",
         "icon": "$(preview)"
+      },
+      {
+        "command": "semforge.openCasePage",
+        "title": "SemForge: Open test case page",
+        "icon": "$(preview)"
       }
     ],
     "viewsContainers": {
@@ -475,6 +480,11 @@
           "command": "semforge.openTypePage",
           "when": "view == semforgeConstraints && viewItem =~ /^(shape|attribute|inherited)$/",
           "group": "navigation@1"
+        },
+        {
+          "command": "semforge.openCasePage",
+          "when": "view == semforgeModel && viewItem == example",
+          "group": "inline@0"
         }
       ],
       "semforge.project": [
