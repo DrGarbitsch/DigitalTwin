@@ -189,7 +189,155 @@ async function newAttribute(client, packageUri, preset) {
   return made;
 }
 
+// --- deleting one ---------------------------------------------------------------
+
+const DEPENDENT_KIND = {
+  declaration: 'the declaration',
+  constraint: 'property shapes',
+  data: 'entities carrying it',
+  expectation: 'expectation asserts',
+  sparql: 'SPARQL bodies',
+  shapes: 'other shape statements',
+  knowledge: 'other ontology statements'
+};
+
+/** The plan as the modal's detail: what goes, grouped, then what blocks. */
+function describePlan(plan) {
+  const groups = {};
+  for (const dependent of plan.dependents) {
+    (groups[dependent.kind] = groups[dependent.kind] || []).push(dependent);
+  }
+  const lines = [];
+  for (const kind of Object.keys(DEPENDENT_KIND)) {
+    const items = groups[kind];
+    if (!items) {
+      continue;
+    }
+    lines.push(`${DEPENDENT_KIND[kind]} (${items.length})` +
+      (items[0].removable ? '' : ' — must be edited by hand first'));
+    for (const item of items.slice(0, 8)) {
+      lines.push(`   ${item.where}  ${item.detail}`);
+    }
+    if (items.length > 8) {
+      lines.push(`   … and ${items.length - 8} more`);
+    }
+  }
+  return lines.join('\n');
+}
+
+/** Which attribute to delete, when the gesture did not come from a row. */
+async function pickAttributeToDelete(client, packageUri) {
+  let answer;
+  try {
+    answer = await client.sendRequest('semforge/attributes', { uri: packageUri, all: true });
+  } catch (error) {
+    answer = { error: error.message || String(error) };
+  }
+  if (!answer || answer.error) {
+    vscode.window.showErrorMessage(
+      `SemForge: ${(answer && answer.error) || 'the attributes could not be read'}`);
+    return undefined;
+  }
+  const picked = await vscode.window.showQuickPick(
+    (answer.attributes || []).map((a) => ({
+      label: a.term,
+      description: [a.kind, a.domain ? `on ${a.domain}` : 'no domain'].join(' · '),
+      detail: a.comment || '',
+      iri: a.iri
+    })),
+    { title: 'Delete an attribute', placeHolder: 'the dependents are shown before anything is removed',
+      matchOnDescription: true });
+  return picked ? picked.iri : undefined;
+}
+
+/**
+ * Delete an attribute, after showing everything that goes with it.
+ *
+ * Three answers, depending on the plan. Something blocks (a SPARQL body, an
+ * ontology statement): say what and where, offer to open the first, delete
+ * nothing. In use: list every dependent and ask for one yes to remove them
+ * all. Used nowhere: an ordinary confirmation.
+ */
+async function deleteAttribute(client, packageUri, attribute) {
+  const plan = await client.sendRequest('semforge/attributeRemovalPlan',
+    { uri: packageUri, attribute });
+  if (!plan.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${plan.error}`);
+    return false;
+  }
+  const blocking = plan.dependents.filter((d) => !d.removable);
+  if (blocking.length) {
+    const open = await vscode.window.showWarningMessage(
+      `${plan.label} cannot be deleted yet: ${blocking.length} use(s) must be ` +
+        'edited by hand first.',
+      { modal: true, detail: describePlan(plan) },
+      'Open the first one'
+    );
+    if (open === 'Open the first one') {
+      await showLocation(`${blocking[0].file}:${blocking[0].line}`, true);
+    }
+    return false;
+  }
+  const others = plan.dependents.filter((d) => d.kind !== 'declaration');
+  const button = others.length
+    ? `Delete with ${others.length} dependent(s)`
+    : 'Delete';
+  const answer = await vscode.window.showWarningMessage(
+    others.length
+      ? `${plan.label} is in use. Delete it and everything that depends on it?`
+      : `Delete ${plan.label}? It is declared and used nowhere.`,
+    { modal: true, detail: describePlan(plan) },
+    button
+  );
+  if (answer !== button) {
+    return false;
+  }
+  const result = await client.sendRequest('semforge/removeAttribute',
+    { uri: packageUri, attribute: plan.iri, force: true });
+  if (!result.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+    return false;
+  }
+  vscode.window.setStatusBarMessage(
+    `SemForge: ${plan.label} deleted with ${others.length} dependent(s)`, 6000);
+  for (const note of result.notes || []) {
+    vscode.window.showWarningMessage(`SemForge: ${note}`);
+  }
+  return true;
+}
+
+/** The attribute a tree row stands for: its IRI, or its sh:path as written. */
+function attributeOf(node) {
+  const raw = node && node.raw;
+  if (!raw) {
+    return undefined;
+  }
+  if (raw.iri) {
+    return raw.iri;
+  }
+  return raw.path && raw.path.length ? raw.path[raw.path.length - 1] : undefined;
+}
+
 function register(context, clientHolder, session, refresh) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('semforge.deleteAttribute', async (node) => {
+      const client = clientHolder.client;
+      const packageUri = (node && node.packageUri) || session.uri;
+      if (!client || !packageUri) {
+        vscode.window.showWarningMessage(
+          'SemForge: no package is open, or the language server is not running.');
+        return;
+      }
+      const attribute = node && node.raw ? attributeOf(node)
+        : await pickAttributeToDelete(client, packageUri);
+      if (!attribute) {
+        return;
+      }
+      if (await deleteAttribute(client, packageUri, attribute) && refresh) {
+        refresh();
+      }
+    })
+  );
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.newAttribute', async () => {
       const made = await newAttribute(clientHolder.client, session.uri);
@@ -200,4 +348,4 @@ function register(context, clientHolder, session, refresh) {
   );
 }
 
-module.exports = { register, newAttribute, constrainAttribute, pickValue };
+module.exports = { register, newAttribute, constrainAttribute, pickValue, deleteAttribute };

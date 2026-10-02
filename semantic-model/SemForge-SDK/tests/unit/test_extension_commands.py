@@ -1561,3 +1561,99 @@ def test_the_constraint_picker_can_declare_a_new_attribute(tmp_path):
     assert constrained[0]['attribute'] == 'iffBaseEntities:hasLifetime'
     presence = [i['label'] for i in seen['quickPicks'][2]['items']]
     assert presence == ['Optional', 'Required']
+
+
+# --- "SemForge: Delete attribute…" ---------------------------------------------
+
+def _dependent(kind, where, detail, removable=True):
+    return {'kind': kind, 'file': '/pkg/' + where.split(':')[0],
+            'where': where, 'line': int(where.split(':')[1]),
+            'detail': detail, 'removable': removable}
+
+
+IN_USE_PLAN = {'ok': True, 'iri': 'http://example.com/hasWidth', 'label': 'hasWidth',
+               'inUse': True, 'blocking': 0, 'dependents': [
+                   _dependent('declaration', 'knowledge.ttl:75', 'the declaration of hasWidth'),
+                   _dependent('constraint', 'shacl.ttl:296',
+                              'iffBaseShacl:WorkpieceShape: the property shape on the entity'),
+                   _dependent('data', 'model-instance.jsonld:252', 'urn:workpiece:1 carries it')]}
+
+BLOCKED_PLAN = dict(IN_USE_PLAN, label='hasStrength', blocking=1, dependents=[
+    _dependent('declaration', 'knowledge.ttl:69', 'the declaration of hasStrength'),
+    _dependent('sparql', 'shacl.ttl:142',
+               'iffBaseShacl:FilterStrengthShape: a SPARQL body reads it', False)])
+
+UNUSED_PLAN = dict(IN_USE_PLAN, label='hasNothing', inUse=False, dependents=[
+    _dependent('declaration', 'knowledge.ttl:90', 'the declaration of hasNothing')])
+
+
+def _knowledge_row():
+    return {'raw': {'kind': 'attribute', 'label': 'hasWidth',
+                    'iri': 'http://example.com/hasWidth', 'children': []},
+            'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+def _delete(tmp_path, plan, answer=None, node=None, picks=None):
+    return _drive(tmp_path, {
+        'command': 'semforge.deleteAttribute', 'node': node or _knowledge_row(),
+        'answer': answer, 'picks': picks,
+        'replies': {'semforge/attributeRemovalPlan': plan,
+                    'semforge/attributes': {'attributes': [
+                        {'iri': 'http://example.com/hasWidth', 'term': 'iffBaseEntities:hasWidth',
+                         'kind': 'Property', 'domain': 'iffBaseEntities:Workpiece',
+                         'comment': ''}]},
+                    'semforge/removeAttribute': dict(plan, notes=[])}})
+
+
+def test_deleting_an_attribute_in_use_lists_every_dependent_first(tmp_path):
+    seen = _delete(tmp_path, IN_USE_PLAN, answer='Delete with 2 dependent(s)')
+    warning = seen['warnings'][0]
+    assert 'hasWidth is in use' in warning
+    for where in ('shacl.ttl:296', 'model-instance.jsonld:252', 'knowledge.ttl:75'):
+        assert where in warning, f'{where} not shown before deleting'
+    sent = _sent(seen, 'semforge/removeAttribute')
+    assert sent == [{'uri': 'file:///pkg/shacl.ttl',
+                     'attribute': 'http://example.com/hasWidth', 'force': True}]
+
+
+def test_declining_deletes_nothing(tmp_path):
+    seen = _delete(tmp_path, IN_USE_PLAN, answer=None)
+    assert not _sent(seen, 'semforge/removeAttribute')
+
+
+def test_a_blocked_attribute_is_not_deleted_and_says_where(tmp_path):
+    seen = _delete(tmp_path, BLOCKED_PLAN, answer='Open the first one')
+    assert 'cannot be deleted yet' in seen['warnings'][0]
+    assert 'FilterStrengthShape' in seen['warnings'][0]
+    assert not _sent(seen, 'semforge/removeAttribute')
+    assert seen['shown'] and seen['shown'][0]['file'] == '/pkg/shacl.ttl'
+
+
+def test_an_unused_attribute_gets_a_plain_confirmation(tmp_path):
+    seen = _delete(tmp_path, UNUSED_PLAN, answer='Delete')
+    assert 'used nowhere' in seen['warnings'][0]
+    assert _sent(seen, 'semforge/removeAttribute')
+
+
+def test_from_the_palette_the_attribute_is_picked_first(tmp_path):
+    _package_at(str(tmp_path))
+    seen = _drive(tmp_path, {
+        'command': 'semforge.deleteAttribute', 'node': None,
+        'picks': ['iffBaseEntities:hasWidth'], 'answer': None,
+        'replies': {'semforge/attributes': {'attributes': [
+            {'iri': 'http://example.com/hasWidth', 'term': 'iffBaseEntities:hasWidth',
+             'kind': 'Property', 'domain': 'iffBaseEntities:Workpiece', 'comment': ''}]},
+            'semforge/attributeRemovalPlan': IN_USE_PLAN}})
+    asked = _sent(seen, 'semforge/attributeRemovalPlan')
+    assert asked and asked[0]['attribute'] == 'http://example.com/hasWidth'
+
+
+def test_a_constraint_row_is_deleted_by_its_path(tmp_path):
+    node = {'raw': {'kind': 'attribute', 'label': 'hasTrust',
+                    'shape': 'http://example.com/CutterShape',
+                    'path': ['iffBaseEntities:hasFilter', 'iffBaseEntities:hasTrust'],
+                    'children': []},
+            'packageUri': 'file:///pkg/shacl.ttl'}
+    seen = _delete(tmp_path, IN_USE_PLAN, node=node)
+    asked = _sent(seen, 'semforge/attributeRemovalPlan')
+    assert asked[0]['attribute'] == 'iffBaseEntities:hasTrust'

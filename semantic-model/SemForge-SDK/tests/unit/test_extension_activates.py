@@ -28,6 +28,7 @@ EXPECTED = {
     'semforge.editConstraint', 'semforge.removeConstraint',
     'semforge.refreshTree', 'semforge.goToDefinition', 'semforge.overrideHere',
     'semforge.addAttributeConstraint', 'semforge.newAttribute',
+    'semforge.deleteAttribute',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
@@ -271,6 +272,18 @@ def test_new_attribute_is_reachable_wherever_a_menu_can_be():
     hidden = {e['command'] for e in menus.get('commandPalette', [])
               if e.get('when') == 'false'}
     assert 'semforge.newAttribute' not in hidden
+
+
+def test_delete_attribute_is_a_right_click_never_an_inline_icon():
+    """A trash can beside every row is one stray click from a modal."""
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    rows = [e for e in menus['view/item/context']
+            if e.get('command') == 'semforge.deleteAttribute']
+    assert {('semforgeKnowledge' in e['when'], 'semforgeConstraints' in e['when'])
+            for e in rows} == {(True, False), (False, True)}
+    assert all(e['group'] != 'inline' for e in rows)
+    assert 'semforge.deleteAttribute' in [e['command'] for e in menus['semforge.model']]
 
 
 def test_the_project_actions_live_in_one_submenu():

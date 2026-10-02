@@ -257,6 +257,8 @@ function activate(context) {
   newAttribute.register(context, clientHolder, session, () => {
     constraints.refresh();
     knowledge.refresh();
+    // A deletion takes keys out of the data too.
+    model.refresh();
   });
 
   context.subscriptions.push(

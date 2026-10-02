@@ -752,6 +752,38 @@ of entities that never carry it), a sub-attribute, one this shape already
 constrains, and one a supertype's shape constrains — that is an override, and
 **Declare on This Type** is the command that says whether it would take effect.
 
+**Deleting an attribute** is a right-click on its row in the Knowledge or
+Constraints view (**SemForge: Delete attribute…**; from the palette it asks
+which). An attribute is never in one place, so nothing is removed before you
+have seen all of them:
+
+```text
+hasWidth is in use. Delete it and everything that depends on it?
+
+the declaration (1)
+   knowledge.ttl:75  the declaration of hasWidth
+property shapes (1)
+   shacl.ttl:296  iffBaseShacl:WorkpieceShape: the property shape on the entity
+entities carrying it (4)
+   model-instance.jsonld:252  urn:workpiece:1 carries it
+   examples/subobjects/workpiece-steel.jsonld:15  urn:workpiece:1 carries it
+   …
+                                       [ Delete with 5 dependent(s) ]
+```
+
+One yes removes the declaration, every `sh:property` group whose path is the
+attribute (nested ones too, with whatever is nested inside them), the key in
+the model and every example, and each expectation assert naming one of those
+constraints — computed and verified first, then written all at once, or not at
+all. A case left expecting a violation it no longer asserts is called out.
+
+Two kinds of use **block** it instead: a SPARQL constraint or rule that reads
+the attribute, and a shape or ontology statement that names it outside a
+property shape (the kms's `CartridgeShape` uses `hasCartridge` inside a two-hop
+inverse path). A query is not a list of parts — cutting the attribute out of it
+changes what the rule means, and leaving it makes a rule that silently matches
+nothing. The dialog lists them and opens the first, and deletes nothing.
+
 **Go to Definition navigates both views**: it reveals and expands the declaring
 shape in the tree *and* moves the `.ttl` to the line. Jumping only the editor
 would leave you to find the declaring shape in the tree by hand, which is the
@@ -1062,6 +1094,7 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
 | `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Knowledge view title |
+| `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Constraints view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
 | `SemForge: Add Attribute to Shape` | the + on a shape in the Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 
 ## Settings

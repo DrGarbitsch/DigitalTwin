@@ -102,6 +102,11 @@
         "icon": "$(symbol-field)"
       },
       {
+        "command": "semforge.deleteAttribute",
+        "title": "SemForge: Delete attribute\u2026",
+        "icon": "$(trash)"
+      },
+      {
         "command": "semforge.addAttributeConstraint",
         "title": "SemForge: Add Attribute to Shape",
         "icon": "$(add)"
@@ -368,6 +373,16 @@
           "command": "semforge.deleteProject",
           "when": "view == semforgeProject && viewItem == project",
           "group": "inline"
+        },
+        {
+          "command": "semforge.deleteAttribute",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(attribute|attributeWithShape)$/",
+          "group": "9_danger@1"
+        },
+        {
+          "command": "semforge.deleteAttribute",
+          "when": "view == semforgeConstraints && viewItem == attribute",
+          "group": "9_danger@1"
         }
       ],
       "semforge.project": [
@@ -411,6 +426,10 @@
         {
           "command": "semforge.newAttribute",
           "group": "1_model@1"
+        },
+        {
+          "command": "semforge.deleteAttribute",
+          "group": "1_model@2"
         },
         {
           "command": "semforge.revalidate",

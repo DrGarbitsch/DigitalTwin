@@ -802,6 +802,11 @@ def attributes_feature(ls, params):
                     'attributes': [out(e, True)
                                    for e in sub_attributes_for(package, parent)]}
 
+        if _field(params, 'all'):
+            from ..cooked.choices import attribute_terms
+            return {'attributes': [out(e, bool(e.domain_iri))
+                                   for e in attribute_terms(package)
+                                   if e.ngsild]}
         mine, open_ended = attributes_for(package,
                                           _field(params, 'entityType', ''))
         return {'attributes': [out(e, True) for e in mine] +
@@ -846,6 +851,47 @@ def attribute_namespaces_feature(ls, params):
             package, _field(params, 'domain', ''))}
     except Exception as exc:                       # noqa: BLE001
         return {'namespaces': [], 'error': str(exc)}
+
+
+@server.feature('semforge/attributeRemovalPlan')
+def attribute_removal_plan_feature(ls, params):
+    """Everything deleting an attribute would touch. Writes nothing."""
+    from ..cooked.remove_attribute import plan_attribute_removal
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        plan = plan_attribute_removal(package, _field(params, 'attribute'))
+        return dict(plan.as_dict(root), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/removeAttribute')
+def remove_attribute_feature(ls, params):
+    """Delete an attribute and its removable dependents, all or nothing.
+
+    `force` is the author's yes to the plan they were shown; without it an
+    attribute in use is refused, so a client that skipped the plan cannot
+    delete more than it displayed.
+    """
+    from ..cooked.remove_attribute import remove_attribute
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        plan, notes = remove_attribute(package, _field(params, 'attribute'),
+                                       force=bool(_field(params, 'force', False)))
+        _packages.pop(root, None)
+        for path in package.files('shapes'):
+            _publish(ls, _path_to_uri(path))
+        return dict(plan.as_dict(root), ok=True, notes=notes)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
 
 
 @server.feature('semforge/kinds')

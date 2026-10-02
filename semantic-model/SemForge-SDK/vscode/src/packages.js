@@ -159,6 +159,8 @@ const MENU = [
     description: 'name, contexts, namespaces — in the Project view' },
   { label: '$(symbol-field) New attribute…', command: 'semforge.newAttribute',
     description: 'declare it in the knowledge, then constrain it on its shape' },
+  { label: '$(trash) Delete attribute…', command: 'semforge.deleteAttribute',
+    description: 'with everything that depends on it, shown first' },
   { label: '$(check) Revalidate', command: 'semforge.revalidate',
     description: 're-run analysis over the package' },
   { label: '$(new-folder) New project…', command: 'semforge.newProject',

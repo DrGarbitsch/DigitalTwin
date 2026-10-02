@@ -35,6 +35,7 @@ class Reference:
     column: int           # 0-based
     length: int           # characters, so the editor can highlight the term
     declaration: bool     # the subject of a statement about the term
+    quoted: bool = False  # inside a string literal: a SPARQL body, say
 
 
 # --- which term ---------------------------------------------------------------
@@ -154,7 +155,7 @@ def _turtle_references(path, iris):
     subjects = {block.start for block in TurtleIndex(source).blocks}
     return [Reference(path=os.path.abspath(path), line=term.line,
                       column=term.column, length=len(term.raw),
-                      declaration=term.start in subjects)
+                      declaration=term.start in subjects, quoted=term.quoted)
             for term in terms(source) if term.iri in iris]
 
 
