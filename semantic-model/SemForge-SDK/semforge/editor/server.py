@@ -1314,6 +1314,28 @@ def case_page_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/health')
+def health_feature(ls, params):
+    """The package health page: figures, and what needs attention first."""
+    from ..cooked.health import build_health
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        page = _view(root, 'health', lambda: {'page': build_health(_package_for(root))})
+        result = dict(page['page'], ok=True, root=root, cached=page['cached'])
+        # The cache figures are read live: a page about the cache must not be
+        # served from it.
+        from .cache import status
+        state = status(root)
+        result['tiles'] = dict(result['tiles'], cacheViews=len(state['entries']),
+                               cacheCurrent=state['current'])
+        return result
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/override')
 def override(ls, params):
     """Declare an inherited constraint explicitly on the subtype's own shape.

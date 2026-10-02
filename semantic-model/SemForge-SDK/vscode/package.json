@@ -247,6 +247,11 @@
         "command": "semforge.openCasePage",
         "title": "SemForge: Open test case page",
         "icon": "$(preview)"
+      },
+      {
+        "command": "semforge.openHealthPage",
+        "title": "SemForge: Open package health",
+        "icon": "$(pulse)"
       }
     ],
     "viewsContainers": {
@@ -323,6 +328,11 @@
           "command": "semforge.newAttribute",
           "when": "view == semforgeKnowledge",
           "group": "navigation@1"
+        },
+        {
+          "command": "semforge.openHealthPage",
+          "when": "view == semforgeProject",
+          "group": "navigation@0"
         }
       ],
       "view/item/context": [

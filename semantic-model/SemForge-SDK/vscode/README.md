@@ -820,6 +820,24 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**The package health page.** Is this package in good shape, and what needs
+attention first? The first entry of the status bar's SemForge menu (also the
+pulse button on the Project view, or **SemForge: Open package health**) opens
+one page that puts side by side what `test`, `validate`, `check` and
+`--coverage` each answer on their own:
+
+- **figures**: test cases passing, violations in the model, constraints
+  evaluated (the same count `semforge validate` prints), constraints no
+  example makes fire, broken references, and the cache;
+- **needs attention**: one list, errors first — a failing case, a reference
+  that points at nothing, an undeclared attribute in a case — then warnings,
+  where what is broken (a violation in the model) comes before what is merely
+  untested (a constraint that never fired), then notes. Every item has the
+  button that opens what it is about: the case page, the type page, or the
+  line.
+
+**Rescan** on the page rebuilds everything from scratch, ignoring the cache.
+
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
 over up to nine levels. The preview button on a case under **Tests** in the Model

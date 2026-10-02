@@ -152,6 +152,8 @@ function tooltip(session) {
  * Everything here is in the command palette under `SemForge:` as well.
  */
 const MENU = [
+  { label: '$(pulse) Package health', command: 'semforge.openHealthPage',
+    description: 'is it in good shape, and what needs attention first' },
   { label: '$(package) Switch package…', command: 'semforge.selectPackage',
     description: 'which package all three views show' },
   { label: '$(settings-gear) Project settings',
