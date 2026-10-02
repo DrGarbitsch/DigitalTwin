@@ -23,6 +23,7 @@ const knowledgeTree = require('./knowledge');
 const initPackage = require('./init');
 const deleteProject = require('./delete');
 const newAttribute = require('./attribute');
+const projectCache = require('./cache');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -252,6 +253,8 @@ function activate(context) {
   });
   // The one gesture that cannot be undone by another gesture.
   deleteProject.register(context, clientHolder, session, refreshAll);
+  // Rescan and delete the per-package cache of what the views show.
+  projectCache.register(context, clientHolder, session, refreshAll);
   // Declare an attribute and constrain it, from wherever an extension may put
   // a menu entry -- VS Code gives extensions no top-level menu of their own.
   newAttribute.register(context, clientHolder, session, () => {

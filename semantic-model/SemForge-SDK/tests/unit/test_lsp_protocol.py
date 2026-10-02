@@ -720,7 +720,8 @@ def test_the_project_is_answered_and_a_setting_can_be_written(tmp_path, corpus):
         card = live.wait_for(lambda m: m.get('id') == 50)[0]['result']
         assert not card.get('error'), card
         sections = {root['label']: root for root in card['roots']}
-        assert set(sections) == {'Project', 'Settings', 'Contents'}
+        assert set(sections) == {'Project', 'Settings', 'Contents', 'Cache'}
+        assert card['roots'][-1]['kind'] == 'cache', 'the cache row comes last'
 
         rows = {row['label']: row for row in sections['Project']['children']}
         assert rows['path']['value'] == str(target)

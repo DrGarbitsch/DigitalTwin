@@ -103,6 +103,8 @@ class ProjectTreeProvider {
       item.iconPath = new vscode.ThemeIcon('project');
     } else if (raw.severity) {
       item.iconPath = new vscode.ThemeIcon('warning');
+    } else if (raw.kind === 'cache') {
+      item.iconPath = new vscode.ThemeIcon('database');
     } else if (raw.kind === 'namespaces' || raw.kind === 'namespaceEntry') {
       item.iconPath = new vscode.ThemeIcon('symbol-namespace');
     } else if (raw.editable) {

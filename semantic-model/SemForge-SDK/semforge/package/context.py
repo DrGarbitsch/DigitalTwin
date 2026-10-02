@@ -146,31 +146,121 @@ def retarget_model(path, context_value, out_path=None):
     return changed
 
 
+CONTEXT_CACHE = os.path.join('.semforge', 'cache', 'contexts')
+_fetched = {}           # url -> parsed document, for the life of the process
+
+
+def context_cache_dir(package_path):
+    return os.path.join(package_path, CONTEXT_CACHE)
+
+
+def user_context_cache():
+    """Where remote contexts are kept for every package on this machine.
+
+    Per user rather than per package: the NGSI-LD core context is the same
+    document whichever package names it, and fetching it once per package
+    would be the cost this exists to remove, multiplied.
+    """
+    base = os.environ.get('XDG_CACHE_HOME') or os.path.join(
+        os.path.expanduser('~'), '.cache')
+    return os.path.join(base, 'semforge', 'contexts')
+
+
+def install_context_cache():
+    """Make rdflib fetch every remote @context through fetch_context.
+
+    rdflib keeps fetched contexts only per Context object, and every parse
+    makes a new one, so a document naming the NGSI-LD core context downloaded
+    it on every parse: 44 downloads, 9 seconds, in one Knowledge-view build.
+    Wrapping its one fetch function keeps every other behaviour -- the URL
+    stays a URL, resolution and errors are rdflib's -- and removes the network
+    after the first time. Idempotent.
+    """
+    from rdflib.plugins.shared.jsonld import context as jsonld_context
+
+    original = jsonld_context.source_to_json
+    if getattr(original, '_semforge_cached', False):
+        return
+
+    def cached(source, *args, **kwargs):
+        if isinstance(source, str) and source.startswith(('http://', 'https://')):
+            # rdflib does the download on a miss -- its request is the one the
+            # servers already accept -- and what it gets is kept.
+            document = fetch_context(
+                source, user_context_cache(),
+                download=lambda url: original(url, *args, **kwargs)[0])
+            if document is not None:
+                return document, None
+        return original(source, *args, **kwargs)
+
+    cached._semforge_cached = True
+    jsonld_context.source_to_json = cached
+
+
+def _download(url):
+    """The raw bytes of a remote context. Named, with an Accept header: the
+    ETSI server answers a bare urllib request with 403 Forbidden."""
+    from urllib.request import Request, urlopen
+
+    request = Request(url, headers={
+        'Accept': 'application/ld+json, application/json;q=0.9, */*;q=0.1',
+        'User-Agent': 'semforge (+https://github.com/IndustryFusion/DigitalTwin)'})
+    with urlopen(request, timeout=30) as response:                # noqa: S310
+        return response.read()
+
+
+def fetch_context(url, cache_dir=None, download=None):
+    """A remote JSON-LD context document: memory, then disk, then network.
+
+    Fetched once and kept. rdflib fetches a remote @context on EVERY parse and
+    keeps nothing, and the NGSI-LD core context is named by every document in
+    a package -- one Knowledge-view build parsed the examples four times and
+    downloaded it 44 times, which was 9 of its 11 seconds. Returns the parsed
+    document, or None when it is neither cached nor reachable.
+    """
+    import hashlib
+    from urllib.error import URLError
+
+    if url in _fetched:
+        return _fetched[url]
+    cached = None
+    if cache_dir:
+        cached = os.path.join(cache_dir, hashlib.sha256(url.encode()).hexdigest()
+                              + '.jsonld')
+        if os.path.exists(cached):
+            try:
+                with open(cached, encoding='utf-8') as handle:
+                    _fetched[url] = json.load(handle)
+                return _fetched[url]
+            except (OSError, ValueError):
+                pass                       # a torn write; fetch it again
+    try:
+        if download is not None:
+            document = download(url)
+            raw = json.dumps(document).encode()
+        else:
+            raw = _download(url)
+            document = json.loads(raw)
+    except (URLError, OSError, ValueError):
+        return None
+    if not isinstance(document, (dict, list)):
+        return None
+    if cached:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(cached, 'wb') as handle:
+            handle.write(raw)
+    _fetched[url] = document
+    return document
+
+
 def published_terms(config, cache_dir=None):
     """{term: iri} the PUBLISHED context declares, fetched and cached."""
     if not config.published:
         return {}, 'no published context declared'
-    import hashlib
-    from urllib.error import URLError
-    from urllib.request import urlopen
-
-    cached = None
-    if cache_dir:
-        os.makedirs(cache_dir, exist_ok=True)
-        cached = os.path.join(cache_dir, hashlib.sha256(
-            config.published.encode()).hexdigest() + '.jsonld')
-        if os.path.exists(cached):
-            with open(cached, encoding='utf-8') as handle:
-                return _terms(json.load(handle)), ''
-    try:
-        with urlopen(config.published, timeout=30) as response:   # noqa: S310
-            raw = response.read()
-    except (URLError, OSError) as exc:
-        return {}, f'could not fetch the published context: {exc}'
-    if cached:
-        with open(cached, 'wb') as handle:
-            handle.write(raw)
-    return _terms(json.loads(raw)), ''
+    document = fetch_context(config.published, cache_dir)
+    if document is None:
+        return {}, 'could not fetch the published context'
+    return _terms(document), ''
 
 
 def _terms(document):

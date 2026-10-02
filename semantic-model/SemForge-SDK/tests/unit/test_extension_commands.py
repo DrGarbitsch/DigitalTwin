@@ -1908,3 +1908,56 @@ def test_the_knowledge_view_offers_new_sub_attribute_on_attribute_rows():
     rows = [e for e in menus if e.get('command') == 'semforge.newSubAttribute']
     assert {e['group'] for e in rows} == {'inline', '1_add@1'}
     assert all('semforgeKnowledge' in e['when'] for e in rows)
+
+
+# --- the cache ---------------------------------------------------------------------
+
+CACHE_ROW = {'raw': {'kind': 'cache', 'label': 'Cache', 'children': []},
+             'packageUri': 'file:///pkg/shacl.ttl'}
+CACHE_STATE = {'ok': True, 'path': '/pkg/.semforge/cache/views', 'bytes': 40960,
+               'current': 5, 'entries': [{'view': v, 'current': True} for v in
+                                         ('constraints', 'diagnostics', 'knowledge',
+                                          'model', 'project')]}
+
+
+def test_rescan_asks_the_server_to_start_over(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.rescan', 'node': CACHE_ROW,
+                             'replies': {'semforge/rescan': {'ok': True}}})
+    assert _sent(seen, 'semforge/rescan') == [{'uri': 'file:///pkg/shacl.ttl'}]
+    assert any('rescanned' in m for m in seen['messages'])
+
+
+def test_deleting_the_cache_says_what_and_where_first(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.deleteCache', 'node': CACHE_ROW,
+                             'answer': 'Delete the cache',
+                             'replies': {'semforge/cacheStatus': CACHE_STATE,
+                                         'semforge/clearCache': {'ok': True,
+                                                                 'bytes': 40960}}})
+    assert '5 stored view(s), 40 KB' in seen['warnings'][0]
+    assert '/pkg/.semforge/cache/views' in seen['warnings'][0]
+    assert _sent(seen, 'semforge/clearCache') == [
+        {'uri': 'file:///pkg/shacl.ttl', 'contexts': False}]
+
+
+def test_the_downloaded_contexts_go_only_when_asked(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.deleteCache', 'node': CACHE_ROW,
+                             'answer': 'Also delete downloaded contexts',
+                             'replies': {'semforge/cacheStatus': CACHE_STATE,
+                                         'semforge/clearCache': {'ok': True,
+                                                                 'bytes': 0}}})
+    assert _sent(seen, 'semforge/clearCache')[0]['contexts'] is True
+
+
+def test_declining_keeps_the_cache(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.deleteCache', 'node': CACHE_ROW,
+                             'answer': None,
+                             'replies': {'semforge/cacheStatus': CACHE_STATE}})
+    assert not _sent(seen, 'semforge/clearCache')
+
+
+def test_the_cache_row_carries_rescan_and_delete():
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    on_row = {e['command'] for e in menus
+              if e.get('when') == 'view == semforgeProject && viewItem == cache'}
+    assert on_row == {'semforge.rescan', 'semforge.deleteCache'}

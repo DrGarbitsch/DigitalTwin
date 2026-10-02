@@ -820,6 +820,31 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**The cache: why reloading is fast, and how to distrust it.** What every view
+and the Problems panel show is stored beside the package, in
+`.semforge/cache/views/` (one JSON file per view, never committed — it carries
+its own `.gitignore`). Each entry is stamped with a fingerprint of every file
+of the package — path, size, modification time, symlinked folders included —
+and of the SDK's own code; while that fingerprint holds, a reload serves the
+stored result instead of rebuilding it. Any edit, checkout or SDK update
+changes it, and the next request recomputes, so nothing stale is served by
+design. Measured on the kms: a cold start takes about 4.6 s to have all four
+views ready, a reload with nothing changed about 1.6 s (most of it starting
+Python).
+
+The other half of the old wait was the network: every JSON-LD document names
+the NGSI-LD core `@context` by URL, and rdflib downloaded it again on every
+parse — 44 times for one Knowledge-view build. It is now fetched once per
+machine and kept in `~/.cache/semforge/contexts/`, which also makes scanning
+work offline.
+
+The Project view's last row, **Cache**, says how many views are stored and
+whether they are current. Its 🔄 **Rescan** ignores the cache and analyses from
+scratch; its 🗑 **Delete cache…** removes it after saying what and where —
+optionally with the downloaded contexts, which every package on the machine
+shares. Both are also in the status bar menu, and Rescan in the SemForge
+right-click submenu.
+
 **Sanity: references that point at nothing.** Every artifact names terms the
 others are supposed to define, and each link can break without anything
 failing — a `sh:path` to an attribute the knowledge no longer declares still
@@ -1155,6 +1180,8 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
 | `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Knowledge view title |
+| `SemForge: Rescan (ignore the cache)` | throws away everything known about the package and analyses it from scratch; also the 🔄 on the Project view's Cache row |
+| `SemForge: Delete cache…` | removes the package's cache (optionally the downloaded JSON-LD contexts too), after saying what and where; also the 🗑 on the Cache row |
 | `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Constraints view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
 | `SemForge: Add Attribute to Shape` | the + on a shape in the Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 

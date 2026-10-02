@@ -36,6 +36,7 @@ TOKEN = re.compile(r'<[^<>\s]*>|(?:[A-Za-z_][\w.-]*)?:[\w.-]+|[A-Za-z_@][\w.-]*'
 server = LanguageServer('semforge', __version__)
 _packages = {}
 _published = {}            # root -> uris that were last sent findings
+_stamps = {}               # root -> fingerprint the loaded package was read at
 
 
 def _uri_to_path(uri):
@@ -70,6 +71,24 @@ def _token_at(document, position):
     return ''
 
 
+def _findings(root):
+    """{file: [EditorFinding]}, from the disk cache while nothing changed."""
+    from dataclasses import asdict
+
+    from .analysis import EditorFinding
+    from .cache import cached, fingerprint
+
+    def compute():
+        stamp = fingerprint(root)
+        findings, package = analyse(root)
+        _packages[root], _stamps[root] = package, stamp
+        return {path: [asdict(f) for f in items] for path, items in findings.items()}
+
+    stored, _ = cached(root, 'diagnostics', compute)
+    return {path: [EditorFinding(**f) for f in items]
+            for path, items in stored.items()}
+
+
 def _publish(ls, uri):
     """Analyse the package this file belongs to and publish its diagnostics."""
     path = _uri_to_path(uri)
@@ -79,7 +98,7 @@ def _publish(ls, uri):
             types.PublishDiagnosticsParams(uri=uri, diagnostics=[]))
         return
     try:
-        findings, package = analyse(root)
+        findings = _findings(root)
     except Exception as exc:                       # noqa: BLE001
         # A broken package must not silence the server: report the failure as a
         # diagnostic rather than leaving the editor showing a clean file.
@@ -90,7 +109,6 @@ def _publish(ls, uri):
                 severity=types.DiagnosticSeverity.Error, source='semforge')]))
         return
 
-    _packages[root] = package
     for file_path, items in findings.items():
         diagnostics = []
         for finding in items:
@@ -132,9 +150,9 @@ def did_save(ls, params):
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls, params):
     root = package_root(_uri_to_path(params.text_document.uri))
-    package = _packages.get(root)
-    if package is None:
+    if root is None:
         return None
+    package = _package_for(root)
     document = ls.workspace.get_text_document(params.text_document.uri)
     markdown = hover_at(package, _word_at(document, params.position))
     if not markdown:
@@ -146,9 +164,9 @@ def hover(ls, params):
 @server.feature(types.TEXT_DOCUMENT_DEFINITION)
 def definition(ls, params):
     root = package_root(_uri_to_path(params.text_document.uri))
-    package = _packages.get(root)
-    if package is None:
+    if root is None:
         return None
+    package = _package_for(root)
     document = ls.workspace.get_text_document(params.text_document.uri)
     found = definition_at(package, _word_at(document, params.position))
     if found is None:
@@ -163,9 +181,9 @@ def definition(ls, params):
 @server.feature(types.TEXT_DOCUMENT_REFERENCES)
 def references(ls, params):
     path = _uri_to_path(params.text_document.uri)
-    package = _packages.get(package_root(path))
-    if package is None:
+    if package_root(path) is None:
         return None
+    package = _package_for(package_root(path))
     document = ls.workspace.get_text_document(params.text_document.uri)
     found = references_at(package, _token_at(document, params.position), path,
                           include_declaration=params.context.include_declaration)
@@ -335,11 +353,28 @@ def _serialise(node):
     }
 
 
-def _package_for(root):
-    from ..package import load
+def _view(root, key, compute):
+    """A view's payload, from the disk cache while the package is unchanged."""
+    from .cache import cached
 
-    if root not in _packages:
+    payload, hit = cached(root, key, compute)
+    return dict(payload, cached=hit)
+
+
+def _package_for(root):
+    """The loaded package, reloaded whenever its files changed.
+
+    Keyed on the same fingerprint the disk cache uses: a checkout or an edit
+    in another editor changes it just as the server's own writes do, and a
+    view must never be computed from a package that is no longer on disk.
+    """
+    from ..package import load
+    from .cache import fingerprint
+
+    stamp = fingerprint(root)
+    if _stamps.get(root) != stamp or root not in _packages:
         _packages[root] = load(root)
+        _stamps[root] = stamp
     return _packages[root]
 
 
@@ -352,9 +387,9 @@ def cooked_tree(ls, params):
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
-        package = _package_for(root)
-        return {'root': root,
-                'roots': [_serialise(node) for node in build_tree(package)]}
+        return _view(root, 'constraints', lambda: {
+            'root': root,
+            'roots': [_serialise(node) for node in build_tree(_package_for(root))]})
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -421,10 +456,10 @@ def model(ls, params):
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
-        package = _package_for(root)
-        return {'root': root,
-                'roots': [_serialise_example(n)
-                          for n in build_suite(package)]}
+        return _view(root, 'model', lambda: {
+            'root': root,
+            'roots': [_serialise_example(n)
+                      for n in build_suite(_package_for(root))]})
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -507,10 +542,10 @@ def knowledge(ls, params):
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
-        package = _package_for(root)
-        return {'root': root,
-                'roots': [_serialise_knowledge(n)
-                          for n in build_knowledge(package)]}
+        return _view(root, 'knowledge', lambda: {
+            'root': root,
+            'roots': [_serialise_knowledge(n)
+                      for n in build_knowledge(_package_for(root))]})
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -523,6 +558,69 @@ def _serialise_project(node):
         'severity': node.severity,
         'children': [_serialise_project(child) for child in node.children],
     }
+
+
+def _cache_row(root):
+    from .cache import status
+
+    state = status(root)
+    views = len(state['entries'])
+    if not views:
+        value = 'empty -- the next scan fills it'
+    else:
+        kib = max(1, round(state['bytes'] / 1024))
+        fresh = ('all current' if state['current'] == views
+                 else f"{state['current']} of {views} current")
+        value = f'{views} view(s) · {kib} KB · {fresh}'
+    return {'kind': 'cache', 'label': 'Cache', 'detail':
+            'What the views and the Problems panel show, stored per package '
+            'and reused while no file of the package (and no SDK file) has '
+            'changed. Rescan rebuilds it; deleting it costs only the next '
+            'scan.', 'value': value, 'key': '', 'doc': state['path'],
+            'editable': False, 'definedAt': '', 'severity': '',
+            'children': []}
+
+
+@server.feature('semforge/cacheStatus')
+def cache_status_feature(ls, params):
+    from .cache import status
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    return dict(status(root), ok=True, root=root)
+
+
+@server.feature('semforge/rescan')
+def rescan_feature(ls, params):
+    """Throw away everything known about the package and analyse it again.
+
+    The escape hatch for the case the fingerprint cannot see -- a change it
+    does not track, or a cache somebody distrusts. The views recompute on
+    their next request, which the client makes right after.
+    """
+    from .cache import clear
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    clear(root)
+    _packages.pop(root, None)
+    _stamps.pop(root, None)
+    _publish(ls, _path_to_uri(root))
+    return {'ok': True, 'root': root}
+
+
+@server.feature('semforge/clearCache')
+def clear_cache_feature(ls, params):
+    """Delete the package's cache; with `contexts`, the downloaded ones too."""
+    from .cache import clear
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    freed = clear(root, contexts=bool(_field(params, 'contexts', False)))
+    return {'ok': True, 'root': root, 'bytes': freed}
 
 
 @server.feature('semforge/project')
@@ -539,9 +637,14 @@ def project(ls, params):
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
-        package = _package_for(root)
-        return {'root': root,
-                'roots': [_serialise_project(n) for n in build_project(package)]}
+        payload = _view(root, 'project', lambda: {
+            'root': root,
+            'roots': [_serialise_project(n)
+                      for n in build_project(_package_for(root))]})
+        # Added after the cache is read: a row about the cache must never be
+        # served FROM it.
+        payload['roots'] = payload['roots'] + [_cache_row(root)]
+        return payload
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 

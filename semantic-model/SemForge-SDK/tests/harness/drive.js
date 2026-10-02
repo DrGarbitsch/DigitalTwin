@@ -160,6 +160,7 @@ const stub = {
     },
     createOutputChannel: () => ({ appendLine: noop, show: noop }),
     setStatusBarMessage: (message) => seen.messages.push(message),
+    withProgress: (options, task) => task({ report: noop }),
     // The status bar is where "which package am I on" is answered, so a test
     // has to be able to read it.
     createStatusBarItem: () => {
@@ -200,6 +201,7 @@ const stub = {
   },
   ThemeIcon: class { constructor(i) { this.id = i; } },
   QuickPickItemKind: { Separator: -1, Default: 0 },
+  ProgressLocation: { SourceControl: 1, Window: 10, Notification: 15 },
   TreeItem: class { constructor(l, c) { this.label = l; this.collapsibleState = c; } },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   Position: class { constructor(line, character) { this.line = line; this.character = character; } },
