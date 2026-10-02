@@ -248,3 +248,52 @@ def references_to(package, iris):
             seen.add(key)
             unique.append(reference)
     return unique
+
+
+def used_iris(package):
+    """Every IRI some artifact USES -- a shape, a query, a document, or an
+    ontology statement about something else. One pass over every file, for a
+    question asked of every declared attribute at once ("is this used at all")
+    where asking references_to once per attribute would read the package
+    twenty times.
+    """
+    from ..cooked.knowledge import example_files
+    from ..rdfio import TurtleIndex
+
+    used = set()
+    for role in ('shapes', 'knowledge'):
+        for path in package.files(role):
+            if not (path.endswith('.ttl') and os.path.isfile(path)):
+                continue
+            source = _read(path)
+            subjects = {block.start for block in TurtleIndex(source).blocks}
+            for term in terms(source):
+                # A statement's own subject is a declaration, not a use.
+                if role == 'knowledge' and term.start in subjects:
+                    continue
+                used.add(term.iri)
+    expander = _Expander(package)
+    for path in example_files(package):
+        expand = expander.for_file(path)
+        if expand is None:
+            continue
+        try:
+            document = json.loads(_read(path))
+        except Exception:                          # noqa: BLE001
+            continue
+
+        def walk(node):
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+            elif isinstance(node, dict):
+                for key, value in node.items():
+                    if key == '@context':
+                        continue
+                    used.add(expand(key))
+                    if isinstance(value, str):
+                        used.add(expand(value))
+                    walk(value)
+        walk(document)
+    used.discard(None)
+    return used

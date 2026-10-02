@@ -200,6 +200,10 @@
         "title": "Delete project\u2026",
         "category": "SemForge",
         "icon": "$(trash)"
+      },
+      {
+        "command": "semforge.removeUse",
+        "title": "SemForge: Remove this use"
       }
     ],
     "viewsContainers": {
@@ -438,6 +442,12 @@
         {
           "command": "semforge.doctor",
           "group": "9_help@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "semforge.removeUse",
+          "when": "false"
         }
       ]
     },

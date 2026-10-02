@@ -35,6 +35,7 @@ TOKEN = re.compile(r'<[^<>\s]*>|(?:[A-Za-z_][\w.-]*)?:[\w.-]+|[A-Za-z_@][\w.-]*'
 
 server = LanguageServer('semforge', __version__)
 _packages = {}
+_published = {}            # root -> uris that were last sent findings
 
 
 def _uri_to_path(uri):
@@ -100,9 +101,22 @@ def _publish(ls, uri):
                 message=finding.message,
                 severity=SEVERITY.get(finding.severity,
                                       types.DiagnosticSeverity.Information),
-                source=f'semforge ({finding.kind})'))
+                source=f'semforge ({finding.kind})',
+                code=finding.code or None,
+                # Round-trips through the client untouched: the quick fix
+                # reads it back from the diagnostic it was offered on.
+                data=finding.data))
         ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
             uri=_path_to_uri(file_path), diagnostics=diagnostics))
+
+    # A file that HAD findings and has none now must be told so: an LSP client
+    # keeps the last list it was sent per document, so fixing the last problem
+    # in a .jsonld would leave its squiggle standing forever.
+    now = {_path_to_uri(path) for path, items in findings.items() if items}
+    for stale in _published.get(root, set()) - now:
+        ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
+            uri=stale, diagnostics=[]))
+    _published[root] = now
 
 
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
@@ -164,6 +178,94 @@ def _range_of(reference):
     line = reference.line - 1
     return types.Range(types.Position(line, reference.column),
                        types.Position(line, reference.column + reference.length))
+
+
+def _local(iri):
+    return str(iri).rstrip('/#').rsplit('/', 1)[-1].rsplit('#', 1)[-1]
+
+
+def _fixes_for(diagnostic, uri):
+    """The quick fixes one sanity diagnostic offers, as client commands.
+
+    Commands rather than workspace edits: "Declare it" needs the author's
+    answers (which type carries it, what kind it is), and the removals are
+    span edits only the server knows how to make safely. The data each needs
+    rode along on the diagnostic when it was published.
+    """
+    data = diagnostic.data if isinstance(diagnostic.data, dict) else {}
+    code = data.get('code', '')
+    subject = data.get('subject', '')
+    actions = []
+
+    def action(title, command, argument, preferred=False):
+        actions.append(types.CodeAction(
+            title=title, kind=types.CodeActionKind.QuickFix,
+            diagnostics=[diagnostic], is_preferred=preferred,
+            command=types.Command(title=title, command=command,
+                                  arguments=[argument])))
+
+    if data.get('declare'):
+        action(f'Declare {_local(data["declare"])} in the knowledge',
+               'semforge.newAttribute',
+               {'packageUri': uri, 'iri': data['declare']}, preferred=True)
+    if code == 'undeclared-path':
+        action(f'Remove this property shape for {_local(subject)}',
+               'semforge.removeUse',
+               {'uri': uri, 'kind': 'property', 'file': data.get('file'),
+                'offset': data.get('offset'), 'label': _local(subject)})
+    elif code == 'undeclared-key':
+        action(f'Remove {_local(subject)} from this entity',
+               'semforge.removeUse',
+               {'uri': uri, 'kind': 'key', 'file': _uri_to_path(uri),
+                'line': diagnostic.range.start.line + 1, 'iri': subject,
+                'label': _local(subject)})
+    elif code == 'stale-assert':
+        action('Remove this assert', 'semforge.removeUse',
+               {'uri': uri, 'kind': 'assert', 'file': data.get('file'),
+                'case': data.get('case'), 'index': data.get('index'),
+                'label': subject}, preferred=True)
+    elif code == 'unused-attribute':
+        action(f'Delete {_local(subject)}…', 'semforge.deleteAttribute',
+               {'packageUri': uri, 'raw': {'iri': subject}}, preferred=True)
+    return actions
+
+
+@server.feature(types.TEXT_DOCUMENT_CODE_ACTION)
+def code_action(ls, params):
+    actions = []
+    for diagnostic in params.context.diagnostics or []:
+        if str(diagnostic.source or '').startswith('semforge'):
+            actions += _fixes_for(diagnostic, params.text_document.uri)
+    return actions or None
+
+
+@server.feature('semforge/removeUse')
+def remove_use_feature(ls, params):
+    """Remove exactly one use, at the place a sanity finding marked."""
+    from ..cooked.remove_use import remove_assert, remove_key_at, remove_property_at
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        kind = _field(params, 'kind')
+        target = _field(params, 'file')
+        note = ''
+        if kind == 'property':
+            remove_property_at(target, int(_field(params, 'offset')))
+        elif kind == 'key':
+            remove_key_at(_package_for(root), target, int(_field(params, 'line')),
+                          _field(params, 'iri'))
+        elif kind == 'assert':
+            note = remove_assert(target, _field(params, 'case'),
+                                 int(_field(params, 'index')))
+        else:
+            return {'ok': False, 'error': f'nothing knows how to remove a {kind}'}
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(target))
+        return {'ok': True, 'file': target, 'note': note}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
 
 
 @server.feature(types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)

@@ -76,8 +76,14 @@ class CoverageEntry:
         return 'two-sided'
 
 
-def evaluate(example, report):
-    """Check one example's report against its declared expectations."""
+def evaluate(example, report, known=None):
+    """Check one example's report against its declared expectations.
+
+    `known` is every constraint a shape declares (sanity.known_constraints).
+    With it, an assert naming a constraint that does not exist says so --
+    "did not fire" sends the reader looking for a data problem that is not
+    there.
+    """
     outcome = TestOutcome(example=example.path)
 
     violations = report.violations
@@ -90,6 +96,12 @@ def evaluate(example, report):
     for assertion in example.asserts:
         wanted = (assertion.get('resource', ''), assertion['constraint'])
         if wanted not in fired:
+            if known is not None and assertion['constraint'] not in known:
+                outcome.fail(
+                    f'asserts {assertion["constraint"]}, a constraint no shape '
+                    f'declares -- it can never fire. Was it renamed or '
+                    f'removed? `semforge check` lists every such assert.')
+                continue
             outcome.fail(
                 f'asserted {assertion["constraint"]} to fire'
                 + (f' on {wanted[0]}' if wanted[0] else '')
@@ -111,9 +123,10 @@ def evaluate(example, report):
     return outcome
 
 
-def run_tests(examples_and_reports):
+def run_tests(examples_and_reports, known=None):
     """[(Example, Report)] -> [TestOutcome]."""
-    return [evaluate(example, report) for example, report in examples_and_reports]
+    return [evaluate(example, report, known)
+            for example, report in examples_and_reports]
 
 
 def coverage(examples_and_reports):

@@ -793,6 +793,31 @@ inverse path). A query is not a list of parts — cutting the attribute out of i
 changes what the rule means, and leaving it makes a rule that silently matches
 nothing. The dialog lists them and opens the first, and deletes nothing.
 
+**Sanity: references that point at nothing.** Every artifact names terms the
+others are supposed to define, and each link can break without anything
+failing — a `sh:path` to an attribute the knowledge no longer declares still
+parses and still validates; a SPARQL body reading a removed attribute matches
+nothing, which looks exactly like a rule that is satisfied. So the Problems
+panel reports each broken link on the line that holds it:
+
+| Finding | Where | Level | Quick fix (💡) |
+|---|---|---|---|
+| `sh:path` names an undeclared attribute | the `sh:path` line in `shacl.ttl` | error | Declare it · Remove this property shape |
+| a data key no knowledge file declares | the key's line in the `.jsonld` | error in a case, info in the scratchpad | Declare it · Remove it from this entity |
+| a SPARQL body names an undeclared term of the package's own namespaces | the line inside the query | warning — a query is checked by token, not meaning | Declare it |
+| `sh:class` / `sh:targetClass` names an undeclared class | the shape line | error | — |
+| an expectation asserts a constraint no shape declares | the `constraint:` line in `expectations.yaml` | error | Remove this assert |
+| a declared attribute nothing uses | its declaration in `knowledge.ttl` | info | Delete it… |
+
+**Declare it** opens the New attribute flow with the name and namespace the use
+already wrote, so only the type and the kind are asked. **Remove this…** takes
+exactly the marked thing and refuses if the file has changed since it was
+checked. A file whose last problem is fixed is told so, rather than keeping a
+stale squiggle. `semforge test` now says *"a constraint no shape declares"* for
+a stale assert instead of *"did not fire"*, and **`semforge check`** reports
+the same findings in a terminal — exit 1 on an error (`--strict`: on a warning
+too), so a broken link cannot reach CI unnoticed.
+
 **Go to Definition navigates both views**: it reveals and expands the declaring
 shape in the tree *and* moves the `.ttl` to the line. Jumping only the editor
 would leave you to find the declaring shape in the tree by hand, which is the

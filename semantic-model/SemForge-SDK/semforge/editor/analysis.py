@@ -45,9 +45,14 @@ class EditorFinding:
     line: int                 # 1-based
     severity: str             # error | warning | info | hint
     kind: str                 # capability | view | unexercised | fires |
-    #                           identity | vocabulary | prefix
+    #                           identity | vocabulary | prefix | sanity
     message: str
     subject: str = ''
+    # What a quick fix needs: a stable code naming the kind of problem, and
+    # the data to act on it (sanity.SanityFinding.fix). Empty for findings no
+    # fix exists for.
+    code: str = ''
+    data: dict = None
 
 
 def package_root(path):
@@ -144,6 +149,31 @@ def analyse(root, profile_name='shacl2flink'):
                                       subject=finding.namespace))
     except Exception:                              # noqa: BLE001
         pass            # `semforge prefixes` tells this better than a squiggle
+
+    # References that point at nothing, across artifacts: a sh:path or a
+    # query naming an attribute the knowledge no longer declares, an assert on
+    # a constraint no shape has, a declaration nothing uses. Each lands on the
+    # line that holds it, with what its quick fix needs.
+    from ..sanity import sanity
+
+    for finding in sanity(package):
+        findings.setdefault(finding.file, []).append(EditorFinding(
+            line=finding.line, severity=finding.severity, kind='sanity',
+            message=finding.message, subject=finding.subject,
+            code=finding.code, data=dict(finding.fix, code=finding.code,
+                                         subject=finding.subject)))
+
+    # The vocabulary finding for an undeclared data key gets a quick fix too:
+    # the same "Declare it" an undeclared sh:path has.
+    for items in findings.values():
+        for position, finding in enumerate(items):
+            if finding.kind == 'vocabulary' and not finding.code:
+                items[position] = EditorFinding(
+                    line=finding.line, severity=finding.severity,
+                    kind=finding.kind, message=finding.message,
+                    subject=finding.subject, code='undeclared-key',
+                    data={'code': 'undeclared-key', 'declare': finding.subject,
+                          'subject': finding.subject})
 
     report = validate_package(package, strict=False)
 

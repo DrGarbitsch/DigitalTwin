@@ -676,8 +676,11 @@ async function pickNamespace(client, packageUri, entityType, name) {
 }
 
 /** Declare an attribute in knowledge.ttl, and return it ready to use. */
-async function declareAttribute(client, packageUri, entityType) {
-  const name = await vscode.window.showInputBox({
+async function declareAttribute(client, packageUri, entityType, given) {
+  // `given` comes from a quick fix on a use of an undeclared term: the name
+  // and namespace are already settled by that use, so asking again would only
+  // invite a typo that leaves the use as undeclared as before.
+  const name = given && given.name ? given.name : await vscode.window.showInputBox({
     title: 'New attribute',
     prompt: 'Name, e.g. hasPressure — or prefix:hasPressure to choose its ' +
       'namespace. It is declared in the knowledge.',
@@ -689,7 +692,9 @@ async function declareAttribute(client, packageUri, entityType) {
   if (!name) {
     return undefined;
   }
-  const namespace = await pickNamespace(client, packageUri, entityType, name);
+  const namespace = given && given.namespace
+    ? given.namespace
+    : await pickNamespace(client, packageUri, entityType, name);
   if (namespace === undefined) {
     return undefined;
   }

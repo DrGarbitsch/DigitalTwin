@@ -1678,3 +1678,67 @@ def test_an_unused_attribute_is_not_offered_the_declaration_only_choice(tmp_path
     seen = _delete(tmp_path, UNUSED_PLAN, answer='Delete declaration only')
     assert not _sent(seen, 'semforge/removeAttribute'), \
         'there are no uses to leave behind, so the choice must not exist'
+
+
+# --- the sanity quick fixes ------------------------------------------------------
+
+def test_declare_it_takes_the_name_from_the_use_and_asks_only_the_rest(tmp_path):
+    _package_at(str(tmp_path))
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newAttribute',
+        'node': {'packageUri': 'file:///pkg/shacl.ttl',
+                 'iri': 'https://example.org/entities/hasWidth'},
+        'picks': ['Filter', 'Property', 'Not now'], 'inputs': [''],
+        'replies': {'semforge/entityTypes': ENTITY_TYPES,
+                    'semforge/attributeNamespaces': NAMESPACES,
+                    'semforge/addAttributeTerm': DECLARED}})
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared, seen['errors']
+    assert declared[0]['name'] == 'hasWidth'
+    assert declared[0]['namespace'] == 'https://example.org/entities/'
+    assert [i['title'] for i in seen['inputs']] != ['New attribute'], \
+        'the name was asked again'
+    assert not _sent(seen, 'semforge/attributeNamespaces')
+
+
+def test_declare_it_keeps_a_prefixed_term_whole(tmp_path):
+    _package_at(str(tmp_path))
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newAttribute',
+        'node': {'packageUri': 'file:///pkg/shacl.ttl',
+                 'iri': 'iffBaseEntities:hasWidth'},
+        'picks': ['Filter', 'Property', 'Not now'], 'inputs': [''],
+        'replies': {'semforge/entityTypes': ENTITY_TYPES,
+                    'semforge/attributeNamespaces': NAMESPACES,
+                    'semforge/addAttributeTerm': DECLARED}})
+    declared = _sent(seen, 'semforge/addAttributeTerm')
+    assert declared[0]['name'] == 'iffBaseEntities:hasWidth'
+
+
+def test_remove_this_use_sends_the_marked_place_and_shows_the_note(tmp_path):
+    fix = {'uri': 'file:///pkg/x.yaml', 'kind': 'assert', 'file': '/pkg/x.yaml',
+           'case': 'too-high.jsonld', 'index': 0, 'label': 'S/a/C'}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.removeUse', 'node': fix,
+        'replies': {'semforge/removeUse': {
+            'ok': True, 'file': '/pkg/x.yaml',
+            'note': 'too-high.jsonld expects a violation but no longer asserts one'}}})
+    assert _sent(seen, 'semforge/removeUse') == [fix]
+    assert any('no longer asserts' in w for w in seen['warnings'])
+
+
+def test_a_refused_removal_reaches_the_user(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.removeUse',
+        'node': {'uri': 'file:///pkg/x', 'kind': 'key', 'label': 'hasWidth'},
+        'replies': {'semforge/removeUse': {'ok': False,
+                                           'error': 'the file has changed'}}})
+    assert any('has changed' in e for e in seen['errors'])
+
+
+def test_remove_this_use_is_not_in_the_palette():
+    """It only means something with the finding it was offered on."""
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    hidden = {e['command'] for e in menus['commandPalette'] if e['when'] == 'false'}
+    assert hidden == {'semforge.removeUse'}

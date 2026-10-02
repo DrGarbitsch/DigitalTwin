@@ -37,6 +37,7 @@ venv/bin/python -m semforge explain tests/corpus/kms StateOnFilterShape
 venv/bin/python -m semforge accept tests/corpus/kms
 venv/bin/python -m semforge export tests/corpus/kms -o /tmp/kms --mode broker
 venv/bin/python -m semforge validate tests/corpus/kms --cross-check sqlite
+venv/bin/python -m semforge check tests/corpus/kms [--strict]   # links that point at nothing
 venv/bin/python -m semforge where                 # which package applies here
 venv/bin/python -m semforge diff <before> <after>
 venv/bin/python -m semforge observe tests/corpus/kms

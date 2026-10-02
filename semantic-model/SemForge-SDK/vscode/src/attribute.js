@@ -151,7 +151,23 @@ async function pickEntityType(client, packageUri) {
  * The whole flow. `preset` may already name the type ({entityType, shape,
  * label}) -- the Constraints view's + knows which shape it was clicked on.
  */
-async function newAttribute(client, packageUri, preset) {
+/**
+ * The name and namespace a quick fix already knows, from the term as the use
+ * wrote it: a full IRI splits into namespace and name; a prefixed name is
+ * passed whole, because the server honours a typed prefix.
+ */
+function givenFromTerm(term) {
+  if (!term) {
+    return undefined;
+  }
+  const cut = Math.max(term.lastIndexOf('/'), term.lastIndexOf('#'));
+  if (term.includes('://') && cut > 0) {
+    return { name: term.slice(cut + 1), namespace: term.slice(0, cut + 1) };
+  }
+  return { name: term, namespace: '' };
+}
+
+async function newAttribute(client, packageUri, preset, given) {
   if (!client) {
     vscode.window.showErrorMessage(
       'SemForge: the language server is not running — run "SemForge: Doctor".');
@@ -173,7 +189,7 @@ async function newAttribute(client, packageUri, preset) {
                hasShape: Boolean(type.ownShape) };
   }
 
-  const made = await declareAttribute(client, packageUri, target.entityType);
+  const made = await declareAttribute(client, packageUri, target.entityType, given);
   if (!made) {
     return undefined;
   }
@@ -368,9 +384,35 @@ function register(context, clientHolder, session, refresh) {
     })
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand('semforge.newAttribute', async () => {
-      const made = await newAttribute(clientHolder.client, session.uri);
+    // With an argument it is the quick fix "Declare it": the term is the one
+    // the marked use names, so only the type and the kind are asked.
+    vscode.commands.registerCommand('semforge.newAttribute', async (fix) => {
+      const packageUri = (fix && fix.packageUri) || session.uri;
+      const made = await newAttribute(clientHolder.client, packageUri, undefined,
+        fix && fix.iri ? givenFromTerm(fix.iri) : undefined);
       if (made && refresh) {
+        refresh();
+      }
+    }),
+
+    // The quick fix "Remove this use": exactly the marked property shape,
+    // data key or assert, nothing else. Not in the palette -- it only means
+    // something with the finding it was offered on.
+    vscode.commands.registerCommand('semforge.removeUse', async (fix) => {
+      const client = clientHolder.client;
+      if (!client || !fix) {
+        return;
+      }
+      const result = await client.sendRequest('semforge/removeUse', fix);
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return;
+      }
+      vscode.window.setStatusBarMessage(`SemForge: removed ${fix.label || 'it'}`, 5000);
+      if (result.note) {
+        vscode.window.showWarningMessage(`SemForge: ${result.note}`);
+      }
+      if (refresh) {
         refresh();
       }
     })

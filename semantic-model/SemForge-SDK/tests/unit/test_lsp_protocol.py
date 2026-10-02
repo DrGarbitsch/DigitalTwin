@@ -463,6 +463,68 @@ def test_an_attribute_is_added_to_a_shape_over_the_protocol(tmp_path, corpus):
         live.close()
 
 
+def test_a_sanity_finding_is_fixed_and_its_squiggle_cleared(tmp_path, corpus_path):
+    """The whole loop over real stdio: a stale assert is published with its
+    fix data, the code action offers the fix, removeUse applies it, and the
+    server tells the client that file is now clean -- an LSP client keeps the
+    last list it was sent, so silence would leave the squiggle standing."""
+    import shutil
+
+    package = tmp_path / 'kms'
+    shutil.copytree(corpus_path, package, symlinks=False,
+                    ignore=shutil.ignore_patterns('.semforge'))
+    yaml_path = package / 'examples' / 'test_WorkpieceShape' / 'bad' / 'expectations.yaml'
+    yaml_path.write_text(yaml_path.read_text().replace(
+        'hasHeight/MaxInclusive', 'hasNoSuchThing/MaxInclusive'))
+    yaml_uri = 'file://' + str(yaml_path)
+    document = str(package / 'shacl.ttl')
+
+    def stale(message):
+        return (message.get('method') == 'textDocument/publishDiagnostics'
+                and message['params']['uri'] == yaml_uri)
+
+    live = Session(document)
+    try:
+        live.send({'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+                   'params': {'processId': os.getpid(),
+                              'rootUri': 'file://' + str(package),
+                              'capabilities': {}}})
+        assert live.wait_for(lambda m: m.get('id') == 1)
+        live.send({'jsonrpc': '2.0', 'method': 'initialized', 'params': {}})
+        live.send({'jsonrpc': '2.0', 'method': 'textDocument/didOpen',
+                   'params': {'textDocument': {
+                       'uri': 'file://' + document, 'languageId': 'turtle',
+                       'version': 1, 'text': open(document).read()}}})
+
+        published = live.wait_for(stale)
+        assert published, 'the stale assert was never reported'
+        diagnostic = next(d for d in published[0]['params']['diagnostics']
+                          if d.get('code') == 'stale-assert')
+        assert diagnostic['data']['case'] == 'too-high.jsonld'
+
+        live.send({'jsonrpc': '2.0', 'id': 51, 'method': 'textDocument/codeAction',
+                   'params': {'textDocument': {'uri': yaml_uri},
+                              'range': diagnostic['range'],
+                              'context': {'diagnostics': [diagnostic]}}})
+        actions = live.wait_for(lambda m: m.get('id') == 51)[0]['result']
+        fix = next(a for a in actions if a['title'] == 'Remove this assert')
+        assert fix['command']['command'] == 'semforge.removeUse'
+
+        before = len(live.messages)
+        live.send({'jsonrpc': '2.0', 'id': 52, 'method': 'semforge/removeUse',
+                   'params': fix['command']['arguments'][0]})
+        done = live.wait_for(lambda m: m.get('id') == 52)[0]['result']
+        assert done['ok'], done.get('error')
+        assert 'hasNoSuchThing' not in yaml_path.read_text()
+
+        def cleared(message):
+            return (stale(message) and not message['params']['diagnostics']
+                    and live.messages.index(message) >= before)
+        assert live.wait_for(cleared), 'the fixed file was never told it is clean'
+    finally:
+        live.close()
+
+
 def test_value_choices_arrive_over_the_protocol(session):
     """Editing a value offers what the shape allows, in the form the file
     wants."""

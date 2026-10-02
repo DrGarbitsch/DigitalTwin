@@ -17,6 +17,7 @@ from ..expect.store import Example, examples_root
 from ..package import load
 from ..package.discover import describe
 from ..provenance import build_provenance
+from ..sanity import known_constraints
 from ..target import EmissionMode, builtin_profile, check_package, export as export_package
 from ..target.crosscheck import cross_check
 from ..importers import (import_json_schema, import_ontology, observe_examples,
@@ -294,6 +295,51 @@ def init_command(path, name, namespace, published, layout):
                'Knowledge views')
 
 
+@cli.command('check')
+@click.argument('path', type=PACKAGE, default='.')
+@click.option('--strict', is_flag=True,
+              help='fail on warnings too, not only on errors')
+def check_command(path, strict):
+    """References that point at nothing, and declarations nothing uses.
+
+    The cross-artifact sanity check the editor shows in its Problems panel,
+    for a terminal or CI: a sh:path or a query naming an attribute the
+    knowledge no longer declares, a data key no knowledge file declares, an
+    expectation on a constraint no shape has, a class nothing declares, a
+    declared attribute nothing uses. Exits 1 when anything is an error (with
+    --strict, a warning), so a broken link cannot be merged unnoticed.
+    """
+    from ..expect.vocabulary import undeclared_attributes
+    from ..sanity import sanity
+
+    try:
+        package = load(path)
+    except (PackageError, CapabilityError) as exc:
+        click.echo(f'error: {exc}', err=True)
+        sys.exit(2)
+
+    rows = [(f.file, f.line, f.severity, f.code, f.message)
+            for f in sanity(package)]
+    for entry in undeclared_attributes(package):
+        for where, line in entry.places:
+            rows.append((os.path.abspath(where), line, entry.severity,
+                         'undeclared-key', entry.message))
+
+    order = {'error': 0, 'warning': 1}
+    rows.sort(key=lambda r: (r[0], r[1], order.get(r[2], 2)))
+    for file, line, severity, code, message in rows:
+        click.echo(f'{os.path.relpath(file, package.path)}:{line}  '
+                   f'{severity:<11} {code:<18} {message}')
+
+    errors = sum(1 for r in rows if r[2] == 'error')
+    warnings = sum(1 for r in rows if r[2] == 'warning')
+    others = len(rows) - errors - warnings
+    click.echo(f'\n{errors} error(s), {warnings} warning(s), {others} note(s)'
+               + ('' if rows else ' -- every reference resolves'))
+    if errors or (strict and warnings):
+        sys.exit(1)
+
+
 @cli.command('where')
 @click.argument('path', type=click.Path(exists=True), default='.')
 def where_command(path):
@@ -395,7 +441,7 @@ def test(path, want_coverage, fail_on):
         click.echo('')
 
     failed = 0
-    for outcome in run_tests(paired):
+    for outcome in run_tests(paired, known_constraints(package)):
         if outcome.passed:
             click.echo(f'ok    {outcome.example}')
             continue
@@ -735,7 +781,7 @@ def accept(path):
         sys.exit(2)
 
     changed = 0
-    outcomes = {o.example: o for o in run_tests(paired)}
+    outcomes = {o.example: o for o in run_tests(paired, known_constraints(package))}
     for example, _ in paired:
         outcome = outcomes[example.path]
         if example.residue != outcome.residue:
