@@ -8,9 +8,12 @@ by type; this is the other half, every shape whatever it targets, so a shape
 that belongs to no type still has somewhere to be found.
 """
 
+import re
+
 from rdflib import URIRef
 from rdflib.namespace import OWL, RDF, RDFS, SH
 
+from ..errors import PackageError
 from ..validate.normalise import curie
 from ..validate.shapes import every_node_shape
 
@@ -90,6 +93,108 @@ def is_rule_only(node):
     """A shape that is only a query or a rule: no attribute rows."""
     return bool(node and node.children) and \
         all(child.kind == 'raw' for child in node.children)
+
+
+# --- a new shape --------------------------------------------------------------------
+
+TARGET_PREDICATES = {'class': SH.targetClass, 'node': SH.targetNode,
+                     'subjectsOf': SH.targetSubjectsOf,
+                     'objectsOf': SH.targetObjectsOf}
+NAME = r'^[A-Za-z_][A-Za-z0-9_.-]*$'
+
+
+def _shapes_namespace(package):
+    """Where this package keeps its shapes: the namespace most of them use."""
+    from ..validate.shapes import every_node_shape
+
+    spaces = []
+    for shape in every_node_shape(package.shapes):
+        text = str(shape)
+        cut = max(text.rfind('#'), text.rfind('/'))
+        spaces.append(text[:cut + 1])
+    if not spaces:
+        return None
+    return max(set(spaces), key=spaces.count)
+
+
+def _target_iri(package, kind, target):
+    """The target as an IRI: an entity type or an attribute by term, IRI or
+    local name; a node as written."""
+    from .choices import attribute_terms, entity_types
+
+    text = str(target or '').strip().strip('<>')
+    if not text:
+        raise PackageError('a shape needs a target')
+    if kind == 'class':
+        entry = next((e for e in entity_types(package)[0]
+                      if text in (e.iri, e.term, e.label)), None)
+        if entry is None:
+            raise PackageError(f'{text} is not an entity type this package declares; '
+                               f'declare it in the knowledge first')
+        return URIRef(entry.iri)
+    if kind in ('subjectsOf', 'objectsOf'):
+        if text in ('ngsild:hasObject', 'https://uri.etsi.org/ngsi-ld/hasObject'):
+            return URIRef('https://uri.etsi.org/ngsi-ld/hasObject')
+        entry = next((e for e in attribute_terms(package)
+                      if text in (e.iri, e.term, e.label)), None)
+        if entry is None:
+            raise PackageError(f'{text} is not an attribute this package declares')
+        return URIRef(entry.iri)
+    if kind == 'node':
+        if not re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:\S+$', text):
+            raise PackageError(f'"{text}" is not an IRI (e.g. urn:my-model:machine:1)')
+        return URIRef(text)
+    raise PackageError(f'{kind} is not a target the editor writes')
+
+
+def add_shape(package, name, kind, target, namespace=None):
+    """Write a new node shape: `ns:Name a sh:NodeShape ; sh:target… X .`
+
+    Appended to the shapes file that holds the package's other shapes, in
+    their namespace (or the one named), written with the file's own
+    prefixes and verified to parse before it is kept. Constraints are then
+    added from its page. Returns {'iri', 'name', 'file', 'line'}.
+    """
+    from rdflib import Graph
+
+    from .knowledge import _resolve_namespace, _turtle_name
+
+    name = str(name or '').strip()
+    if not re.match(NAME, name):
+        raise PackageError(f'"{name}" is not a usable name: letters, digits, "_", '
+                           f'"-" and ".", starting with a letter')
+    if kind not in TARGET_PREDICATES:
+        raise PackageError(f'{kind} is not a target the editor writes')
+    space = _resolve_namespace(package, namespace) if namespace \
+        else _shapes_namespace(package)
+    if not space:
+        raise PackageError('this package has no shape yet to take a namespace from; '
+                           'name one (a prefix from semforge.yaml)')
+    iri = URIRef(space + name)
+    if (iri, None, None) in package.shapes:
+        raise PackageError(f'{curie(package.shapes, iri)} already exists')
+    target_iri = _target_iri(package, kind, target)
+
+    index = package.index('shapes')
+    from ..validate.shapes import every_node_shape
+
+    neighbour = next((s for s in every_node_shape(package.shapes)
+                      if str(s).startswith(space)), None)
+    path = (index.file_for(neighbour) if neighbour is not None else None) or \
+        package.sources['shapes']
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    statement = (f'{_turtle_name(text, iri)} a {_turtle_name(text, SH.NodeShape)} ;\n'
+                 f'    {_turtle_name(text, TARGET_PREDICATES[kind])} '
+                 f'{_turtle_name(text, target_iri)} .\n')
+    updated = text + ('' if text.endswith('\n') else '\n') + '\n' + statement
+    graph = Graph().parse(data=updated, format='turtle')
+    if (iri, TARGET_PREDICATES[kind], target_iri) not in graph:
+        raise PackageError(f'{name} did not come out as written; nothing changed')
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(updated)
+    return {'iri': str(iri), 'name': curie(graph, iri), 'file': path,
+            'line': len(updated.splitlines()) - 1}
 
 
 def build_shapes(package, report=None):

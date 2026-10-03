@@ -1442,6 +1442,25 @@ def new_case_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/addShape')
+def add_shape_feature(ls, params):
+    """Write a new node shape with one target; constraints come from its page."""
+    from ..cooked.shapes import add_shape
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = add_shape(_package_for(root), _field(params, 'name', ''),
+                         _field(params, 'targetKind', ''), _field(params, 'target', ''),
+                         _field(params, 'namespace', None))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    _publish(ls, _path_to_uri(made['file']))
+    return dict(made, ok=True)
+
+
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
     """Every named shape with its target in words, for the Shapes view."""

@@ -296,6 +296,11 @@
         "command": "semforge.refreshShapes",
         "title": "SemForge: Refresh shapes",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "semforge.newShape",
+        "title": "SemForge: New shape…",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -347,6 +352,11 @@
           "command": "semforge.refreshShapes",
           "when": "view == semforgeShapes",
           "group": "navigation"
+        },
+        {
+          "command": "semforge.newShape",
+          "when": "view == semforgeShapes",
+          "group": "navigation@1"
         },
         {
           "command": "semforge.refreshModel",
@@ -679,6 +689,11 @@
           "command": "semforge.newAttributeTest",
           "when": "view == semforgeConstraints && viewItem =~ /^(attribute|inherited)$/",
           "group": "1_add@0"
+        },
+        {
+          "command": "semforge.newShape",
+          "when": "view == semforgeConstraints && viewItem == type",
+          "group": "1_add@1"
         }
       ],
       "semforge.project": [

@@ -743,6 +743,69 @@ def test_an_existing_constraint_can_be_removed(tmp_path):
                       'remove': True}]
 
 
+# --- New shape… ---------------------------------------------------------------------------
+
+MADE_SHAPE = {'ok': True, 'iri': 'https://x/PumpShape', 'name': 'x:PumpShape',
+              'file': '/pkg/shacl.ttl', 'line': 47}
+
+
+def test_the_shapes_view_has_its_plus():
+    with open(PACKAGE_JSON) as handle:
+        contributes = json.load(handle)['contributes']
+    entry = next(e for e in contributes['menus']['view/title']
+                 if e.get('command') == 'semforge.newShape')
+    assert entry['when'] == 'view == semforgeShapes' and entry['group'].startswith('navigation')
+    icons = {c['command']: c.get('icon') for c in contributes['commands']}
+    assert icons['semforge.newShape'] == '$(add)'
+
+
+def test_new_shape_for_an_entity_type(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newShape',
+        'picks': ['$(symbol-class) An entity type', 'Pump'], 'inputs': ['PumpShape'],
+        'replies': {'semforge/entityTypes': {'types': [
+            {'iri': 'https://x/Pump', 'term': 'x:Pump', 'label': 'Pump', 'ownShape': ''}]},
+            'semforge/addShape': MADE_SHAPE,
+            'semforge/shapePage': dict(SHAPE_PAGE, label='PumpShape')}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addShape']
+    assert asked == [{'uri': seen['requests'][-1]['params']['uri'], 'name': 'PumpShape',
+                      'targetKind': 'class', 'target': 'https://x/Pump'}]
+    assert seen['inputs'][0]['value'] == 'PumpShape', 'the name is suggested'
+    assert _opened(seen, 'semforge.openShapePage')[0][0]['raw']['shape'] == MADE_SHAPE['iri']
+
+
+@pytest.mark.parametrize('pick, inputs, kind, target', [
+    ('$(symbol-object) One entity', ['urn:my-model:machine:1', 'Machine1Shape'], 'node',
+     'urn:my-model:machine:1'),
+    ('$(references) Everything a relationship points at', ['RelationshipTargetShape'],
+     'objectsOf', 'ngsild:hasObject'),
+])
+def test_new_shape_for_other_targets(tmp_path, pick, inputs, kind, target):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newShape', 'picks': [pick], 'inputs': inputs,
+        'replies': {'semforge/addShape': MADE_SHAPE, 'semforge/shapePage': SHAPE_PAGE}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addShape']
+    assert asked[0]['targetKind'] == kind and asked[0]['target'] == target
+    assert seen['inputs'][-1]['value'] == inputs[-1], 'the suggested name'
+
+
+def test_a_type_without_a_shape_offers_to_create_it(tmp_path):
+    page = {'ok': True, 'iri': 'https://x/Pump', 'label': 'Pump', 'crumbs': [],
+            'summary': {}, 'attributes': [], 'rules': [], 'exercisedBy': [],
+            'instances': [], 'subtypes': [], 'ownShape': ''}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': 'Pump', 'targetClass': 'https://x/Pump',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'createShape', 'row': -1}],
+        'replies': {'semforge/typePage': page}})
+    html = seen['webviews'][0]['html'][0]
+    assert 'data-action="createShape"' in html and 'Create its shape' in html
+    asked = _opened(seen, 'semforge.newShape')
+    assert asked and asked[0][0]['raw']['targetClass'] == 'https://x/Pump'
+    assert asked[0][1] == {'stay': True}, 'the type page stays, for + Attribute'
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

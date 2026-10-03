@@ -969,6 +969,16 @@ views:
   scope them to); New test… there needs a type, so it says to start from the
   type page of an entity the shape reaches.
 
+**New shape….** The `+` in the Shapes view title (also: right-click a type in
+Types, the status bar menu) asks what the shape selects — an entity type,
+one entity, everything that has an attribute, or everything a Relationship
+points at — then the target and a name (suggested: `PumpShape`), and writes
+`ns:PumpShape a sh:NodeShape ; sh:targetClass ns:Pump .` into the shapes
+file, in the namespace the other shapes use, checked by parsing before it is
+kept. Its page opens; attributes and constraints are added there. A type with
+no shape of its own shows **Create its shape** on its page, which then offers
+**+ Attribute**.
+
 **A rule's evidence, and New case….** For a shape with a SPARQL constraint
 or rule the page says **what it checks** (its `sh:message` and severity — the
 kms's own `base:severityWarning` reads as *warning*), the **evidence** (the

@@ -95,6 +95,128 @@ class ShapesTreeProvider {
   }
 }
 
+const KINDS = [
+  { label: '$(symbol-class) An entity type', kind: 'class',
+    description: 'every entity of a type and its subtypes (sh:targetClass)' },
+  { label: '$(symbol-object) One entity', kind: 'node',
+    description: 'a single named entity (sh:targetNode)' },
+  { label: '$(symbol-field) Everything that has an attribute', kind: 'subjectsOf',
+    description: 'every entity carrying it, whatever its type (sh:targetSubjectsOf)' },
+  { label: '$(references) Everything a relationship points at', kind: 'objectsOf',
+    description: 'every entity some Relationship targets (sh:targetObjectsOf ngsild:hasObject)' }
+];
+
+function suggestedName(kind, target, label) {
+  const words = String(label || target || '').split(/[^A-Za-z0-9]+/).filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1));
+  if (kind === 'objectsOf') {
+    return 'RelationshipTargetShape';
+  }
+  if (kind === 'node') {
+    return `${words.slice(-2).join('')}Shape`;
+  }
+  return `${words.join('')}Shape`;
+}
+
+/**
+ * New shape…: a node shape with one target, written into the shapes file;
+ * its attributes and constraints are then added on its page. A node whose
+ * raw names a type (a Types row, the type page) presets the target.
+ */
+async function newShape(clientHolder, session, node, options) {
+  const client = clientHolder.client;
+  const packageUri = (node && node.packageUri) || session.uri;
+  if (!client || !packageUri) {
+    vscode.window.showWarningMessage(
+      'SemForge: no package is open, or the language server is not running.');
+    return false;
+  }
+  const raw = (node && node.raw) || {};
+  let kind;
+  let target;
+  let label;
+  if (raw.targetClass) {
+    kind = 'class';
+    target = raw.targetClass;
+    label = raw.label || target.split(/[/#]/).pop();
+  } else {
+    const picked = await vscode.window.showQuickPick(KINDS,
+      { title: 'New shape: what does it check?' });
+    if (!picked) {
+      return false;
+    }
+    kind = picked.kind;
+  }
+  if (kind === 'class' && !target) {
+    const answer = await client.sendRequest('semforge/entityTypes', { uri: packageUri });
+    const chosen = await vscode.window.showQuickPick((answer.types || []).map((t) => ({
+      label: t.label, description: t.term,
+      detail: t.ownShape ? `already has ${t.ownShape.split(/[/#]/).pop()}`
+        : 'no shape of its own yet',
+      type: t })), { title: 'New shape for which entity type?', matchOnDescription: true });
+    if (!chosen) {
+      return false;
+    }
+    target = chosen.type.iri;
+    label = chosen.type.label;
+  } else if (kind === 'subjectsOf') {
+    const answer = await client.sendRequest('semforge/attributes',
+      { uri: packageUri, all: true });
+    const chosen = await vscode.window.showQuickPick((answer.attributes || []).map((a) => ({
+      label: a.label, description: a.term, detail: a.domain ? `on ${a.domain}` : '',
+      attribute: a })), { title: 'Every entity that has which attribute?',
+      matchOnDescription: true });
+    if (!chosen) {
+      return false;
+    }
+    target = chosen.attribute.iri;
+    label = `has ${chosen.attribute.label.replace(/^has/, '')}`;
+  } else if (kind === 'node') {
+    target = await vscode.window.showInputBox({
+      title: 'New shape for one entity',
+      prompt: 'Its id, e.g. urn:my-model:machine:1',
+      validateInput: (text) => (/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(text.trim())
+        ? undefined : 'an IRI, e.g. urn:my-model:machine:1')
+    });
+    if (!target) {
+      return false;
+    }
+    target = target.trim();
+  } else if (kind === 'objectsOf') {
+    target = 'ngsild:hasObject';
+  }
+  const name = await vscode.window.showInputBox({
+    title: 'New shape: its name',
+    prompt: 'Letters, digits, "_" and "-"; it goes in the namespace of the other shapes',
+    value: suggestedName(kind, target, label),
+    validateInput: (text) => (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(text.trim())
+      ? undefined : 'letters, digits, "_", "-" and ".", starting with a letter')
+  });
+  if (!name) {
+    return false;
+  }
+  const made = await client.sendRequest('semforge/addShape',
+    { uri: packageUri, name: name.trim(), targetKind: kind, target });
+  if (!made.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${made.error}`);
+    return false;
+  }
+  for (const command of ['semforge.refreshShapes', 'semforge.refreshTree']) {
+    vscode.commands.executeCommand(command);
+  }
+  if (options && options.stay) {
+    // Asked from the type page, which re-renders with + Attribute.
+    vscode.window.showInformationMessage(
+      `SemForge: ${made.name} written. + Attribute now adds to it.`);
+    return made;
+  }
+  await vscode.commands.executeCommand('semforge.openShapePage',
+    { raw: { shape: made.iri }, packageUri });
+  vscode.window.showInformationMessage(
+    `SemForge: ${made.name} written. Add its attributes and constraints on its page.`);
+  return made;
+}
+
 function register(context, clientHolder, session) {
   const provider = new ShapesTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeShapes', {
@@ -122,9 +244,11 @@ function register(context, clientHolder, session) {
   context.subscriptions.push(
     session.onDidChange((uri) => provider.setPackage(uri)),
     vscode.workspace.onDidSaveTextDocument(() => provider.refresh()),
-    vscode.commands.registerCommand('semforge.refreshShapes', () => provider.refresh())
+    vscode.commands.registerCommand('semforge.refreshShapes', () => provider.refresh()),
+    vscode.commands.registerCommand('semforge.newShape',
+      (node, options) => newShape(clientHolder, session, node, options))
   );
   return provider;
 }
 
-module.exports = { register, ShapesTreeProvider };
+module.exports = { register, ShapesTreeProvider, newShape, suggestedName };

@@ -228,7 +228,7 @@ function renderTypePage(page, options) {
 <div class="chips">${chips}</div>
 <div class="bar">
   ${page.ownShape ? '<button class="primary" data-action="addAttribute">+ Attribute</button>'
-    : '<span class="dim">No shape of its own yet, so attributes are added to a supertype\'s page.</span>'}
+    : '<button class="primary" data-action="createShape" title="Write a shape targeting this type, so its attributes can be constrained here">Create its shape</button>'}
   ${page.shapeAt ? `<button data-open="${escape(page.shapeAt)}">Open the shape in .ttl</button>` : ''}
   <button data-refresh="1">Refresh</button>
 </div>
@@ -609,6 +609,15 @@ async function rowMenu(pages, row) {
   return picked ? picked.run(pages, row) : false;
 }
 
+/** The type has no shape of its own: write one targeting it. The type page
+ *  re-renders after it, now with + Attribute. */
+async function createShape(pages) {
+  const made = await vscode.commands.executeCommand('semforge.newShape', {
+    raw: { kind: 'type', targetClass: pages.page.iri, label: pages.page.label },
+    packageUri: pages.current.packageUri }, { stay: true });
+  return Boolean(made);
+}
+
 /** A test for this attribute: the shared command, aimed at this row. */
 async function newTest(pages, row) {
   if (!row) {
@@ -700,6 +709,7 @@ async function addAttribute(pages) {
 }
 
 const EDITS = { presence: editPresence, value: editValue, menu: rowMenu, test: newTest,
+  createShape,
   override, addAttribute };
 
 /** The entity type a tree row stands for, whichever tree it is in. */
