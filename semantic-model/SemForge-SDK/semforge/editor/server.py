@@ -1298,6 +1298,88 @@ def shape_page_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/vocabularyPage')
+def vocabulary_page_feature(ls, params):
+    """One vocabulary class: its values, their uses, what draws from it."""
+    from ..cooked.vocabulary import build_vocabulary_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    cls = str(_field(params, 'cls', '') or '')
+    key = 'vocab-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', cls)[-120:]
+    try:
+        page = _view(root, key, lambda: {
+            'page': build_vocabulary_page(_package_for(root), cls)})
+        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/vocabularyClasses')
+def vocabulary_classes_feature(ls, params):
+    """Every vocabulary class, for a picker."""
+    from rdflib import URIRef
+
+    from ..cooked.vocabulary import vocabulary_classes
+    from ..validate.normalise import curie, local
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'classes': [], 'error': 'not a SemForge package'}
+    package = _package_for(root)
+    return {'classes': [{'iri': c, 'label': local(c),
+                         'term': curie(package.knowledge, URIRef(c))}
+                        for c in sorted(vocabulary_classes(package),
+                                        key=lambda c: local(c).lower())]}
+
+
+def _vocabulary_write(params, write):
+    """Run one vocabulary write; the views re-read it from the changed files."""
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        result = write(_package_for(root))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    return dict(result, ok=True)
+
+
+@server.feature('semforge/addVocabularyClass')
+def add_vocabulary_class_feature(ls, params):
+    from ..cooked.vocabulary import add_vocabulary_class
+
+    return _vocabulary_write(params, lambda package: add_vocabulary_class(
+        package, _field(params, 'name', ''), _field(params, 'namespace', None),
+        _field(params, 'parent', None), _field(params, 'label', '') or ''))
+
+
+@server.feature('semforge/addVocabularyValue')
+def add_vocabulary_value_feature(ls, params):
+    from ..cooked.vocabulary import add_value
+
+    return _vocabulary_write(params, lambda package: add_value(
+        package, _field(params, 'cls', ''), _field(params, 'name', ''),
+        _field(params, 'label', '') or ''))
+
+
+@server.feature('semforge/setValueLabel')
+def set_value_label_feature(ls, params):
+    from ..cooked.vocabulary import set_value_label
+
+    return _vocabulary_write(params, lambda package: set_value_label(
+        package, _field(params, 'value', ''), _field(params, 'label', '') or ''))
+
+
+@server.feature('semforge/removeVocabularyValue')
+def remove_vocabulary_value_feature(ls, params):
+    from ..cooked.vocabulary import remove_value
+
+    return _vocabulary_write(params, lambda package: remove_value(
+        package, _field(params, 'value', ''), bool(_field(params, 'force', False))))
+
+
 @server.feature('semforge/newCase')
 def new_case_feature(ls, params):
     """Start a case that makes a shape fire (the shape page's New case…)."""

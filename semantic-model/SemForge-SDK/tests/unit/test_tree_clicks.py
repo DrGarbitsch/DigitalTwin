@@ -110,11 +110,12 @@ def test_a_knowledge_attribute_opens_its_carrier_s_page(tmp_path):
     assert len(_opened(seen, 'semforge.openTypePage')) == 1
 
 
-def test_a_vocabulary_class_has_no_page_yet(tmp_path):
+def test_an_ontology_relation_has_no_page_and_opens_its_source(tmp_path):
     seen = _click(tmp_path, 'semforgeKnowledge',
-                  {'kind': 'class', 'role': 'vocabulary', 'label': 'MachineState',
-                   'iri': 'https://x/MachineState', 'definedAt': '/pkg/knowledge.ttl:625'})
+                  {'kind': 'relation', 'label': 'base:isValidFor',
+                   'iri': 'https://x/isValidFor', 'definedAt': '/pkg/knowledge.ttl:625'})
     assert _opened(seen, 'semforge.openTypePage') == []
+    assert _opened(seen, 'semforge.openVocabularyPage') == []
     assert seen['shown'][0]['line'] == 624
 
 
@@ -441,6 +442,127 @@ def test_the_health_row_comes_first_and_opens_the_health_page(tmp_path):
     assert rows[0]['label'] == 'Health' and rows[0]['icon'] == 'pulse'
     seen = _click(tmp_path, 'semforgeProject', {'kind': 'health', 'label': 'Health'})
     assert len(_opened(seen, 'semforge.openHealthPage')) == 1
+
+
+# --- vocabulary classes -----------------------------------------------------------------
+
+VOCAB_PAGE = {
+    'ok': True, 'iri': 'https://x/MachineState', 'label': 'MachineState',
+    'term': 'base:MachineState', 'comment': '', 'definedAt': '/pkg/knowledge.ttl:625',
+    'namespace': 'https://x/', 'parents': [], 'subclasses': [],
+    'values': [
+        {'iri': 'https://x/state_ERROR', 'name': 'state_ERROR', 'term': 'base:state_ERROR',
+         'label': 'ERROR', 'properties': [], 'definedAt': '/pkg/knowledge.ttl:150',
+         'uses': {'data': 0, 'shapes': 0, 'queries': 0, 'knowledge': 0, 'total': 0,
+                  'places': []}},
+        {'iri': 'https://x/state_ON', 'name': 'state_ON', 'term': 'base:state_ON',
+         'label': '<b>ON</b>', 'definedAt': '/pkg/knowledge.ttl:173',
+         'properties': [{'property': 'base:isValidFor', 'value': 'Machine', 'link': ''}],
+         'uses': {'data': 7, 'shapes': 0, 'queries': 6, 'knowledge': 0, 'total': 13,
+                  'places': [{'kind': 'queries', 'file': 'shacl.ttl', 'line': 222,
+                              'at': '/pkg/shacl.ttl:222',
+                              'owner': 'iffBaseShacl:StateOnFilterShape'}]}}],
+    'constrainedBy': [{'shape': 'https://x/MachineShape', 'shapeName': 'x:MachineShape',
+                       'attribute': 'hasState', 'how': 'sh:class'}],
+    'relations': [],
+    'summary': {'values': 2, 'unused': 1, 'inData': 1, 'constraints': 1}}
+
+VOCAB_NODE = {'raw': {'kind': 'class', 'role': 'vocabulary', 'label': 'MachineState',
+                      'iri': 'https://x/MachineState', 'children': []},
+              'packageUri': 'file:///pkg/shacl.ttl'}
+
+
+def test_a_vocabulary_class_click_opens_its_page(tmp_path):
+    seen = _click(tmp_path, 'semforgeKnowledge', VOCAB_NODE['raw'])
+    opened = _opened(seen, 'semforge.openVocabularyPage')
+    assert len(opened) == 1 and opened[0][1]['cls'] == 'https://x/MachineState'
+    assert opened[0][1]['preserveFocus'] is True
+
+
+def _vocab(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.openVocabularyPage', 'node': VOCAB_NODE,
+        'replies': {'semforge/vocabularyPage': VOCAB_PAGE}}, **scenario))
+
+
+def test_the_vocabulary_page_shows_values_uses_and_what_draws_from_it(tmp_path):
+    seen = _vocab(tmp_path)
+    page = seen['webviews'][0]
+    assert page['title'] == 'MachineState · vocabulary'
+    html = page['html'][-1]
+    for text in ('2 value(s)', '1 unused', '1 constraint(s) draw from it', 'unused',
+                 '7 in data', '6 in queries', 'data-shape="https://x/MachineShape"',
+                 'hasState', '+ Value', 'Delete…', 'StateOnFilterShape'):
+        assert text in html, text
+    assert '<b>ON</b>' not in html and '&lt;b&gt;ON&lt;/b&gt;' in html
+    assert ' style="' not in html, 'the CSP drops inline styles'
+
+
+def test_a_value_click_marks_it_on_its_class_page(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openVocabularyPage', 'node': VOCAB_NODE,
+        'args': [{'cls': 'https://x/MachineState', 'focus': 'https://x/state_ON'}],
+        'replies': {'semforge/vocabularyPage': VOCAB_PAGE}})
+    html = seen['webviews'][0]['html'][-1]
+    assert html.count('id="focus"') == 1
+    assert 'state_ON' in html.split('id="focus"', 1)[1].split('</tr>', 1)[0]
+
+
+def test_plus_value_asks_name_and_label_and_writes(tmp_path):
+    seen = _vocab(tmp_path, inputs=['state_IDLE', 'IDLE'],
+                  webviewMessages=[{'command': 'addValue', 'row': -1}],
+                  replies={'semforge/vocabularyPage': VOCAB_PAGE,
+                           'semforge/addVocabularyValue': {'ok': True,
+                                                           'iri': 'https://x/state_IDLE'}})
+    asked = [r['params'] for r in seen['requests']
+             if r['method'] == 'semforge/addVocabularyValue']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'cls': 'https://x/MachineState',
+                      'name': 'state_IDLE', 'label': 'IDLE'}]
+    assert 'semforge.refreshKnowledge' in [e['command'] for e in seen['executed']]
+
+
+def test_deleting_a_used_value_shows_its_uses_and_needs_a_yes(tmp_path):
+    message = [{'command': 'delete', 'row': 1}]
+    declined = _vocab(tmp_path, webviewMessages=message)
+    assert 'used in 13 place(s)' in declined['warnings'][0]
+    assert 'StateOnFilterShape' in declined['warnings'][0]
+    assert not [r for r in declined['requests']
+                if r['method'] == 'semforge/removeVocabularyValue']
+    confirmed = _vocab(tmp_path, webviewMessages=message, answer='Delete anyway',
+                       replies={'semforge/vocabularyPage': VOCAB_PAGE,
+                                'semforge/removeVocabularyValue': {'ok': True, 'left': 13}})
+    asked = [r['params'] for r in confirmed['requests']
+             if r['method'] == 'semforge/removeVocabularyValue']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'value': 'https://x/state_ON',
+                      'force': True}]
+
+
+def test_a_label_is_edited_from_the_page(tmp_path):
+    seen = _vocab(tmp_path, inputs=['Running'],
+                  webviewMessages=[{'command': 'label', 'row': 1}],
+                  replies={'semforge/vocabularyPage': VOCAB_PAGE,
+                           'semforge/setValueLabel': {'ok': True, 'changed': True}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/setValueLabel']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'value': 'https://x/state_ON',
+                      'label': 'Running'}]
+
+
+def test_a_new_vocabulary_class_is_reachable_and_written(tmp_path):
+    with open(PACKAGE_JSON) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    assert any(e.get('command') == 'semforge.newVocabularyClass' and
+               e.get('when') == 'view == semforgeKnowledge' and
+               not e.get('group', '').startswith('navigation')
+               for e in menus['view/title']), 'in the "…" menu: the + is New attribute'
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newVocabularyClass', 'picks': ['(none)'], 'inputs': ['Shift'],
+        'replies': {'semforge/vocabularyClasses': {'classes': []},
+                    'semforge/addVocabularyClass': {'ok': True, 'iri': 'https://x/Shift'},
+                    'semforge/vocabularyPage': dict(VOCAB_PAGE, label='Shift', values=[])}})
+    asked = [r['params'] for r in seen['requests']
+             if r['method'] == 'semforge/addVocabularyClass']
+    assert asked[0]['name'] == 'Shift' and asked[0]['parent'] is None
+    assert seen['webviews'][0]['title'] == 'Shift · vocabulary'
 
 
 def test_the_click_setting_defaults_to_the_page():

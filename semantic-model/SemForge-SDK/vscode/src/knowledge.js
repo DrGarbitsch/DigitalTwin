@@ -104,6 +104,8 @@ class KnowledgeTreeProvider {
       item.contextValue = raw.shapeAt ? 'classWithShape' : 'class';
     } else if (raw.kind === 'attribute') {
       item.contextValue = raw.shapeAt ? 'attributeWithShape' : 'attribute';
+    } else if (raw.kind === 'group' && raw.label === 'Vocabulary classes') {
+      item.contextValue = 'vocabularyGroup';
     } else {
       item.contextValue = raw.kind;
     }
@@ -230,9 +232,20 @@ function register(context, clientHolder, session, onShape, onEntity) {
       const raw = selected.raw;
       const page = raw.role === 'entityType' ||
         (raw.kind === 'attribute' && raw.entityType);
+      // A vocabulary class and its values open the vocabulary page, the
+      // value marked on it.
+      const holder = raw.kind === 'individual' ? provider.getParent(selected) : undefined;
+      const vocabulary = (raw.kind === 'class' && raw.role === 'vocabulary') ||
+        (holder && holder.raw.kind === 'class' && holder.raw.role === 'vocabulary');
       if (page && treeClick() === 'page') {
         await vscode.commands.executeCommand('semforge.openTypePage', selected,
           { preserveFocus: true });
+      } else if (vocabulary && treeClick() === 'page') {
+        await vscode.commands.executeCommand('semforge.openVocabularyPage', selected, {
+          cls: holder ? holder.raw.iri : raw.iri,
+          focus: holder ? raw.iri : undefined,
+          preserveFocus: true
+        });
       } else if (raw.definedAt) {
         await showLocation(raw.definedAt, false);
       }

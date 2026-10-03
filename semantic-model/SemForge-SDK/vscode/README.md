@@ -956,6 +956,39 @@ it ran only `sh:targetClass` shapes — a shape written with `sh:targetNode` was
 never checked, and nothing said so. `tests/corpus/targets` has one shape per
 target kind and pins all of it.
 
+**The vocabulary page: value lists and their care.** A vocabulary class —
+MachineState, Wasteclass — is a closed list of named values, and a value is
+never just a declaration: `sh:class base:MachineState` makes `hasState` hold
+one of them, a SPARQL rule tests for `base:state_ON`, a case writes
+`{"@id": "base:state_OFF"}`. A click on a vocabulary class in the Vocabulary
+view (or on one of its values, which is then marked) opens its page:
+
+- **Values**: each with its label, its other properties (`isValidFor Machine`,
+  `higherHazardLevel WC0`) and where it is used, counted per kind — `7 in data
+  · 6 in queries` for state_ON, the places in the tooltip. A value nothing
+  names is **unused**; MachineState has four.
+- **Drawn from by**: the constraints that take their values from the class
+  (`MachineShape · hasState · sh:class`) or list some of them (`sh:in`), each
+  opening its shape page. None is a warning: nothing checks that an attribute
+  holds one of the values.
+- **Relations** whose domain or range is the class, and its subclasses.
+
+Managing it happens on the page, with visible buttons:
+
+- **+ Value** asks a name and an optional label and appends
+  `ns:name a owl:NamedIndividual, ns:Class ; rdfs:label "…"` in the class's
+  namespace and file.
+- **Label…** (click the label) changes it in place, adds one, or removes it
+  when emptied — the rest of the statement untouched.
+- **Delete…** removes exactly the value's statement. A value in use shows
+  where first and needs **Delete anyway**; each use left behind then names an
+  undeclared value, which the Problems panel reports. Adding and deleting an
+  unused value leaves the file byte-identical.
+- **New vocabulary class…** — in the Vocabulary view's `…` menu (its `+` is New
+  attribute), on the *Vocabulary classes* row, in the status bar menu —
+  declares `ns:Name a owl:Class`, on its own or under another vocabulary class,
+  and opens its page.
+
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click
 on a type or attribute in the Types view, or on an entity type in the

@@ -293,7 +293,7 @@ async function runCommand() {
     seen.errors.push(`command ${scenario.command} is not registered`);
     return;
   }
-  await handler(scenario.node);
+  await handler(scenario.node, ...(scenario.args || []));
   // Clicks inside a webview, in order, after the command opened it.
   for (const message of scenario.webviewMessages || []) {
     const panel = seen.webviews[seen.webviews.length - 1];

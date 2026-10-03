@@ -278,6 +278,16 @@
         "icon": "$(preview)"
       },
       {
+        "command": "semforge.openVocabularyPage",
+        "title": "SemForge: Open vocabulary page",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "semforge.newVocabularyClass",
+        "title": "SemForge: New vocabulary class…",
+        "icon": "$(symbol-enum)"
+      },
+      {
         "command": "semforge.refreshShapes",
         "title": "SemForge: Refresh shapes",
         "icon": "$(refresh)"
@@ -372,6 +382,11 @@
           "command": "semforge.openHealthPage",
           "when": "view == semforgeProject",
           "group": "navigation@0"
+        },
+        {
+          "command": "semforge.newVocabularyClass",
+          "when": "view == semforgeKnowledge",
+          "group": "1_vocabulary@1"
         }
       ],
       "view/item/context": [
@@ -643,6 +658,16 @@
         {
           "command": "semforge.openShapePage",
           "when": "view == semforgeConstraints && viewItem =~ /^(shape|rule)$/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "semforge.newVocabularyClass",
+          "when": "view == semforgeKnowledge && viewItem == vocabularyGroup",
+          "group": "1_add@1"
+        },
+        {
+          "command": "semforge.openVocabularyPage",
+          "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
           "group": "navigation@2"
         }
       ],

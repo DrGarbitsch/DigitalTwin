@@ -32,6 +32,7 @@ EXPECTED = {
     'semforge.newSubAttribute', 'semforge.rescan', 'semforge.deleteCache',
     'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openHealthPage',
     'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
+    'semforge.openVocabularyPage', 'semforge.newVocabularyClass',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',

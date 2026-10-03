@@ -25,6 +25,7 @@ const deleteProject = require('./delete');
 const newAttribute = require('./attribute');
 const projectCache = require('./cache');
 const typePages = require('./typepage');
+const vocabularyPages = require('./vocabpage');
 const casePages = require('./casepage');
 const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
@@ -268,6 +269,8 @@ function activate(context) {
   projectCache.register(context, clientHolder, session, refreshAll);
   // One page per entity type, in the editor area: read there, find in the trees.
   typePages.register(context, clientHolder, session);
+  // One page per vocabulary class: its values, their uses, and their care.
+  vocabularyPages.register(context, clientHolder, session);
   // One page per test case: its claims, whether they hold, its data.
   casePages.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
