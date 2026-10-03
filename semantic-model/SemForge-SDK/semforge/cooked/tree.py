@@ -23,7 +23,9 @@ lie about what a shape contains -- invariant S2: content the cooked view cannot
 project is preserved and marked, never hidden and never dropped.
 """
 
+import json
 import os
+import re
 from dataclasses import dataclass, field
 
 from rdflib import URIRef
@@ -368,6 +370,126 @@ def apply_edit(package, shape, path_chain, parameter, value):
     _write_verified(source_path, updated)
     return source_path, sum(1 for a, b in zip(text, updated) if a != b) or \
         abs(len(updated) - len(text))
+
+
+# Where a parameter may go: a count on either layer, everything else on the
+# value -- a datatype or a range on the attribute node constrains the blank
+# node itself and can never be satisfied.
+ATTRIBUTE_LAYER = {'sh:minCount', 'sh:maxCount'}
+SLOTS = ('ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList', 'ngsild:hasJSON')
+
+
+def _term(package, text, value):
+    """A prefixed name or IRI as THIS file can write it."""
+    from rdflib import URIRef
+
+    from .knowledge import _turtle_name
+
+    value = str(value).strip()
+    if value.startswith('<') and value.endswith('>'):
+        iri = value[1:-1]
+    elif ':' in value and not value.startswith(('http://', 'https://', 'urn:')):
+        prefix, _, name = value.partition(':')
+        namespace = dict((p, str(n)) for p, n in package.shapes.namespaces()).get(prefix) \
+            or {'xsd': 'http://www.w3.org/2001/XMLSchema#',
+                'sh': 'http://www.w3.org/ns/shacl#'}.get(prefix)
+        if namespace is None:
+            raise PackageError(f'{value}: the prefix "{prefix}" is not declared')
+        iri = namespace + name
+    else:
+        iri = value
+    return _turtle_name(text, URIRef(iri))
+
+
+def _parameter_value(package, text, parameter, value):
+    """The Turtle for a parameter's value, refusing one SHACL would reject."""
+    kind = EDITABLE[parameter][1]
+    raw = str(value).strip()
+    if kind == 'integer':
+        if not re.fullmatch(r'\d+', raw):
+            raise PackageError(f'{parameter} takes a whole number ≥ 0, not "{raw}"')
+        return raw
+    if kind == 'number':
+        try:
+            float(raw)
+        except ValueError:
+            raise PackageError(f'{parameter} takes a number, not "{raw}"') from None
+        return raw
+    if kind == 'string':
+        if raw.startswith('"') and raw.endswith('"') and len(raw) > 1:
+            return raw
+        return json.dumps(raw)
+    return _term(package, text, raw)
+
+
+def _bounds_note(target_text):
+    """A note when the bounds now on one value admit nothing."""
+    found = dict(re.findall(r'(sh:(?:min|max)(?:Inclusive|Exclusive))\s+([-+0-9.eE]+)',
+                            target_text))
+    low = [(float(v), k) for k, v in found.items() if k.startswith('sh:min')]
+    high = [(float(v), k) for k, v in found.items() if k.startswith('sh:max')]
+    for low_value, low_name in low:
+        for high_value, high_name in high:
+            empty = low_value > high_value or (low_value == high_value and (
+                'Exclusive' in low_name or 'Exclusive' in high_name))
+            if empty:
+                return (f'{low_name} {low_value:g} and {high_name} {high_value:g} '
+                        f'admit no value: every entity carrying it now violates')
+    return ''
+
+
+def add_constraint(package, shape, path_chain, parameter, value, layer='value'):
+    """Add a constraint parameter to an attribute, or replace its value when
+    it is already there. `path_chain` is the attribute's path; `layer` says
+    whether it goes on the attribute node or on its value.
+
+    A value layer the attribute does not have yet is created
+    (`sh:property [ sh:path ngsild:hasValue ; ... ]`). Returns
+    {'file', 'action': 'added' | 'replaced', 'note'}.
+    """
+    from .constrain import _add_line
+
+    if parameter not in EDITABLE:
+        raise PackageError(f'{parameter} is not a constraint the editor writes; '
+                           f'edit it in the .ttl')
+    if layer == 'attribute' and parameter not in ATTRIBUTE_LAYER:
+        raise PackageError(f'{parameter} on the attribute node would constrain the '
+                           f'blank node itself and can never hold; it goes on the value')
+    chain = list(path_chain)
+    if layer == 'value':
+        located = None
+        for slot in SLOTS:
+            try:
+                located = _locate(package, shape, chain + [slot])
+                break
+            except PackageError:
+                continue
+        if located is None:
+            # No value layer yet: create one around the parameter.
+            source_path, text, target = _locate(package, shape, chain)
+            from .choices import attribute_terms
+            from .typepage import _resolve_token
+
+            iri = str(_resolve_token(package, chain[-1]))
+            kind = next((a.kind for a in attribute_terms(package) if a.iri == iri), '')
+            slot = 'ngsild:hasObject' if kind == 'Relationship' else 'ngsild:hasValue'
+            rendered = _parameter_value(package, text, parameter, value)
+            block = f'[ sh:path {_term(package, text, slot)} ; {parameter} {rendered} ]'
+            updated = _add_line(text, target, 'sh:property', block)
+            _write_verified(source_path, updated)
+            return {'file': source_path, 'action': 'added', 'note': ''}
+        source_path, text, target = located
+    else:
+        source_path, text, target = _locate(package, shape, chain)
+    rendered = _parameter_value(package, text, parameter, value)
+    if target.parameter(parameter) is None:
+        updated, action = _add_line(text, target, parameter, rendered), 'added'
+    else:
+        updated, action = set_parameter(text, target, parameter, rendered), 'replaced'
+    _write_verified(source_path, updated)
+    # The block as it now reads, for the bounds check.
+    after = updated[target.start:target.end + len(updated) - len(text)]
+    return {'file': source_path, 'action': action, 'note': _bounds_note(after)}
 
 
 def remove_constraint(package, shape, path_chain, parameter):

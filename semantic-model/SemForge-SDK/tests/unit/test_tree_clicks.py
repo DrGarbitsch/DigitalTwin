@@ -694,6 +694,55 @@ def test_an_edit_on_the_shape_page_writes_and_rerenders(tmp_path):
     assert len(seen['webviews'][0]['html']) == 2, 'rendered again after the write'
 
 
+# --- Constraints…: add, change, remove ---------------------------------------------------
+
+def _constraint_menu(tmp_path, picks, inputs, reply=None):
+    row = dict(EDITABLE_SHAPE['attributes'][0], parameters=[
+        {'parameter': 'sh:maxCount', 'value': '1', 'path': ['x:hasPressure'],
+         'layer': 'attribute'},
+        {'parameter': 'sh:datatype', 'value': 'xsd:double',
+         'path': ['x:hasPressure', 'ngsild:hasValue'], 'layer': 'value'}])
+    page = dict(EDITABLE_SHAPE, attributes=[row])
+    seen = _shape(tmp_path, picks=['$(edit) Constraints…'] + picks, inputs=inputs,
+                  webviewMessages=[{'command': 'menu', 'row': 0}],
+                  replies={'semforge/shapePage': page,
+                           'semforge/setConstraint': reply or {'ok': True, 'note': ''},
+                           'semforge/choices': {'choices': []}})
+    return seen, [r['params'] for r in seen['requests']
+                  if r['method'] == 'semforge/setConstraint']
+
+
+def test_the_constraint_menu_offers_what_is_missing(tmp_path):
+    seen, _ = _constraint_menu(tmp_path, [], [])
+    offered = [item['label'] for item in seen['quickPicks'][1]['items']]
+    for label in ('$(add) sh:minInclusive', '$(add) sh:maxExclusive', '$(add) sh:pattern',
+                  '$(add) sh:minLength', 'sh:maxCount 1'):
+        assert label in offered, label
+    assert '$(add) sh:datatype' not in offered, 'already there: changed, not added'
+
+
+def test_adding_an_exclusive_bound_sends_an_add_on_the_value(tmp_path):
+    _, asked = _constraint_menu(tmp_path, ['$(add) sh:minExclusive'], ['0'])
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
+                      'path': ['x:hasPressure'], 'parameter': 'sh:minExclusive',
+                      'value': '0', 'add': True, 'layer': 'value'}]
+
+
+def test_a_contradiction_is_said_after_the_write(tmp_path):
+    seen, _ = _constraint_menu(tmp_path, ['$(add) sh:minExclusive'], ['500'],
+                               reply={'ok': True, 'note': 'sh:minExclusive 500 and '
+                                      'sh:maxInclusive 16 admit no value'})
+    assert any('admit no value' in text for text in seen['warnings'])
+
+
+def test_an_existing_constraint_can_be_removed(tmp_path):
+    _, asked = _constraint_menu(tmp_path, ['sh:maxCount 1', '$(trash) Remove sh:maxCount'],
+                                [])
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
+                      'path': ['x:hasPressure'], 'parameter': 'sh:maxCount',
+                      'remove': True}]
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

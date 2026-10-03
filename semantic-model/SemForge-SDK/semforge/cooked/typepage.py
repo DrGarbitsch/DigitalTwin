@@ -40,7 +40,8 @@ COUNT_PARAMETERS = {'sh:minCount', 'sh:maxCount'}
 # Parameters the vocabulary renders; anything else on a slot is shown verbatim.
 RENDERED = COUNT_PARAMETERS | {'sh:class', 'sh:datatype', 'sh:nodeKind',
                                'sh:minInclusive', 'sh:maxInclusive',
-                               'sh:minExclusive', 'sh:maxExclusive', 'sh:in'}
+                               'sh:minExclusive', 'sh:maxExclusive', 'sh:in',
+                               'sh:minLength', 'sh:maxLength', 'sh:pattern'}
 
 
 # --- the vocabulary ---------------------------------------------------------------
@@ -100,14 +101,27 @@ def value_text(kind, parameters, raw):
                      else DATATYPE_WORDS.get(datatype, datatype))
     elif any(name == 'sh:or' and _numbers_only(value) for name, value in raw):
         parts.append('number')
-    low = parameters.get('sh:minInclusive') or parameters.get('sh:minExclusive')
-    high = parameters.get('sh:maxInclusive') or parameters.get('sh:maxExclusive')
-    if low is not None and high is not None:
-        parts.append(f'{_number(low)} – {_number(high)}')
-    elif low is not None:
-        parts.append(f'≥ {_number(low)}')
-    elif high is not None:
-        parts.append(f'≤ {_number(high)}')
+    low_in, low_ex = parameters.get('sh:minInclusive'), parameters.get('sh:minExclusive')
+    high_in, high_ex = parameters.get('sh:maxInclusive'), parameters.get('sh:maxExclusive')
+    if low_in is not None and high_in is not None and low_ex is None and high_ex is None:
+        parts.append(f'{_number(low_in)} – {_number(high_in)}')
+    else:
+        # An exclusive bound says so: "> 0" is not "≥ 0".
+        bounds = [f'≥ {_number(low_in)}' if low_in is not None else '',
+                  f'> {_number(low_ex)}' if low_ex is not None else '',
+                  f'≤ {_number(high_in)}' if high_in is not None else '',
+                  f'< {_number(high_ex)}' if high_ex is not None else '']
+        if any(bounds):
+            parts.append(' and '.join(b for b in bounds if b))
+    shortest, longest = parameters.get('sh:minLength'), parameters.get('sh:maxLength')
+    if shortest is not None and longest is not None:
+        parts.append(f'{_number(shortest)} – {_number(longest)} characters')
+    elif shortest is not None:
+        parts.append(f'at least {_number(shortest)} characters')
+    elif longest is not None:
+        parts.append(f'at most {_number(longest)} characters')
+    if parameters.get('sh:pattern'):
+        parts.append(f'matching {str(parameters["sh:pattern"]).strip(chr(34))}')
     if parameters.get('sh:in'):
         parts.append('one of: ' + ' · '.join(
             _short(v) for v in str(parameters['sh:in']).strip('()').split()))

@@ -453,22 +453,126 @@ function describeParameter(parameter) {
     parameter };
 }
 
+// Every constraint the editor writes, in words, with where it goes and what
+// its value is. A count goes on the attribute (how many instances) or on the
+// value; everything else only on the value.
+const CONSTRAINTS = [
+  { parameter: 'sh:minInclusive', words: 'at least (≥)', kind: 'number' },
+  { parameter: 'sh:maxInclusive', words: 'at most (≤)', kind: 'number' },
+  { parameter: 'sh:minExclusive', words: 'more than (>)', kind: 'number' },
+  { parameter: 'sh:maxExclusive', words: 'less than (<)', kind: 'number' },
+  { parameter: 'sh:datatype', words: 'the value\'s datatype', kind: 'choice' },
+  { parameter: 'sh:class', words: 'the value is one of a class', kind: 'choice' },
+  { parameter: 'sh:nodeKind', words: 'IRI, literal or blank node', kind: 'choice' },
+  { parameter: 'sh:minLength', words: 'text at least this long', kind: 'integer' },
+  { parameter: 'sh:maxLength', words: 'text at most this long', kind: 'integer' },
+  { parameter: 'sh:pattern', words: 'text matching a regular expression', kind: 'text' },
+  { parameter: 'sh:minCount', words: 'at least this many instances', kind: 'integer',
+    layer: 'attribute' },
+  { parameter: 'sh:maxCount', words: 'at most this many instances', kind: 'integer',
+    layer: 'attribute' }
+];
+
+const KIND_PROMPT = {
+  number: ['A number, e.g. 0 or 12.5', (t) => (/^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(t.trim())
+    ? undefined : 'a number')],
+  integer: ['A whole number, 0 or more', (t) => (/^\d+$/.test(t.trim()) ? undefined
+    : 'a whole number')],
+  text: ['A regular expression, e.g. ^[A-Z]{2}[0-9]+$', (t) => (t ? undefined : 'required')]
+};
+
+async function askValue(pages, row, spec, current) {
+  if (spec.kind === 'choice') {
+    const slot = row.kind === 'Relationship' ? 'ngsild:hasObject' : 'ngsild:hasValue';
+    let offered = [];
+    try {
+      const answer = await pages.clientHolder.client.sendRequest('semforge/choices', {
+        uri: pages.current.packageUri, path: row.path.concat([slot]),
+        parameter: spec.parameter });
+      offered = answer.choices || [];
+    } catch (error) {
+      offered = [];
+    }
+    const items = offered.map((c) => ({ label: c.label || c.value, description: c.detail,
+      value: c.value }));
+    items.push({ label: '$(edit) Enter a different value…', value: undefined });
+    const picked = await vscode.window.showQuickPick(items,
+      { title: `${row.label} · ${spec.parameter}`, matchOnDescription: true });
+    if (!picked) {
+      return undefined;
+    }
+    if (picked.value !== undefined) {
+      return picked.value;
+    }
+  }
+  const [prompt, validate] = KIND_PROMPT[spec.kind] ||
+    ['A prefixed name, e.g. xsd:double', (t) => (t.trim() ? undefined : 'required')];
+  const value = await vscode.window.showInputBox({
+    title: `${row.label} · ${spec.parameter}: ${spec.words}`,
+    value: current, prompt, validateInput: validate });
+  return value === undefined ? undefined : value.trim();
+}
+
 async function editParameter(pages, row) {
-  const picked = await vscode.window.showQuickPick(row.parameters.map(describeParameter),
-    { title: `${row.label}: which constraint?` });
+  const have = row.parameters.map((p) => ({
+    label: `${p.parameter} ${p.value}`,
+    description: p.layer === 'value' ? 'on the value' : 'on the attribute',
+    detail: 'change it, or remove it', existing: p }));
+  const present = new Set(row.parameters.map((p) => `${p.layer}:${p.parameter}`));
+  const add = [];
+  for (const spec of CONSTRAINTS) {
+    const layers = spec.layer === 'attribute' ? ['attribute', 'value'] : ['value'];
+    for (const layer of layers) {
+      if (!present.has(`${layer}:${spec.parameter}`)) {
+        add.push({ label: `$(add) ${spec.parameter}`,
+          description: `${spec.words}${layer === 'attribute' ? '' : ' · on the value'}`,
+          spec, layer });
+      }
+    }
+  }
+  const picked = await vscode.window.showQuickPick([
+    { label: 'On this attribute', kind: vscode.QuickPickItemKind.Separator },
+    ...have,
+    { label: 'Add a constraint', kind: vscode.QuickPickItemKind.Separator },
+    ...add
+  ], { title: `${row.label}: which constraint?`, matchOnDescription: true });
   if (!picked) {
     return false;
   }
-  const { parameter } = picked;
-  const value = await vscode.window.showInputBox({
-    title: `${row.label} · ${parameter.parameter}`, value: parameter.value,
-    prompt: 'A Turtle term: a number, a prefixed name, or "text" in quotes.'
-  });
-  if (value === undefined || value === parameter.value) {
+  if (picked.existing) {
+    const parameter = picked.existing;
+    const spec = CONSTRAINTS.find((c) => c.parameter === parameter.parameter) ||
+      { parameter: parameter.parameter, words: '', kind: 'term' };
+    const how = await vscode.window.showQuickPick([
+      { label: '$(edit) Change the value…', action: 'change' },
+      { label: `$(trash) Remove ${parameter.parameter}`, action: 'remove' }
+    ], { title: `${row.label} · ${parameter.parameter} ${parameter.value}` });
+    if (!how) {
+      return false;
+    }
+    if (how.action === 'remove') {
+      return Boolean(await request(pages, 'semforge/setConstraint', {
+        shape: row.shape, path: parameter.path, parameter: parameter.parameter,
+        remove: true }));
+    }
+    const value = await askValue(pages, row, spec, parameter.value);
+    if (value === undefined || value === parameter.value) {
+      return false;
+    }
+    return Boolean(await request(pages, 'semforge/setConstraint', {
+      shape: row.shape, path: parameter.path, parameter: parameter.parameter, value }));
+  }
+  const value = await askValue(pages, row, picked.spec, '');
+  if (value === undefined || value === '') {
     return false;
   }
-  return Boolean(await request(pages, 'semforge/setConstraint', {
-    shape: row.shape, path: parameter.path, parameter: parameter.parameter, value }));
+  const done = await request(pages, 'semforge/setConstraint', {
+    shape: row.shape, path: row.path, parameter: picked.spec.parameter, value,
+    add: true, layer: picked.layer });
+  if (done && done.note) {
+    vscode.window.showWarningMessage(`SemForge: ${done.note}`);
+  }
+  return Boolean(done);
 }
 
 async function rowMenu(pages, row) {
@@ -479,7 +583,8 @@ async function rowMenu(pages, row) {
   const choices = [
     { label: '$(beaker) New test…', description: 'valid, or one of its constraints firing',
       run: newTest },
-    { label: '$(edit) Edit a constraint…', description: 'a range, a count, a class', run: editParameter },
+    { label: '$(edit) Constraints…', description: 'add, change or remove: ranges, datatype, class, length, pattern, counts',
+      run: editParameter },
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {

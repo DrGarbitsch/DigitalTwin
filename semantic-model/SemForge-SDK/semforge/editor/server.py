@@ -1159,6 +1159,17 @@ def set_constraint(ls, params):
         shape = _field(params, 'shape')
         chain = list(_field(params, 'path') or [])
         parameter = _field(params, 'parameter')
+        if _field(params, 'add'):
+            # Add a constraint the attribute does not carry yet (or replace one
+            # it does), on the attribute node or on its value.
+            from ..cooked.tree import add_constraint
+
+            done = add_constraint(package, shape, chain, parameter,
+                                  str(_field(params, 'value')),
+                                  _field(params, 'layer', 'value') or 'value')
+            _packages.pop(root, None)
+            _publish(ls, _path_to_uri(done['file']))
+            return dict(done, ok=True)
         if _field(params, 'remove'):
             path, changed = remove_constraint(package, shape, chain, parameter)
         else:

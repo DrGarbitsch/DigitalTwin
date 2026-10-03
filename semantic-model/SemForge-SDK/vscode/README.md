@@ -1054,7 +1054,8 @@ action is a visible button rather than a hover icon:
 |---|---|---|
 | your own attribute | **Presence** | Required or Optional (`sh:minCount`) |
 | your own attribute | **Value** | what the value must be — an entity type, a datatype, a vocabulary class, or any value; ranges and counts are kept. A value written with `sh:or`/`sh:in` is not rewritten by a picker; the tooltip says so |
-| your own attribute | **⋯** | edit one constraint (a range, a count, a class) · add a sub-attribute · remove it from this shape · delete the attribute everywhere · open in `.ttl` |
+| your own attribute | **⋯** | New test… · **Constraints…** · add a sub-attribute · remove it from this shape · delete the attribute everywhere · open in `.ttl` |
+| your own attribute | **⋯ → Constraints…** | the constraints it carries — change or remove each — and every one it does not carry yet, to add: `sh:minInclusive` (≥), `sh:maxInclusive` (≤), `sh:minExclusive` (>), `sh:maxExclusive` (<), `sh:datatype`, `sh:class`, `sh:nodeKind` (picked from what fits), `sh:minLength`, `sh:maxLength`, `sh:pattern`, and `sh:minCount`/`sh:maxCount` on the attribute (instances) or on the value |
 | an inherited attribute | **Override…** | a stricter constraint on this type's own shape — warns when the change could never take effect |
 | the header | **+ Attribute** | the attribute picker, for this type's own shape |
 
@@ -1062,6 +1063,15 @@ Each edit is the same text-anchored, verified write as everywhere else, and
 reads like a hand edit: swapping one class for another changes one line, and
 nothing leaves a blank line behind. The page and the three trees refresh after
 it.
+
+An added constraint lands on its own line, indented like its neighbours; one
+already there is replaced, not doubled. A datatype, range, length or pattern
+goes on the **value** (on the attribute node it would constrain the blank node
+itself and never hold — refused, with that reason); an attribute with no value
+layer gets one (`sh:property [ sh:path ngsild:hasValue ; … ]`). Bounds that
+together admit nothing (`> 100` and `≤ 16`) are written as asked and said in a
+warning. The Value column words them: `> 0 and ≤ 16`, `at most 20 characters`,
+`matching ^[A-Z]+$`.
 
 **The cache: why reloading is fast, and how to distrust it.** What every view
 and the Problems panel show is stored beside the package, in
