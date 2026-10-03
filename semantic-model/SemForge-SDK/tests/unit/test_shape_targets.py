@@ -117,6 +117,40 @@ def test_a_shape_page_names_what_it_violates(targets):
     assert bad['urn:valve:2'] and not bad['urn:valve:1']
 
 
+def test_a_shape_page_edits_its_own_shape(corpus, targets):
+    """Every row action on the shape page writes into the shape itself."""
+    page = build_shape_page_for(corpus, 'iffBaseShacl:FilterShape')
+    assert page['ownShape'].endswith('/FilterShape')
+    assert page['testType'].endswith('/Filter') and page['subject'] == 'Filter'
+    loose = build_shape_page_for(targets, 'ex:PositionShape')
+    assert loose['testType'] == '' and loose['subject'] == 'focus node of PositionShape'
+
+
+def test_an_attribute_is_added_to_a_shape_without_a_class_target(tmp_path):
+    """+ Attribute on the shape page of a shape reached only through sh:node."""
+    import shutil
+
+    from semforge.cooked.constrain import add_attribute_constraint, attribute_options
+    from semforge.package import load
+    from conftest import TARGETS
+
+    root = tmp_path / 'targets'
+    shutil.copytree(TARGETS, root, ignore=shutil.ignore_patterns('.semforge'))
+    shape = EX + 'PositionShape'
+    offered = {o['label']: o['status'] for o in attribute_options(load(str(root)), shape)}
+    assert offered['hasPosition'] == 'here' and offered['hasReading'] == 'free'
+    add_attribute_constraint(load(str(root)), shape, 'hasReading', required=True,
+                             datatype='xsd:double')
+    page = build_shape_page_for(load(str(root)), shape)
+    assert [a['label'] for a in page['attributes']] == ['hasPosition', 'hasReading']
+
+
+def build_shape_page_for(package, shape):
+    from semforge.cooked.shapepage import build_shape_page
+
+    return build_shape_page(package, shape)
+
+
 def test_a_sparql_target_shows_its_query(targets):
     from semforge.cooked.shapepage import build_shape_page
 

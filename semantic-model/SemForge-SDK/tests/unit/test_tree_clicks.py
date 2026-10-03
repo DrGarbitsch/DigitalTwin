@@ -633,6 +633,67 @@ def test_the_type_page_offers_new_test_in_the_tested_column(tmp_path):
     assert asked[0][0]['raw']['path'] == PRESSURE['path']
 
 
+# --- the shape page edits like the type page -------------------------------------------
+
+EDITABLE_SHAPE = dict(
+    SHAPE_PAGE, iri='https://x/MachineShape', name='x:MachineShape', label='MachineShape',
+    rule=False, checks=[], ownShape='https://x/MachineShape', ownShapeName='x:MachineShape',
+    testType='https://x/Machine',
+    attributes=[{'label': 'hasPressure', 'attribute': 'https://x/hasPressure',
+                 'path': ['x:hasPressure'], 'term': 'x:hasPressure', 'kind': 'Property',
+                 'presence': 'optional', 'value': 'number', 'valueEditable': True,
+                 'verbatim': [], 'shape': 'https://x/MachineShape',
+                 'shapeName': 'x:MachineShape', 'inherited': False, 'depth': 0,
+                 'violations': [], 'tested': 'untested', 'parameters': [],
+                 'definedAt': '/pkg/shacl.ttl:40'}])
+
+
+def _shape(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.openShapePage',
+        'node': {'raw': dict(SHAPE_ROW, shape=EDITABLE_SHAPE['iri']),
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/shapePage': EDITABLE_SHAPE}}, **scenario))
+
+
+def test_the_shape_page_rows_carry_the_type_page_s_actions(tmp_path):
+    html = _shape(tmp_path)['webviews'][0]['html'][-1]
+    for action in ('data-action="presence"', 'data-action="value"', 'data-action="menu"',
+                   'data-action="test"', 'data-action="addAttribute"'):
+        assert action in html, action
+    assert 'Declared in' not in html, 'one shape: the column would repeat its name'
+
+
+def test_plus_attribute_on_the_shape_page_adds_to_this_shape(tmp_path):
+    seen = _shape(tmp_path, webviewMessages=[{'command': 'addAttribute', 'row': -1}])
+    added = _opened(seen, 'semforge.addAttributeConstraint')
+    assert added and added[0][0]['raw']['shape'] == 'https://x/MachineShape'
+
+
+def test_new_test_from_the_shape_page_uses_the_targeted_type(tmp_path):
+    seen = _shape(tmp_path, webviewMessages=[{'command': 'test', 'row': 0}])
+    asked = _opened(seen, 'semforge.newAttributeTest')
+    assert asked and asked[0][0]['raw']['typeClass'] == 'https://x/Machine'
+
+
+def test_a_shape_targeting_no_type_says_why_it_cannot_start_a_test(tmp_path):
+    page = dict(EDITABLE_SHAPE, testType='')
+    seen = _shape(tmp_path, webviewMessages=[{'command': 'test', 'row': 0}],
+                  replies={'semforge/shapePage': page})
+    assert _opened(seen, 'semforge.newAttributeTest') == []
+    assert any('targets no entity type' in text for text in seen['info'])
+
+
+def test_an_edit_on_the_shape_page_writes_and_rerenders(tmp_path):
+    seen = _shape(tmp_path, picks=['Required'],
+                  webviewMessages=[{'command': 'presence', 'row': 0}],
+                  replies={'semforge/shapePage': EDITABLE_SHAPE,
+                           'semforge/editAttribute': {'ok': True}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/editAttribute']
+    assert asked and asked[0]['shape'] == 'https://x/MachineShape'
+    assert len(seen['webviews'][0]['html']) == 2, 'rendered again after the write'
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

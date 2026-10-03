@@ -961,6 +961,14 @@ views:
   them, the nodes it reaches in the model with their verdicts, the types those
   are, and the test cases that reach it and whether it fires in them.
 
+  Its attributes are **edited exactly as on the type page** — the same rows,
+  the same actions: click the presence or the value, the `⋯` menu (edit a
+  constraint, add a sub-attribute, remove from the shape, delete, New test…),
+  the Tested cell, and **+ Attribute** — every write going into this shape. A
+  shape without a class target offers every declared attribute (no type to
+  scope them to); New test… there needs a type, so it says to start from the
+  type page of an entity the shape reaches.
+
 **A rule's evidence, and New case….** For a shape with a SPARQL constraint
 or rule the page says **what it checks** (its `sh:message` and severity — the
 kms's own `base:severityWarning` reads as *warning*), the **evidence** (the

@@ -9,7 +9,9 @@
  * nodes it reaches in the model, the types those are, and the cases that make
  * it fire.
  *
- * Read-only. `renderShapePage` is a pure function from the payload
+ * Its attributes are edited as on the type page -- the same rows, the same
+ * actions (presence, value, ⋯, New test…, + Attribute) -- written into this
+ * shape. `renderShapePage` is a pure function from the payload
  * `semforge/shapePage` returns; everything shown is escaped, and script and
  * style run only with the per-render nonce.
  */
@@ -18,19 +20,11 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape } = require('./typepage');
-
-const TESTED_CLASS = {
-  'both ways': 'ok', 'fires only': 'warn', 'never fired': 'warn', untested: ''
-};
+const { escape, attributeRows: typeRows, EDITS } = require('./typepage');
 
 function chip(text, tone, title) {
   return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
     `${escape(text)}</span>`;
-}
-
-function openable(text, at) {
-  return at ? `<a href="#" data-open="${escape(at)}">${escape(text)}</a>` : escape(text);
 }
 
 function shapeLink(name, iri) {
@@ -54,20 +48,10 @@ function targetSection(page) {
       ? `<pre class="query">${escape(t.value.trim())}</pre>` : '') + '</li>').join('')}</ul>`;
 }
 
+/** The type page's rows, actions and all: a shape's attributes are edited
+ *  here the same way, written into this shape. */
 function attributeRows(attributes) {
-  return attributes.map((row) => {
-    const tested = row.tested && row.tested !== 'untested'
-      ? chip(row.tested, TESTED_CLASS[row.tested]) : '';
-    const model = row.violations.length
-      ? chip(`${row.violations.length} in the model`, 'bad', row.violations.join('\n')) : '';
-    return `<tr${row.violations.length ? ' class="flag"' : ''}>` +
-      `<td${row.depth ? ` class="depth${Math.min(row.depth, 4)}"` : ''}>` +
-      `${openable(row.label, row.definedAt)}</td>` +
-      `<td><span class="kind">${escape(row.kind)}</span></td>` +
-      `<td>${escape(row.presence)}</td><td>${escape(row.value)}` +
-      `${row.verbatim.length ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : ''}</td>` +
-      `<td>${tested}</td><td>${model}</td></tr>`;
-  }).join('');
+  return typeRows(attributes, -1, { shapeColumn: false });
 }
 
 const NEW_CASE_TIP = 'Writes a bad case asserting this shape fires, copied from a ' +
@@ -185,6 +169,11 @@ function renderShapePage(page, options) {
   td { padding: 6px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
+  tr:hover td { background: var(--vscode-list-hoverBackground); }
+  a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
+  a.act:hover, a.act:focus-visible { color: var(--vscode-textLink-foreground); text-decoration: none; }
+  td.acts { text-align: right; }
+  td.acts button { padding: 0 8px; }
   td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
   .kind { font-size: 0.84em; padding: 0 6px; border-radius: 3px;
@@ -202,7 +191,9 @@ function renderShapePage(page, options) {
 <h1>${escape(page.label)}</h1>
 <div class="dim mono">${escape(page.name)}</div>
 <div class="chips top">${chips}</div>
-<div class="bar">${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
+<div class="bar">${page.ownShape && !page.rule
+    ? '<button class="primary" data-action="addAttribute">+ Attribute</button>' : ''}
+${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
 ${types.filter((t) => t.page).slice(0, 1).map((t) =>
     `<button data-type="${escape(t.iri)}">Open ${escape(t.label)} type page</button>`).join('')}
 <button data-refresh="1">Refresh</button></div>
@@ -220,7 +211,7 @@ ${reach.nodes.length ? `<ul>${reach.nodes.map((n) => `<li><span class="mono">${e
     : '<p class="empty">Nothing in the model is a focus node of this shape.</p>'}
 
 ${attributes.length ? `<h2>Attributes</h2><div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes)}</tbody></table></div>`
     : checks.length ? '' : '<h2>Attributes</h2><p class="empty">No property constraints.</p>'}
 
@@ -230,10 +221,14 @@ ${caseChips(cases) || '<p class="empty">No test case reaches it. Nothing proves 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-newcase],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-newcase],[data-action],[data-refresh]');
     if (!target) { return; }
     event.preventDefault();
-    if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
+    if (target.dataset.action) {
+      vscode.postMessage({ command: target.dataset.action,
+                           row: target.dataset.row === undefined ? -1 : Number(target.dataset.row) });
+    }
+    else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else if (target.dataset.case) { vscode.postMessage({ command: 'case', file: target.dataset.case }); }
@@ -313,7 +308,20 @@ class ShapePages {
       return;
     }
     const packageUri = this.current.packageUri;
-    if (message.command === 'open' && message.at) {
+    const edit = EDITS[message.command];
+    if (edit) {
+      // The type page's own edits: they write into `page.ownShape`, which
+      // here is this shape.
+      const row = this.page && this.page.attributes
+        ? this.page.attributes[message.row] : undefined;
+      if (await edit(this, row)) {
+        await this.render();
+        for (const command of ['semforge.refreshTree', 'semforge.refreshShapes',
+          'semforge.refreshKnowledge', 'semforge.refreshModel']) {
+          vscode.commands.executeCommand(command);
+        }
+      }
+    } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
     } else if (message.command === 'type' && message.name) {
       await vscode.commands.executeCommand('semforge.openTypePage',

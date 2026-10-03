@@ -74,7 +74,10 @@ function focusIndex(attributes, focus) {
   return best;
 }
 
-function attributeRows(attributes, focused) {
+function attributeRows(attributes, focused, options) {
+  // The shape page shows one shape's rows: a "Declared in" column would say
+  // the same name on every row.
+  const shapeColumn = !(options && options.shapeColumn === false);
   return attributes.map((row, index) => {
     const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '',
       index === focused ? 'focus' : ''].filter(Boolean).join(' ');
@@ -102,8 +105,9 @@ function attributeRows(attributes, focused) {
         : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}</td>` +
-      `<td>${shapeLink(row.shapeName, row.shape)}` +
-      `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>` +
+      (shapeColumn ? `<td>${shapeLink(row.shapeName, row.shape)}` +
+        `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>`
+        : '') +
       `<td><a href="#" class="act" data-action="test" data-row="${index}" ` +
       `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
       `${tested || 'New test…'}</a></td><td>${model}</td>` +
@@ -417,7 +421,7 @@ async function editPresence(pages, row) {
   const picked = await vscode.window.showQuickPick([
     { label: 'Required', description: 'sh:minCount 1', value: 'required' },
     { label: 'Optional', description: 'sh:minCount 0', value: 'optional' }
-  ], { title: `${row.label}: present on every ${pages.page.label}?` });
+  ], { title: `${row.label}: present on every ${pages.page.subject || pages.page.label}?` });
   if (!picked) {
     return false;
   }
@@ -505,9 +509,17 @@ async function newTest(pages, row) {
   if (!row) {
     return false;
   }
+  // On a type page the type is the page's; on a shape page it is the class
+  // the shape targets -- and a shape targeting no class has no type to test.
+  const type = 'testType' in pages.page ? pages.page.testType : pages.page.iri;
+  if (!type) {
+    vscode.window.showInformationMessage(
+      `SemForge: ${pages.page.label} targets no entity type, so a test cannot pick ` +
+        'an entity for it here. Open the attribute on the type page of an entity it reaches.');
+    return false;
+  }
   return vscode.commands.executeCommand('semforge.newAttributeTest', {
-    raw: { kind: 'attribute', label: row.label, path: row.path,
-      typeClass: pages.page.iri },
+    raw: { kind: 'attribute', label: row.label, path: row.path, typeClass: type },
     packageUri: pages.current.packageUri });
 }
 
@@ -636,4 +648,5 @@ function register(context, clientHolder, session) {
   return pages;
 }
 
-module.exports = { register, renderTypePage, TypePages, typeOf, focusOf, focusIndex, escape };
+module.exports = { register, renderTypePage, TypePages, typeOf, focusOf, focusIndex, escape,
+  attributeRows, EDITS };

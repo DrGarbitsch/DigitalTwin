@@ -145,18 +145,18 @@ def attribute_options(package, shape):
       * inherited  -- a supertype's shape does; override it instead
     """
     targets = _shape_targets(package, shape)
-    if not targets:
-        raise PackageError(f'{shape} has no sh:targetClass, so no attribute '
-                           f'belongs to it')
-    family = _family(package, targets)
+    # A shape without a class target (sh:targetNode, a SPARQL target, one
+    # used through sh:node) belongs to no type: every attribute may go on it,
+    # and nothing above it can already constrain one.
+    family = _family(package, targets) if targets else None
     here = _constrained_paths(package, shape)
-    above = _inherited_constraints(package, shape)
+    above = _inherited_constraints(package, shape) if targets else {}
 
     out = []
     for entry in attribute_terms(package):
         if not entry.ngsild or entry.parents or entry.carrier_kind:
             continue
-        if entry.domain_iri and entry.domain_iri not in family:
+        if family is not None and entry.domain_iri and entry.domain_iri not in family:
             continue
         status, by = 'free', ''
         if entry.iri in here:
@@ -261,7 +261,8 @@ def add_attribute_constraint(package, shape, attribute, required=False,
             f'off the entity, so it belongs inside the attribute that carries '
             f'it rather than on the shape')
     targets = _shape_targets(package, shape)
-    if entry.domain_iri and entry.domain_iri not in _family(package, targets):
+    # Only a class-targeted shape has a type for the domain to disagree with.
+    if targets and entry.domain_iri and entry.domain_iri not in _family(package, targets):
         raise PackageError(
             f'the knowledge gives {name} to {local(entry.domain_iri)}, not to '
             f'{", ".join(local(t) for t in targets) or "this shape"}. Required '

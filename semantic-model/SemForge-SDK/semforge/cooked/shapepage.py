@@ -16,7 +16,7 @@ from rdflib import URIRef
 from rdflib.namespace import RDF, RDFS, SH
 
 from ..errors import PackageError
-from ..validate.normalise import curie
+from ..validate.normalise import curie, local
 from .shapes import is_rule_only, target_short, targets, used_by
 from .typepage import (_attribute_rows, _cases, _coverage, _examples_root,
                        _rules, _short)
@@ -176,6 +176,16 @@ def build_shape_page(package, shape):
         'usedBy': [{'iri': u, 'name': curie(package.shapes, URIRef(u))} for u in users],
         'rule': is_rule_only(node),
         'checks': _checks(package, shape),
+        # The page edits the shape itself: + Attribute and every row action
+        # write into it, as the type page's write into the type's own shape.
+        'ownShape': str(shape), 'ownShapeName': name,
+        # New test… needs an entity of a type: the class the shape targets.
+        'testType': next((t['value'] for t in declared
+                          if t['kind'] in ('class', 'implicit')), ''),
+        # What carries the attributes, for prompts ("present on every Filter?").
+        'subject': next((local(t['value']) for t in declared
+                         if t['kind'] in ('class', 'implicit')),
+                        f'focus node of {_short(name)}'),
         # New case… writes a case asserting this; only a SPARQL constraint has one.
         'canNewCase': (shape, SH.sparql, None) in package.shapes and bool(declared),
         'attributes': attributes, 'rules': rules,
