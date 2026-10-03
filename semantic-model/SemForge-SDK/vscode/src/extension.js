@@ -27,6 +27,8 @@ const projectCache = require('./cache');
 const typePages = require('./typepage');
 const casePages = require('./casepage');
 const healthPage = require('./healthpage');
+const shapesTree = require('./shapes');
+const shapePages = require('./shapepage');
 const { showLocation } = require('./reveal');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
@@ -227,11 +229,15 @@ function activate(context) {
     (entity, file) => model.revealEntity(entity, file)
   );
 
+  // Every shape, whatever it targets: a shape is not tied to one type.
+  const shapes = shapesTree.register(context, clientHolder, session);
+
   // What the package IS, above what it says. A setting here changes what the
   // other three mean -- the context decides how a term expands, the entity
   // root decides what counts as an entity -- so a write re-reads them.
   const project = projectTree.register(context, clientHolder, session, () => {
     constraints.refresh();
+    shapes.refresh();
     model.refresh();
     knowledge.refresh();
   });
@@ -239,12 +245,13 @@ function activate(context) {
   const refreshAll = () => {
     project.refresh();
     constraints.refresh();
+    shapes.refresh();
     model.refresh();
     knowledge.refresh();
   };
   packages.register(
     context, session,
-    [project.view, constraints.view, model.view, knowledge.view],
+    [project.view, constraints.view, shapes.view, model.view, knowledge.view],
     refreshAll
   );
 
@@ -265,6 +272,8 @@ function activate(context) {
   casePages.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
   healthPage.register(context, clientHolder, session);
+  // One page per shape: its target in words, what it checks, what it reaches.
+  shapePages.register(context, clientHolder, session);
 
   // Summary or full trees: switching re-asks every tree at once.
   context.subscriptions.push(

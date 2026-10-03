@@ -302,6 +302,34 @@ def _coverage(cases):
     return out
 
 
+def _also_checked_by(package, family, cases):
+    """Shapes with no class target that reach an entity of this type -- in
+    the model or in any case. A shape is not tied to a type: one targeting
+    the subjects of hasValve judges every pump that has a valve, and the
+    pump's page would otherwise never mention it."""
+    from ..validate.shapes import every_node_shape, node_shapes
+    from .shapepage import _reach
+    from .shapes import target_short
+
+    classed = set(node_shapes(package.shapes))
+    graphs = [package.model] + [graph for _, graph, _ in cases]
+    out = []
+    for shape in every_node_shape(package.shapes):
+        if shape in classed:
+            continue
+        reached = set()
+        for graph in graphs:
+            for node in _reach(package, shape, graph):
+                if {str(o) for o in graph.objects(URIRef(node), RDF.type)} & family:
+                    reached.add(node)
+        if reached:
+            out.append({'shape': str(shape),
+                        'shapeName': curie(package.shapes, shape),
+                        'target': target_short(package, shape),
+                        'reached': len(reached)})
+    return out
+
+
 def build_type_page(package, entity_type):
     """The payload the entity type page renders. Reads only."""
     from ..expect.runner import constraint_ref, run_tests
@@ -376,6 +404,7 @@ def build_type_page(package, entity_type):
         'shapeAt': next((n.defined_at for n in shape_nodes
                          if not n.inherited_from), ''),
         'attributes': attributes, 'rules': rules,
+        'alsoCheckedBy': _also_checked_by(package, family, cases),
         'exercisedBy': exercised, 'instances': instances,
         'summary': {
             'cases': len(exercised),

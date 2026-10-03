@@ -122,7 +122,7 @@ def _count(node, kind):
                for child in node.get('children', []))
 
 
-def slim_constraints(roots):
+def slim_constraints(roots, payload=None):
     roots = copy.deepcopy(roots)
 
     def walk(node):
@@ -165,7 +165,68 @@ def slim_constraints(roots):
         root['detail'] = ' · '.join(part for part in (
             f'{attributes} attribute(s)' if attributes else '',
             f'{rules} rule(s)' if rules else '') if part) or 'nothing constrained'
+    if payload and payload.get('types'):
+        roots = types_tree(roots, payload['types'])
     return drop_prefixes(roots)
+
+
+def types_tree(by_type, types):
+    """The Types view: the entity type hierarchy, each type with its OWN
+    attributes and one Rules row, its subtypes beneath it.
+
+    Shapes are not a level here -- they have their own view, where a shape
+    that targets no class is found too. Inherited attributes are not repeated
+    under every subtype; the type page shows them, marked."""
+    shaped = {root.get('targetClass'): root for root in by_type}
+    children_of = {}
+    for entry in types:
+        children_of.setdefault(entry.get('parent', ''), []).append(entry)
+
+    def own_rows(root):
+        attributes, rules = [], []
+        for shape in (root or {}).get('children', []):
+            if shape.get('inheritedFrom'):
+                continue
+            for child in shape.get('children', []):
+                if child.get('kind') == 'attribute':
+                    attributes.append(child)
+            raw = [c for c in shape.get('children', []) if c.get('kind') == 'raw']
+            if shape.get('rule') or raw:
+                rules.append({
+                    'kind': 'rule', 'label': shape['label'], 'shape': shape.get('shape'),
+                    'detail': shape.get('detail', '') if shape.get('rule')
+                    else ' · '.join(c['label'] for c in raw),
+                    'definedAt': shape.get('definedAt', ''), 'children': []})
+        return attributes, rules
+
+    def node_for(entry, seen):
+        root = shaped.get(entry['iri'])
+        attributes, rules = own_rows(root)
+        children = list(attributes)
+        if rules:
+            children.append({'kind': 'rules', 'label': 'Rules',
+                             'detail': f'{len(rules)}', 'children': rules})
+        for sub in sorted(children_of.get(entry['iri'], []), key=lambda e: e['label']):
+            if sub['iri'] not in seen:
+                children.append(node_for(sub, seen | {sub['iri']}))
+        detail = ' · '.join(part for part in (
+            f'{_count({"children": attributes}, "attribute")} attribute(s)'
+            if attributes else '',
+            f'{len(rules)} rule(s)' if rules else '') if part)
+        return {'kind': 'type', 'label': entry['label'], 'targetClass': entry['iri'],
+                'detail': detail, 'definedAt': (root or {}).get('definedAt', ''),
+                'children': children}
+
+    known = {entry['iri'] for entry in types}
+    out = [node_for(entry, {entry['iri']})
+           for entry in sorted(children_of.get('', []), key=lambda e: e['label'])]
+    # A class some shape targets that the knowledge does not make an entity
+    # type: shown at the top level rather than dropped.
+    for root in by_type:
+        if root.get('targetClass') not in known:
+            out.append(node_for({'iri': root.get('targetClass'),
+                                 'label': root.get('label', '')}, set()))
+    return out
 
 
 # --- the model ------------------------------------------------------------------------
@@ -182,7 +243,7 @@ def _value_once(detail):
     return ' · '.join(parts)
 
 
-def slim_model(roots):
+def slim_model(roots, payload=None):
     roots = copy.deepcopy(roots)
 
     def walk(node):
@@ -209,7 +270,7 @@ def _shape_count(detail):
     return ' · '.join(parts)
 
 
-def slim_knowledge(roots):
+def slim_knowledge(roots, payload=None):
     roots = copy.deepcopy(roots)
 
     def walk(node):
@@ -245,10 +306,19 @@ def slim_knowledge(roots):
         for child in node['children']:
             walk(child)
 
+    # The entity type hierarchy is the Types view's; here it would be the
+    # same tree a second time, answering differently.
+    roots = [root for root in roots if not (
+        root.get('kind') == 'group' and root.get('label') == 'Entity types')]
     for root in roots:
         walk(root)
     return drop_prefixes(roots)
 
 
-SLIM = {'constraints': slim_constraints, 'model': slim_model,
+def slim_shapes(roots, payload=None):
+    """Shape names without their prefix where the local name is unique."""
+    return drop_prefixes(copy.deepcopy(roots))
+
+
+SLIM = {'constraints': slim_constraints, 'model': slim_model, 'shapes': slim_shapes,
         'knowledge': slim_knowledge}

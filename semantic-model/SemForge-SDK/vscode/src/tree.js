@@ -74,26 +74,28 @@ class CookedTreeProvider {
     this.parents = new Map();
     this.owners = new Map();
 
+    // The type a row belongs to is the NEAREST type above it: in summary mode
+    // the tree is the type hierarchy, so a subtype's rows are its own.
+    const ownerOf = (type) => ({
+      label: type.label,
+      targetClass: type.targetClass,
+      // The type's OWN shape -- an override is added there, never to the
+      // inherited shape the constraint came from.
+      shape: ((type.children || []).find((c) => c.kind !== 'type' &&
+        c.kind !== 'rules' && !c.inheritedFrom && c.shape) || {}).shape
+    });
     const walk = (raw, parentRaw, owner) => {
+      const mine = raw.kind === 'type' ? ownerOf(raw) : owner;
       // Every row knows its type, so "Open entity type page" works from any
       // of them -- in summary mode that page is where a row is edited.
-      raw.typeClass = owner.targetClass;
+      raw.typeClass = mine.targetClass;
       this.nodes.set(raw, new ConstraintNode(raw, this.uri));
       this.parents.set(raw, parentRaw);
-      this.owners.set(raw, owner);
-      (raw.children || []).forEach((child) => walk(child, raw, owner));
+      this.owners.set(raw, mine);
+      (raw.children || []).forEach((child) => walk(child, raw, mine));
     };
 
-    roots.forEach((root) => {
-      const owner = {
-        label: root.label,
-        targetClass: root.targetClass,
-        // The type's OWN shape -- an override is added there, never to the
-        // inherited shape the constraint came from.
-        shape: (root.children.find((c) => !c.inheritedFrom) || {}).shape
-      };
-      walk(root, null, owner);
-    });
+    roots.forEach((root) => walk(root, null, ownerOf(root)));
     this.rawRoots = roots;
   }
 
@@ -133,10 +135,14 @@ class CookedTreeProvider {
   getTreeItem(node) {
     const raw = node.raw;
     const hasChildren = (raw.children || []).length > 0;
+    // In the hierarchy a closed root hides every type; the root opens.
+    const root = raw.kind === 'type' && !this.parents.get(raw) &&
+      (raw.children || []).some((c) => c.kind === 'type');
     const item = new vscode.TreeItem(
       raw.label,
       hasChildren
-        ? vscode.TreeItemCollapsibleState.Collapsed
+        ? root ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.Collapsed
         : vscode.TreeItemCollapsibleState.None
     );
     item.description = raw.detail || raw.value || '';
@@ -159,7 +165,7 @@ class CookedTreeProvider {
       item.iconPath = icon('symbol-field', tone);
     } else if (raw.kind === 'slot') {
       item.iconPath = icon('symbol-property', tone);
-    } else if (raw.kind === 'raw') {
+    } else if (raw.kind === 'raw' || raw.kind === 'rule' || raw.kind === 'rules') {
       item.iconPath = icon('symbol-event', tone);
     } else {
       item.iconPath = icon('symbol-constant', tone);
@@ -472,7 +478,11 @@ function register(context, clientHolder, session) {
       // Every row here belongs to an entity type, and the type page says in
       // full what the row says in brief -- so a click opens it, with the
       // attribute marked, and the keyboard stays in the tree to go on browsing.
-      if (treeClick() === 'page' && (selected.raw.typeClass || selected.raw.targetClass)) {
+      if (treeClick() === 'page' && selected.raw.kind === 'rule') {
+        // A rule is a shape of its own; its page has the query and evidence.
+        await vscode.commands.executeCommand('semforge.openShapePage', selected,
+          { preserveFocus: true });
+      } else if (treeClick() === 'page' && (selected.raw.typeClass || selected.raw.targetClass)) {
         await vscode.commands.executeCommand('semforge.openTypePage', selected,
           { preserveFocus: true });
       } else if (selected.raw.definedAt) {

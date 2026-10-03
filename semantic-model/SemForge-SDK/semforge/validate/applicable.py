@@ -21,7 +21,7 @@ example forever, which is what the coverage report exists to surface.
 """
 
 from rdflib import BNode, URIRef
-from rdflib.namespace import RDF, RDFS, SH
+from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from .normalise import inverse_predicate, local
 
@@ -91,9 +91,31 @@ def focus_nodes(shape, shapes_graph, data_graph, knowledge_graph=None):
     for predicate in shapes_graph.objects(shape, SH.targetObjectsOf):
         nodes.update(typing.objects(None, predicate))
     # Implicit class target: a shape that is itself a class targets its instances.
-    if (shape, RDF.type, RDFS.Class) in shapes_graph:
-        nodes.update(typing.subjects(RDF.type, shape))
+    if (shape, RDF.type, RDFS.Class) in shapes_graph or \
+            (shape, RDF.type, OWL.Class) in shapes_graph:
+        for member in subclasses_of(closure, shape):
+            nodes.update(typing.subjects(RDF.type, member))
+    # A SPARQL target (SHACL-AF): whatever its SELECT binds to ?this.
+    for target in shapes_graph.objects(shape, SH.target):
+        for select in shapes_graph.objects(target, SH.select):
+            nodes.update(_sparql_target(shapes_graph, target, str(select), typing))
     return nodes
+
+
+def _sparql_target(shapes_graph, target, select, data_graph):
+    """?this of a SPARQL target's SELECT, with its sh:prefixes declared."""
+    lines = []
+    for holder in shapes_graph.objects(target, SH.prefixes):
+        for declaration in shapes_graph.objects(holder, SH.declare):
+            prefix = shapes_graph.value(declaration, SH.prefix)
+            namespace = shapes_graph.value(declaration, SH.namespace)
+            if prefix is not None and namespace is not None:
+                lines.append(f'PREFIX {prefix}: <{namespace}>')
+    try:
+        rows = data_graph.query('\n'.join(lines + [select]))
+    except Exception:                               # noqa: BLE001
+        return set()                                # pyshacl will say why
+    return {row.this for row in rows if getattr(row, 'this', None) is not None}
 
 
 def _constraints_of(node, shapes_graph):
@@ -154,11 +176,11 @@ def enumerate_pairs(shapes_graph, data_graph, knowledge_graph=None, shapes=None)
     target matched nothing -- reported NOT_APPLICABLE rather than omitted, so a
     shape that silently stopped matching anything is visible.
     """
-    from .shapes import node_shapes
+    from .shapes import targeted_shapes
 
     pairs = set()
     inapplicable = []
-    for shape in (shapes if shapes is not None else node_shapes(shapes_graph)):
+    for shape in (shapes if shapes is not None else targeted_shapes(shapes_graph)):
         declared = constraints_of_shape(shape, shapes_graph)
         if not declared:
             continue

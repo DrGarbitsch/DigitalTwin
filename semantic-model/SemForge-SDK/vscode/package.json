@@ -15,6 +15,7 @@
   "activationEvents": [
     "onView:semforgeProject",
     "onView:semforgeConstraints",
+    "onView:semforgeShapes",
     "onView:semforgeModel",
     "onView:semforgeKnowledge",
     "workspaceContains:**/shacl.ttl",
@@ -270,6 +271,16 @@
         "command": "semforge.openSource",
         "title": "SemForge: Open source",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "semforge.openShapePage",
+        "title": "SemForge: Open shape page",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "semforge.refreshShapes",
+        "title": "SemForge: Refresh shapes",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -290,7 +301,12 @@
         },
         {
           "id": "semforgeConstraints",
-          "name": "Constraints",
+          "name": "Types",
+          "contextualTitle": "SemForge"
+        },
+        {
+          "id": "semforgeShapes",
+          "name": "Shapes",
           "contextualTitle": "SemForge"
         },
         {
@@ -310,6 +326,11 @@
         {
           "command": "semforge.refreshTree",
           "when": "view == semforgeConstraints",
+          "group": "navigation"
+        },
+        {
+          "command": "semforge.refreshShapes",
+          "when": "view == semforgeShapes",
           "group": "navigation"
         },
         {
@@ -611,8 +632,18 @@
         },
         {
           "command": "semforge.openSource",
-          "when": "view =~ /^semforge(Constraints|Model|Knowledge)$/",
+          "when": "view =~ /^semforge(Constraints|Shapes|Model|Knowledge)$/",
           "group": "navigation@0"
+        },
+        {
+          "command": "semforge.openShapePage",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "semforge.openShapePage",
+          "when": "view == semforgeConstraints && viewItem =~ /^(shape|rule)$/",
+          "group": "navigation@2"
         }
       ],
       "semforge.project": [
@@ -692,6 +723,10 @@
       },
       {
         "view": "semforgeConstraints",
+        "contents": "No SemForge package in this folder.\n\nA package is knowledge (the ontology), constraints (SHACL over the NGSI-LD encoding) and the model (a scratchpad plus the example suite).\n[Create a package here](command:semforge.initPackage)\n[Run the doctor](command:semforge.doctor)"
+      },
+      {
+        "view": "semforgeShapes",
         "contents": "No SemForge package in this folder.\n\nA package is knowledge (the ontology), constraints (SHACL over the NGSI-LD encoding) and the model (a scratchpad plus the example suite).\n[Create a package here](command:semforge.initPackage)\n[Run the doctor](command:semforge.doctor)"
       },
       {

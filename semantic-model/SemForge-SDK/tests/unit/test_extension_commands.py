@@ -703,7 +703,7 @@ def test_every_view_says_which_package_it_is_showing(tmp_path):
 
     subtitles = {view: state.get('description')
                  for view, state in seen['views'].items()}
-    assert set(subtitles) == {'semforgeProject', 'semforgeConstraints',
+    assert set(subtitles) == {'semforgeProject', 'semforgeConstraints', 'semforgeShapes',
                               'semforgeModel', 'semforgeKnowledge'}
     for view, subtitle in subtitles.items():
         assert subtitle and 'beta' in subtitle, f'{view} says {subtitle!r}'

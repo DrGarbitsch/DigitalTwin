@@ -31,7 +31,7 @@ EXPECTED = {
     'semforge.deleteAttribute', 'semforge.removeUse', 'semforge.addSubAttribute',
     'semforge.newSubAttribute', 'semforge.rescan', 'semforge.deleteCache',
     'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openHealthPage',
-    'semforge.openSource',
+    'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
@@ -177,6 +177,7 @@ def test_every_menu_when_clause_names_a_context_value_that_exists():
     sources = {}
     for view, name in (('semforgeProject', 'project.js'),
                        ('semforgeConstraints', 'tree.js'),
+                       ('semforgeShapes', 'shapes.js'),
                        ('semforgeModel', 'model.js'),
                        ('semforgeKnowledge', 'knowledge.js')):
         with open(os.path.join(SDK, 'vscode', 'src', name)) as handle:
@@ -187,7 +188,7 @@ def test_every_menu_when_clause_names_a_context_value_that_exists():
         when = entry['when']
         if entry['command'] == 'semforge.openSource':
             # Every row of the three trees has a source; no viewItem to check.
-            assert when == 'view =~ /^semforge(Constraints|Model|Knowledge)$/'
+            assert when == 'view =~ /^semforge(Constraints|Shapes|Model|Knowledge)$/'
             seen += 1
             continue
         view = re.search(r"view\s*==\s*(\w+)", when).group(1)
@@ -228,7 +229,7 @@ def test_all_three_views_are_wired(corpus_path):
     with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
         declared = [v['id']
                     for v in json.load(handle)['contributes']['views']['semforge']]
-    assert declared == ['semforgeProject', 'semforgeConstraints',
+    assert declared == ['semforgeProject', 'semforgeConstraints', 'semforgeShapes',
                         'semforgeModel', 'semforgeKnowledge']
     # Every declared view got a provider and a selection handler at activation.
     assert set(declared) == set(result['views'])

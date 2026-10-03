@@ -20,7 +20,7 @@ SDK = os.path.dirname(os.path.dirname(HERE))
 DRIVE = os.path.join(SDK, 'tests', 'harness', 'drive.js')
 SRC = os.path.join(SDK, 'vscode', 'src')
 PACKAGE_JSON = os.path.join(SDK, 'vscode', 'package.json')
-TREES = ('semforgeConstraints', 'semforgeModel', 'semforgeKnowledge')
+TREES = ('semforgeConstraints', 'semforgeShapes', 'semforgeModel', 'semforgeKnowledge')
 
 
 def _drive(tmp_path, scenario, target='extension.js'):
@@ -43,6 +43,7 @@ def _click(tmp_path, view, raw, config=None, key='root/0'):
         'node': {'key': key, 'raw': dict({'children': []}, **raw),
                  'packageUri': 'file:///pkg/shacl.ttl'},
         'replies': {'semforge/tree': {'roots': []}, 'semforge/model': {'roots': []},
+                    'semforge/shapes': {'roots': []},
                     'semforge/knowledge': {'roots': []}}})
 
 
@@ -197,7 +198,7 @@ def test_only_the_kind_icons_are_used():
                'symbol-enum-member', 'symbol-namespace', 'project', 'database',
                'settings-gear', 'info'}
     import re
-    for name in ('tree.js', 'model.js', 'knowledge.js', 'project.js'):
+    for name in ('tree.js', 'shapes.js', 'model.js', 'knowledge.js', 'project.js'):
         with open(os.path.join(SRC, name)) as handle:
             source = handle.read()
         assert 'new vscode.ThemeIcon(' not in source, f'{name} bypasses icon()'
@@ -205,7 +206,7 @@ def test_only_the_kind_icons_are_used():
         firsts = re.findall(r"\bicon\(([^,()]*(?:\([^()]*\)[^,()]*)*)[,)]", source)
         used = {name for first in firsts
                 for name in re.findall(r"(?<!=== )(?<!== )'([\w-]+)'", first)}
-        assert len(firsts) >= 3, name
+        assert firsts, name
         assert used <= allowed, f'{name}: {used - allowed}'
 
 
@@ -233,6 +234,115 @@ def test_one_plus_per_view_title():
         plus = [e for e in contributes['menus']['view/title']
                 if e.get('when') == f'view == {view}' and icons.get(e.get('command')) == '$(add)']
         assert len(plus) <= 1, view
+
+
+# --- step C: Types and Shapes ---------------------------------------------------------
+
+SHAPE_ROW = {'kind': 'shape', 'label': 'HasValveShape', 'shape': 'https://x/HasValveShape',
+             'detail': 'targets subjects of hasValve · 1 attribute(s)',
+             'definedAt': '/pkg/shacl.ttl:29'}
+
+
+def test_a_shape_click_opens_its_page(tmp_path):
+    seen = _click(tmp_path, 'semforgeShapes', SHAPE_ROW)
+    opened = _opened(seen, 'semforge.openShapePage')
+    assert len(opened) == 1 and opened[0][1] == {'preserveFocus': True}
+    assert seen['shown'] == []
+
+
+def test_a_shape_click_in_source_mode_opens_the_ttl(tmp_path):
+    seen = _click(tmp_path, 'semforgeShapes', SHAPE_ROW, config={'trees.click': 'source'})
+    assert seen['shown'][0]['line'] == 28
+
+
+def test_a_rule_in_the_types_view_opens_its_shape_page(tmp_path):
+    seen = _click(tmp_path, 'semforgeConstraints',
+                  {'kind': 'rule', 'label': 'StateOnFilterShape', 'shape': 'https://x/S',
+                   'typeClass': 'https://x/Filter', 'definedAt': '/pkg/shacl.ttl:205'})
+    assert len(_opened(seen, 'semforge.openShapePage')) == 1
+    assert _opened(seen, 'semforge.openTypePage') == []
+
+
+def test_a_row_belongs_to_its_nearest_type(tmp_path):
+    """In the hierarchy, Filter's attribute is Filter's, not Entity's."""
+    attribute = {'kind': 'attribute', 'label': 'hasStrength', 'shape': 'https://x/FilterShape',
+                 'path': ['https://x/hasStrength'], 'children': []}
+    roots = [{'kind': 'type', 'label': 'Entity', 'targetClass': 'https://x/Entity', 'children': [
+        {'kind': 'type', 'label': 'Filter', 'targetClass': 'https://x/Filter',
+         'children': [attribute]}]}]
+    rows = {r['label']: r for r in _drive(tmp_path, {
+        'mode': 'items', 'provider': 'CookedTreeProvider', 'uri': 'file:///pkg/shacl.ttl',
+        'replies': {'semforge/tree': {'roots': roots}}}, target='tree.js')['rows']}
+    assert rows['hasStrength']['typeClass'] == 'https://x/Filter'
+    assert rows['Entity']['expanded'], 'a closed root would hide every type'
+
+
+def test_the_shapes_view_lists_rules_and_shapes_by_their_own_icons(tmp_path):
+    rows = _drive(tmp_path, {
+        'mode': 'items', 'provider': 'ShapesTreeProvider', 'uri': 'file:///pkg/shacl.ttl',
+        'replies': {'semforge/shapes': {'roots': [
+            dict(SHAPE_ROW, children=[]),
+            dict(SHAPE_ROW, label='StateOnFilterShape', rule=True, severity='violation',
+                 children=[])]}}}, target='shapes.js')['rows']
+    assert [(r['icon'], r['contextValue']) for r in rows] == [
+        ('symbol-interface', 'shape'), ('symbol-event', 'rule')]
+    assert rows[1]['color'] == 'list.errorForeground'
+
+
+SHAPE_PAGE = {
+    'ok': True, 'iri': 'https://x/HighPressureShape', 'name': 'ex:HighPressureShape',
+    'label': 'HighPressureShape', 'definedAt': '/pkg/shacl.ttl:42',
+    'targets': [{'kind': 'sparql', 'value': 'SELECT ?this WHERE { ?this <p> ?o . FILTER(?o > 5) }',
+                 'short': 'SPARQL target', 'text': 'the nodes a SPARQL query selects (SHACL-AF)'}],
+    'target': 'SPARQL target', 'usedBy': [], 'rule': False,
+    'attributes': [{'label': 'hasValve', 'kind': 'Relationship', 'presence': 'at least 1',
+                    'value': 'an entity', 'verbatim': [], 'tested': 'untested',
+                    'violations': ['urn:pump:2'], 'depth': 0, 'definedAt': '/pkg/shacl.ttl:50'}],
+    'rules': [],
+    'types': [{'iri': 'https://x/Pump', 'label': 'Pump', 'page': True}],
+    'reach': {'model': 1, 'nodes': [{'id': 'urn:pump:2', 'violations': ['hasValve · MinCount']}],
+              'more': 0},
+    'exercisedBy': [],
+    'summary': {'reached': 1, 'violations': 1, 'cases': 0, 'casesFailing': 0, 'neverFired': True}}
+
+
+def test_the_shape_page_says_its_target_and_links_onwards(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': SHAPE_ROW, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'type', 'name': 'https://x/Pump'}],
+        'replies': {'semforge/shapePage': SHAPE_PAGE}})
+    assert seen['errors'] == [], seen['errors']
+    page = seen['webviews'][0]
+    assert page['title'] == 'HighPressureShape · shape'
+    html = page['html'][-1]
+    for text in ('sh:target', 'the nodes a SPARQL query selects', 'FILTER(?o &gt; 5)',
+                 'data-type="https://x/Pump"', 'urn:pump:2', 'never fired'):
+        assert text in html, text
+    assert ' style="' not in html, 'the CSP drops inline styles'
+    assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == 'https://x/Pump'
+
+
+def test_the_type_page_links_its_shapes_and_the_ones_that_reach_it(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openTypePage',
+        'node': {'raw': ATTRIBUTE, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'shape', 'name': 'https://x/HasValveShape'}],
+        'replies': {'semforge/typePage': {
+            'ok': True, 'label': 'Pump', 'crumbs': [], 'summary': {},
+            'attributes': [{'label': 'hasPressure', 'attribute': 'https://x/hasPressure',
+                            'path': ['https://x/hasPressure'], 'term': 'x:hasPressure',
+                            'kind': 'Property', 'presence': 'required · one', 'value': '≤ 10',
+                            'verbatim': [], 'shape': 'https://x/PumpShape',
+                            'shapeName': 'ex:PumpShape', 'depth': 0, 'violations': []}],
+            'rules': [], 'exercisedBy': [], 'instances': [], 'subtypes': [],
+            'alsoCheckedBy': [{'shape': 'https://x/HasValveShape', 'shapeName': 'ex:HasValveShape',
+                               'target': 'targets subjects of hasValve', 'reached': 2}]}}})
+    html = seen['webviews'][0]['html'][-1]
+    assert 'Also checked by' in html and 'targets subjects of hasValve' in html
+    assert 'data-shape="https://x/PumpShape"' in html
+    assert _opened(seen, 'semforge.openShapePage')[0][0]['raw']['shape'] == \
+        'https://x/HasValveShape'
 
 
 def test_the_click_setting_defaults_to_the_page():

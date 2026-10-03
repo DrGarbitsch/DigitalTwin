@@ -396,7 +396,9 @@ async function runItems() {
         observations: child.raw.observations || 0,
         contextValue: item.contextValue,
         icon: item.iconPath && item.iconPath.id,
-        color: item.iconPath && item.iconPath.color && item.iconPath.color.id
+        color: item.iconPath && item.iconPath.color && item.iconPath.color.id,
+        typeClass: child.raw.typeClass || '',
+        expanded: item.collapsibleState === 2
       });
       await walk(child);
     }

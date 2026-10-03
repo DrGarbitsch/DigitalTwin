@@ -26,6 +26,7 @@ project is preserved and marked, never hidden and never dropped.
 import os
 from dataclasses import dataclass, field
 
+from rdflib import URIRef
 from rdflib.namespace import SH
 
 from ..errors import PackageError
@@ -245,6 +246,18 @@ def _shape_node(package, shape, text, index, line_of=None):
             detail='a rule body is not a form — edit in the .ttl',
             shape=str(shape), defined_at=index.locator(shape)))
     return node
+
+
+def shape_node(package, shape):
+    """One shape as a cooked node, whatever it targets -- or None when it is
+    not a statement in the shapes files (a shape only named, never written)."""
+    index = package.index('shapes')
+    path = index.file_for(URIRef(shape))
+    if path is None:
+        return None
+    text = index.source_of(path)
+    return _shape_node(package, URIRef(shape), text, index.indexes[path],
+                       _line_counter(text))
 
 
 def build_tree(package):

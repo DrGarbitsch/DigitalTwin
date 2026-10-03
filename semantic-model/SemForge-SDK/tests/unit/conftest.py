@@ -20,6 +20,18 @@ def corpus():
     return load(CORPUS)
 
 
+TARGETS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'corpus',
+                                       'targets'))
+
+
+@pytest.fixture(scope='session')
+def targets():
+    """A package with one shape per SHACL target kind (the kms has only
+    sh:targetClass)."""
+    from semforge.package import load
+    return load(TARGETS)
+
+
 @pytest.fixture
 def model_graph(corpus):
     graph = Graph()

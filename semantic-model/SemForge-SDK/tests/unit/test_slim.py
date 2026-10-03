@@ -118,19 +118,34 @@ def test_the_model_folds_type_rows_and_says_each_value_once(full):
 
 # --- knowledge -------------------------------------------------------------------------
 
-def test_an_id_in_several_files_is_one_row(full):
-    slim = slim_knowledge(full['knowledge'])
-    workpiece = _find(slim, kind='class', label='Workpiece')[0]
-    instances = [n for n in workpiece['children'] if n['kind'] == 'instance']
-    rows = [n for n in instances if n['label'] == 'urn:workpiece:1']
-    assert len(rows) == 1 and rows[0]['detail'] == 'in 4 files'
-    assert len(rows[0]['children']) == 4
+def test_the_entity_types_are_the_types_view_s_not_the_knowledge_s(full):
+    """The hierarchy is drawn once, in Types; the Knowledge summary keeps the
+    vocabulary and the attributes."""
+    groups = [n['label'] for n in slim_knowledge(full['knowledge'])
+              if n['kind'] == 'group']
+    assert 'Entity types' not in groups
+    assert 'Vocabulary classes' in groups and 'Attributes' in groups
+    full_groups = [n['label'] for n in full['knowledge'] if n['kind'] == 'group']
+    assert 'Entity types' in full_groups, 'full mode keeps everything'
 
 
-def test_a_list_of_shapes_becomes_a_count(full):
-    slim = slim_knowledge(full['knowledge'])
-    cartridge = _find(slim, kind='class', label='FilterCartridge')[0]
-    assert cartridge['detail'].startswith('5 shape(s)')
+def _vocabulary(*children, detail=''):
+    return [{'kind': 'group', 'label': 'Vocabulary classes', 'detail': '', 'children': [
+        {'kind': 'class', 'label': 'Kind', 'detail': detail, 'children': list(children)}]}]
+
+
+def test_an_id_in_several_files_is_one_row():
+    rows = [{'kind': 'instance', 'label': 'urn:x:1', 'detail': f'f{i}.jsonld',
+             'children': []} for i in range(4)]
+    slim = slim_knowledge(_vocabulary(*rows))
+    kind = _find(slim, kind='class', label='Kind')[0]
+    assert len(kind['children']) == 1 and kind['children'][0]['detail'] == 'in 4 files'
+    assert len(kind['children'][0]['children']) == 4
+
+
+def test_a_list_of_shapes_becomes_a_count():
+    slim = slim_knowledge(_vocabulary(detail='a:One + b:Two + c:Three'))
+    assert _find(slim, kind='class', label='Kind')[0]['detail'].startswith('3 shape(s)')
 
 
 # --- over the protocol and in the extension ---------------------------------------------

@@ -49,7 +49,49 @@ def aggregates(text):
 
 
 def node_shapes(shapes_graph):
+    """The shapes with an sh:targetClass -- the ones that belong to an entity
+    type. Most callers ask exactly that (which shapes judge a Filter, which
+    shape to add an attribute to). Which shapes RUN is `targeted_shapes`."""
     return sorted(shapes_graph.subjects(SH.targetClass, None), key=str)
+
+
+TARGETS = (SH.targetClass, SH.targetNode, SH.targetSubjectsOf,
+           SH.targetObjectsOf, SH.target)
+
+
+def targeted_shapes(shapes_graph):
+    """Every shape SHACL evaluates on its own: one with any target, explicit
+    or implicit (a shape that is itself a class targets its instances).
+
+    A shape is not tied to an entity type. Before this the validator ran only
+    class-targeted shapes, so one written with sh:targetNode was silently
+    never checked at all."""
+    from rdflib.namespace import OWL, RDF, RDFS
+
+    found = set()
+    for predicate in TARGETS:
+        found.update(s for s in shapes_graph.subjects(predicate, None)
+                     if isinstance(s, URIRef))
+    for shape in shapes_graph.subjects(RDF.type, SH.NodeShape):
+        if isinstance(shape, URIRef) and (
+                (shape, RDF.type, RDFS.Class) in shapes_graph or
+                (shape, RDF.type, OWL.Class) in shapes_graph):
+            found.add(shape)
+    return sorted(found, key=str)
+
+
+def every_node_shape(shapes_graph):
+    """Every named shape a reader might look for: the targeted ones, a
+    declared sh:NodeShape without a target, and one only reached through
+    sh:node from another shape."""
+    from rdflib.namespace import RDF
+
+    found = set(targeted_shapes(shapes_graph))
+    found.update(s for s in shapes_graph.subjects(RDF.type, SH.NodeShape)
+                 if isinstance(s, URIRef))
+    found.update(o for o in shapes_graph.objects(None, SH.node)
+                 if isinstance(o, URIRef))
+    return sorted(found, key=str)
 
 
 def declared_view(shapes_graph, shape):
@@ -81,7 +123,7 @@ def check_declarations(shapes_graph):
       validate something other than what was asked for.
     """
     found = []
-    for shape in node_shapes(shapes_graph):
+    for shape in targeted_shapes(shapes_graph):
         try:
             view = declared_view(shapes_graph, shape)
         except ValueError as exc:
@@ -109,9 +151,9 @@ def check_declarations(shapes_graph):
 
 
 def partition(shapes_graph):
-    """{DataView: [shape, ...]} for the shapes with a target class."""
+    """{DataView: [shape, ...]} for every shape with a target, of any kind."""
     groups = {}
-    for shape in node_shapes(shapes_graph):
+    for shape in targeted_shapes(shapes_graph):
         groups.setdefault(view_of(shapes_graph, shape), []).append(shape)
     return groups
 

@@ -367,7 +367,7 @@ def _view(root, key, compute, params=None):
     payload = dict(payload, cached=hit)
     if params is not None and _field(params, 'detail') == 'summary' \
             and key in SLIM and payload.get('roots'):
-        payload['roots'] = SLIM[key](payload['roots'])
+        payload['roots'] = SLIM[key](payload['roots'], payload)
         payload['detail'] = 'summary'
     return payload
 
@@ -389,6 +389,24 @@ def _package_for(root):
     return _packages[root]
 
 
+def _type_hierarchy(package):
+    """[{iri, label, parent}] for every entity type, parent '' at the root."""
+    from rdflib import URIRef
+    from rdflib.namespace import RDFS
+
+    from ..cooked.choices import entity_types
+
+    entries = entity_types(package)[0]
+    known = {entry.iri for entry in entries}
+    out = []
+    for entry in entries:
+        parents = sorted(str(p) for p in package.knowledge.objects(
+            URIRef(entry.iri), RDFS.subClassOf) if str(p) in known)
+        out.append({'iri': entry.iri, 'label': entry.label,
+                    'parent': parents[0] if parents else ''})
+    return out
+
+
 @server.feature('semforge/tree')
 def cooked_tree(ls, params):
     """The cooked constraint tree for a package."""
@@ -398,9 +416,13 @@ def cooked_tree(ls, params):
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
     try:
-        return _view(root, 'constraints', lambda: {
-            'root': root,
-            'roots': [_serialise(node) for node in build_tree(_package_for(root))]}, params)
+        def compute():
+            package = _package_for(root)
+            return {'root': root,
+                    'roots': [_serialise(node) for node in build_tree(package)],
+                    # The hierarchy the summary (Types) tree is drawn as.
+                    'types': _type_hierarchy(package)}
+        return _view(root, 'constraints', compute, params)
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -1256,6 +1278,39 @@ def type_page_feature(ls, params):
         return dict(page['page'], ok=True, root=root, cached=page['cached'])
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/shapePage')
+def shape_page_feature(ls, params):
+    """Everything about one shape, whatever it targets. Cached per shape."""
+    from ..cooked.shapepage import build_shape_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    shape = str(_field(params, 'shape', '') or '')
+    key = 'shape-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', shape)[-120:]
+    try:
+        page = _view(root, key, lambda: {
+            'page': build_shape_page(_package_for(root), shape)})
+        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/shapes')
+def shapes_feature(ls, params):
+    """Every named shape with its target in words, for the Shapes view."""
+    from ..cooked.shapes import build_shapes
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'roots': [], 'error': 'not a SemForge package'}
+    try:
+        return _view(root, 'shapes', lambda: {
+            'root': root, 'roots': build_shapes(_package_for(root))}, params)
+    except Exception as exc:                       # noqa: BLE001
+        return {'roots': [], 'error': str(exc)}
 
 
 @server.feature('semforge/editAttribute')

@@ -899,15 +899,42 @@ thing, said once (the `semforge.trees.detail` setting, `summary`):
 
 | View | Summary | `full` |
 |---|---|---|
-| Constraints | `hasCartridge — required · one · → FilterCartridge`; a query-only shape is one row (`FilterStrengthShape — SPARQL constraint`); an inverse path reads `inverse of hasCartridge`. 43 rows for the kms | every SHACL parameter as a row, editable in place (192 rows) |
+| Types | the entity type hierarchy; under each type its OWN attributes (`hasCartridge — required · one · → FilterCartridge`, an inverse path as `inverse of hasCartridge`) and one **Rules** row, then its subtypes. Inherited attributes are on the type page, not repeated under every subtype | types → shapes → every SHACL parameter as a row, editable in place (192 rows for the kms) |
+| Shapes | every shape, prefixes dropped where unique | every shape, full names |
 | Model | the entity's type in its row (`urn:filter:9 — Filter · 2 violation(s)`), each value once (`hasStrength — 0.6`) | a separate `type` row, `0.6 — 0.6 · Property` |
-| Knowledge | `3 shape(s)` instead of the list; an id in several files is one row, its files beneath | every file's row |
+| Knowledge | no Entity types group (that is the Types view); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
 
 Prefixes are dropped wherever the local name is unambiguous in that tree; the
 two `CartridgeShape`s keep theirs. In summary mode **Override…** and right-click
 → **Open entity type page** on any Constraints row go to the type page, where
 each parameter is. Switch with *Settings → SemForge → Trees: Detail*; all
 trees redraw at once.
+
+**Types and Shapes: read by type, written by shape.** A SHACL shape is not tied
+to an entity type. It selects focus nodes by class (`sh:targetClass`), by named
+node (`sh:targetNode`), by the subjects or objects of a predicate
+(`sh:targetSubjectsOf`, `sh:targetObjectsOf`), by a SPARQL query (`sh:target`,
+SHACL-AF), implicitly when the shape is itself a class — or it has no target
+and is reached from another shape through `sh:node`. So constraints have two
+views:
+
+- **Types** (formerly Constraints) answers *what must a Filter carry*: the hierarchy, a click opening
+  the type page. The page lists every constraint reaching the type, its
+  "Declared in" column linking each to its shape, and under **Also checked by**
+  the shapes that reach the type by some other target (a shape on
+  `sh:targetSubjectsOf hasValve` judges every pump with a valve).
+- **Shapes** answers *what does this shape check and what does it reach*: one
+  row per shape, its target in words (`targets Filter`, `targets subjects of
+  hasValve`, `targets urn:valve:1`, `SPARQL target`, `no target · used by
+  ValveNodeShape`). A click opens the **shape page**: the target (a SPARQL
+  target's query included), the attributes and rules as the type page shows
+  them, the nodes it reaches in the model with their verdicts, the types those
+  are, and the test cases that reach it and whether it fires in them.
+
+Validation runs every shape that has a target, of any kind. Until this release
+it ran only `sh:targetClass` shapes — a shape written with `sh:targetNode` was
+never checked, and nothing said so. `tests/corpus/targets` has one shape per
+target kind and pins all of it.
 
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click

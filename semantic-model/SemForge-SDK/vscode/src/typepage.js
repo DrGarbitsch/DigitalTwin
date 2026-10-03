@@ -102,7 +102,7 @@ function attributeRows(attributes, focused) {
         : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}</td>` +
-      `<td><span class="mono">${escape(row.shapeName.split(':').pop())}</span>` +
+      `<td>${shapeLink(row.shapeName, row.shape)}` +
       `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>` +
       `<td>${tested}</td><td>${model}</td>` +
       `<td class="acts">${row.inherited
@@ -113,10 +113,18 @@ function attributeRows(attributes, focused) {
   }).join('');
 }
 
+/** A shape's name, opening its page: the shape is where the constraint lives. */
+function shapeLink(name, iri) {
+  const short = String(name || '').split(':').pop();
+  return iri
+    ? `<a href="#" class="mono" data-shape="${escape(iri)}" title="${escape(name)}">${escape(short)}</a>`
+    : `<span class="mono">${escape(short)}</span>`;
+}
+
 function ruleRows(rules) {
   return rules.map((rule) => `<div class="rule">` +
     `<span class="kind">${escape(rule.kind)}</span>` +
-    `<span class="what">${openable(rule.shapeName.split(':').pop(), rule.definedAt)}` +
+    `<span class="what">${shapeLink(rule.shapeName, rule.shape)}` +
     `${rule.text ? ` <span class="dim">· ${escape(rule.text)}</span>` : ''}` +
     `${rule.inherited ? ` <span class="dim">· from ${escape(rule.inheritedFrom)}</span>` : ''}</span>` +
     `${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}</div>`).join('');
@@ -148,6 +156,7 @@ function renderTypePage(page, options) {
   const cases = page.exercisedBy || [];
   const instances = page.instances || [];
   const subtypes = page.subtypes || [];
+  const also = page.alsoCheckedBy || [];
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -228,6 +237,12 @@ ${attributes.length ? `<div class="table"><table>
 ${rules.length ? `<div class="rules">${ruleRows(rules)}</div>`
     : '<p class="empty">No SPARQL constraint or rule targets this type.</p>'}
 
+${also.length ? `<h2>Also checked by</h2>
+<p class="dim">Shapes that do not target ${escape(page.label)} by class, but reach entities of this type.</p>
+<div class="rules">${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
+    `<span class="what">${shapeLink(a.shapeName, a.shape)} <span class="dim">· ${escape(a.target)}</span></span>` +
+    `${chip(`reaches ${a.reached}`)}</div>`).join('')}</div>` : ''}
+
 <h2>Exercised by</h2>
 ${cases.length ? `<div class="chips">${cases.map((c) =>
     `<a href="#" data-open="${escape(c.file)}:1" title="${escape(c.description || '')}">` +
@@ -251,7 +266,7 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-action]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-refresh],[data-action]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -260,6 +275,7 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
+    else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -362,6 +378,9 @@ class TypePages {
     }
     if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
+    } else if (message.command === 'shape' && message.name) {
+      await vscode.commands.executeCommand('semforge.openShapePage',
+        { raw: { shape: message.name }, packageUri: this.current.packageUri });
     } else if (message.command === 'type' && message.name) {
       await this.show(this.current.packageUri, message.name);
     } else if (message.command === 'refresh') {
