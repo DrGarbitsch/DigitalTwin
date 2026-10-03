@@ -119,6 +119,47 @@ function suggestedName(kind, target, label) {
 }
 
 /**
+ * What a shape should select: {kind, target, label}, or undefined when the
+ * person stops. Used by New shape… and by + Target on a shape page.
+ */
+async function pickTarget(client, packageUri, title) {
+  const picked = await vscode.window.showQuickPick(KINDS, { title });
+  if (!picked) {
+    return undefined;
+  }
+  const kind = picked.kind;
+  if (kind === 'class') {
+    const answer = await client.sendRequest('semforge/entityTypes', { uri: packageUri });
+    const chosen = await vscode.window.showQuickPick((answer.types || []).map((t) => ({
+      label: t.label, description: t.term,
+      detail: t.ownShape ? `already has ${t.ownShape.split(/[/#]/).pop()}`
+        : 'no shape of its own yet',
+      type: t })), { title: 'Which entity type?', matchOnDescription: true });
+    return chosen ? { kind, target: chosen.type.iri, label: chosen.type.label } : undefined;
+  }
+  if (kind === 'subjectsOf') {
+    const answer = await client.sendRequest('semforge/attributes',
+      { uri: packageUri, all: true });
+    const chosen = await vscode.window.showQuickPick((answer.attributes || []).map((a) => ({
+      label: a.label, description: a.term, detail: a.domain ? `on ${a.domain}` : '',
+      attribute: a })), { title: 'Every entity that has which attribute?',
+      matchOnDescription: true });
+    return chosen ? { kind, target: chosen.attribute.iri,
+      label: `has ${chosen.attribute.label.replace(/^has/, '')}` } : undefined;
+  }
+  if (kind === 'node') {
+    const target = await vscode.window.showInputBox({
+      title: 'One entity',
+      prompt: 'Its id, e.g. urn:my-model:machine:1',
+      validateInput: (text) => (/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(text.trim())
+        ? undefined : 'an IRI, e.g. urn:my-model:machine:1')
+    });
+    return target ? { kind, target: target.trim(), label: target.trim() } : undefined;
+  }
+  return { kind, target: 'ngsild:hasObject', label: 'relationship target' };
+}
+
+/**
  * New shape…: a node shape with one target, written into the shapes file;
  * its attributes and constraints are then added on its page. A node whose
  * raw names a type (a Types row, the type page) presets the target.
@@ -132,59 +173,14 @@ async function newShape(clientHolder, session, node, options) {
     return false;
   }
   const raw = (node && node.raw) || {};
-  let kind;
-  let target;
-  let label;
-  if (raw.targetClass) {
-    kind = 'class';
-    target = raw.targetClass;
-    label = raw.label || target.split(/[/#]/).pop();
-  } else {
-    const picked = await vscode.window.showQuickPick(KINDS,
-      { title: 'New shape: what does it check?' });
-    if (!picked) {
-      return false;
-    }
-    kind = picked.kind;
+  const chosen = raw.targetClass
+    ? { kind: 'class', target: raw.targetClass,
+      label: raw.label || raw.targetClass.split(/[/#]/).pop() }
+    : await pickTarget(client, packageUri, 'New shape: what does it check?');
+  if (!chosen) {
+    return false;
   }
-  if (kind === 'class' && !target) {
-    const answer = await client.sendRequest('semforge/entityTypes', { uri: packageUri });
-    const chosen = await vscode.window.showQuickPick((answer.types || []).map((t) => ({
-      label: t.label, description: t.term,
-      detail: t.ownShape ? `already has ${t.ownShape.split(/[/#]/).pop()}`
-        : 'no shape of its own yet',
-      type: t })), { title: 'New shape for which entity type?', matchOnDescription: true });
-    if (!chosen) {
-      return false;
-    }
-    target = chosen.type.iri;
-    label = chosen.type.label;
-  } else if (kind === 'subjectsOf') {
-    const answer = await client.sendRequest('semforge/attributes',
-      { uri: packageUri, all: true });
-    const chosen = await vscode.window.showQuickPick((answer.attributes || []).map((a) => ({
-      label: a.label, description: a.term, detail: a.domain ? `on ${a.domain}` : '',
-      attribute: a })), { title: 'Every entity that has which attribute?',
-      matchOnDescription: true });
-    if (!chosen) {
-      return false;
-    }
-    target = chosen.attribute.iri;
-    label = `has ${chosen.attribute.label.replace(/^has/, '')}`;
-  } else if (kind === 'node') {
-    target = await vscode.window.showInputBox({
-      title: 'New shape for one entity',
-      prompt: 'Its id, e.g. urn:my-model:machine:1',
-      validateInput: (text) => (/^[A-Za-z][A-Za-z0-9+.-]*:\S+$/.test(text.trim())
-        ? undefined : 'an IRI, e.g. urn:my-model:machine:1')
-    });
-    if (!target) {
-      return false;
-    }
-    target = target.trim();
-  } else if (kind === 'objectsOf') {
-    target = 'ngsild:hasObject';
-  }
+  const { kind, target, label } = chosen;
   const name = await vscode.window.showInputBox({
     title: 'New shape: its name',
     prompt: 'Letters, digits, "_" and "-"; it goes in the namespace of the other shapes',
@@ -251,4 +247,4 @@ function register(context, clientHolder, session) {
   return provider;
 }
 
-module.exports = { register, ShapesTreeProvider, newShape, suggestedName };
+module.exports = { register, ShapesTreeProvider, newShape, suggestedName, pickTarget };

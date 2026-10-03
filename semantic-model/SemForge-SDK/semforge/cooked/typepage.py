@@ -323,7 +323,7 @@ def _also_checked_by(package, family, cases):
     pump's page would otherwise never mention it."""
     from ..validate.shapes import every_node_shape, node_shapes
     from .shapepage import _reach
-    from .shapes import target_short
+    from .shapes import target_short, targets
 
     classed = set(node_shapes(package.shapes))
     graphs = [package.model] + [graph for _, graph, _ in cases]
@@ -331,17 +331,81 @@ def _also_checked_by(package, family, cases):
     for shape in every_node_shape(package.shapes):
         if shape in classed:
             continue
+        condition = _applies(package, shape, family, targets(package, shape))
         reached = set()
         for graph in graphs:
             for node in _reach(package, shape, graph):
                 if {str(o) for o in graph.objects(URIRef(node), RDF.type)} & family:
                     reached.add(node)
-        if reached:
-            out.append({'shape': str(shape),
-                        'shapeName': curie(package.shapes, shape),
-                        'target': target_short(package, shape),
-                        'reached': len(reached)})
+        if condition is None and not reached:
+            continue
+        out.append({'shape': str(shape),
+                    'shapeName': curie(package.shapes, shape),
+                    'target': target_short(package, shape),
+                    'condition': condition if condition is not None
+                    else _condition(package, shape),
+                    'reached': len(reached)})
     return out
+
+
+def _lineage(package, iri):
+    """The type and every class above it."""
+    found, pending = {str(iri)}, [URIRef(iri)]
+    while pending:
+        for parent in package.knowledge.objects(pending.pop(), RDFS.subClassOf):
+            if isinstance(parent, URIRef) and str(parent) not in found:
+                found.add(str(parent))
+                pending.append(parent)
+    return found
+
+
+def _condition(package, shape):
+    """When a shape that does not target the type by class applies to one of
+    its entities, in words."""
+    from .shapes import targets, used_by
+
+    declared = targets(package, shape)
+    if not declared:
+        users = used_by(package, shape)
+        return ('only where ' + ', '.join(_short(curie(package.shapes, URIRef(u)))
+                                          for u in users) + ' reaches it') if users \
+            else 'never: nothing targets it'
+    words = []
+    for target in declared:
+        if target['kind'] == 'subjectsOf':
+            words.append(f'only when it has {_short(target["value"])}')
+        elif target['kind'] == 'objectsOf':
+            words.append('only when a Relationship points at it')
+        elif target['kind'] == 'node':
+            words.append(f'only for {target["value"]}')
+        elif target['kind'] == 'sparql':
+            words.append('only for the entities its SPARQL target selects')
+        elif target['kind'] in ('class', 'implicit'):
+            words.append('every one')
+    return ' or '.join(words)
+
+
+def _applies(package, shape, family, declared):
+    """The condition under which a shape with no class target applies to
+    entities of this type, decided from the model alone -- or None when only
+    the data can say (a named node, a SPARQL target)."""
+    lineage = set()
+    for member in family:
+        lineage |= _lineage(package, member)
+    for target in declared:
+        if target['kind'] == 'implicit' and target['value'] in lineage:
+            return ''                      # it IS a class over this type
+        if target['kind'] == 'subjectsOf':
+            domains = {str(d) for d in package.knowledge.objects(
+                URIRef(target['value']), RDFS.domain)}
+            if domains & lineage:
+                return f'only when it has {_short(target["value"])}'
+        if target['kind'] == 'objectsOf' and \
+                target['value'] == 'https://uri.etsi.org/ngsi-ld/hasObject':
+            pointed = {str(c) for c in package.shapes.objects(None, SH['class'])}
+            if pointed & lineage:
+                return 'only when a Relationship points at it'
+    return None
 
 
 def build_type_page(package, entity_type):
@@ -403,6 +467,29 @@ def build_type_page(package, entity_type):
                               'violations': [f'{constraint_ref(v)}' for v in problems]})
 
     rules = _rules(package, shape_nodes, coverage)
+
+    # Every constraint that applies, not only the class-targeted ones: a
+    # shape on "whatever has hasValve" judges a pump with a valve, and its
+    # attributes and rules belong on the pump's page -- marked with the shape
+    # and the condition, and edited on that shape's page.
+    from .tree import shape_node
+
+    also = _also_checked_by(package, family, cases)
+    for via in also:
+        node = shape_node(package, via['shape'])
+        if node is None:
+            continue
+        for child in node.children:
+            if child.kind != 'attribute':
+                continue
+            for row in _attribute_rows(package, child, kind_of, 0, coverage, violated):
+                row.update(inherited=True, inheritedFrom='', via=via['shapeName'],
+                           condition=via['condition'])
+                attributes.append(row)
+        for rule in _rules(package, [node], coverage):
+            rule.update(inherited=True, inheritedFrom='', via=via['shapeName'],
+                        condition=via['condition'])
+            rules.append(rule)
     own_shapes = [n.label for n in shape_nodes if not n.inherited_from]
     from .constrain import own_shape
     own = own_shape(package, entry.iri)
@@ -418,7 +505,7 @@ def build_type_page(package, entity_type):
         'shapeAt': next((n.defined_at for n in shape_nodes
                          if not n.inherited_from), ''),
         'attributes': attributes, 'rules': rules,
-        'alsoCheckedBy': _also_checked_by(package, family, cases),
+        'alsoCheckedBy': also,
         'exercisedBy': exercised, 'instances': instances,
         'summary': {
             'cases': len(exercised),

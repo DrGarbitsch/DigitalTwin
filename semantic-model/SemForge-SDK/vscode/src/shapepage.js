@@ -21,6 +21,7 @@ const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
 const { escape, attributeRows: typeRows, EDITS } = require('./typepage');
+const { pickTarget } = require('./shapes');
 
 function chip(text, tone, title) {
   return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
@@ -40,12 +41,19 @@ function targetSection(page) {
         shapeLink(u.name, u.iri)).join(', ')} reaches it through <span class="mono">sh:node</span>.</p>`
       : '<p class="empty">No target, and no shape uses it: SHACL never evaluates it.</p>';
   }
-  return `<ul class="targets">${targets.map((t) => `<li><span class="mono">${escape(
-    { class: 'sh:targetClass', node: 'sh:targetNode', subjectsOf: 'sh:targetSubjectsOf',
-      objectsOf: 'sh:targetObjectsOf', sparql: 'sh:target', implicit: 'implicit' }[t.kind] ||
-    t.kind)}</span> ${escape(t.text)}` +
+  // Each target can be taken off here; a SPARQL target is a query, and an
+  // implicit one is the shape being a class -- both are edited in the .ttl.
+  return `<div class="rules">${targets.map((t, index) => `<div class="rule">` +
+    `<span class="mono">${escape(
+      { class: 'sh:targetClass', node: 'sh:targetNode', subjectsOf: 'sh:targetSubjectsOf',
+        objectsOf: 'sh:targetObjectsOf', sparql: 'sh:target', implicit: 'implicit' }[t.kind] ||
+      t.kind)}</span><span>${escape(t.text)}` +
     (t.kind === 'sparql' && t.value
-      ? `<pre class="query">${escape(t.value.trim())}</pre>` : '') + '</li>').join('')}</ul>`;
+      ? `<pre class="query">${escape(t.value.trim())}</pre>` : '') + '</span>' +
+    (['class', 'node', 'subjectsOf', 'objectsOf'].includes(t.kind)
+      ? `<button data-action="removeTarget" data-row="${index}" ` +
+        'title="Take this target off the shape">Remove</button>' : '<span></span>') +
+    '</div>').join('')}</div>`;
 }
 
 /** The type page's rows, actions and all: a shape's attributes are edited
@@ -101,9 +109,11 @@ function checkSections(page, checks, cases) {
   ].join('');
   const queries = checks.filter((c) => c.query).map((c) =>
     `<pre class="query">${escape(c.query)}</pre>`).join('');
-  return `<h2>What it checks</h2><div class="rules">${said}</div>` +
-    (evidence ? `<h2>Evidence</h2><div class="rules">${evidence}</div>` : '') +
-    (queries ? `<h2>The query · read-only, edit it in the .ttl</h2>${queries}` : '');
+  // Apart, so the page can put what it checks under Constraints and the
+  // evidence after what it reaches.
+  return { said: `<div class="rules">${said}</div>` +
+      (queries ? `<p class="dim">The query · read-only, edit it in the .ttl</p>${queries}` : ''),
+    evidence: evidence ? `<div class="rules">${evidence}</div>` : '' };
 }
 
 function renderShapePage(page, options) {
@@ -113,6 +123,7 @@ function renderShapePage(page, options) {
   const attributes = page.attributes || [];
   const checks = page.checks || [];
   const cases = page.exercisedBy || [];
+  const parts = checks.length ? checkSections(page, checks, cases) : null;
   const reach = page.reach || { nodes: [], more: 0 };
   const types = page.types || [];
   const chips = [
@@ -147,6 +158,7 @@ function renderShapePage(page, options) {
   h1 { font-size: 1.6em; font-weight: 600; margin: 4px 0 8px; }
   h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
        color: var(--vscode-descriptionForeground); margin: 26px 0 8px; }
+  h3 { font-size: 1em; font-weight: 600; margin: 14px 0 6px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips.top { margin-top: 8px; }
   .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
@@ -191,15 +203,28 @@ function renderShapePage(page, options) {
 <h1>${escape(page.label)}</h1>
 <div class="dim mono">${escape(page.name)}</div>
 <div class="chips top">${chips}</div>
-<div class="bar">${page.ownShape && !page.rule
-    ? '<button class="primary" data-action="addAttribute">+ Attribute</button>' : ''}
-${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
+<div class="bar">${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
 ${types.filter((t) => t.page).slice(0, 1).map((t) =>
     `<button data-type="${escape(t.iri)}">Open ${escape(t.label)} type page</button>`).join('')}
 <button data-refresh="1">Refresh</button></div>
 
-<h2>Target</h2>
+<h2>Selects</h2>
+<p class="dim">The node selector: which nodes the constraints below are checked on.
+Several targets add up.</p>
 ${targetSection(page)}
+<div class="bar"><button data-action="addTarget">+ Target</button></div>
+
+<h2>Constraints</h2>
+<h3>On its attributes</h3>
+${attributes.length ? `<div class="table"><table>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th><th></th></tr></thead>
+<tbody>${attributeRows(attributes)}</tbody></table></div>`
+    : '<p class="empty">None yet.</p>'}
+${page.ownShape ? '<div class="bar"><button class="primary" data-action="addAttribute">+ Attribute</button></div>' : ''}
+<h3>On the whole node</h3>
+${parts ? parts.said
+    : '<p class="empty">No SPARQL constraint or rule: one reading the node as a whole is ' +
+      'written in the .ttl.</p>'}
 
 <h2>Reaches</h2>
 ${types.length ? `<div class="chips">${types.map((t) => t.page
@@ -210,13 +235,9 @@ ${reach.nodes.length ? `<ul>${reach.nodes.map((n) => `<li><span class="mono">${e
     '</li>').join('')}${reach.more ? `<li class="dim">… and ${reach.more} more</li>` : ''}</ul>`
     : '<p class="empty">Nothing in the model is a focus node of this shape.</p>'}
 
-${attributes.length ? `<h2>Attributes</h2><div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th><th></th></tr></thead>
-<tbody>${attributeRows(attributes)}</tbody></table></div>`
-    : checks.length ? '' : '<h2>Attributes</h2><p class="empty">No property constraints.</p>'}
-
-${checks.length ? checkSections(page, checks, cases) : `<h2>Test cases that reach it</h2>
-${caseChips(cases) || '<p class="empty">No test case reaches it. Nothing proves it can fire.</p>'}`}
+<h2>Evidence</h2>
+${parts && parts.evidence ? parts.evidence
+    : caseChips(cases) || '<p class="empty">No test case reaches it. Nothing proves it can fire.</p>'}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
@@ -331,11 +352,61 @@ class ShapePages {
     } else if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri });
+    } else if (message.command === 'addTarget' || message.command === 'removeTarget') {
+      if (await this.editTarget(message)) {
+        await this.render();
+        for (const command of ['semforge.refreshShapes', 'semforge.refreshTree']) {
+          vscode.commands.executeCommand(command);
+        }
+      }
     } else if (message.command === 'newCase') {
       await this.newCase();
     } else if (message.command === 'refresh') {
       await this.render();
     }
+  }
+
+  /** + Target and Remove: the node selector, edited in place. */
+  async editTarget(message) {
+    const page = this.page;
+    const client = this.clientHolder.client;
+    const { packageUri } = this.current;
+    let result;
+    if (message.command === 'addTarget') {
+      const chosen = await pickTarget(client, packageUri,
+        `${page.label}: select what else?`);
+      if (!chosen) {
+        return false;
+      }
+      result = await client.sendRequest('semforge/addTarget', { uri: packageUri,
+        shape: page.iri, targetKind: chosen.kind, target: chosen.target });
+    } else {
+      const target = (page.targets || [])[message.row];
+      if (!target) {
+        return false;
+      }
+      const last = page.targets.length === 1;
+      const answer = await vscode.window.showWarningMessage(
+        `Take "${target.text}" off ${page.label}?`,
+        { modal: true, detail: last
+          ? 'It is the only target: the shape will then run only where another shape ' +
+            'reaches it through sh:node.'
+          : 'The shape keeps its other targets and its constraints.' },
+        'Remove');
+      if (answer !== 'Remove') {
+        return false;
+      }
+      result = await client.sendRequest('semforge/removeTarget', { uri: packageUri,
+        shape: page.iri, targetKind: target.kind, value: target.value });
+    }
+    if (!result.ok) {
+      vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+      return false;
+    }
+    if (result.note) {
+      vscode.window.showWarningMessage(`SemForge: ${result.note}`);
+    }
+    return true;
   }
 
   /** Write a bad case asserting this shape fires, then open it to edit. */

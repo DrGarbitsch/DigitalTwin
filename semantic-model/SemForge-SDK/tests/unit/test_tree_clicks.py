@@ -338,9 +338,10 @@ def test_the_type_page_links_its_shapes_and_the_ones_that_reach_it(tmp_path):
                             'shapeName': 'ex:PumpShape', 'depth': 0, 'violations': []}],
             'rules': [], 'exercisedBy': [], 'instances': [], 'subtypes': [],
             'alsoCheckedBy': [{'shape': 'https://x/HasValveShape', 'shapeName': 'ex:HasValveShape',
-                               'target': 'targets subjects of hasValve', 'reached': 2}]}}})
+                               'target': 'targets subjects of hasValve',
+                               'condition': 'only when it has hasValve', 'reached': 2}]}}})
     html = seen['webviews'][0]['html'][-1]
-    assert 'Also checked by' in html and 'targets subjects of hasValve' in html
+    assert 'Shapes that apply under a condition' in html and 'only when it has hasValve' in html
     assert 'data-shape="https://x/PumpShape"' in html
     assert _opened(seen, 'semforge.openShapePage')[0][0]['raw']['shape'] == \
         'https://x/HasValveShape'
@@ -368,12 +369,12 @@ def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
                  'packageUri': 'file:///pkg/shacl.ttl'},
         'replies': {'semforge/shapePage': RULE_PAGE}})
     html = seen['webviews'][0]['html'][-1]
-    for text in ('What it checks', 'Filter running without running assigned machine',
-                 'severity: warning', 'fires in 0', 'holds in 1', 'data-newcase="1"',
+    for text in ('Selects', 'Constraints', 'On its attributes', 'On the whole node',
+                 'Filter running without running assigned machine', 'severity: warning', 'fires in 0', 'holds in 1', 'data-newcase="1"',
                  'New case…', 'read-only, edit it in the .ttl', 'FILTER(?v != &lt;on&gt;)',
                  'Open Pump type page'):
         assert text in html, text
-    assert 'No property constraints' not in html, 'a rule shape is not a form'
+    assert html.index('On the whole node') < html.index('Filter running') < html.index('Evidence')
 
 
 def test_a_rule_that_fires_says_where_and_offers_no_new_case(tmp_path):
@@ -804,6 +805,66 @@ def test_a_type_without_a_shape_offers_to_create_it(tmp_path):
     asked = _opened(seen, 'semforge.newShape')
     assert asked and asked[0][0]['raw']['targetClass'] == 'https://x/Pump'
     assert asked[0][1] == {'stay': True}, 'the type page stays, for + Attribute'
+
+
+# --- the shape page's node selector ---------------------------------------------------------
+
+SELECTING = dict(EDITABLE_SHAPE, targets=[
+    {'kind': 'class', 'value': 'https://x/Machine', 'short': 'targets Machine',
+     'text': 'every Machine, and every subclass of it'},
+    {'kind': 'sparql', 'value': 'SELECT ?this WHERE {}', 'short': 'SPARQL target',
+     'text': 'the nodes a SPARQL query selects (SHACL-AF)'}])
+
+
+def test_the_selector_lists_targets_each_removable_but_a_query(tmp_path):
+    html = _shape(tmp_path, replies={'semforge/shapePage': SELECTING})['webviews'][0]['html'][-1]
+    selects = html.split('<h2>Selects</h2>', 1)[1].split('<h2>Constraints</h2>', 1)[0]
+    assert selects.count('data-action="removeTarget"') == 1, 'not the SPARQL one'
+    assert 'data-action="addTarget"' in selects
+
+
+def test_plus_target_adds_what_is_picked(tmp_path):
+    seen = _shape(tmp_path, picks=['$(symbol-object) One entity'], inputs=['urn:m:7'],
+                  webviewMessages=[{'command': 'addTarget', 'row': -1}],
+                  replies={'semforge/shapePage': SELECTING,
+                           'semforge/addTarget': {'ok': True, 'note': ''}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTarget']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': SELECTING['iri'],
+                      'targetKind': 'node', 'target': 'urn:m:7'}]
+    assert len(seen['webviews'][0]['html']) == 2, 'rendered again'
+
+
+def test_removing_a_target_asks_first(tmp_path):
+    message = [{'command': 'removeTarget', 'row': 0}]
+    declined = _shape(tmp_path, webviewMessages=message,
+                      replies={'semforge/shapePage': SELECTING})
+    assert not [r for r in declined['requests'] if r['method'] == 'semforge/removeTarget']
+    confirmed = _shape(tmp_path, webviewMessages=message, answer='Remove',
+                       replies={'semforge/shapePage': SELECTING,
+                                'semforge/removeTarget': {'ok': True, 'note': ''}})
+    asked = [r['params'] for r in confirmed['requests']
+             if r['method'] == 'semforge/removeTarget']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': SELECTING['iri'],
+                      'targetKind': 'class', 'value': 'https://x/Machine'}]
+
+
+def test_the_type_page_marks_a_conditional_row_and_sends_it_to_its_shape(tmp_path):
+    row = dict(EDITABLE_SHAPE['attributes'][0], inherited=True, inheritedFrom='',
+               via='x:HasValveShape', condition='only when it has hasValve',
+               shape='https://x/HasValveShape', shapeName='x:HasValveShape')
+    page = {'ok': True, 'iri': 'https://x/Pump', 'label': 'Pump', 'crumbs': [],
+            'summary': {}, 'attributes': [row], 'rules': [], 'exercisedBy': [],
+            'instances': [], 'subtypes': [], 'ownShape': 'https://x/PumpShape',
+            'alsoCheckedBy': []}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': 'Pump', 'targetClass': 'https://x/Pump',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/typePage': page}})
+    html = seen['webviews'][0]['html'][-1]
+    assert 'only when it has hasValve' in html
+    assert 'Open shape' in html and 'data-action="override"' not in html
+    assert 'Rules on the whole entity' in html
 
 
 def test_the_click_setting_defaults_to_the_page():

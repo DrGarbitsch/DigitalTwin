@@ -1461,6 +1461,39 @@ def add_shape_feature(ls, params):
     return dict(made, ok=True)
 
 
+def _target_write(ls, params, write):
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        done = write(_package_for(root))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    _publish(ls, _path_to_uri(done['file']))
+    return dict(done, ok=True)
+
+
+@server.feature('semforge/addTarget')
+def add_target_feature(ls, params):
+    """One more thing a shape selects (the shape page's + Target)."""
+    from ..cooked.shapes import add_target
+
+    return _target_write(ls, params, lambda package: add_target(
+        package, _field(params, 'shape', ''), _field(params, 'targetKind', ''),
+        _field(params, 'target', '')))
+
+
+@server.feature('semforge/removeTarget')
+def remove_target_feature(ls, params):
+    """One target off a shape (the shape page's Remove)."""
+    from ..cooked.shapes import remove_target
+
+    return _target_write(ls, params, lambda package: remove_target(
+        package, _field(params, 'shape', ''), _field(params, 'targetKind', ''),
+        _field(params, 'value', '')))
+
+
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
     """Every named shape with its target in words, for the Shapes view."""

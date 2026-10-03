@@ -197,6 +197,120 @@ def add_shape(package, name, kind, target, namespace=None):
             'line': len(updated.splitlines()) - 1}
 
 
+def _statement(package, shape):
+    """(file, text, block) of a shape's own statement."""
+    from ..rdfio import TurtleIndex
+
+    index = package.index('shapes')
+    path = index.file_for(URIRef(shape))
+    if path is None:
+        raise PackageError(f'{shape} is not a statement in any shapes file')
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    block = TurtleIndex(text).block_for(str(shape))
+    if block is None:
+        raise PackageError(f'{shape} is not a statement in {path}')
+    return path, text, block
+
+
+def _write_checked(path, text, updated, check):
+    from rdflib import Graph
+
+    graph = Graph().parse(data=updated, format='turtle')
+    before = Graph().parse(data=text, format='turtle')
+    check(before, graph)
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(updated)
+
+
+def add_target(package, shape, kind, target):
+    """Give a shape one more target: what it selects grows (SHACL takes the
+    union of a shape's targets)."""
+    from .knowledge import _turtle_name
+
+    if kind not in TARGET_PREDICATES:
+        raise PackageError(f'{kind} is not a target the editor writes')
+    shape = URIRef(str(shape).strip('<>'))
+    target_iri = _target_iri(package, kind, target)
+    predicate = TARGET_PREDICATES[kind]
+    if (shape, predicate, target_iri) in package.shapes:
+        raise PackageError(f'{curie(package.shapes, shape)} already selects that')
+    path, text, block = _statement(package, shape)
+    statement = block.text(text).rstrip()
+    if not statement.endswith('.'):
+        raise PackageError('cannot find the end of the shape\'s statement')
+    statement = statement[:-1].rstrip() + \
+        f' ;\n    {_turtle_name(text, predicate)} {_turtle_name(text, target_iri)} .'
+    updated = text[:block.start] + statement + text[block.end:]
+
+    def check(before, after):
+        if (shape, predicate, target_iri) not in after or len(after) != len(before) + 1:
+            raise PackageError('the target did not come out as written; nothing changed')
+    _write_checked(path, text, updated, check)
+    return {'file': path, 'note': ''}
+
+
+def remove_target(package, shape, kind, value):
+    """Take one target off a shape. A shape left with none runs only where
+    another shape reaches it through sh:node -- said in the note."""
+    from .knowledge import _turtle_name
+
+    shape = URIRef(str(shape).strip('<>'))
+    if kind == 'sparql':
+        raise PackageError('a SPARQL target is a query; remove it in the .ttl')
+    if kind not in TARGET_PREDICATES:
+        raise PackageError(f'{kind} is not a target the editor removes')
+    predicate = TARGET_PREDICATES[kind]
+    target_iri = URIRef(str(value).strip('<>'))
+    if (shape, predicate, target_iri) not in package.shapes:
+        raise PackageError(f'{curie(package.shapes, shape)} does not select that')
+    path, text, block = _statement(package, shape)
+    statement = block.text(text)
+    pred_forms = {_turtle_name(text, predicate), f'<{predicate}>'}
+    obj_forms = {_turtle_name(text, target_iri), f'<{target_iri}>'}
+    pattern = '|'.join(
+        f'(?:{re.escape(p)})\\s+(?:{re.escape(o)})' for p in pred_forms for o in obj_forms)
+    found = re.search(f'({pattern})\\s*([;.])', statement)
+    if found is None:
+        raise PackageError('that target is written in a form the editor does not '
+                           'recognise (an object list?); remove it in the .ttl')
+    if found.group(2) == ';':
+        # `pred obj ;` and the whitespace up to the next parameter.
+        end = found.end()
+        while end < len(statement) and statement[end] in ' \t\n':
+            end += 1
+        start = found.start()
+        line_start = statement.rfind('\n', 0, start) + 1
+        if statement[line_start:start].strip() == '':
+            start = line_start
+            end = statement.rfind('\n', 0, end) + 1 if '\n' in statement[found.end():end] \
+                else end
+        statement = statement[:start] + statement[end:]
+    else:
+        # The last pair: take the ';' before it, keep the '.'.
+        before = statement[:found.start()].rstrip()
+        if not before.endswith(';'):
+            raise PackageError('a shape needs something besides its only target; '
+                               'remove it in the .ttl')
+        statement = before[:-1].rstrip() + ' .'
+    updated = text[:block.start] + statement + text[block.end:]
+
+    def check(old, new):
+        if (shape, predicate, target_iri) in new or len(new) != len(old) - 1:
+            raise PackageError('the target did not come off cleanly; nothing changed')
+    _write_checked(path, text, updated, check)
+    left = targets(load_fresh(package), shape)
+    note = '' if left else (f'{curie(package.shapes, shape)} has no target now: it runs '
+                            f'only where another shape reaches it through sh:node')
+    return {'file': path, 'note': note}
+
+
+def load_fresh(package):
+    from ..package import load
+
+    return load(package.path)
+
+
 def build_shapes(package, report=None):
     """One row per named shape, for the Shapes view."""
     from ..validate import validate_package

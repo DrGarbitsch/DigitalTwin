@@ -169,6 +169,51 @@ def test_the_type_page_lists_shapes_that_reach_it_by_other_targets(targets):
         'ex:PointedAtShape', 'ex:ValveNodeShape', 'ex:PositionShape'}
 
 
+def test_the_type_page_collects_every_constraint_that_applies(targets):
+    """Pump's own hasPressure, and the ones that apply under a condition:
+    HasValveShape's (pumps with a valve) and HighPressureShape's (its SPARQL
+    target) -- in the same table, marked."""
+    from semforge.cooked.typepage import build_type_page
+
+    rows = build_type_page(targets, EX + 'Pump')['attributes']
+    found = {(r['label'], r.get('via', ''), r.get('condition', '')) for r in rows}
+    assert found == {
+        ('hasPressure', '', ''),
+        ('hasPressure', 'ex:HasValveShape', 'only when it has hasValve'),
+        ('hasValve', 'ex:HighPressureShape',
+         'only for the entities its SPARQL target selects')}
+    assert all(r['inherited'] for r in rows if r.get('via')), 'edited on their shape'
+
+
+def test_a_conditional_shape_applies_before_any_data_reaches_it(tmp_path):
+    """A fresh package: a shape on "whatever has hasTemperature" belongs on
+    Machine's page because the knowledge gives hasTemperature to Machine --
+    not only once an entity in the data happens to have one."""
+    from semforge.cooked.constrain import add_attribute_constraint
+    from semforge.cooked.shapes import add_shape
+    from semforge.cooked.typepage import build_type_page
+    from semforge.package import load
+    from semforge.package.scaffold import create_package
+
+    root = str(tmp_path / 'm')
+    create_package(root)
+    made = add_shape(load(root), 'HotShape', 'subjectsOf', 'hasTemperature')
+    add_attribute_constraint(load(root), made['iri'], 'hasState', required=True)
+    package = load(root)
+    machine = next(str(c) for c in package.knowledge.subjects() if str(c).endswith('/Machine'))
+    # No data anywhere: neither the model nor a case has a Machine.
+    import shutil
+    shutil.rmtree(f'{root}/model/examples')
+    with open(f'{root}/model/main.jsonld', 'w') as handle:
+        handle.write('[]')
+    page = build_type_page(load(root), machine)
+    also = {a['shapeName'].split(':')[-1]: a for a in page['alsoCheckedBy']}
+    assert also['HotShape']['condition'] == 'only when it has hasTemperature'
+    assert also['HotShape']['reached'] == 0
+    assert any(r.get('via', '').endswith('HotShape') and r['label'] == 'hasState'
+               for r in page['attributes'])
+
+
 def test_a_kms_rule_shape_page_has_the_review_s_evidence(corpus):
     """StateOnFilterShape: reached in 4 cases, never fired."""
     from semforge.cooked.shapepage import build_shape_page

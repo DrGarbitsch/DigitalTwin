@@ -106,15 +106,20 @@ function attributeRows(attributes, focused, options) {
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}</td>` +
       (shapeColumn ? `<td>${shapeLink(row.shapeName, row.shape)}` +
-        `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>`
+        `${row.inheritedFrom ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}` +
+        `${row.condition ? ` <span class="cond">· ${escape(row.condition)}</span>` : ''}</td>`
         : '') +
       `<td><a href="#" class="act" data-action="test" data-row="${index}" ` +
       `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
       `${tested || 'New test…'}</a></td><td>${model}</td>` +
-      `<td class="acts">${row.inherited
-        ? `<button data-action="override" data-row="${index}" title="Declare a stricter ` +
-          'constraint on this type\'s own shape">Override…</button>'
-        : `<button data-action="menu" data-row="${index}" title="More actions">⋯</button>`}` +
+      `<td class="acts">${row.via
+        // A shape that reaches the type by another target: edited there.
+        ? `<button data-shape="${escape(row.shape)}" title="Edit it on its shape page">` +
+          'Open shape</button>'
+        : row.inherited
+          ? `<button data-action="override" data-row="${index}" title="Declare a stricter ` +
+            'constraint on this type\'s own shape">Override…</button>'
+          : `<button data-action="menu" data-row="${index}" title="More actions">⋯</button>`}` +
       '</td></tr>';
   }).join('');
 }
@@ -132,7 +137,8 @@ function ruleRows(rules) {
     `<span class="kind">${escape(rule.kind)}</span>` +
     `<span class="what">${shapeLink(rule.shapeName, rule.shape)}` +
     `${rule.text ? ` <span class="dim">· ${escape(rule.text)}</span>` : ''}` +
-    `${rule.inherited ? ` <span class="dim">· from ${escape(rule.inheritedFrom)}</span>` : ''}</span>` +
+    `${rule.inheritedFrom ? ` <span class="dim">· from ${escape(rule.inheritedFrom)}</span>` : ''}` +
+    `${rule.condition ? ` <span class="cond">· ${escape(rule.condition)}</span>` : ''}</span>` +
     `${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}</div>`).join('');
 }
 
@@ -175,6 +181,7 @@ function renderTypePage(page, options) {
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .crumbs, .dim { color: var(--vscode-descriptionForeground); }
+  .cond { color: var(--vscode-descriptionForeground); font-style: italic; }
   .crumbs { font-size: 0.92em; }
   h1 { font-size: 1.6em; font-weight: 600; margin: 4px 0 8px; }
   h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
@@ -239,15 +246,17 @@ ${attributes.length ? `<div class="table"><table>
 <tbody>${attributeRows(attributes, focusIndex(attributes, options && options.focus))}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
-<h2>Rules</h2>
+<h2>Rules on the whole entity</h2>
+<p class="dim">SPARQL constraints and rules read the entity as a whole, not one attribute.</p>
 ${rules.length ? `<div class="rules">${ruleRows(rules)}</div>`
-    : '<p class="empty">No SPARQL constraint or rule targets this type.</p>'}
+    : '<p class="empty">No SPARQL constraint or rule applies to this type.</p>'}
 
-${also.length ? `<h2>Also checked by</h2>
-<p class="dim">Shapes that do not target ${escape(page.label)} by class, but reach entities of this type.</p>
+${also.length ? `<h2>Shapes that apply under a condition</h2>
+<p class="dim">They do not target ${escape(page.label)} by class; their constraints are in the
+tables above, marked with the condition.</p>
 <div class="rules">${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
-    `<span class="what">${shapeLink(a.shapeName, a.shape)} <span class="dim">· ${escape(a.target)}</span></span>` +
-    `${chip(`reaches ${a.reached}`)}</div>`).join('')}</div>` : ''}
+    `<span class="what">${shapeLink(a.shapeName, a.shape)} <span class="cond">· ${escape(a.condition || a.target)}</span></span>` +
+    `${a.reached ? chip(`reaches ${a.reached}`) : chip('none in the data yet')}</div>`).join('')}</div>` : ''}
 
 <h2>Exercised by</h2>
 ${cases.length ? `<div class="chips">${cases.map((c) =>

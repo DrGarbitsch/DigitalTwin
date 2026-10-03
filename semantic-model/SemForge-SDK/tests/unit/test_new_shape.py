@@ -75,6 +75,59 @@ def test_what_it_cannot_write_is_refused(fresh, name, kind, target, said):
         add_shape(load(root), name, kind, target)
 
 
+# --- the node selector, edited on the shape page --------------------------------------
+
+@pytest.fixture
+def targets_copy(tmp_path):
+    import shutil
+
+    from conftest import TARGETS
+
+    root = tmp_path / 'targets'
+    shutil.copytree(TARGETS, root, ignore=shutil.ignore_patterns('.semforge'))
+    return str(root)
+
+
+EX = 'https://example.org/targets/'
+
+
+def test_a_target_added_then_removed_leaves_the_file_as_it_was(targets_copy):
+    from semforge.cooked.shapes import add_target, remove_target, targets
+
+    with open(f'{targets_copy}/shacl.ttl') as handle:
+        before = handle.read()
+    add_target(load(targets_copy), EX + 'PumpShape', 'node', 'urn:valve:9')
+    add_target(load(targets_copy), EX + 'PumpShape', 'subjectsOf', EX + 'hasValve')
+    kinds = [t['kind'] for t in targets(load(targets_copy), EX + 'PumpShape')]
+    assert sorted(kinds) == ['class', 'node', 'subjectsOf']
+    remove_target(load(targets_copy), EX + 'PumpShape', 'subjectsOf', EX + 'hasValve')
+    remove_target(load(targets_copy), EX + 'PumpShape', 'node', 'urn:valve:9')
+    with open(f'{targets_copy}/shacl.ttl') as handle:
+        assert handle.read() == before
+
+
+def test_taking_the_last_target_off_says_what_is_left(targets_copy):
+    from semforge.cooked.shapes import remove_target
+
+    done = remove_target(load(targets_copy), EX + 'HasValveShape', 'subjectsOf',
+                         EX + 'hasValve')
+    assert 'has no target now' in done['note']
+    assert (URIRef(EX + 'HasValveShape'), None, None) in _graph(targets_copy), \
+        'the shape and its constraints stay'
+
+
+@pytest.mark.parametrize('call, said', [
+    (lambda p, f: f.remove_target(p, EX + 'HighPressureShape', 'sparql', ''), 'a query'),
+    (lambda p, f: f.add_target(p, EX + 'PumpShape', 'class', EX + 'Pump'), 'already selects'),
+    (lambda p, f: f.remove_target(p, EX + 'PumpShape', 'node', 'urn:nope'), 'does not select'),
+])
+def test_target_edits_it_cannot_make_are_refused(targets_copy, call, said):
+    from semforge.cooked import shapes
+
+    with pytest.raises(PackageError, match=said):
+        call(load(targets_copy), shapes)
+
+
 def test_a_new_type_gets_its_shape_and_then_its_attributes(fresh):
     """The type page's "Create its shape", then + Attribute."""
     root, space = fresh

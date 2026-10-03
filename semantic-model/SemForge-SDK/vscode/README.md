@@ -949,10 +949,15 @@ and is reached from another shape through `sh:node`. So constraints have two
 views:
 
 - **Types** (formerly Constraints) answers *what must a Filter carry*: the hierarchy, a click opening
-  the type page. The page lists every constraint reaching the type, its
-  "Declared in" column linking each to its shape, and under **Also checked by**
-  the shapes that reach the type by some other target (a shape on
-  `sh:targetSubjectsOf hasValve` judges every pump with a valve).
+  the type page. The page **collects every constraint that applies** to the
+  type — its own shapes', the inherited ones (`· from Machine`), and those of
+  shapes that reach it by another target, in the same tables, marked with the
+  condition: a shape on `sh:targetSubjectsOf hasValve` puts its rows on the
+  Pump page as `· only when it has hasValve`. That is decided from the
+  knowledge where it can be (hasValve's `rdfs:domain` is Pump), so it shows
+  before any data exists; a named node or a SPARQL target is found through the
+  data. Such rows are edited on their shape's page (**Open shape**). SPARQL
+  constraints and rules are listed under **Rules on the whole entity**.
 - **Shapes** answers *what does this shape check and what does it reach*: one
   row per shape, its target in words (`targets Filter`, `targets subjects of
   hasValve`, `targets urn:valve:1`, `SPARQL target`, `no target · used by
@@ -960,6 +965,14 @@ views:
   target's query included), the attributes and rules as the type page shows
   them, the nodes it reaches in the model with their verdicts, the types those
   are, and the test cases that reach it and whether it fires in them.
+
+  The page is laid out as SHACL is: **Selects** — the node selector, every
+  target with **Remove** (a SPARQL target, being a query, stays in the `.ttl`)
+  and **+ Target** to add one (several targets add up; taking off the last
+  one leaves a shape that runs only where another reaches it via `sh:node`)
+  — then **Constraints**, in two parts: **on its attributes** (the table) and
+  **on the whole node** (its SPARQL constraints and rules, with the query),
+  then what it **Reaches** and the **Evidence**.
 
   Its attributes are **edited exactly as on the type page** — the same rows,
   the same actions: click the presence or the value, the `⋯` menu (edit a
