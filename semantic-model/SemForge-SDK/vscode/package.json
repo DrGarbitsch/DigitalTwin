@@ -120,7 +120,7 @@
       },
       {
         "command": "semforge.refreshTree",
-        "title": "SemForge: Refresh Constraints",
+        "title": "SemForge: Refresh types",
         "icon": "$(refresh)"
       },
       {
@@ -160,7 +160,7 @@
       },
       {
         "command": "semforge.refreshModel",
-        "title": "SemForge: Refresh the model tree",
+        "title": "SemForge: Refresh tests",
         "icon": "$(refresh)"
       },
       {
@@ -194,7 +194,7 @@
       },
       {
         "command": "semforge.refreshKnowledge",
-        "title": "SemForge: Refresh the knowledge tree",
+        "title": "SemForge: Refresh vocabulary",
         "icon": "$(refresh)"
       },
       {
@@ -216,7 +216,7 @@
       },
       {
         "command": "semforge.refreshProject",
-        "title": "Refresh Project",
+        "title": "Refresh package",
         "category": "SemForge",
         "icon": "$(refresh)"
       },
@@ -296,7 +296,7 @@
       "semforge": [
         {
           "id": "semforgeProject",
-          "name": "Project",
+          "name": "Package",
           "contextualTitle": "SemForge"
         },
         {
@@ -311,12 +311,12 @@
         },
         {
           "id": "semforgeModel",
-          "name": "Model",
+          "name": "Tests",
           "contextualTitle": "SemForge"
         },
         {
           "id": "semforgeKnowledge",
-          "name": "Knowledge",
+          "name": "Vocabulary",
           "contextualTitle": "SemForge"
         }
       ]

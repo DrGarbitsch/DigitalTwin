@@ -196,7 +196,7 @@ def test_only_the_kind_icons_are_used():
     allowed = {'symbol-class', 'symbol-interface', 'symbol-field', 'symbol-property',
                'symbol-event', 'symbol-constant', 'beaker', 'symbol-object', 'symbol-enum',
                'symbol-enum-member', 'symbol-namespace', 'project', 'database',
-               'settings-gear', 'info'}
+               'settings-gear', 'info', 'pulse'}
     import re
     for name in ('tree.js', 'shapes.js', 'model.js', 'knowledge.js', 'project.js'):
         with open(os.path.join(SRC, name)) as handle:
@@ -406,6 +406,41 @@ def test_new_case_writes_the_case_and_opens_it(tmp_path):
     opened = _opened(seen, 'semforge.openCasePage')
     assert opened and opened[0][0]['raw']['file'] == made['file']
     assert any('fails until' in text for text in seen['info'])
+
+
+# --- step E: Package, Tests, Vocabulary ----------------------------------------------
+
+def test_the_views_are_named_for_what_they_hold():
+    with open(PACKAGE_JSON) as handle:
+        views = json.load(handle)['contributes']['views']['semforge']
+    assert [v['name'] for v in views] == ['Package', 'Types', 'Shapes', 'Tests',
+                                          'Vocabulary']
+
+
+@pytest.mark.parametrize('tiles, detail, severity', [
+    ({'cases': 6, 'casesPassing': 6, 'modelViolations': 3, 'neverFired': 67},
+     '6/6 cases pass · 3 violation(s) · 67 untested', ''),
+    ({'cases': 6, 'casesPassing': 5}, '5/6 cases pass', 'error'),
+    ({'cases': 0, 'casesPassing': 0, 'brokenReferences': 2},
+     'no test cases · 2 broken reference(s)', 'error'),
+])
+def test_the_health_row_says_the_package_at_a_glance(tmp_path, tiles, detail, severity):
+    row = _drive(tmp_path, {'mode': 'render', 'function': 'healthRow',
+                            'payload': {'ok': True, 'tiles': tiles}}, target='project.js')['html']
+    assert row['detail'] == detail and row['severity'] == severity
+    # Violations in the model data are information; they do not turn it red.
+
+
+def test_the_health_row_comes_first_and_opens_the_health_page(tmp_path):
+    rows = _drive(tmp_path, {
+        'mode': 'items', 'provider': 'ProjectTreeProvider', 'uri': 'file:///pkg/shacl.ttl',
+        'replies': {'semforge/project': {'roots': [
+            {'kind': 'setting', 'label': 'context', 'children': []}]},
+            'semforge/health': {'ok': True, 'tiles': {'cases': 1, 'casesPassing': 1}}}},
+        target='project.js')['rows']
+    assert rows[0]['label'] == 'Health' and rows[0]['icon'] == 'pulse'
+    seen = _click(tmp_path, 'semforgeProject', {'kind': 'health', 'label': 'Health'})
+    assert len(_opened(seen, 'semforge.openHealthPage')) == 1
 
 
 def test_the_click_setting_defaults_to_the_page():

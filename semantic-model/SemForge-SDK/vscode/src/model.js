@@ -58,6 +58,9 @@ function keyOf(raw, parentKey, position) {
  * named the parent -- the jump would land on the wrong shape and the value
  * picker would offer the wrong class.
  */
+// The model document's row: "Main" in full mode, "Model data" in summary.
+const DATA = ['Main', 'Model data'];
+
 /** The test case a row belongs to (the row itself, or an ancestor). */
 function caseOf(provider, node) {
   for (let at = node; at; at = provider.getParent(at)) {
@@ -214,7 +217,7 @@ class ModelTreeProvider {
     const item = new vscode.TreeItem(
       raw.label || raw.kind,
       hasChildren
-        ? raw.kind === 'example' && !raw.severity
+        ? (raw.kind === 'example' && !raw.severity) || raw.label === 'Model data'
           ? vscode.TreeItemCollapsibleState.Collapsed
           : vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.None
@@ -257,7 +260,7 @@ class ModelTreeProvider {
       ? 'error' : raw.severity ? 'warning' : '';
     if (raw.kind === 'group') {
       // Tests and Main: the two kinds of data, judged by different rules.
-      item.iconPath = icon(raw.label === 'Main' ? 'symbol-object' : 'beaker', tone);
+      item.iconPath = icon(DATA.includes(raw.label) ? 'symbol-object' : 'beaker', tone);
     } else if (raw.kind === 'suite' || raw.kind === 'example') {
       // A declared case: green when it did what it says, red when it did not.
       item.iconPath = icon('beaker', raw.severity ? 'error' : 'ok');

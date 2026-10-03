@@ -25,7 +25,7 @@ the activity bar. Nothing else. No flags, no launch configuration, no terminal.
 
 **Starting a new one?** Creating a project is a SemForge-level gesture, not a
 constraint one, so it lives one layer above the artifact views: in the
-**SemForge menu** on the status bar, in the **Project** view's title bar, and
+**SemForge menu** on the status bar, in the **Package** view's title bar, and
 on any folder in the Explorer (right-click ▸ SemForge):
 
 | | does |
@@ -95,7 +95,7 @@ open a file inside a package.
 
 The **status bar** says, bottom left: `📦 kms` — or `📦 kms/test`, because the
 label is the path relative to the folder you opened and two directories called
-`test` are not the same project. All four views show that one package; the
+`test` are not the same project. All the views show that one package; the
 package is a property of the window, not of a view.
 
 Clicking it opens the **SemForge menu**. VS Code gives an extension no way to
@@ -106,8 +106,8 @@ it is in the command palette under `SemForge:` as well.
 
 | | |
 |---|---|
-| 📦 Switch package… | which package all four views show |
-| ⚙ Project settings | name, contexts, namespaces — focuses the Project view |
+| 📦 Switch package… | which package all the views show |
+| ⚙ Project settings | name, contexts, namespaces — focuses the Package view |
 | ✓ Revalidate | re-run analysis over the package |
 | 📁 New project… / Create a package in this folder | scaffold — the level above the views, which is where a project belongs |
 | ◎ Doctor · ⟳ Restart language server | when something is wrong |
@@ -239,7 +239,7 @@ carrier, and the declaration comes out as above. Placing the nested
 
 The one gesture no other gesture undoes, so it says the most before it happens.
 The 🗑 sits on the **Project** row itself — the row that names the project — and
-the same action is in the SemForge menu, in the Project view's title submenu,
+the same action is in the SemForge menu, in the Package view's title submenu,
 and on a folder in the Explorer. It shows what the directory actually holds:
 
 ```text
@@ -269,10 +269,15 @@ somebody meant; the trash is the thing that forgives being wrong. Nothing in
 the SDK deletes — `semforge.package.removal` only plans, and has no `rmtree` in
 it.
 
-### The Project view
+### The Package view (formerly Project)
 
-The first of the four views, and the one that says what the package *is*
-rather than what it says:
+The first of the views, and the one that says what the package *is*
+rather than what it says. Its first row is **Health**, the package at a glance
+(`6/6 cases pass · 3 violation(s) · 67 untested`); a click opens the health
+page. It is red only for what is wrong with the package itself — a failing
+case or a broken reference — since violations in the model data are
+information. It is asked for after the rest of the view, so a slow first
+computation never holds up the settings beneath it.
 
 ```text
 Project      Cutting cell
@@ -364,7 +369,7 @@ If you keep your interpreter somewhere the search will not find, set
 
 ---
 
-### The Knowledge view
+### The Vocabulary view (formerly Knowledge)
 
 Three groups, for the three things `knowledge.ttl` declares:
 
@@ -749,7 +754,7 @@ candidate, a picker shows each choice as the full name it would write
 already hold attributes, then the rest — never a standard vocabulary (rdf, owl,
 sh, ngsild) and never a namespace that holds only shapes. Typing the prefix
 into the name (`iffFilterEntities:hasPressure`) skips the question. A prefix the
-package does not know is refused, not dropped — define it in the Project view
+package does not know is refused, not dropped — define it in the Package view
 first.
 
 If the attribute does not exist yet, the last entry, **New attribute…**,
@@ -758,7 +763,7 @@ the two questions above. The same flow is **SemForge: New attribute…**, which
 starts by asking for the type instead and is reachable without the tree: the
 Command Palette, the SemForge item in the status bar, right-click on a `.ttl`
 or `.jsonld` (editor or Explorer) → **SemForge**, and the **symbol** button in
-the Constraints and Knowledge view titles. VS Code gives an extension no menu of
+the Constraints and Vocabulary view titles. VS Code gives an extension no menu of
 its own beside *File* and *Edit*, so these are the places one can live. Started
 that way it offers **Not now** too — declaring alone is a fine place to stop —
 and a type with no shape of its own is declared and told so, rather than having
@@ -773,7 +778,7 @@ constrains, and one a supertype's shape constrains — that is an override, and
 
 **Sub-attributes.** In NGSI-LD an attribute can carry attributes of its own —
 the kms's `hasTrust` hangs off `hasFilter`, `hasXXXWorkpiece` off `hasState`.
-The **+** on an *attribute* row in the Constraints view adds one: it offers what
+The **+** on an *attribute* row in the Types view adds one: it offers what
 the knowledge allows inside that attribute (a sub-attribute's `rdfs:domain` is
 the parent's kind of node, `ngsild:Relationship` or `ngsild:Property`), ends in
 **New sub-attribute…** to declare one carried by that attribute, and writes the
@@ -792,14 +797,14 @@ same two layers an attribute gets, *inside* the parent's `sh:property [ … ]`:
                 sh:datatype xsd:double ] ] ]
 ```
 
-In the Model view, right-click an attribute → **SemForge: Add Sub-attribute**
+In the Tests view, right-click an attribute → **SemForge: Add Sub-attribute**
 puts one into that attribute instance — the one the row shows, chosen by its
 datasetId when the attribute has several. An entity attribute is refused
 inside another attribute, a sub-attribute is refused inside a parent of the
 wrong kind, and a duplicate is refused; none of them write anything.
 
 **Deleting an attribute** is a right-click on its row in the Knowledge or
-Constraints view (**SemForge: Delete attribute…**; from the palette it asks
+Types view (**SemForge: Delete attribute…**; from the palette it asks
 which). An attribute is never in one place, so nothing is removed before you
 have seen all of them:
 
@@ -841,7 +846,7 @@ nothing. The dialog lists them and opens the first, and deletes nothing.
 
 **The package health page.** Is this package in good shape, and what needs
 attention first? The first entry of the status bar's SemForge menu (also the
-pulse button on the Project view, or **SemForge: Open package health**) opens
+pulse button on the Package view, or **SemForge: Open package health**) opens
 one page that puts side by side what `test`, `validate`, `check` and
 `--coverage` each answer on their own:
 
@@ -859,7 +864,7 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
-over up to nine levels. A click on a case under **Tests** in the Model view, or on
+over up to nine levels. A click on a case in the Tests view, or on
 any row inside it (or **SemForge: Open test case page**), opens a page that answers them in
 that order:
 
@@ -901,8 +906,8 @@ thing, said once (the `semforge.trees.detail` setting, `summary`):
 |---|---|---|
 | Types | the entity type hierarchy; under each type its OWN attributes (`hasCartridge — required · one · → FilterCartridge`, an inverse path as `inverse of hasCartridge`) and one **Rules** row, then its subtypes. Inherited attributes are on the type page, not repeated under every subtype | types → shapes → every SHACL parameter as a row, editable in place (192 rows for the kms) |
 | Shapes | every shape, prefixes dropped where unique | every shape, full names |
-| Model | the entity's type in its row (`urn:filter:9 — Filter · 2 violation(s)`), each value once (`hasStrength — 0.6`) | a separate `type` row, `0.6 — 0.6 · Property` |
-| Knowledge | no Entity types group (that is the Types view); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
+| Tests | the suites and their cases at the top (`FilterShape — 1 case(s) · all ok`), the model document last as one **Model data** row (`8 entities · 3 violation(s)`), closed; an entity's type in its row, each value once (`hasStrength — 0.6`) | **Tests** and **Main** groups, a separate `type` row, `0.6 — 0.6 · Property` |
+| Vocabulary | no Entity types group (that is the Types view); a vocabulary class counts its values (`MachineState — 7 values`); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
 
 Prefixes are dropped wherever the local name is unambiguous in that tree; the
 two `CartridgeShape`s keep theirs. In summary mode **Override…** and right-click
@@ -953,8 +958,8 @@ target kind and pins all of it.
 
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click
-on a type or attribute in the Constraints view, or on an entity type in the
-Knowledge view (also: right-click an entity in the Model view, or
+on a type or attribute in the Types view, or on an entity type in the
+Vocabulary view (also: right-click an entity in the Tests view, or
 **SemForge: Open entity type page** in the palette) opens one page in the
 editor area — its tab reads `Filter · type` — with all of it:
 
@@ -1010,7 +1015,7 @@ parse — 44 times for one Knowledge-view build. It is now fetched once per
 machine and kept in `~/.cache/semforge/contexts/`, which also makes scanning
 work offline.
 
-The Project view's last row, **Cache**, says how many views are stored and
+The Package view's last row, **Cache**, says how many views are stored and
 whether they are current. Its 🔄 **Rescan** ignores the cache and analyses from
 scratch; its 🗑 **Delete cache…** removes it after saying what and where —
 optionally with the downloaded contexts, which every package on the machine
@@ -1068,7 +1073,7 @@ are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the
 `.ttl`.
 
-**The Model view** — the second tree in the SemForge container. It shows the
+**The Tests view** (formerly Model) — the second tree in the SemForge container. It shows the
 data the constraints judge, in two sections, because they are judged by
 different rules:
 
@@ -1224,7 +1229,7 @@ declares `sh:class`, the picker lists the individuals of that class — and for 
 relationship, the entity ids of that type — spelled the way the file needs them
 (`{"@id": "base:state_ON"}` for a Property with an IRI value, a bare IRI for a
 Relationship). This is a different question from the `sh:class` picker in the
-Constraints view: that one asks what the *constraint* may say, this one what the
+Types view: that one asks what the *constraint* may say, this one what the
 *datum* may be. **Enter a different value…** stays at the bottom.
 
 Otherwise the input parses JSON, so `42` is a number and
@@ -1242,7 +1247,7 @@ An entity that violates something is marked, and carries the message on hover �
 a `minCount` violation is about an attribute that is *not there*, so there is no
 attribute node to hang it on.
 
-**The Knowledge view** — the third tree, and the third ingredient. Shapes say
+**The Vocabulary view** — the third tree, and the third ingredient. Shapes say
 what must hold, examples are what holds; neither says what the model *is*.
 
 ```
@@ -1342,20 +1347,20 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: New project…` | creates a project folder and scaffolds it, then offers to open it |
 | `SemForge: Create a package in this folder` | scaffolds a directory you already have |
 | `SemForge: Menu` | everything below, from the status bar item |
-| `SemForge: Select Package` | which package the four views show; pins your choice |
+| `SemForge: Select Package` | which package the views show; pins your choice |
 | `SemForge: Change this setting` | the ✎ on a Project row; writes one line of semforge.yaml |
-| `SemForge: Define a namespace prefix` | the ➕ on the Project view's namespaces row |
+| `SemForge: Define a namespace prefix` | the ➕ on the Package view's namespaces row |
 | `SemForge: Remove this namespace prefix` | the 🗑 on a name; refused while anything uses it |
 | `SemForge: Doctor` | what it sees: folder, interpreter, active package, every other package in the window, whether `semforge` imports |
 | `SemForge: Go to the SHACL rule for this attribute` | the ⚖ icon on an example attribute; creates an empty `sh:property` when none exists |
 | `SemForge: Go to the shape for this class` | the ⚖ icon on a knowledge class |
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
-| `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Knowledge view title |
-| `SemForge: Rescan (ignore the cache)` | throws away everything known about the package and analyses it from scratch; also the 🔄 on the Project view's Cache row |
+| `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Vocabulary view title |
+| `SemForge: Rescan (ignore the cache)` | throws away everything known about the package and analyses it from scratch; also the 🔄 on the Package view's Cache row |
 | `SemForge: Delete cache…` | removes the package's cache (optionally the downloaded JSON-LD contexts too), after saying what and where; also the 🗑 on the Cache row |
-| `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Constraints view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
-| `SemForge: Add Attribute to Shape` | the + on a shape in the Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
+| `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Types view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
+| `SemForge: Add Attribute to Shape` | the + on a shape in the Types view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 
 ## Settings
 
@@ -1380,7 +1385,7 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
   declares, and the ⚖ icon on an example attribute will create an *empty*
   `sh:property` for an unconstrained attribute — but filling it in is still a
   `.ttl` edit. There is no "add a parameter" command yet.
-- **The Knowledge view is read-only.** It shows the ontology and the joins; a
+- **The Vocabulary view is read-only.** It shows the ontology and the joins; a
   new class or member is a `knowledge.ttl` edit.
 - **`instance(s)` and `used in` count the examples, not the world.** They say
   what the suite exercises. A term no case uses may still be perfectly valid —

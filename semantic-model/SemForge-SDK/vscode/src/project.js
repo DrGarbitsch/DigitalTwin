@@ -42,6 +42,9 @@ class ProjectTreeProvider {
     if (uri) {
       this.uri = uri;
     }
+    // A refresh is a request to look again, health included.
+    this.health = undefined;
+    this.healthAsked = undefined;
     this._onDidChangeTreeData.fire();
   }
 
@@ -101,6 +104,13 @@ class ProjectTreeProvider {
 
     // A problem colours the row's own icon rather than replacing it.
     const tone = raw.severity ? 'warning' : '';
+    if (raw.kind === 'health') {
+      item.description = raw.detail || '';
+      item.tooltip = 'The package at a glance. Click for the health page: what ' +
+        'needs attention first.';
+      item.iconPath = icon('pulse', raw.severity ? 'error' : raw.ok ? 'ok' : '');
+      return item;
+    }
     if (raw.kind === 'group' || raw.kind === 'project') {
       item.iconPath = icon('project', tone);
     } else if (raw.kind === 'cache') {
@@ -160,9 +170,56 @@ class ProjectTreeProvider {
     }
     this.view.message = undefined;
     this.parents = new Map();
-    return (result.roots || []).map((raw, position) =>
+    const rows = (result.roots || []).map((raw, position) =>
       this.wrap(raw, keyOf(raw, '', position)));
+    return [this.wrap(this.healthRow(), 'health'), ...rows];
   }
+
+  /**
+   * The package at a glance, first: "6/6 cases pass · 3 violations · 67
+   * untested". Asked for after the rest of the view, so a slow first health
+   * computation never holds up the settings beneath it.
+   */
+  healthRow() {
+    const uri = this.uri;
+    if (this.health && this.health.uri === uri) {
+      return this.health.row;
+    }
+    if (this.healthAsked !== uri && this.clientHolder.client) {
+      this.healthAsked = uri;
+      this.clientHolder.client.sendRequest('semforge/health', { uri })
+        .then((page) => {
+          this.health = { uri, row: healthRow(page) };
+          this._onDidChangeTreeData.fire();
+        }, (error) => {
+          this.health = { uri, row: healthRow({ ok: false, error: error.message }) };
+          this._onDidChangeTreeData.fire();
+        });
+    }
+    return { kind: 'health', label: 'Health', detail: 'checking…' };
+  }
+}
+
+function healthRow(page) {
+  if (!page || !page.ok) {
+    return { kind: 'health', label: 'Health', severity: 'error',
+      detail: `unavailable: ${(page && page.error) || 'no answer'}` };
+  }
+  const t = page.tiles || {};
+  const failing = (t.cases || 0) - (t.casesPassing || 0);
+  return {
+    kind: 'health', label: 'Health',
+    detail: [
+      t.cases ? `${t.casesPassing}/${t.cases} cases pass` : 'no test cases',
+      t.modelViolations ? `${t.modelViolations} violation(s)` : '',
+      t.neverFired ? `${t.neverFired} untested` : '',
+      t.brokenReferences ? `${t.brokenReferences} broken reference(s)` : ''
+    ].filter(Boolean).join(' · '),
+    // Red only for what is wrong with the PACKAGE: a failing case or a
+    // broken reference. Violations in the model data are information.
+    severity: failing || t.brokenReferences ? 'error' : '',
+    ok: !failing && !t.brokenReferences
+  };
 }
 
 function register(context, clientHolder, session, onChanged) {
@@ -178,7 +235,9 @@ function register(context, clientHolder, session, onChanged) {
   context.subscriptions.push(
     view.onDidChangeSelection(async (event) => {
       const selected = event.selection && event.selection[0];
-      if (selected && selected.raw.definedAt) {
+      if (selected && selected.raw.kind === 'health') {
+        await vscode.commands.executeCommand('semforge.openHealthPage', selected);
+      } else if (selected && selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }
     })
@@ -317,4 +376,4 @@ function register(context, clientHolder, session, onChanged) {
   return provider;
 }
 
-module.exports = { register, ProjectTreeProvider };
+module.exports = { register, ProjectTreeProvider, healthRow };

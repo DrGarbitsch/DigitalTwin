@@ -1254,7 +1254,8 @@ def test_the_project_row_carries_the_delete_action(tmp_path):
         'replies': {'semforge/project': {'roots': roots}},
     }, target='project.js')
 
-    first = seen['rows'][0]
+    # The health summary comes first; the project row right after it.
+    first = next(r for r in seen['rows'] if r['kind'] != 'health')
     assert first['label'] == 'Project'
     assert first['contextValue'] == 'project'
 

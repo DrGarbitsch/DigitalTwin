@@ -256,7 +256,48 @@ def slim_model(roots, payload=None):
 
     for root in roots:
         walk(root)
-    return drop_prefixes(roots)
+    return drop_prefixes(tests_view(roots))
+
+
+def tests_view(roots):
+    """The Tests view: suites and cases at the top, the model document as one
+    "Model data" row after them.
+
+    The Tests and Main groups were two levels saying what each row already
+    says: a suite is a test, the model document is data. A suite reads by its
+    shape ("FilterShape", not "test_FilterShape"); the directory stays in the
+    tooltip."""
+    out, data = [], None
+    for root in roots:
+        if root.get('kind') == 'group' and root.get('label') == 'Tests':
+            for suite in root.get('children', []):
+                if suite.get('kind') == 'suite' and \
+                        str(suite.get('label', '')).startswith('test_'):
+                    suite['term'] = suite['label']
+                    suite['label'] = suite['label'][len('test_'):]
+                out.append(suite)
+        elif root.get('kind') == 'group' and root.get('label') == 'Main':
+            data = root
+        else:
+            out.append(root)
+    if data is not None:
+        entities = [n for n in _nodes(data) if n.get('kind') == 'entity']
+        violations = 0
+        for entity in entities:
+            found = re.search(r'(\d+) violation', str(entity.get('detail', '')))
+            violations += int(found.group(1)) if found else 0
+        data['label'] = 'Model data'
+        data['detail'] = f'{len(entities)} entities · ' + (
+            f'{violations} violation(s)' if violations else 'all valid')
+        data['severity'] = 'warning' if violations else ''
+        out.append(data)
+    return out
+
+
+def _nodes(node):
+    yield node
+    for child in node.get('children', []):
+        yield from _nodes(child)
 
 
 # --- the knowledge -----------------------------------------------------------------------
@@ -276,6 +317,10 @@ def slim_knowledge(roots, payload=None):
     def walk(node):
         if node.get('kind') == 'class':
             node['detail'] = _shape_count(node.get('detail'))
+            if node.get('role') == 'vocabulary':
+                # MachineState's members are the values an attribute takes.
+                node['detail'] = re.sub(r'\b(\d+) member\(s\)', r'\1 values',
+                                        node['detail'])
         children = node.get('children', [])
         grouped, order = {}, []
         for child in children:

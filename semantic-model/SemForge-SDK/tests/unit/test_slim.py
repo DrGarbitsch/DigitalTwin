@@ -129,6 +129,25 @@ def test_the_entity_types_are_the_types_view_s_not_the_knowledge_s(full):
     assert 'Entity types' in full_groups, 'full mode keeps everything'
 
 
+def test_tests_holds_suites_and_cases_then_the_model_data(full):
+    slim = slim_model(full['model'])
+    labels = [n['label'] for n in slim]
+    assert 'Tests' not in labels and 'Main' not in labels
+    assert labels[-1] == 'Model data'
+    suites = [n for n in slim if n['kind'] == 'suite']
+    assert 'FilterShape' in [s['label'] for s in suites]
+    assert all(s.get('term', '').startswith('test_') for s in suites)
+    data = slim[-1]
+    assert data['detail'] == '8 entities · 3 violation(s)'
+    assert data['severity'] == 'warning'
+
+
+def test_a_vocabulary_class_counts_values(full):
+    slim = slim_knowledge(full['knowledge'])
+    state = _find(slim, kind='class', label='MachineState')[0]
+    assert state['detail'].startswith('7 values')
+
+
 def _vocabulary(*children, detail=''):
     return [{'kind': 'group', 'label': 'Vocabulary classes', 'detail': '', 'children': [
         {'kind': 'class', 'label': 'Kind', 'detail': detail, 'children': list(children)}]}]
