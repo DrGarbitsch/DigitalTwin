@@ -293,6 +293,11 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "semforge.newTestCase",
+        "title": "SemForge: New test case…",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.refreshShapes",
         "title": "SemForge: Refresh shapes",
         "icon": "$(refresh)"
@@ -362,6 +367,11 @@
           "command": "semforge.refreshModel",
           "when": "view == semforgeModel",
           "group": "navigation"
+        },
+        {
+          "command": "semforge.newTestCase",
+          "when": "view == semforgeModel",
+          "group": "navigation@1"
         },
         {
           "command": "semforge.refreshKnowledge",
@@ -694,6 +704,11 @@
           "command": "semforge.newShape",
           "when": "view == semforgeConstraints && viewItem == type",
           "group": "1_add@1"
+        },
+        {
+          "command": "semforge.newTestCase",
+          "when": "view == semforgeModel && viewItem == suite",
+          "group": "1_add@0"
         }
       ],
       "semforge.project": [

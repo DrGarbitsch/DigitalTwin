@@ -26,12 +26,12 @@ import re
 from dataclasses import dataclass, field
 
 from rdflib import URIRef
-from rdflib.namespace import OWL, RDF, RDFS, SH
+from rdflib.namespace import OWL, RDF, RDFS
 
 from ..errors import PackageError
 
 from ..validate.normalise import curie, local, owner_and_edge
-from ..validate.shapes import node_shapes
+from ..validate.shapes import class_targets, node_shapes
 # The NGSI-LD keys that are not attributes; one definition, two trees.
 from .examples import RESERVED
 
@@ -80,7 +80,7 @@ def _declared_classes(package):
         found.add(subject)
         found.add(obj)
     for shape in node_shapes(package.shapes):
-        found |= set(package.shapes.objects(shape, SH.targetClass))
+        found |= set(class_targets(package.shapes, shape))
     return {c for c in found
             if isinstance(c, URIRef) and str(c) not in SKIP}
 
@@ -88,7 +88,7 @@ def _declared_classes(package):
 def _shapes_by_target(package):
     out = {}
     for shape in node_shapes(package.shapes):
-        for target in package.shapes.objects(shape, SH.targetClass):
+        for target in class_targets(package.shapes, shape):
             out.setdefault(target, []).append(shape)
     return out
 

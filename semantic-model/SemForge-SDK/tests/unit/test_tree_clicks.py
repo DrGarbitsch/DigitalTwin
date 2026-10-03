@@ -867,6 +867,75 @@ def test_the_type_page_marks_a_conditional_row_and_sends_it_to_its_shape(tmp_pat
     assert 'Rules on the whole entity' in html
 
 
+# --- New test case… ------------------------------------------------------------------------
+
+CASE_OPTIONS = {'ok': True, 'root': '/pkg/examples', 'suites': ['test_MachineShape'],
+                'shapes': [{'iri': 'https://x/MachineShape', 'name': 'x:MachineShape',
+                            'label': 'MachineShape'},
+                           {'iri': 'https://x/PumpShape', 'name': 'x:PumpShape',
+                            'label': 'PumpShape'}],
+                'cases': [{'path': 'test_MachineShape/good/running.jsonld', 'expect': 'valid',
+                           'description': ''}],
+                'entities': ['urn:m:1'],
+                'types': [{'iri': 'https://x/Machine', 'label': 'Machine', 'term': 'x:Machine'}],
+                'undeclared': ['test_MachineShape/good/by-hand.jsonld']}
+MADE_CASE = {'ok': True, 'file': '/pkg/examples/test_PumpShape/good/running-copy.jsonld',
+             'case': 'test_PumpShape/good/running-copy.jsonld', 'expect': 'valid',
+             'violations': 0, 'passes': True, 'failures': []}
+
+
+def test_the_tests_view_has_its_plus():
+    with open(PACKAGE_JSON) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    assert any(e.get('command') == 'semforge.newTestCase' and e['when'] == 'view == semforgeModel'
+               and e['group'].startswith('navigation') for e in menus['view/title'])
+    assert any(e.get('command') == 'semforge.newTestCase' and 'viewItem == suite' in e['when']
+               for e in menus['view/item/context'])
+
+
+def test_new_test_case_in_a_new_suite_from_a_copy(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newTestCase',
+        'picks': ['$(add) test_PumpShape', '$(pass) Should conform', '$(copy) A copy of a case',
+                  'test_MachineShape/good/running.jsonld'],
+        'inputs': ['running-copy'],
+        'replies': {'semforge/testCaseOptions': CASE_OPTIONS,
+                    'semforge/addTestCase': MADE_CASE}})
+    assert seen['errors'] == [], seen['errors']
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTestCase']
+    assert asked[0]['suite'] == 'test_PumpShape' and asked[0]['expect'] == 'valid'
+    assert asked[0]['start'] == 'copy'
+    assert asked[0]['source'] == 'test_MachineShape/good/running.jsonld'
+    assert seen['inputs'][0]['value'] == 'running-copy', 'the name is suggested'
+    assert _opened(seen, 'semforge.openCasePage')[0][0]['raw']['file'] == MADE_CASE['file']
+
+
+def test_a_suite_row_presets_the_suite(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newTestCase',
+        'node': {'raw': {'kind': 'suite', 'label': 'MachineShape', 'term': 'test_MachineShape',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'picks': ['$(error) Should violate', '$(file) An empty file'], 'inputs': ['too-cold'],
+        'replies': {'semforge/testCaseOptions': CASE_OPTIONS,
+                    'semforge/addTestCase': dict(MADE_CASE, expect='invalid', passes=False,
+                                                 failures=['nothing fired'])}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTestCase']
+    assert asked[0]['suite'] == 'test_MachineShape' and asked[0]['expect'] == 'invalid'
+    assert any('Nothing fires yet' in text for text in seen['warnings'])
+
+
+def test_an_undeclared_file_can_be_declared(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newTestCase',
+        'picks': ['$(file-add) Declare a file under examples/ that nothing runs',
+                  'test_MachineShape/good/by-hand.jsonld', '$(pass) Should conform'],
+        'replies': {'semforge/testCaseOptions': CASE_OPTIONS,
+                    'semforge/addTestCase': MADE_CASE}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTestCase']
+    assert asked[0]['start'] == 'existing'
+    assert asked[0]['source'] == 'test_MachineShape/good/by-hand.jsonld'
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

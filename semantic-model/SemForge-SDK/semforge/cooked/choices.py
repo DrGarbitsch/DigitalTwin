@@ -94,11 +94,10 @@ def entity_root(package):
     if declared is not None:
         return declared
 
-    from ..validate.shapes import node_shapes
-    from rdflib.namespace import SH
+    from ..validate.shapes import class_targets, node_shapes
 
     targets = {t for shape in node_shapes(package.shapes)
-               for t in package.shapes.objects(shape, SH.targetClass)}
+               for t in class_targets(package.shapes, shape)}
     if not targets:
         return None
 
@@ -214,9 +213,7 @@ def entity_types(package):
     therefore offers these and nothing else -- a type that is genuinely
     missing is added to the knowledge first, which is where a type belongs.
     """
-    from rdflib.namespace import SH
-
-    from ..validate.shapes import node_shapes
+    from ..validate.shapes import class_targets, node_shapes
 
     entities, _, root = classify_classes(package)
     if root is None:
@@ -224,7 +221,7 @@ def entity_types(package):
 
     by_target = {}
     for shape in node_shapes(package.shapes):
-        for target in package.shapes.objects(shape, SH.targetClass):
+        for target in class_targets(package.shapes, shape):
             by_target.setdefault(target, []).append(shape)
 
     found = []

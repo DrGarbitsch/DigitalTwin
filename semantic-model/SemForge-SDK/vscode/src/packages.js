@@ -163,6 +163,8 @@ const MENU = [
     description: 'declare it in the knowledge, then constrain it on its shape' },
   { label: '$(trash) Delete attribute…', command: 'semforge.deleteAttribute',
     description: 'with everything that depends on it, shown first' },
+  { label: '$(beaker) New test case…', command: 'semforge.newTestCase',
+    description: 'a test file in a suite: copied, from the model, a new entity, or empty' },
   { label: '$(symbol-interface) New shape…', command: 'semforge.newShape',
     description: 'for an entity type, one entity, or whatever has an attribute' },
   { label: '$(symbol-enum) Vocabulary…', command: 'semforge.openVocabularyPage',

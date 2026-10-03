@@ -294,8 +294,21 @@ def _fresh(package, entry):
     from ..cooked.tree import build_tree
     from ..package.context import context_config
 
-    config = context_config(package.path) or {}
-    context = config.get('published') or config.get('local')
+    # The @context the package's own documents use, so the new one resolves
+    # the same way; else the published one semforge.yaml names.
+    context = None
+    for path in package.files('model'):
+        if path.endswith(('.jsonld', '.json')):
+            try:
+                found = _documents(path)
+            except (OSError, ValueError):
+                continue
+            context = next((d['@context'] for d in found
+                            if isinstance(d, dict) and '@context' in d), None)
+            if context is not None:
+                break
+    if context is None:
+        context = context_config(package.path).published or None
     if not context:
         raise PackageError('nothing to start from: no case or model entity of this '
                            'type, and no context in semforge.yaml to write a new one')

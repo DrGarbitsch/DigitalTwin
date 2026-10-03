@@ -69,8 +69,9 @@ def _attribute(package, attribute):
 
 
 def _shape_targets(package, shape):
-    return [t for t in package.shapes.objects(URIRef(shape), SH.targetClass)
-            if isinstance(t, URIRef)]
+    from ..validate.shapes import class_targets
+
+    return class_targets(package.shapes, shape)
 
 
 def _family(package, classes):

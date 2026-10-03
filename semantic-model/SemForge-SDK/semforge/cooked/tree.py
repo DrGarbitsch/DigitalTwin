@@ -35,7 +35,7 @@ from ..errors import PackageError
 from ..rdfio import (find_block, property_blocks, remove_parameter,
                      set_parameter)
 from ..validate.normalise import curie, local
-from ..validate.shapes import node_shapes
+from ..validate.shapes import class_targets, node_shapes
 
 # Parameters a form can honestly offer: one name, one scalar value.
 EDITABLE = {
@@ -291,7 +291,7 @@ def build_tree(package):
 
     by_class = {}
     for shape in node_shapes(package.shapes):
-        for target in package.shapes.objects(shape, SH.targetClass):
+        for target in class_targets(package.shapes, shape):
             by_class.setdefault(target, []).append(shape)
 
     roots = []

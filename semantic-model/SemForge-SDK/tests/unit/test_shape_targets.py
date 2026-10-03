@@ -28,8 +28,29 @@ def test_every_target_kind_is_a_shape_that_runs(targets):
     assert _local(targeted_shapes(targets.shapes)) == {
         'PumpShape', 'ValveNodeShape', 'HasValveShape', 'PointedAtShape',
         'HighPressureShape', 'Gauge'}
-    # node_shapes keeps meaning "belongs to an entity type".
-    assert _local(node_shapes(targets.shapes)) == {'PumpShape'}
+    # node_shapes keeps meaning "belongs to an entity type" -- by sh:targetClass,
+    # or by being the class itself (Gauge).
+    assert _local(node_shapes(targets.shapes)) == {'PumpShape', 'Gauge'}
+
+
+def test_a_shape_that_is_its_class_is_that_type_s_own(targets):
+    """ex:Gauge is a class and a node shape: it targets Gauges implicitly, so
+    it is Gauge's own shape -- in the Types tree, edited on the type page, and
+    where + Attribute writes. Not a shape that applies "under a condition"."""
+    from semforge.cooked.constrain import own_shape
+    from semforge.cooked.tree import build_tree
+    from semforge.cooked.typepage import build_type_page
+    from semforge.validate.shapes import class_targets
+
+    assert [str(c) for c in class_targets(targets.shapes, EX + 'Gauge')] == [EX + 'Gauge']
+    assert own_shape(targets, EX + 'Gauge') == EX + 'Gauge'
+    root = next(r for r in build_tree(targets) if r.target_class == EX + 'Gauge')
+    assert [s.label for s in root.children] == ['ex:Gauge']
+    page = build_type_page(targets, EX + 'Gauge')
+    assert page['ownShape'] == EX + 'Gauge'
+    rows = page['attributes']
+    assert [r['label'] for r in rows] == ['hasReading'] and not rows[0].get('via')
+    assert 'ex:Gauge' not in [a['shapeName'] for a in page['alsoCheckedBy']]
 
 
 def test_a_shape_reached_only_through_sh_node_is_still_a_shape(targets):

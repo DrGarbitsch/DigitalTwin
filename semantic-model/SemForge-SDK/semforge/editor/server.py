@@ -1426,6 +1426,40 @@ def new_attribute_test_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/testCaseOptions')
+def test_case_options_feature(ls, params):
+    """What New test case… can offer: suites, shapes, cases, entities, files."""
+    from ..expect.addcase import case_options
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return dict(case_options(_package_for(root)), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addTestCase')
+def add_test_case_feature(ls, params):
+    """Write and declare a test case, then run it once."""
+    from ..expect.addcase import add_test_case
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = add_test_case(_package_for(root), _field(params, 'suite', ''),
+                             _field(params, 'expect', 'valid'),
+                             _field(params, 'start', 'empty'),
+                             str(_field(params, 'source', '') or ''),
+                             str(_field(params, 'name', '') or ''),
+                             str(_field(params, 'description', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    return dict(made, ok=True)
+
+
 @server.feature('semforge/newCase')
 def new_case_feature(ls, params):
     """Start a case that makes a shape fire (the shape page's New case…)."""

@@ -27,6 +27,7 @@ const projectCache = require('./cache');
 const typePages = require('./typepage');
 const vocabularyPages = require('./vocabpage');
 const attributeTests = require('./attributetest');
+const testCases = require('./testcases');
 const casePages = require('./casepage');
 const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
@@ -274,6 +275,8 @@ function activate(context) {
   vocabularyPages.register(context, clientHolder, session);
   // New test… for one attribute: valid, or one of its constraints firing.
   attributeTests.register(context, clientHolder, session);
+  // New test case…: add a test file to a suite, from wherever it should start.
+  testCases.register(context, clientHolder, session);
   // One page per test case: its claims, whether they hold, its data.
   casePages.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.

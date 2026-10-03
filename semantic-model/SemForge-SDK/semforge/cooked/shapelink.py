@@ -19,12 +19,12 @@ shape, and export refuses until something is added to it.
 """
 
 from rdflib import URIRef
-from rdflib.namespace import RDF, RDFS, SH
+from rdflib.namespace import RDF, RDFS
 
 from ..errors import PackageError
 from ..rdfio import property_blocks
 from ..validate.normalise import curie, local
-from ..validate.shapes import node_shapes
+from ..validate.shapes import class_targets, node_shapes
 
 VALUE_PATHS = ('ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList',
                'ngsild:hasJSON')
@@ -35,7 +35,7 @@ def _line_of(text, offset):
 
 
 def _targets(package, shape):
-    return {local(t) for t in package.shapes.objects(shape, SH.targetClass)}
+    return {local(t) for t in class_targets(package.shapes, shape)}
 
 
 def _type_names(package, entity_type):

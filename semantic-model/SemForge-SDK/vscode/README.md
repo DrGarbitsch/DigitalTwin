@@ -862,6 +862,26 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **Rescan** on the page rebuilds everything from scratch, ignoring the cache.
 
+**New test case… — adding a test file.** The `+` in the Tests view title (also:
+right-click a suite, the status bar menu) asks:
+
+- **which suite** — an existing one, or a new one for a shape (`test_PumpShape`);
+- **should it conform or violate** — `good/` with `expect: valid`, or `bad/`
+  with `expect: invalid`;
+- **where it starts** — a copy of a case (its includes written into the new
+  file, so editing it never changes a shared subobject), an entity from the
+  model, a new entity of a type (its required attributes given valid values),
+  or an empty file;
+- **its name** (suggested).
+
+It is written, declared in that folder's `expectations.yaml`, run once, and
+its case page opens. A bad case is declared without asserts: what fires shows
+on the case page, where **Assert it** turns each firing into a claim; while
+nothing fires the message says so. A `.jsonld` already under `examples/` that
+no expectations file declares — a file nobody runs — is offered too
+(**Declare a file under examples/ that nothing runs**) and is declared where
+it is.
+
 **New test… for an attribute.** A new attribute needs cases that prove its
 constraints work. Right-click it in the Types view (**SemForge: New test for
 this attribute…**), or use its row on the type page — the **Tested** cell
@@ -980,7 +1000,11 @@ views:
   the Tested cell, and **+ Attribute** — every write going into this shape. A
   shape without a class target offers every declared attribute (no type to
   scope them to); New test… there needs a type, so it says to start from the
-  type page of an entity the shape reaches.
+  type page of an entity the shape reaches. A shape that is itself a class
+  (`ex:Gauge a rdfs:Class, sh:NodeShape` — an implicit class target) counts
+  as that type's own shape everywhere: in the Types tree, as the shape the
+  type page edits and **+ Attribute** writes into, never as one that applies
+  "under a condition".
 
 **New shape….** The `+` in the Shapes view title (also: right-click a type in
 Types, the status bar menu) asks what the shape selects — an entity type,

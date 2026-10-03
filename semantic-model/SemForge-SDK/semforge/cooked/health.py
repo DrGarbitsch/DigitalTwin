@@ -21,7 +21,6 @@ entity type, so the page can open the right thing in one click.
 import os
 
 from rdflib import URIRef
-from rdflib.namespace import SH
 
 RANK = {'error': 0, 'warning': 1, 'note': 2}
 # Within a severity: what is broken before what is untested.
@@ -35,11 +34,12 @@ def _short(term):
 def _shape_types(package):
     """{shape CURIE: entity type local name it targets}, for 'open the type'."""
     from ..validate.normalise import curie
-    from ..validate.shapes import node_shapes
+    from ..validate.shapes import class_targets, node_shapes
 
     out = {}
     for shape in node_shapes(package.shapes):
-        target = package.shapes.value(shape, SH.targetClass)
+        found = class_targets(package.shapes, shape)
+        target = found[0] if found else None
         if isinstance(target, URIRef):
             out[curie(package.shapes, shape)] = str(target)
     return out

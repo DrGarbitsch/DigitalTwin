@@ -48,11 +48,38 @@ def aggregates(text):
     return bool(_AGGREGATE.search(text))
 
 
+def _implicit(shapes_graph, shape):
+    """A shape that is itself a class targets that class's instances."""
+    from rdflib.namespace import OWL, RDF, RDFS
+
+    return isinstance(shape, URIRef) and \
+        (shape, RDF.type, SH.NodeShape) in shapes_graph and (
+            (shape, RDF.type, RDFS.Class) in shapes_graph or
+            (shape, RDF.type, OWL.Class) in shapes_graph)
+
+
+def class_targets(shapes_graph, shape):
+    """The classes a shape targets: its sh:targetClass values, and the shape
+    itself when it is a class (an implicit class target)."""
+    found = [t for t in shapes_graph.objects(URIRef(shape), SH.targetClass)
+             if isinstance(t, URIRef)]
+    if _implicit(shapes_graph, URIRef(shape)) and URIRef(shape) not in found:
+        found.append(URIRef(shape))
+    return found
+
+
 def node_shapes(shapes_graph):
-    """The shapes with an sh:targetClass -- the ones that belong to an entity
-    type. Most callers ask exactly that (which shapes judge a Filter, which
-    shape to add an attribute to). Which shapes RUN is `targeted_shapes`."""
-    return sorted(shapes_graph.subjects(SH.targetClass, None), key=str)
+    """The shapes that target a class -- the ones that belong to an entity
+    type, by sh:targetClass or by being the class themselves. Most callers ask
+    exactly that (which shapes judge a Filter, which shape to add an attribute
+    to); read their classes with `class_targets`. Which shapes RUN is
+    `targeted_shapes`."""
+    found = set(shapes_graph.subjects(SH.targetClass, None))
+    from rdflib.namespace import RDF
+
+    found.update(s for s in shapes_graph.subjects(RDF.type, SH.NodeShape)
+                 if _implicit(shapes_graph, s))
+    return sorted(found, key=str)
 
 
 TARGETS = (SH.targetClass, SH.targetNode, SH.targetSubjectsOf,
