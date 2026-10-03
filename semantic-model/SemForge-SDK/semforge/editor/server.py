@@ -1298,6 +1298,22 @@ def shape_page_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/newCase')
+def new_case_feature(ls, params):
+    """Start a case that makes a shape fire (the shape page's New case…)."""
+    from ..expect.newcase import new_case
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = new_case(_package_for(root), str(_field(params, 'shape', '') or ''),
+                        str(_field(params, 'name', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    return dict(made, ok=True)
+
+
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
     """Every named shape with its target in words, for the Shapes view."""

@@ -931,6 +931,21 @@ views:
   them, the nodes it reaches in the model with their verdicts, the types those
   are, and the test cases that reach it and whether it fires in them.
 
+**A rule's evidence, and New case….** For a shape with a SPARQL constraint
+or rule the page says **what it checks** (its `sh:message` and severity — the
+kms's own `base:severityWarning` reads as *warning*), the **evidence** (the
+cases it fires in and on which entity, the cases it is evaluated in and
+holds), and **the query**, read-only, with its prefixes. A SPARQL constraint
+that fires in no case gets **New case…**: it writes
+`examples/test_<Shape>/bad/<name>.jsonld`, copied from a case where the shape
+is evaluated and holds (a valid one first, so no other shape's violation comes
+along; its includes written into the file, so editing an entity does not
+change a shared subobject), and declares it `expect: invalid` with an assert
+that the shape fires on that entity. The case fails until you edit its data so
+the rule is broken — it cannot pass by accident. With no case to start from it
+copies the model's document for an entity the shape reaches. A `sh:rule`
+derives data rather than firing, so it gets the query and no New case….
+
 Validation runs every shape that has a target, of any kind. Until this release
 it ran only `sh:targetClass` shapes — a shape written with `sh:targetNode` was
 never checked, and nothing said so. `tests/corpus/targets` has one shape per

@@ -9,9 +9,11 @@ the same on both.
 """
 
 import os
+import re
+
 
 from rdflib import URIRef
-from rdflib.namespace import RDF, SH
+from rdflib.namespace import RDF, RDFS, SH
 
 from ..errors import PackageError
 from ..validate.normalise import curie
@@ -51,6 +53,57 @@ def _reach(package, shape, graph):
 
 def _types_of(graph, nodes):
     return {str(o) for node in nodes for o in graph.objects(URIRef(node), RDF.type)}
+
+
+SEVERITY = {str(SH.Violation): 'violation', str(SH.Warning): 'warning',
+            str(SH.Info): 'info'}
+
+
+def _query(package, holder, predicate):
+    """A SPARQL body as written, its sh:prefixes declarations put back in
+    front so it reads the way it runs."""
+    graph = package.shapes
+    body = graph.value(holder, predicate)
+    if body is None:
+        return ''
+    lines = []
+    for prefixes in graph.objects(holder, SH.prefixes):
+        for declaration in graph.objects(prefixes, SH.declare):
+            prefix = graph.value(declaration, SH.prefix)
+            namespace = graph.value(declaration, SH.namespace)
+            if prefix is not None and namespace is not None:
+                lines.append(f'PREFIX {prefix}: <{namespace}>')
+    return '\n'.join(lines + [str(body).strip()])
+
+
+def _severity(value, default='violation'):
+    """sh:Violation -> 'violation'; a package's own term (the kms's
+    base:severityWarning) -> its name, 'warning'."""
+    if value is None:
+        return default
+    if str(value) in SEVERITY:
+        return SEVERITY[str(value)]
+    name = str(value).rstrip('/#').rsplit('/', 1)[-1].rsplit('#', 1)[-1]
+    name = re.sub(r'^severity', '', name, flags=re.IGNORECASE)
+    return name[:1].lower() + name[1:] if name else default
+
+
+def _checks(package, shape):
+    """The shape's SPARQL constraints and rules: what each says it checks,
+    how severe, and the query itself -- read-only, edited in the .ttl."""
+    graph = package.shapes
+    severity = _severity(graph.value(shape, SH.severity))
+    out = []
+    for holder in graph.objects(shape, SH.sparql):
+        message = graph.value(holder, SH.message)
+        out.append({'kind': 'constraint', 'message': str(message or ''),
+                    'severity': _severity(graph.value(holder, SH.severity), severity),
+                    'query': _query(package, holder, SH.select)})
+    for holder in graph.objects(shape, SH.rule):
+        comment = next((str(c) for c in graph.objects(holder, RDFS.comment)), '')
+        out.append({'kind': 'rule', 'message': comment, 'severity': '',
+                    'query': _query(package, holder, SH.construct)})
+    return out
 
 
 def build_shape_page(package, shape):
@@ -98,12 +151,14 @@ def build_shape_page(package, shape):
         if not nodes:
             continue
         types |= _types_of(graph, nodes)
-        fired = sum(1 for v in case_report.violations if str(v.shape) == str(shape))
+        firing = [v for v in case_report.violations if str(v.shape) == str(shape)]
+        fired = len(firing)
         outcome = outcomes.get(example.path)
         exercised.append({
             'case': example.path, 'description': example.description,
             'expect': example.expect, 'entities': sorted(nodes)[:LISTED],
-            'fired': fired, 'passed': bool(outcome and outcome.passed),
+            'fired': fired, 'firedOn': sorted({str(v.resource) for v in firing}),
+            'passed': bool(outcome and outcome.passed),
             'file': os.path.join(_examples_root(package), example.path)})
 
     problems = {}
@@ -120,11 +175,14 @@ def build_shape_page(package, shape):
         'target': target_short(package, shape, declared, users),
         'usedBy': [{'iri': u, 'name': curie(package.shapes, URIRef(u))} for u in users],
         'rule': is_rule_only(node),
+        'checks': _checks(package, shape),
+        # New case… writes a case asserting this; only a SPARQL constraint has one.
+        'canNewCase': (shape, SH.sparql, None) in package.shapes and bool(declared),
         'attributes': attributes, 'rules': rules,
         # Entity types are links to their pages; anything else is a name.
-        'types': sorted(({'iri': t, 'label': known[t], 'page': True} if t in known
-                         else {'iri': t, 'label': _short(t), 'page': False})
-                        for t in types),
+        'types': sorted([{'iri': t, 'label': known[t], 'page': True} if t in known
+                         else {'iri': t, 'label': _short(t), 'page': False}
+                         for t in types], key=lambda t: t['label'].lower()),
         'reach': {'model': len(reached),
                   'nodes': [{'id': n, 'violations': problems.get(n, [])}
                             for n in reached[:LISTED]],

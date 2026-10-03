@@ -187,10 +187,10 @@ def known_constraints(package):
     """Every constraint reference an expectation may name."""
     from .validate.applicable import constraints_of_shape
     from .validate.normalise import curie
-    from .validate.shapes import node_shapes
+    from .validate.shapes import targeted_shapes
 
     out = set()
-    for shape in node_shapes(package.shapes):
+    for shape in targeted_shapes(package.shapes):
         name = curie(package.shapes, shape)
         for attribute, component in constraints_of_shape(shape, package.shapes):
             out.add(f'{name}/{attribute}/{component}' if attribute

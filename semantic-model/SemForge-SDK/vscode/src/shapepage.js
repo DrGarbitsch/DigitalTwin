@@ -70,12 +70,64 @@ function attributeRows(attributes) {
   }).join('');
 }
 
+const NEW_CASE_TIP = 'Writes a bad case asserting this shape fires, copied from a ' +
+  'scene where it holds. It fails until you edit its data so the rule is broken: ' +
+  'it cannot pass by accident.';
+
+function caseChips(cases) {
+  return cases.length ? `<div class="chips">${cases.map((c) =>
+    `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
+    chip(`${c.case.split('/').slice(-3).join(' / ')} · ` +
+      (c.fired ? `fires ${c.fired}×` : 'holds') + ` · ${c.passed ? 'passes' : 'FAILS'}`,
+    c.passed ? (c.fired ? 'ok' : '') : 'bad') + '</a>').join('')}</div>` : '';
+}
+
+/** What a SPARQL shape checks, the evidence it can fire, and its query. */
+function checkSections(page, checks, cases) {
+  const fires = cases.filter((c) => c.fired);
+  const holds = cases.filter((c) => !c.fired);
+  const said = checks.map((c) => `<div class="rule"><span class="kind">${escape(c.kind)}</span>` +
+    `<span>${escape(c.message || (c.kind === 'rule'
+      ? 'Derives data; a rule adds facts rather than reporting'
+      : 'No sh:message: the query below is all it says'))}</span>` +
+    `${c.severity ? chip(`severity: ${c.severity}`,
+      c.severity === 'warning' ? 'warn' : c.severity === 'info' ? '' : 'bad') : ''}</div>`).join('');
+  const constraint = checks.some((c) => c.kind === 'constraint');
+  const evidence = !constraint ? '' : [
+    fires.length
+      ? `<div class="rule">${chip(`fires in ${fires.length}`, 'ok')}<span>` +
+        fires.map((c) => `<a href="#" data-case="${escape(c.file)}">` +
+          `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
+          (c.firedOn.length ? ` <span class="dim">on ${escape(c.firedOn.join(', '))}</span>` : ''))
+          .join('<br>') + '</span><span></span></div>'
+      : `<div class="rule">${chip('fires in 0', 'warn')}<span>No test case makes it fire. ` +
+        'A rule that cannot fire looks exactly like one that holds.</span>' +
+        (page.canNewCase ? `<button class="primary" data-newcase="1" title="${escape(NEW_CASE_TIP)}">` +
+          'New case…</button>' : '<span></span>') + '</div>',
+    holds.length
+      ? `<div class="rule">${chip(`holds in ${holds.length}`)}<span>Evaluated in ` +
+        `${holds.length} case(s), conforming: ` + holds.map((c) =>
+          `<a href="#" data-case="${escape(c.file)}">${escape(c.case.split('/').slice(-3).join(' / '))}</a>`)
+          .join(', ') + '</span><span></span></div>'
+      : '',
+    !cases.length
+      ? `<div class="rule">${chip('0 cases')}<span>No test case reaches it at all.</span>` +
+        '<span></span></div>'
+      : ''
+  ].join('');
+  const queries = checks.filter((c) => c.query).map((c) =>
+    `<pre class="query">${escape(c.query)}</pre>`).join('');
+  return `<h2>What it checks</h2><div class="rules">${said}</div>` +
+    (evidence ? `<h2>Evidence</h2><div class="rules">${evidence}</div>` : '') +
+    (queries ? `<h2>The query · read-only, edit it in the .ttl</h2>${queries}` : '');
+}
+
 function renderShapePage(page, options) {
   const nonce = (options && options.nonce) || '';
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
   const summary = page.summary || {};
   const attributes = page.attributes || [];
-  const rules = page.rules || [];
+  const checks = page.checks || [];
   const cases = page.exercisedBy || [];
   const reach = page.reach || { nodes: [], more: 0 };
   const types = page.types || [];
@@ -123,6 +175,8 @@ function renderShapePage(page, options) {
            background: var(--vscode-button-secondaryBackground, transparent);
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
            padding: 3px 10px; border-radius: 2px; cursor: pointer; }
+  button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+                   border-color: var(--vscode-button-background); }
   .table { overflow-x: auto; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   table { border-collapse: collapse; width: 100%; }
   th { text-align: left; font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase;
@@ -149,6 +203,8 @@ function renderShapePage(page, options) {
 <div class="dim mono">${escape(page.name)}</div>
 <div class="chips top">${chips}</div>
 <div class="bar">${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
+${types.filter((t) => t.page).slice(0, 1).map((t) =>
+    `<button data-type="${escape(t.iri)}">Open ${escape(t.label)} type page</button>`).join('')}
 <button data-refresh="1">Refresh</button></div>
 
 <h2>Target</h2>
@@ -163,34 +219,25 @@ ${reach.nodes.length ? `<ul>${reach.nodes.map((n) => `<li><span class="mono">${e
     '</li>').join('')}${reach.more ? `<li class="dim">… and ${reach.more} more</li>` : ''}</ul>`
     : '<p class="empty">Nothing in the model is a focus node of this shape.</p>'}
 
-<h2>Attributes</h2>
-${attributes.length ? `<div class="table"><table>
+${attributes.length ? `<h2>Attributes</h2><div class="table"><table>
 <thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th></tr></thead>
 <tbody>${attributeRows(attributes)}</tbody></table></div>`
-    : '<p class="empty">No property constraints.</p>'}
+    : checks.length ? '' : '<h2>Attributes</h2><p class="empty">No property constraints.</p>'}
 
-${rules.length ? `<h2>Rules</h2>${rules.map((r) => `<div class="rule">` +
-    `<span class="kind">${escape(r.kind)}</span><span>${escape(r.text || r.shapeName)}</span>` +
-    `${r.tested ? chip(r.tested, TESTED_CLASS[r.tested]) : ''}</div>`).join('')}` : ''}
-
-<h2>Test cases that reach it</h2>
-${cases.length ? `<div class="chips">${cases.map((c) =>
-    `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
-    chip(`${c.case.split('/').slice(-3).join(' / ')} · ` +
-      (c.fired ? `fires ${c.fired}×` : 'holds') + ` · ${c.passed ? 'passes' : 'FAILS'}`,
-    c.passed ? (c.fired ? 'ok' : '') : 'bad') + '</a>').join('')}</div>`
-    : '<p class="empty">No test case reaches it. Nothing proves it can fire.</p>'}
+${checks.length ? checkSections(page, checks, cases) : `<h2>Test cases that reach it</h2>
+${caseChips(cases) || '<p class="empty">No test case reaches it. Nothing proves it can fire.</p>'}`}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-newcase],[data-refresh]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else if (target.dataset.case) { vscode.postMessage({ command: 'case', file: target.dataset.case }); }
+    else if (target.dataset.newcase) { vscode.postMessage({ command: 'newCase' }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -276,8 +323,41 @@ class ShapePages {
     } else if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri });
+    } else if (message.command === 'newCase') {
+      await this.newCase();
     } else if (message.command === 'refresh') {
       await this.render();
+    }
+  }
+
+  /** Write a bad case asserting this shape fires, then open it to edit. */
+  async newCase() {
+    const page = this.page;
+    const name = await vscode.window.showInputBox({
+      title: `New case: make ${page.label} fire`,
+      prompt: 'A name for the case file (letters, digits, dashes)',
+      value: 'fires',
+      validateInput: (text) => (/[A-Za-z0-9]/.test(text) ? undefined : 'a name is required')
+    });
+    if (!name) {
+      return;
+    }
+    const { packageUri } = this.current;
+    const made = await this.clientHolder.client.sendRequest('semforge/newCase',
+      { uri: packageUri, shape: page.iri, name });
+    if (!made.ok) {
+      vscode.window.showErrorMessage(`SemForge: ${made.error}`);
+      return;
+    }
+    await this.render();
+    vscode.commands.executeCommand('semforge.refreshModel');
+    await vscode.commands.executeCommand('semforge.openCasePage',
+      { raw: { kind: 'example', file: made.file }, packageUri });
+    const open = await vscode.window.showInformationMessage(
+      `SemForge: ${made.case} started from ${made.source}. It fails until its ` +
+        `data makes ${page.label} fire on ${made.resource}.`, 'Open .jsonld');
+    if (open) {
+      await showLocation(`${made.file}:1`, true);
     }
   }
 

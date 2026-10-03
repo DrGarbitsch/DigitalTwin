@@ -345,6 +345,69 @@ def test_the_type_page_links_its_shapes_and_the_ones_that_reach_it(tmp_path):
         'https://x/HasValveShape'
 
 
+# --- step D: the rule section and New case… ------------------------------------------
+
+RULE_PAGE = dict(
+    SHAPE_PAGE, iri='https://x/StateOnFilterShape', name='ex:StateOnFilterShape',
+    label='StateOnFilterShape', attributes=[], canNewCase=True,
+    targets=[{'kind': 'class', 'value': 'https://x/Filter', 'short': 'targets Filter',
+              'text': 'every Filter, and every subclass of it'}],
+    checks=[{'kind': 'constraint', 'severity': 'warning',
+             'message': 'Filter running without running assigned machine',
+             'query': 'SELECT $this WHERE { $this <p> ?v . FILTER(?v != <on>) }'}],
+    exercisedBy=[{'case': 'test_X/good/filter-on.jsonld', 'file': '/pkg/examples/a.jsonld',
+                  'description': '', 'expect': 'valid', 'entities': ['urn:filter:1'],
+                  'fired': 0, 'firedOn': [], 'passed': True}])
+
+
+def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': dict(SHAPE_ROW, shape=RULE_PAGE['iri']),
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/shapePage': RULE_PAGE}})
+    html = seen['webviews'][0]['html'][-1]
+    for text in ('What it checks', 'Filter running without running assigned machine',
+                 'severity: warning', 'fires in 0', 'holds in 1', 'data-newcase="1"',
+                 'New case…', 'read-only, edit it in the .ttl', 'FILTER(?v != &lt;on&gt;)',
+                 'Open Pump type page'):
+        assert text in html, text
+    assert 'No property constraints' not in html, 'a rule shape is not a form'
+
+
+def test_a_rule_that_fires_says_where_and_offers_no_new_case(tmp_path):
+    page = dict(RULE_PAGE, exercisedBy=[dict(RULE_PAGE['exercisedBy'][0], fired=1,
+                                             firedOn=['urn:filter:1'])])
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': dict(SHAPE_ROW, shape=page['iri']), 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/shapePage': page}})
+    html = seen['webviews'][0]['html'][-1]
+    assert 'fires in 1' in html and 'on urn:filter:1' in html
+    assert 'data-newcase="1"' not in html
+
+
+def test_new_case_writes_the_case_and_opens_it(tmp_path):
+    made = {'ok': True, 'file': '/pkg/examples/test_S/bad/idle.jsonld',
+            'case': 'test_S/bad/idle.jsonld', 'source': 'test_X/good/filter-on.jsonld',
+            'resource': 'urn:filter:1',
+            'constraint': 'ex:StateOnFilterShape/SPARQLConstraintComponent'}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': dict(SHAPE_ROW, shape=RULE_PAGE['iri']),
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'inputs': ['idle'],
+        'webviewMessages': [{'command': 'newCase'}],
+        'replies': {'semforge/shapePage': RULE_PAGE, 'semforge/newCase': made}})
+    assert seen['errors'] == [], seen['errors']
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/newCase']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': RULE_PAGE['iri'],
+                      'name': 'idle'}]
+    opened = _opened(seen, 'semforge.openCasePage')
+    assert opened and opened[0][0]['raw']['file'] == made['file']
+    assert any('fails until' in text for text in seen['info'])
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']
