@@ -1744,7 +1744,7 @@ def test_remove_this_use_is_not_in_the_palette():
         menus = json.load(handle)['contributes']['menus']
     hidden = {e['command'] for e in menus['commandPalette'] if e['when'] == 'false'}
     # Open source likewise: it opens the row it was invoked on.
-    assert hidden == {'semforge.removeUse', 'semforge.openSource'}
+    assert hidden == {'semforge.removeUse', 'semforge.openSource', 'semforge.newAttributeTest'}
 
 
 # --- sub-attributes ---------------------------------------------------------------

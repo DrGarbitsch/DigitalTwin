@@ -862,6 +862,31 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **Rescan** on the page rebuilds everything from scratch, ignoring the cache.
 
+**New test… for an attribute.** A new attribute needs cases that prove its
+constraints work. Right-click it in the Types view (**SemForge: New test for
+this attribute…**), or use its row on the type page — the **Tested** cell
+("New test…" while untested) or the row's `⋯` menu. It asks what the test
+should prove:
+
+- **valid** — the attribute present with a valid value; the case conforms;
+- **fires: …** — one per constraint that can actually fire: *missing* (a
+  required attribute left out), *no value*, *twice* (two instances, a
+  `maxCount` exceeded), *wrong datatype* (a text where `xsd:double` is
+  expected), *too high / too low* (one past `sh:maxInclusive` /
+  `sh:minInclusive`), *wrong class* (an IRI that is not a MachineState),
+  *wrong kind*, *not in the list*. An optional attribute is not offered
+  *missing*: leaving it out cannot fire.
+
+Then a name (suggested: `pressure-wrong-datatype`). The case lands in
+`examples/test_<Shape>/good|bad/`, declared `expect: valid`, or `expect:
+invalid` with an assert that this constraint fires on that entity. Its scene
+is a valid case with an entity of the type (includes written into the file),
+else the model's entity, else a new entity with every required attribute
+given a valid value. If the entity already has the attribute it is changed,
+not replaced — a sub-attribute nested in it stays. The case is run once, and
+the message says whether it already passes; the few breaks that cannot be made
+mechanically (a Relationship that is not an IRI) say what to edit instead.
+
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
 over up to nine levels. A click on a case in the Tests view, or on

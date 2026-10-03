@@ -1380,6 +1380,41 @@ def remove_vocabulary_value_feature(ls, params):
         package, _field(params, 'value', ''), bool(_field(params, 'force', False))))
 
 
+@server.feature('semforge/attributeTestOptions')
+def attribute_test_options_feature(ls, params):
+    """What a test for one attribute of a type can prove."""
+    from ..expect.attributecase import attribute_test_options
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        found = attribute_test_options(_package_for(root),
+                                       _field(params, 'entityType', ''),
+                                       list(_field(params, 'path', []) or []))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    return dict(found, ok=True)
+
+
+@server.feature('semforge/newAttributeTest')
+def new_attribute_test_feature(ls, params):
+    """Write a test for one attribute: valid, or one constraint firing."""
+    from ..expect.attributecase import new_attribute_test
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = new_attribute_test(_package_for(root), _field(params, 'entityType', ''),
+                                  list(_field(params, 'path', []) or []),
+                                  str(_field(params, 'purpose', '') or ''),
+                                  str(_field(params, 'name', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    return dict(made, ok=True)
+
+
 @server.feature('semforge/newCase')
 def new_case_feature(ls, params):
     """Start a case that makes a shape fire (the shape page's New case…)."""

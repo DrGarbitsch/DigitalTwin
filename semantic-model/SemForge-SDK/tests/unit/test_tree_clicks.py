@@ -565,6 +565,74 @@ def test_a_new_vocabulary_class_is_reachable_and_written(tmp_path):
     assert seen['webviews'][0]['title'] == 'Shift · vocabulary'
 
 
+# --- New test… for an attribute --------------------------------------------------------
+
+PRESSURE = {'kind': 'attribute', 'label': 'hasPressure',
+            'path': ['myModelEntities:hasPressure'], 'shape': 'https://x/MachineShape',
+            'typeClass': 'https://x/Machine', 'children': []}
+OPTIONS = {'ok': True, 'type': 'Machine', 'attribute': 'hasPressure',
+           'shape': 'myModelShacl:MachineShape', 'options': [
+               {'purpose': 'valid', 'label': 'valid', 'detail': 'present', 'automatic': True,
+                'name': 'pressure-valid'},
+               {'purpose': 'myModelShacl:MachineShape/hasPressure/DatatypeConstraintComponent',
+                'label': 'fires: Datatype', 'detail': 'a text where xsd:double is expected',
+                'automatic': True, 'name': 'pressure-wrong-datatype'}]}
+
+
+def test_new_test_is_on_an_attribute_row_of_the_types_view():
+    with open(PACKAGE_JSON) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    entry = next(e for e in menus['view/item/context']
+                 if e['command'] == 'semforge.newAttributeTest')
+    assert 'view == semforgeConstraints' in entry['when'] and 'attribute' in entry['when']
+    assert not entry['group'].startswith('inline'), 'a right-click entry, not a hover icon'
+
+
+def test_new_test_asks_what_to_prove_and_writes_it(tmp_path):
+    made = {'ok': True, 'file': '/pkg/examples/test_MachineShape/bad/p.jsonld',
+            'case': 'test_MachineShape/bad/p.jsonld', 'expect': 'invalid',
+            'constraint': OPTIONS['options'][1]['purpose'], 'resource': 'urn:m:1',
+            'source': 'test_MachineShape/good/running.jsonld', 'automatic': True,
+            'passes': True, 'failures': []}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newAttributeTest',
+        'node': {'raw': PRESSURE, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'picks': [1], 'inputs': ['pressure-wrong-datatype'],
+        'replies': {'semforge/attributeTestOptions': OPTIONS,
+                    'semforge/newAttributeTest': made}})
+    assert seen['errors'] == [], seen['errors']
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/newAttributeTest']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'entityType': 'https://x/Machine',
+                      'path': ['myModelEntities:hasPressure'],
+                      'purpose': OPTIONS['options'][1]['purpose'],
+                      'name': 'pressure-wrong-datatype'}]
+    assert seen['inputs'][0]['value'] == 'pressure-wrong-datatype', 'the name is suggested'
+    assert _opened(seen, 'semforge.openCasePage')[0][0]['raw']['file'] == made['file']
+    assert any('it passes' in text for text in seen['info'])
+
+
+def test_the_type_page_offers_new_test_in_the_tested_column(tmp_path):
+    page = {'ok': True, 'iri': 'https://x/Machine', 'label': 'Machine', 'crumbs': [],
+            'summary': {}, 'rules': [], 'exercisedBy': [], 'instances': [], 'subtypes': [],
+            'attributes': [{'label': 'hasPressure', 'attribute': 'https://x/hasPressure',
+                            'path': PRESSURE['path'], 'term': 'x:hasPressure',
+                            'kind': 'Property', 'presence': 'optional', 'value': 'number',
+                            'verbatim': [], 'shape': 'https://x/MachineShape',
+                            'shapeName': 'x:MachineShape', 'depth': 0, 'violations': [],
+                            'tested': 'untested'}]}
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': 'Machine', 'targetClass': 'https://x/Machine',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'test', 'row': 0}],
+        'replies': {'semforge/typePage': page}})
+    html = seen['webviews'][0]['html'][-1]
+    assert 'data-action="test"' in html and 'New test…' in html
+    asked = _opened(seen, 'semforge.newAttributeTest')
+    assert asked and asked[0][0]['raw']['typeClass'] == 'https://x/Machine'
+    assert asked[0][0]['raw']['path'] == PRESSURE['path']
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

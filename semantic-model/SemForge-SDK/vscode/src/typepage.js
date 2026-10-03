@@ -104,7 +104,9 @@ function attributeRows(attributes, focused) {
       `${verbatim}</td>` +
       `<td>${shapeLink(row.shapeName, row.shape)}` +
       `${row.inherited ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}</td>` +
-      `<td>${tested}</td><td>${model}</td>` +
+      `<td><a href="#" class="act" data-action="test" data-row="${index}" ` +
+      `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
+      `${tested || 'New test…'}</a></td><td>${model}</td>` +
       `<td class="acts">${row.inherited
         ? `<button data-action="override" data-row="${index}" title="Declare a stricter ` +
           'constraint on this type\'s own shape">Override…</button>'
@@ -471,6 +473,8 @@ async function rowMenu(pages, row) {
   }
   const shapeName = row.shapeName.split(':').pop();
   const choices = [
+    { label: '$(beaker) New test…', description: 'valid, or one of its constraints firing',
+      run: newTest },
     { label: '$(edit) Edit a constraint…', description: 'a range, a count, a class', run: editParameter },
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
@@ -494,6 +498,17 @@ async function rowMenu(pages, row) {
   ];
   const picked = await vscode.window.showQuickPick(choices, { title: row.label });
   return picked ? picked.run(pages, row) : false;
+}
+
+/** A test for this attribute: the shared command, aimed at this row. */
+async function newTest(pages, row) {
+  if (!row) {
+    return false;
+  }
+  return vscode.commands.executeCommand('semforge.newAttributeTest', {
+    raw: { kind: 'attribute', label: row.label, path: row.path,
+      typeClass: pages.page.iri },
+    packageUri: pages.current.packageUri });
 }
 
 async function removeFromShape(pages, row) {
@@ -567,7 +582,7 @@ async function addAttribute(pages) {
   return true;
 }
 
-const EDITS = { presence: editPresence, value: editValue, menu: rowMenu,
+const EDITS = { presence: editPresence, value: editValue, menu: rowMenu, test: newTest,
   override, addAttribute };
 
 /** The entity type a tree row stands for, whichever tree it is in. */

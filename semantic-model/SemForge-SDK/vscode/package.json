@@ -288,6 +288,11 @@
         "icon": "$(symbol-enum)"
       },
       {
+        "command": "semforge.newAttributeTest",
+        "title": "SemForge: New test for this attribute…",
+        "icon": "$(beaker)"
+      },
+      {
         "command": "semforge.refreshShapes",
         "title": "SemForge: Refresh shapes",
         "icon": "$(refresh)"
@@ -669,6 +674,11 @@
           "command": "semforge.openVocabularyPage",
           "when": "view == semforgeKnowledge && viewItem =~ /^(class|classWithShape)$/",
           "group": "navigation@2"
+        },
+        {
+          "command": "semforge.newAttributeTest",
+          "when": "view == semforgeConstraints && viewItem =~ /^(attribute|inherited)$/",
+          "group": "1_add@0"
         }
       ],
       "semforge.project": [
@@ -737,6 +747,10 @@
         },
         {
           "command": "semforge.openSource",
+          "when": "false"
+        },
+        {
+          "command": "semforge.newAttributeTest",
           "when": "false"
         }
       ]

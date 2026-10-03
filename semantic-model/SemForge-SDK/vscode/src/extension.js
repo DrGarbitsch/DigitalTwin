@@ -26,6 +26,7 @@ const newAttribute = require('./attribute');
 const projectCache = require('./cache');
 const typePages = require('./typepage');
 const vocabularyPages = require('./vocabpage');
+const attributeTests = require('./attributetest');
 const casePages = require('./casepage');
 const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
@@ -271,6 +272,8 @@ function activate(context) {
   typePages.register(context, clientHolder, session);
   // One page per vocabulary class: its values, their uses, and their care.
   vocabularyPages.register(context, clientHolder, session);
+  // New test… for one attribute: valid, or one of its constraints firing.
+  attributeTests.register(context, clientHolder, session);
   // One page per test case: its claims, whether they hold, its data.
   casePages.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
