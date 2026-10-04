@@ -306,6 +306,11 @@
         "command": "semforge.newShape",
         "title": "SemForge: New shape…",
         "icon": "$(add)"
+      },
+      {
+        "command": "semforge.mergeShape",
+        "title": "SemForge: Merge into…",
+        "icon": "$(merge)"
       }
     ],
     "viewsContainers": {
@@ -709,6 +714,11 @@
           "command": "semforge.newTestCase",
           "when": "view == semforgeModel && viewItem == suite",
           "group": "1_add@0"
+        },
+        {
+          "command": "semforge.mergeShape",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "2_edit@1"
         }
       ],
       "semforge.project": [
@@ -781,6 +791,10 @@
         },
         {
           "command": "semforge.newAttributeTest",
+          "when": "false"
+        },
+        {
+          "command": "semforge.mergeShape",
           "when": "false"
         }
       ]

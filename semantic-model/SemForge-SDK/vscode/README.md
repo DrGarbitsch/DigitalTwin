@@ -1100,9 +1100,12 @@ them — an entity conforms only if it satisfies all. So an attribute two shapes
 constrain is **one row**, saying what holds when both apply:
 
 ```text
-hasPressure   required · one   number · ≥ 0 and < 100      2 shapes · all apply
-  MachineShape    optional         number · ≥ 0 and < 100   sh:minCount 0: no effect
-  MachineShape2   required · one   < 200                    sh:maxExclusive 200: no effect
+Attribute     Presence         Value                                  Declared in
+hasPressure   required · one   number · ≥ 0 and < 100                 2 shapes · all apply
+              optional         number · ≥ 0 and < 100                 MachineShape
+                                 sh:minCount 0: no effect
+              required · one   < 200                                  MachineShape2
+                                 sh:maxExclusive 200: no effect
 ```
 
 The highest minimum and the lowest maximum count win, and so do the tightest
@@ -1111,8 +1114,31 @@ it the others outdo. Contradictions are said in red — two datatypes no literal
 can have at once, bounds or counts that admit nothing. A shape that applies
 only under a condition is listed beneath the row but not merged into it.
 Clicking the presence or value of the combined row asks **which shape** to
-change; each shape's own line has its own `⋯`. The Types tree shows the
-attribute once (`2 shapes, all apply`).
+change; each shape's own line — its name under **Declared in** — has its
+own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
+
+**Merge into….** Two shapes selecting the same nodes can become one: the shape
+page's **Merge into…** button, `⋯ → Merge … into…` on a row, or right-click a
+shape in the Shapes view. It offers only shapes with exactly the same targets,
+says what will happen before it writes — per attribute, which parameter is
+added, which replaces a weaker one, which is already there or has no effect —
+and then:
+
+- where both constrain an attribute with plain parameters, combines them the
+  way SHACL does (higher minimum and lower maximum count, tighter bound; a
+  stricter value replaces the weaker one *in place*; two different datatypes
+  or classes both stay); anything else (sub-attributes, `sh:or`) moves as
+  written, as do SPARQL constraints and rules;
+- deletes the merged shape, and renames test-case asserts naming it (a pinned
+  residue gets a note to run `semforge accept`);
+- checks before writing that every constraint either shape declared is still
+  declared.
+
+Nothing a validator decides changes; that is what it guarantees, and it is
+tested by comparing every violation and every case's outcome before and after
+on real merges in the kms. It refuses what would change it: shapes selecting
+different nodes, a shape another reaches through `sh:node`, and one with
+shape-level settings (severity, data view) to decide by hand.
 
 **Editing on the page.** What is dashed-underlined is clickable, and every
 action is a visible button rather than a hover icon:

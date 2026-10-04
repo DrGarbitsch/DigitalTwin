@@ -206,6 +206,7 @@ function renderShapePage(page, options) {
 <div class="bar">${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
 ${types.filter((t) => t.page).slice(0, 1).map((t) =>
     `<button data-type="${escape(t.iri)}">Open ${escape(t.label)} type page</button>`).join('')}
+<button data-action="merge" title="Fold this shape into another that selects the same nodes">Merge into…</button>
 <button data-refresh="1">Refresh</button></div>
 
 <h2>Selects</h2>
@@ -352,6 +353,10 @@ class ShapePages {
     } else if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri });
+    } else if (message.command === 'merge') {
+      // On success the merged-into shape's page replaces this one.
+      await vscode.commands.executeCommand('semforge.mergeShape',
+        { raw: { shape: this.page.iri }, packageUri: this.current.packageUri });
     } else if (message.command === 'addTarget' || message.command === 'removeTarget') {
       if (await this.editTarget(message)) {
         await this.render();

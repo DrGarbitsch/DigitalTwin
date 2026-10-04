@@ -1003,6 +1003,69 @@ def test_a_shape_s_own_line_edits_that_shape(tmp_path):
                       'remove': True}]
 
 
+def test_each_shape_s_name_is_under_declared_in(tmp_path):
+    html = _machine(tmp_path)['webviews'][0]['html'][-1]
+    line = html.split('<tr class="contrib">', 2)[1].split('</tr>', 1)[0]
+    cells = line.split('<td')[1:]
+    assert 'data-shape' not in cells[0], 'not under the attribute name'
+    assert 'data-shape="https://x/MachineShape"' in cells[4], 'under Declared in'
+
+
+# --- Merge into… ---------------------------------------------------------------------------
+
+MERGE_NODE = {'raw': {'shape': 'https://x/MachineShape2'}, 'packageUri': 'file:///pkg/shacl.ttl'}
+PLANNED = {'ok': True, 'said': ['hasPressure: sh:minCount 1 on the attribute replaces the '
+                                'weaker sh:minCount 0'], 'asserts': 2,
+           'name': 'x:MachineShape2', 'intoName': 'x:MachineShape'}
+
+
+def _merge(tmp_path, answer, replies):
+    return _drive(tmp_path, {'command': 'semforge.mergeShape', 'node': MERGE_NODE,
+                             'answer': answer, 'replies': replies})
+
+
+def test_merge_says_what_it_will_do_and_needs_a_yes(tmp_path):
+    seen = _merge(tmp_path, None, {'semforge/mergePlan': {
+        'ok': True, 'candidates': [{'iri': 'https://x/MachineShape', 'name': 'x:MachineShape'}],
+        'said': PLANNED['said'], 'asserts': 2, 'name': 'x:MachineShape2',
+        'intoName': 'x:MachineShape'}})
+    warning = seen['warnings'][0]
+    assert 'Merge x:MachineShape2 into x:MachineShape?' in warning
+    assert 'replaces the weaker sh:minCount 0' in warning and '2 test-case assert' in warning
+    assert not [r for r in seen['requests'] if r['method'] == 'semforge/mergeShape']
+
+
+def test_merge_writes_and_opens_the_shape_it_went_into(tmp_path):
+    seen = _merge(tmp_path, 'Merge', {
+        'semforge/mergePlan': {'ok': True, 'candidates': [
+            {'iri': 'https://x/MachineShape', 'name': 'x:MachineShape'}],
+            'said': PLANNED['said'], 'asserts': 0, 'name': 'x:MachineShape2',
+            'intoName': 'x:MachineShape'},
+        'semforge/mergeShape': {'ok': True, 'into': 'https://x/MachineShape',
+                                'intoName': 'x:MachineShape', 'said': [], 'asserts': 0,
+                                'notes': []},
+        'semforge/shapePage': SHAPE_PAGE})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/mergeShape']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape2',
+                      'into': 'https://x/MachineShape'}]
+    assert _opened(seen, 'semforge.openShapePage')[0][0]['raw']['shape'] == \
+        'https://x/MachineShape'
+
+
+def test_no_candidate_says_why(tmp_path):
+    seen = _merge(tmp_path, None, {'semforge/mergePlan': {'ok': True, 'candidates': []}})
+    assert any('nothing it can be merged into' in text for text in seen['info'])
+
+
+def test_merge_is_offered_where_shapes_are(tmp_path):
+    html = _shape(tmp_path)['webviews'][0]['html'][-1]
+    assert 'data-action="merge"' in html and 'Merge into…' in html
+    with open(PACKAGE_JSON) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    assert any(e['command'] == 'semforge.mergeShape' and 'semforgeShapes' in e['when']
+               for e in menus)
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

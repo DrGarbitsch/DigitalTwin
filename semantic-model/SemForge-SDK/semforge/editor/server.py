@@ -1528,6 +1528,46 @@ def remove_target_feature(ls, params):
         _field(params, 'value', '')))
 
 
+@server.feature('semforge/mergePlan')
+def merge_plan_feature(ls, params):
+    """The shapes one may be merged into, and -- given one -- what it would do."""
+    from ..cooked.merge import candidates, plan
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        shape = _field(params, 'shape', '')
+        into = _field(params, 'into', '')
+        if not into:
+            return {'ok': True, 'candidates': candidates(package, shape)}
+        found = plan(package, shape, into)
+        return {'ok': True, 'said': found['said'], 'asserts': found['asserts'],
+                'name': found['name'], 'intoName': found['intoName']}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/mergeShape')
+def merge_shape_feature(ls, params):
+    """Fold one shape into another with the same targets."""
+    from ..cooked.merge import merge_shape
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        done = merge_shape(_package_for(root), _field(params, 'shape', ''),
+                           _field(params, 'into', ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    for path in _package_for(root).files('shapes'):
+        _publish(ls, _path_to_uri(path))
+    return dict(done, ok=True)
+
+
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
     """Every named shape with its target in words, for the Shapes view."""

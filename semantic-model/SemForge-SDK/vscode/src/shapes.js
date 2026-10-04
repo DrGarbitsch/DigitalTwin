@@ -213,6 +213,70 @@ async function newShape(clientHolder, session, node, options) {
   return made;
 }
 
+/**
+ * Merge into…: fold a shape into another with the same targets. SHACL
+ * conjoins them anyway, so nothing a validator decides changes; the SDK
+ * refuses a merge that would, and says before writing what will happen.
+ */
+async function mergeShape(clientHolder, session, node) {
+  const client = clientHolder.client;
+  const packageUri = (node && node.packageUri) || session.uri;
+  const shape = node && node.raw && node.raw.shape;
+  if (!client || !packageUri || !shape) {
+    vscode.window.showWarningMessage('SemForge: Merge into… works on a shape.');
+    return false;
+  }
+  const offered = await client.sendRequest('semforge/mergePlan', { uri: packageUri, shape });
+  if (!offered.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${offered.error}`);
+    return false;
+  }
+  const short = shape.split(/[/#]/).pop();
+  if (!offered.candidates.length) {
+    vscode.window.showInformationMessage(
+      `SemForge: no other shape selects exactly what ${short} selects, so there is ` +
+        'nothing it can be merged into without changing what is checked.');
+    return false;
+  }
+  const into = offered.candidates.length === 1 ? offered.candidates[0]
+    : (await vscode.window.showQuickPick(offered.candidates.map((c) => ({
+      label: c.name.split(':').pop(), description: c.name, candidate: c })),
+    { title: `Merge ${short} into which shape?` }) || {}).candidate;
+  if (!into) {
+    return false;
+  }
+  const planned = await client.sendRequest('semforge/mergePlan',
+    { uri: packageUri, shape, into: into.iri });
+  if (!planned.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${planned.error}`);
+    return false;
+  }
+  const detail = planned.said.join('\n') +
+    (planned.asserts ? `\n\n${planned.asserts} test-case assert(s) naming ${planned.name} ` +
+      `are renamed to ${planned.intoName}.` : '') +
+    `\n\n${planned.name} is then deleted. What is checked does not change.`;
+  const answer = await vscode.window.showWarningMessage(
+    `Merge ${planned.name} into ${planned.intoName}?`, { modal: true, detail }, 'Merge');
+  if (answer !== 'Merge') {
+    return false;
+  }
+  const done = await client.sendRequest('semforge/mergeShape',
+    { uri: packageUri, shape, into: into.iri });
+  if (!done.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${done.error}`);
+    return false;
+  }
+  for (const command of ['semforge.refreshShapes', 'semforge.refreshTree',
+    'semforge.refreshModel']) {
+    vscode.commands.executeCommand(command);
+  }
+  await vscode.commands.executeCommand('semforge.openShapePage',
+    { raw: { shape: done.into }, packageUri });
+  vscode.window.showInformationMessage(`SemForge: merged into ${done.intoName}.` +
+    (done.notes.length ? ` ${done.notes.join(' ')}` : ''));
+  return done;
+}
+
 function register(context, clientHolder, session) {
   const provider = new ShapesTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeShapes', {
@@ -242,9 +306,12 @@ function register(context, clientHolder, session) {
     vscode.workspace.onDidSaveTextDocument(() => provider.refresh()),
     vscode.commands.registerCommand('semforge.refreshShapes', () => provider.refresh()),
     vscode.commands.registerCommand('semforge.newShape',
-      (node, options) => newShape(clientHolder, session, node, options))
+      (node, options) => newShape(clientHolder, session, node, options)),
+    vscode.commands.registerCommand('semforge.mergeShape',
+      (node) => mergeShape(clientHolder, session, node))
   );
   return provider;
 }
 
-module.exports = { register, ShapesTreeProvider, newShape, suggestedName, pickTarget };
+module.exports = { register, ShapesTreeProvider, newShape, suggestedName, pickTarget,
+  mergeShape };

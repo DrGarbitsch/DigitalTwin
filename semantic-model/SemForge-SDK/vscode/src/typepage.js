@@ -145,13 +145,16 @@ function contributionRows(row, index, depth) {
       ? ' ' + c.noEffect.map((n) => chip(`${n}: no effect`, '', 'Another shape on this ' +
         'attribute says something stricter, so this part never decides anything.')).join(' ')
       : '';
+    // The shape's name goes where every row says where it is declared; the
+    // attribute column stays empty -- these lines are about the same one.
     return `<tr class="contrib">` +
-      `<td class="${indent}">${shapeLink(c.shapeName, c.shape)}` +
-      `${c.inheritedFrom ? ` <span class="dim">· from ${escape(c.inheritedFrom)}</span>` : ''}` +
-      `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
+      `<td class="${indent}"></td>` +
       '<td></td>' +
       `<td>${escape(c.presence)}</td><td>${escape(c.value)}${weaker}</td>` +
-      '<td></td><td></td><td></td>' +
+      `<td>${shapeLink(c.shapeName, c.shape)}` +
+      `${c.inheritedFrom ? ` <span class="dim">· from ${escape(c.inheritedFrom)}</span>` : ''}` +
+      `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
+      '<td></td><td></td>' +
       `<td class="acts">${actions(c, index, j)}</td></tr>`;
   }).join('');
 }
@@ -654,6 +657,10 @@ async function rowMenu(pages, row) {
           raw: { iri: row.attribute }, packageUri: pages.current.packageUri });
         return true;
       } },
+    { label: `$(merge) Merge ${shapeName} into…`,
+      description: 'another shape selecting the same nodes; nothing checked changes',
+      run: async () => Boolean(await vscode.commands.executeCommand('semforge.mergeShape', {
+        raw: { shape: row.shape }, packageUri: pages.current.packageUri })) },
     { label: '$(go-to-file) Open in .ttl',
       run: async () => { await showLocation(row.definedAt, true); return false; } }
   ];
