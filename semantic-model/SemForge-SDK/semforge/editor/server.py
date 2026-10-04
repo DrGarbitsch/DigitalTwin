@@ -1165,7 +1165,10 @@ def set_constraint(ls, params):
             from ..cooked.tree import add_constraint
 
             done = add_constraint(package, shape, chain, parameter,
-                                  str(_field(params, 'value')),
+                                  # An sh:in list arrives as a list of items.
+                                  _field(params, 'value') if isinstance(
+                                      _field(params, 'value'), list)
+                                  else str(_field(params, 'value')),
                                   _field(params, 'layer', 'value') or 'value')
             _packages.pop(root, None)
             _publish(ls, _path_to_uri(done['file']))

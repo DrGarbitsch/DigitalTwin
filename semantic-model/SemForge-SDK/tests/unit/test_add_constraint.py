@@ -121,3 +121,70 @@ def test_a_pattern_is_written_as_a_string(kms):
 ])
 def test_the_value_says_the_new_constraints_in_words(parameters, said):
     assert said in value_text('Property', parameters, [])
+
+
+# --- sh:in: the value is one of a list -------------------------------------------------
+
+WC = 'https://industryfusion.github.io/contexts/example/v0/filter_knowledge/'
+CARTRIDGE = 'https://industryfusion.github.io/contexts/example/v0/base_entities/FilterCartridge'
+WASTE = ['iffFilterEntities:hasWasteclass']
+
+
+def _waste(root):
+    rows = build_type_page(load(root), CARTRIDGE)['attributes']
+    return next(r for r in rows if r['label'] == 'hasWasteclass')
+
+
+def _in_values(root):
+    graph = Graph().parse(f'{root}/shacl.ttl', format='turtle')
+    return [[str(i) for i in graph.items(head)] for head in graph.objects(None, SH['in'])]
+
+
+def test_a_vocabulary_list_is_written_and_read_back(kms):
+    """hasWasteclass draws from Wasteclass; restrict it to two of its values,
+    written with the knowledge's own prefix."""
+    shape = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/CartridgeShape'
+    done = add_constraint(load(kms), shape, WASTE, 'sh:in',
+                          ['iffFilterKnowledge:WC1', 'iffFilterKnowledge:WC2'])
+    assert done['action'] == 'added'
+    assert [WC + 'WC1', WC + 'WC2'] in _in_values(kms)
+    row = _waste(kms)
+    assert row['inList']['items'] == ['iffFilterKnowledge:WC1', 'iffFilterKnowledge:WC2']
+    assert 'one of: WC1 · WC2' in row['value']
+    assert 'Constraints' in row['valueLocked']
+
+
+def test_editing_a_list_replaces_it(kms):
+    shape = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/CartridgeShape'
+    add_constraint(load(kms), shape, WASTE, 'sh:in', ['iffFilterKnowledge:WC1'])
+    before = len(_in_values(kms))
+    done = add_constraint(load(kms), shape, WASTE, 'sh:in',
+                          ['iffFilterKnowledge:WC1', 'iffFilterKnowledge:WC3'])
+    assert done['action'] == 'replaced' and len(_in_values(kms)) == before
+    assert [WC + 'WC1', WC + 'WC3'] in _in_values(kms)
+
+
+def test_a_typed_list_keeps_numbers_numbers_and_quotes_text(kms):
+    add_constraint(load(kms), BASE_SHACL + 'FilterShape', STRENGTH, 'sh:in', '10, 20.5, "high"')
+    lists = _in_values(kms)
+    assert ['10', '20.5', 'high'] in lists
+
+
+@pytest.mark.parametrize('value, said', [
+    ([], 'admits no value'),
+    ('   ', 'admits no value'),
+    (['nope:x'], 'not declared'),
+])
+def test_a_list_shacl_cannot_use_is_refused(kms, value, said):
+    with pytest.raises(PackageError, match=said):
+        add_constraint(load(kms), BASE_SHACL + 'FilterShape', STRENGTH, 'sh:in', value)
+
+
+def test_a_list_is_removed_like_any_constraint(kms):
+    from semforge.cooked.tree import remove_constraint
+
+    shape = 'https://industryfusion.github.io/contexts/example/v0/filter_shacl/CartridgeShape'
+    add_constraint(load(kms), shape, WASTE, 'sh:in', ['iffFilterKnowledge:WC1'])
+    row = _waste(kms)
+    remove_constraint(load(kms), shape, row['inList']['path'], 'sh:in')
+    assert _waste(kms)['inList'] is None

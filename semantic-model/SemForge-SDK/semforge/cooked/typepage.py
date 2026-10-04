@@ -122,9 +122,14 @@ def value_text(kind, parameters, raw):
         parts.append(f'at most {_number(longest)} characters')
     if parameters.get('sh:pattern'):
         parts.append(f'matching {str(parameters["sh:pattern"]).strip(chr(34))}')
-    if parameters.get('sh:in'):
+    # sh:in is structure (a list), so it may arrive with the raw parameters.
+    listed = parameters.get('sh:in') or dict(raw or []).get('sh:in')
+    if listed:
+        from .tree import list_items
+
         parts.append('one of: ' + ' · '.join(
-            _short(v) for v in str(parameters['sh:in']).strip('()').split()))
+            _short(v) if not v.startswith('"') else v.strip('"')
+            for v in list_items(listed)))
     if not parts:
         parts.append('an entity' if kind == 'Relationship' else 'any value')
     return ' · '.join(parts)
@@ -225,9 +230,13 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         # The value picker rewrites class / datatype / nodeKind; a value
         # written with sh:or or sh:in is a choice it cannot round-trip.
         'valueEditable': slot is not None and not blocked,
-        'valueLocked': (f'written with {blocked[0]}; edit it in the .ttl'
+        'valueLocked': ('one of a list (sh:in): edit it in ⋯ → Constraints…'
+                        if blocked and blocked[0] == 'sh:in'
+                        else f'written with {blocked[0]}; edit it in the .ttl'
                         if blocked else '' if slot is not None
                         else 'no value layer; edit it in the .ttl'),
+        # The value's sh:in list, item by item, for the Constraints… editor.
+        'inList': _in_list(raw, value_params, slot),
         'violations': violated.get((shape_name, _short(token)), []),
         'definedAt': node.defined_at,
     }]
@@ -236,6 +245,16 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
             rows += _attribute_rows(package, child, kind_of, depth + 1,
                                     coverage, violated)
     return rows
+
+
+def _in_list(raw, value_params, slot):
+    """{'items', 'path', 'value'} of the value layer's sh:in, or None."""
+    from .tree import list_items
+
+    text = dict(raw).get('sh:in') or value_params.get('sh:in')
+    if not text or slot is None:
+        return None
+    return {'items': list_items(text), 'path': list(slot.path_chain), 'value': text}
 
 
 def _resolve_token(package, token):

@@ -522,6 +522,7 @@ const CONSTRAINTS = [
   { parameter: 'sh:minLength', words: 'text at least this long', kind: 'integer' },
   { parameter: 'sh:maxLength', words: 'text at most this long', kind: 'integer' },
   { parameter: 'sh:pattern', words: 'text matching a regular expression', kind: 'text' },
+  { parameter: 'sh:in', words: 'the value is one of a list', kind: 'list' },
   { parameter: 'sh:minCount', words: 'at least this many instances', kind: 'integer',
     layer: 'attribute' },
   { parameter: 'sh:maxCount', words: 'at most this many instances', kind: 'integer',
@@ -536,7 +537,52 @@ const KIND_PROMPT = {
   text: ['A regular expression, e.g. ^[A-Z]{2}[0-9]+$', (t) => (t ? undefined : 'required')]
 };
 
+/**
+ * An sh:in list. Where the value is drawn from a vocabulary class
+ * (sh:class MachineState), its values are offered to tick -- the current
+ * ones ticked; otherwise the items are typed, separated by commas: numbers,
+ * "quoted text", prefixed names. Returns a list, a text, or undefined.
+ */
+async function askList(pages, row, current) {
+  const cls = row.parameters.find((p) => p.layer === 'value' && p.parameter === 'sh:class');
+  if (cls) {
+    let page;
+    try {
+      page = await pages.clientHolder.client.sendRequest('semforge/vocabularyPage',
+        { uri: pages.current.packageUri, cls: cls.value });
+    } catch (error) {
+      page = undefined;
+    }
+    if (page && page.ok && page.values.length) {
+      const short = (term) => String(term).split(':').pop();
+      const ticked = new Set((current || []).map(short));
+      const picked = await vscode.window.showQuickPick(page.values.map((v) => ({
+        label: v.name, description: v.label, value: v.term, picked: ticked.has(v.name) })),
+      { title: `${row.label} · sh:in: which ${page.label} values are allowed?`,
+        canPickMany: true });
+      if (!picked) {
+        return undefined;
+      }
+      if (!picked.length) {
+        vscode.window.showWarningMessage('SemForge: an empty list admits no value; ' +
+          'remove sh:in instead.');
+        return undefined;
+      }
+      return picked.map((item) => item.value);
+    }
+  }
+  const value = await vscode.window.showInputBox({
+    title: `${row.label} · sh:in: the value is one of`,
+    value: (current || []).join(', '),
+    prompt: 'Separated by commas: numbers, "quoted text", prefixed names (ex:ON)',
+    validateInput: (t) => (t.trim() ? undefined : 'at least one value; or remove sh:in') });
+  return value === undefined ? undefined : value.trim();
+}
+
 async function askValue(pages, row, spec, current) {
+  if (spec.kind === 'list') {
+    return askList(pages, row, current);
+  }
   if (spec.kind === 'choice') {
     const slot = row.kind === 'Relationship' ? 'ngsild:hasObject' : 'ngsild:hasValue';
     let offered = [];
@@ -574,6 +620,14 @@ async function editParameter(pages, row) {
     description: p.layer === 'value' ? 'on the value' : 'on the attribute',
     detail: 'change it, or remove it', existing: p }));
   const present = new Set(row.parameters.map((p) => `${p.layer}:${p.parameter}`));
+  if (row.inList) {
+    // A list is structure, not a plain parameter: listed here item by item.
+    have.push({ label: `sh:in ${row.inList.value}`, description: 'on the value',
+      detail: 'edit the list, or remove it',
+      existing: { parameter: 'sh:in', value: row.inList.value, path: row.inList.path,
+        layer: 'value', items: row.inList.items } });
+    present.add('value:sh:in');
+  }
   const add = [];
   for (const spec of CONSTRAINTS) {
     const layers = spec.layer === 'attribute' ? ['attribute', 'value'] : ['value'];
@@ -599,7 +653,8 @@ async function editParameter(pages, row) {
     const spec = CONSTRAINTS.find((c) => c.parameter === parameter.parameter) ||
       { parameter: parameter.parameter, words: '', kind: 'term' };
     const how = await vscode.window.showQuickPick([
-      { label: '$(edit) Change the value…', action: 'change' },
+      { label: parameter.items ? '$(edit) Edit the list…' : '$(edit) Change the value…',
+        action: 'change' },
       { label: `$(trash) Remove ${parameter.parameter}`, action: 'remove' }
     ], { title: `${row.label} · ${parameter.parameter} ${parameter.value}` });
     if (!how) {
@@ -610,6 +665,16 @@ async function editParameter(pages, row) {
         shape: row.shape, path: parameter.path, parameter: parameter.parameter,
         remove: true }));
     }
+    if (parameter.items) {
+      // Written anew in place: the list as a whole is the value.
+      const items = await askList(pages, row, parameter.items);
+      if (items === undefined) {
+        return false;
+      }
+      return Boolean(await request(pages, 'semforge/setConstraint', {
+        shape: row.shape, path: row.path, parameter: 'sh:in', value: items,
+        add: true, layer: 'value' }));
+    }
     const value = await askValue(pages, row, spec, parameter.value);
     if (value === undefined || value === parameter.value) {
       return false;
@@ -617,7 +682,7 @@ async function editParameter(pages, row) {
     return Boolean(await request(pages, 'semforge/setConstraint', {
       shape: row.shape, path: parameter.path, parameter: parameter.parameter, value }));
   }
-  const value = await askValue(pages, row, picked.spec, '');
+  const value = await askValue(pages, row, picked.spec, picked.spec.kind === 'list' ? [] : '');
   if (value === undefined || value === '') {
     return false;
   }

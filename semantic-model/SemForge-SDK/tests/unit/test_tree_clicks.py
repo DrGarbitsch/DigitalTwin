@@ -1066,6 +1066,65 @@ def test_merge_is_offered_where_shapes_are(tmp_path):
                for e in menus)
 
 
+# --- sh:in in the Constraints menu ---------------------------------------------------------
+
+STATE_ROW = dict(EDITABLE_SHAPE['attributes'][0], label='hasState', path=['x:hasState'],
+                 parameters=[{'parameter': 'sh:class', 'value': 'x:MachineState',
+                              'path': ['x:hasState', 'ngsild:hasValue'], 'layer': 'value'}])
+VOCAB_VALUES = dict(VOCAB_PAGE, values=[
+    dict(VOCAB_PAGE['values'][0], name='state_OFF', term='x:state_OFF', label='OFF'),
+    dict(VOCAB_PAGE['values'][1], name='state_ON', term='x:state_ON', label='ON')])
+
+
+def _state_menu(tmp_path, row, picks, inputs=None):
+    page = dict(EDITABLE_SHAPE, attributes=[row])
+    seen = _shape(tmp_path, picks=['$(edit) Constraints…'] + picks, inputs=inputs or [],
+                  webviewMessages=[{'command': 'menu', 'row': 0}],
+                  replies={'semforge/shapePage': page,
+                           'semforge/setConstraint': {'ok': True, 'note': ''},
+                           'semforge/vocabularyPage': VOCAB_VALUES,
+                           'semforge/choices': {'choices': []}})
+    return seen, [r['params'] for r in seen['requests']
+                  if r['method'] == 'semforge/setConstraint']
+
+
+def test_a_list_of_vocabulary_values_is_ticked(tmp_path):
+    seen, asked = _state_menu(tmp_path, STATE_ROW, ['$(add) sh:in', ['state_ON']])
+    offered = [i['label'] for i in seen['quickPicks'][2]['items']]
+    assert offered == ['state_OFF', 'state_ON'], 'the vocabulary values'
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
+                      'path': ['x:hasState'], 'parameter': 'sh:in', 'value': ['x:state_ON'],
+                      'add': True, 'layer': 'value'}]
+
+
+def test_without_a_vocabulary_the_list_is_typed(tmp_path):
+    _, asked = _state_menu(tmp_path, EDITABLE_SHAPE['attributes'][0], ['$(add) sh:in'],
+                           inputs=['1.5, 2, "off"'])
+    assert asked[0]['parameter'] == 'sh:in' and asked[0]['value'] == '1.5, 2, "off"'
+
+
+def test_an_existing_list_is_edited_with_its_values_ticked(tmp_path):
+    row = dict(STATE_ROW, inList={'items': ['x:state_ON'], 'path': ['x:hasState',
+                                                                    'ngsild:hasValue'],
+                                  'value': '( x:state_ON )'})
+    seen, asked = _state_menu(tmp_path, row, ['sh:in ( x:state_ON )', '$(edit) Edit the list…',
+                                              ['state_ON', 'state_OFF']])
+    ticks = {i['label']: i['picked'] for i in seen['quickPicks'][3]['items']}
+    assert ticks == {'state_OFF': False, 'state_ON': True}
+    assert asked[0]['value'] == ['x:state_OFF', 'x:state_ON']
+    assert asked[0]['add'] is True, 'the list is written anew in place'
+
+
+def test_an_existing_list_can_be_removed(tmp_path):
+    row = dict(STATE_ROW, inList={'items': ['x:state_ON'], 'path': ['x:hasState',
+                                                                    'ngsild:hasValue'],
+                                  'value': '( x:state_ON )'})
+    _, asked = _state_menu(tmp_path, row, ['sh:in ( x:state_ON )', '$(trash) Remove sh:in'])
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
+                      'path': ['x:hasState', 'ngsild:hasValue'], 'parameter': 'sh:in',
+                      'remove': True}]
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

@@ -390,7 +390,10 @@ def _term(package, text, value):
         iri = value[1:-1]
     elif ':' in value and not value.startswith(('http://', 'https://', 'urn:')):
         prefix, _, name = value.partition(':')
+        # The shapes' prefixes first; a vocabulary value is usually written
+        # with the knowledge's (myModelKnowledge:state_ON).
         namespace = dict((p, str(n)) for p, n in package.shapes.namespaces()).get(prefix) \
+            or dict((p, str(n)) for p, n in package.knowledge.namespaces()).get(prefix) \
             or {'xsd': 'http://www.w3.org/2001/XMLSchema#',
                 'sh': 'http://www.w3.org/ns/shacl#'}.get(prefix)
         if namespace is None:
@@ -401,8 +404,48 @@ def _term(package, text, value):
     return _turtle_name(text, URIRef(iri))
 
 
+LIST_ITEM = re.compile(r'"(?:[^"\\]|\\.)*"(?:@[A-Za-z-]+|\^\^\S+)?|<[^>]*>|[^\s(),]+')
+NUMBER = re.compile(r'[-+]?\d+(\.\d+)?([eE][-+]?\d+)?')
+
+
+def list_items(text):
+    """`( a "b c" 1 )` -> ['a', '"b c"', '1']: an sh:in list as written."""
+    inner = str(text or '').strip()
+    if inner.startswith('(') and inner.endswith(')'):
+        inner = inner[1:-1]
+    return LIST_ITEM.findall(inner)
+
+
+def _list_value(package, text, value):
+    """An sh:in list as Turtle. Items come as a list, or one text separated by
+    commas; each is a number, true/false, a "quoted" text, or a prefixed name
+    or IRI -- anything else is taken as text and quoted."""
+    if isinstance(value, str):
+        items = [i.strip() for i in re.findall(r'"(?:[^"\\]|\\.)*"|[^,]+', value)]
+    else:
+        items = [str(i).strip() for i in value or []]
+    rendered = []
+    for item in items:
+        if not item:
+            continue
+        if NUMBER.fullmatch(item) or item in ('true', 'false') or \
+                (item.startswith('"') and item.endswith('"') and len(item) > 1):
+            term = item
+        elif item.startswith('<') or re.fullmatch(r'[A-Za-z][\w.-]*:[^\s"]+', item):
+            term = _term(package, text, item)
+        else:
+            term = json.dumps(item)
+        if term not in rendered:
+            rendered.append(term)
+    if not rendered:
+        raise PackageError('an empty sh:in admits no value at all; remove it instead')
+    return '( ' + ' '.join(rendered) + ' )'
+
+
 def _parameter_value(package, text, parameter, value):
     """The Turtle for a parameter's value, refusing one SHACL would reject."""
+    if parameter == 'sh:in':
+        return _list_value(package, text, value)
     kind = EDITABLE[parameter][1]
     raw = str(value).strip()
     if kind == 'integer':
@@ -449,7 +492,7 @@ def add_constraint(package, shape, path_chain, parameter, value, layer='value'):
     """
     from .constrain import _add_line
 
-    if parameter not in EDITABLE:
+    if parameter not in EDITABLE and parameter != 'sh:in':
         raise PackageError(f'{parameter} is not a constraint the editor writes; '
                            f'edit it in the .ttl')
     if layer == 'attribute' and parameter not in ATTRIBUTE_LAYER:

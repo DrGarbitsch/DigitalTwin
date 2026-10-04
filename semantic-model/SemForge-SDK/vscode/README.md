@@ -1148,7 +1148,7 @@ action is a visible button rather than a hover icon:
 | your own attribute | **Presence** | Required or Optional (`sh:minCount`) |
 | your own attribute | **Value** | what the value must be — an entity type, a datatype, a vocabulary class, or any value; ranges and counts are kept. A value written with `sh:or`/`sh:in` is not rewritten by a picker; the tooltip says so |
 | your own attribute | **⋯** | New test… · **Constraints…** · add a sub-attribute · remove it from this shape · delete the attribute everywhere · open in `.ttl` |
-| your own attribute | **⋯ → Constraints…** | the constraints it carries — change or remove each — and every one it does not carry yet, to add: `sh:minInclusive` (≥), `sh:maxInclusive` (≤), `sh:minExclusive` (>), `sh:maxExclusive` (<), `sh:datatype`, `sh:class`, `sh:nodeKind` (picked from what fits), `sh:minLength`, `sh:maxLength`, `sh:pattern`, and `sh:minCount`/`sh:maxCount` on the attribute (instances) or on the value |
+| your own attribute | **⋯ → Constraints…** | the constraints it carries — change or remove each — and every one it does not carry yet, to add: `sh:minInclusive` (≥), `sh:maxInclusive` (≤), `sh:minExclusive` (>), `sh:maxExclusive` (<), `sh:datatype`, `sh:class`, `sh:nodeKind` (picked from what fits), `sh:minLength`, `sh:maxLength`, `sh:pattern`, `sh:in` (a list: the values of the vocabulary class it draws from to tick, or typed — numbers, "quoted text", prefixed names), and `sh:minCount`/`sh:maxCount` on the attribute (instances) or on the value |
 | an inherited attribute | **Override…** | a stricter constraint on this type's own shape — warns when the change could never take effect |
 | the header | **+ Attribute** | the attribute picker, for this type's own shape |
 

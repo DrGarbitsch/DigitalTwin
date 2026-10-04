@@ -114,7 +114,7 @@ const stub = {
     showQuickPick: (items, options) => {
       const offered = (items || []).map((item) => ({
         label: item.label, description: item.description,
-        detail: item.detail, value: item.value
+        detail: item.detail, value: item.value, picked: !!item.picked
       }));
       seen.quickPicks.push({ items: offered,
                              placeHolder: (options || {}).placeHolder });
@@ -126,6 +126,10 @@ const stub = {
         : scenario.pick;
       if (answer === undefined) {
         return Promise.resolve(undefined);
+      }
+      // A multi-select is answered with a list of labels.
+      if ((options || {}).canPickMany && Array.isArray(answer)) {
+        return Promise.resolve(items.filter((item) => answer.includes(item.label)));
       }
       const chosen = typeof answer === 'number'
         ? items[answer]
