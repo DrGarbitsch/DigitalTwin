@@ -495,6 +495,24 @@ Remember that VS Code loads extension JavaScript at window startup, so a change
 there needs **`Developer: Reload Window`** — `SemForge: Restart Language Server`
 only restarts the Python process.
 
+### Tests
+
+Three layers, each catching what the one before cannot:
+
+| Layer | Runs | What it proves |
+|---|---|---|
+| **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
+| **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, clicks opening pages, editing values and relationships from the Main page, + Entity, New subtype…, + Attribute on a type without a shape |
+
+The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
+a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
+appears while it runs. `SEMFORGE_E2E_GREP=<text>` runs only the matching
+tests, `SEMFORGE_E2E_KEEP=1` keeps the workspace copy for a look afterwards.
+It copies the corpus with its symlinks *followed* — the corpus files link into
+`semantic-model/kms` — and fails if the source corpus changed during the run.
+`SEMFORGE_E2E=1 pytest -k e2e` runs it from pytest.
+
 ---
 
 ## What you get

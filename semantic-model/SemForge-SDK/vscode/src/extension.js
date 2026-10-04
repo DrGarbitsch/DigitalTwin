@@ -270,7 +270,7 @@ function activate(context) {
   // Rescan and delete the per-package cache of what the views show.
   projectCache.register(context, clientHolder, session, refreshAll);
   // One page per entity type, in the editor area: read there, find in the trees.
-  typePages.register(context, clientHolder, session);
+  const typeViews = typePages.register(context, clientHolder, session);
   // One page per vocabulary class: its values, their uses, and their care.
   vocabularyPages.register(context, clientHolder, session);
   // New test… for one attribute: valid, or one of its constraints firing.
@@ -278,7 +278,7 @@ function activate(context) {
   // New test case…: add a test file to a suite, from wherever it should start.
   testCases.register(context, clientHolder, session);
   // One page per test case: its claims, whether they hold, its data.
-  casePages.register(context, clientHolder, session);
+  const caseViews = casePages.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
   healthPage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.
@@ -392,6 +392,15 @@ function activate(context) {
       }
     })
   );
+
+  // For the end-to-end tests (test/e2e), which run in a real VS Code: what
+  // they inspect after driving it. Nothing in the extension reads this.
+  return {
+    clientHolder,
+    session,
+    trees: { project, constraints, shapes, model, knowledge },
+    pages: { type: typeViews, case: caseViews }
+  };
 }
 
 function deactivate() {

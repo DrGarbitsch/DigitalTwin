@@ -556,8 +556,8 @@ def add_constraint(package, shape, path_chain, parameter, value, layer='value'):
     _write_verified(source_path, updated)
     # The block as it now reads, for the bounds and the list checks.
     after = updated[target.start:target.end + len(updated) - len(text)]
-    notes = [n for n in (_bounds_note(after), _list_note(package, updated, shape, chain,
-                                                        layer)) if n]
+    notes = [n for n in (_bounds_note(after),
+                         _list_note(package, updated, shape, chain, layer)) if n]
     return {'file': source_path, 'action': action, 'note': '; '.join(notes)}
 
 

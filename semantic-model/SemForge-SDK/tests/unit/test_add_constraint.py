@@ -42,7 +42,7 @@ def test_an_exclusive_bound_is_added_on_its_own_line(kms):
     assert done['action'] == 'added' and not done['note']
     with open(f'{kms}/shacl.ttl') as handle:
         text = handle.read()
-    line = next(l for l in text.splitlines() if 'sh:maxExclusive' in l)
+    line = next(found for found in text.splitlines() if 'sh:maxExclusive' in found)
     assert line.strip() == 'sh:maxExclusive 90 ] ] ,' or line.strip().startswith(
         'sh:maxExclusive 90'), line
     assert '< 90' in _strength(kms)['value']

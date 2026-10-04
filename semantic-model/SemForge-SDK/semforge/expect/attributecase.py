@@ -23,7 +23,7 @@ import re
 from rdflib import RDF, RDFS, URIRef
 
 from ..errors import PackageError
-from ..validate.normalise import curie, local
+from ..validate.normalise import local
 from .store import EXPECTATIONS, _yaml, compose, examples_root, load_expectations
 
 NUMBERS = {'xsd:double', 'xsd:decimal', 'xsd:float', 'xsd:integer', 'xsd:int',

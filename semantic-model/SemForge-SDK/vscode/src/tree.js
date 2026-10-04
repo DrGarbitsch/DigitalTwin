@@ -100,16 +100,18 @@ class CookedTreeProvider {
   }
 
   wrap(raw) {
-    return raw ? this.nodes.get(raw) : undefined;
+    return raw && this.nodes ? this.nodes.get(raw) : undefined;
   }
 
   getParent(node) {
-    return this.wrap(this.parents.get(node.raw));
+    return this.parents ? this.wrap(this.parents.get(node.raw)) : undefined;
   }
 
-  /** The non-inherited node declaring the same thing, if the tree has one. */
+  /** The non-inherited node declaring the same thing, if the tree has one.
+   *  Nothing before the Types view first loads (it may never have been
+   *  opened): a jump from elsewhere then just opens the file. */
   findCanonical(raw) {
-    for (const candidate of this.nodes.keys()) {
+    for (const candidate of this.nodes ? this.nodes.keys() : []) {
       if (
         !candidate.inheritedFrom &&
         candidate.shape === raw.shape &&

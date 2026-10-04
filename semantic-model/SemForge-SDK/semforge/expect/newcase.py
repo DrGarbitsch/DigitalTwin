@@ -16,7 +16,6 @@ import json
 import os
 import re
 
-from rdflib import URIRef
 from rdflib.namespace import SH
 
 from ..errors import PackageError

@@ -16,10 +16,16 @@ venv:
 test:
 	$(PYTHON) -m pytest --cov semforge --cov-fail-under=80
 
+# The extension in a real VS Code, on a throwaway copy of the kms corpus.
+# Downloads VS Code once into vscode/.vscode-test; needs a display (a desktop,
+# WSLg, or xvfb-run make test-e2e).
+test-e2e:
+	cd vscode && npm install --no-audit --no-fund && npm run test:e2e
+
 lint:
 	$(LINTER) semforge tests
 
 clean:
 	rm -rf venv .pytest_cache .coverage
 
-.PHONY: setup test lint clean
+.PHONY: setup test test-e2e lint clean

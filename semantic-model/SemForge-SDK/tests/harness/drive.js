@@ -433,7 +433,22 @@ async function runSelect() {
   // `label`: walk the view's real tree (so parents are known, as in VS Code)
   // and click the first row with that label; otherwise click `node` as given.
   let node = scenario.node;
-  if (scenario.label) {
+  if (scenario.labelPath) {
+    // The row at this path of labels from the top: an id can sit under Main
+    // and in a case at once.
+    const provider = providers[scenario.view];
+    let parent;
+    for (const label of scenario.labelPath) {
+      const children = (await provider.getChildren(parent)) || [];
+      parent = children.find((child) => child.raw.label === label);
+      if (!parent) {
+        seen.errors.push(`no row ${label} under ${scenario.labelPath.join(' › ')}: ` +
+          children.map((child) => child.raw.label).join(', '));
+        return;
+      }
+    }
+    node = parent;
+  } else if (scenario.label) {
     const provider = providers[scenario.view];
     const walk = async (parent) => {
       for (const child of (await provider.getChildren(parent)) || []) {

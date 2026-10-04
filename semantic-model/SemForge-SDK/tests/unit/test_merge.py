@@ -139,8 +139,8 @@ def test_asserts_naming_the_merged_shape_are_renamed(kms):
 def test_shapes_selecting_different_nodes_are_not_merged(kms):
     with pytest.raises(PackageError, match='select different nodes'):
         plan(load(kms), BASE + 'FilterShape', BASE + 'MachineShape')
-    assert BASE + 'MachineShape' not in [c['iri'] for c in candidates(load(kms),
-                                                                       BASE + 'FilterShape')]
+    offered = [c['iri'] for c in candidates(load(kms), BASE + 'FilterShape')]
+    assert BASE + 'MachineShape' not in offered
 
 
 def test_a_shape_with_its_own_settings_is_not_merged(two_machine_shapes):

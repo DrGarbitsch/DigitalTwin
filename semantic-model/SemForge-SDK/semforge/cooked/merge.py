@@ -266,7 +266,6 @@ def _apply(text, into, steps):
     return text
 
 
-
 def merge_shape(package, source, into):
     """Fold `source` into `into`, delete `source`, rename asserts.
 

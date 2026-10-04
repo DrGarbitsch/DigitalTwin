@@ -2046,8 +2046,8 @@ def test_the_cache_row_carries_rescan_and_delete():
 # --- New entity type… / New subtype… -------------------------------------------------
 
 TYPE_DECLARED = {'ok': True, 'term': 'e:Waterjetcutter', 'label': 'Waterjetcutter',
-            'iri': 'https://example.org/e/Waterjetcutter', 'parent': 'e:Filter',
-            'file': '/pkg/knowledge.ttl', 'line': 42}
+                 'iri': 'https://example.org/e/Waterjetcutter', 'parent': 'e:Filter',
+                 'file': '/pkg/knowledge.ttl', 'line': 42}
 
 
 def _executed(seen, command):

@@ -419,7 +419,8 @@ def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
         'replies': {'semforge/shapePage': RULE_PAGE}})
     html = seen['webviews'][0]['html'][-1]
     for text in ('Selects', 'Constraints', 'On its attributes', 'On the whole node',
-                 'Filter running without running assigned machine', 'severity: warning', 'fires in 0', 'holds in 1', 'data-newcase="1"',
+                 'Filter running without running assigned machine', 'severity: warning',
+                 'fires in 0', 'holds in 1', 'data-newcase="1"',
                  'New case…', 'read-only, edit it in the .ttl', 'FILTER(?v != &lt;on&gt;)',
                  'Open Pump type page'):
         assert text in html, text

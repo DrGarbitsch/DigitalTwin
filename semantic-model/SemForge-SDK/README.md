@@ -13,6 +13,7 @@ together as one versioned unit.
 ```bash
 make setup                          # venv, pinned dependencies, editable install
 make test                           # pytest, 80% coverage gate
+make test-e2e                       # the VS Code extension in a real VS Code
 make lint                           # flake8
 venv/bin/python -m semforge validate tests/corpus/kms
 ```

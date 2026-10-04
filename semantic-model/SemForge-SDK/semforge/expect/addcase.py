@@ -188,4 +188,3 @@ def add_test_case(package, suite, expect, start, source='', name='', description
     return {'file': path, 'case': case, 'expect': expect,
             'violations': len(report.violations), 'passes': outcome.passed,
             'failures': list(outcome.failures)}
-
