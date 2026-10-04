@@ -755,7 +755,7 @@ def value_choices_feature(ls, params):
     the value slot means the value is an individual of that class, so the
     options are individuals -- or, for a relationship, entity ids.
     """
-    from ..cooked.shapelink import value_choices
+    from ..cooked.shapelink import other_entities, value_choices
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
@@ -767,7 +767,14 @@ def value_choices_feature(ls, params):
                                     _field(params, 'attribute') or '',
                                     limit=_field(params, 'limit') or 200,
                                     search=_field(params, 'search'))
-        return {'choices': found, 'note': note}
+        answer = {'choices': found, 'note': note}
+        if _field(params, 'relationship'):
+            # Any entity may be the target; the shape's are listed first.
+            file = _field(params, 'file') or None
+            inside = file and os.path.abspath(file).startswith(os.path.abspath(root) + os.sep)
+            answer['others'] = other_entities(package, [c['value'] for c in found],
+                                              file if inside else None)
+        return answer
     except Exception as exc:                       # noqa: BLE001
         return {'choices': [], 'note': str(exc)}
 

@@ -420,64 +420,144 @@ async function confirmShared(raw, what) {
  */
 async function chooseValue(client, packageUri, entityType, attribute, options) {
   const settings = options || {};
+  const relationship = !!settings.relationship;
   const typeIt = () =>
     vscode.window.showInputBox({
       title: settings.title,
-      prompt: settings.prompt ||
-        'JSON is parsed, so 42 is a number and {"@id": "..."} a node ' +
-        'reference. Anything else is taken as a string.',
-      value: settings.current
+      prompt: settings.prompt || (relationship
+        ? 'Any IRI — urn:…, https://… — even one no entity has yet.'
+        : 'JSON is parsed, so 42 is a number and {"@id": "..."} a node ' +
+          'reference. Anything else is taken as a string.'),
+      value: settings.current,
+      validateInput: relationship ? iriProblem : undefined
     });
 
-  if (!entityType || !attribute) {
+  if ((!entityType || !attribute) && !relationship) {
     return typeIt();
   }
   let answer;
   try {
     answer = await client.sendRequest('semforge/valueChoices', {
-      uri: packageUri,
-      entityType,
-      attribute
+      uri: packageUri, entityType: entityType || '', attribute: attribute || '',
+      relationship, file: settings.file || ''
     });
   } catch (error) {
+    answer = undefined;
+  }
+  answer = answer || { choices: [] };
+  const choices = answer.choices || [];
+  const others = answer.others || [];
+  if (!choices.length && !others.length) {
     return typeIt();
   }
-  const choices = (answer && answer.choices) || [];
-  if (!choices.length) {
-    return typeIt();
+
+  const row = (choice) => ({
+    label: choice.label,
+    description: choice.detail,
+    detail: choice.value === settings.current ? 'current value' : undefined,
+    value: choice.value
+  });
+  const fixed = [];
+  if (choices.length) {
+    fixed.push({ label: relationship ? 'what the shape asks for' : 'the shape allows',
+      kind: vscode.QuickPickItemKind.Separator });
+    fixed.push(...choices.map(row));
   }
-  const picked = await vscode.window.showQuickPick(
-    choices
-      .map((choice) => ({
-        label: choice.label,
-        description: choice.detail,
-        detail: choice.value === settings.current ? 'current value' : undefined,
-        value: choice.value
-      }))
-      .concat([
-        {
-          label: '$(edit) Type a value',
-          description: answer.note || 'not one of the listed individuals',
-          value: undefined
-        }
-      ]),
-    {
-      title: settings.title,
-      placeHolder: answer.note || 'the values this attribute\'s shape allows'
-    }
-  );
-  if (picked === undefined) {
-    return undefined;
+  if (others.length) {
+    // A relationship may point at any entity. The shape (sh:class) judges the
+    // choice afterwards; it does not decide what may be written.
+    fixed.push({ label: 'other entities — the shape may flag these',
+      kind: vscode.QuickPickItemKind.Separator });
+    fixed.push(...others.map(row));
   }
-  return picked.value === undefined ? typeIt() : picked.value;
+  fixed.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+  fixed.push({
+    label: '$(edit) Type a value',
+    description: relationship ? 'any IRI' : (answer.note || 'not one of the listed values'),
+    alwaysShow: true, typeIt: true
+  });
+
+  // Typing in the list used to only filter it: an IRI nobody has yet matched
+  // nothing, and Enter did nothing. Now what is typed is an entry of its own.
+  return new Promise((resolve) => {
+    const pick = vscode.window.createQuickPick();
+    pick.title = settings.title;
+    pick.placeholder = relationship
+      ? 'pick an entity, or type any IRI'
+      : (answer.note || 'pick a value, or type one');
+    pick.matchOnDescription = true;
+    pick.items = fixed;
+    let done = false;
+    const finish = (value) => {
+      if (!done) {
+        done = true;
+        resolve(value);
+        pick.hide();
+      }
+    };
+    pick.onDidChangeValue((text) => {
+      const typed = text.trim();
+      if (!typed || fixed.some((item) => item.value === typed)) {
+        pick.items = fixed;
+        return;
+      }
+      const problem = relationship ? iriProblem(typed) : undefined;
+      pick.items = [problem
+        ? { label: `$(error) ${typed}`, description: problem, alwaysShow: true, invalid: true }
+        : { label: `$(edit) Use ${typed}`, alwaysShow: true, value: typed,
+          description: relationship ? 'typed — any IRI' : 'typed — JSON is parsed' }]
+        .concat(fixed);
+    });
+    pick.onDidAccept(async () => {
+      const chosen = pick.selectedItems[0];
+      if (!chosen || chosen.invalid) {
+        return;                        // stays open: fix the IRI or pick one
+      }
+      if (chosen.typeIt) {
+        done = true;
+        pick.hide();
+        resolve(await typeIt());
+        return;
+      }
+      finish(chosen.value);
+    });
+    pick.onDidHide(() => {
+      finish(undefined);
+      pick.dispose();
+    });
+    pick.show();
+  });
+}
+
+/**
+ * Why this is not an IRI, or undefined when it is. The one check a
+ * relationship's target gets: a scheme, a colon, and no spaces or characters
+ * an IRI cannot hold. Whether an entity has that id is not asked -- linking to
+ * one that is not in this package is allowed.
+ */
+function iriProblem(text) {
+  const value = (text || '').trim();
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) {
+    return 'not an IRI: it needs a scheme, e.g. urn:… or https://…';
+  }
+  if (/[\s<>"{}|\\^`]/.test(value)) {
+    return 'not an IRI: no spaces or <>"{}|\\^` characters';
+  }
+  if (value.endsWith(':')) {
+    return 'not an IRI: nothing after the scheme';
+  }
+  return undefined;
 }
 
 /** The new value for an attribute row that already exists. */
 async function askForValue(clientHolder, node, raw) {
+  const path = [].concat(raw.path || []);
   return chooseValue(clientHolder.client, node.packageUri, raw.entityType,
                      attributeOf(raw), {
                        title: `${raw.label} on ${raw.entity}`,
-                       current: raw.value
+                       current: raw.value,
+                       relationship: path[path.length - 1] === 'object',
+                       file: raw.file
                      });
 }
 
@@ -1022,6 +1102,8 @@ function register(context, clientHolder, session, onChanged) {
       clientHolder.client, node.packageUri, raw.entityType, attribute.term,
       {
         title: `${attribute.term} on ${raw.entity}`,
+        relationship: attribute.kind === 'Relationship',
+        file: raw.file,
         prompt: attribute.kind === 'Relationship'
           ? 'An entity IRI — a Relationship points at another entity.'
           : 'JSON is parsed. A literal, or {"@id": "…"} for a vocabulary term.'

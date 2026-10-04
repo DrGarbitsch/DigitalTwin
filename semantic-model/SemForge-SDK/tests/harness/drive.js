@@ -139,6 +139,65 @@ const stub = {
         : items.find((item) => item.label === answer);
       return Promise.resolve(chosen);
     },
+    // A quick pick the code drives itself. `typed` is what is typed into its
+    // box first (consumed in order when a list); then `pick`/`picks` choose
+    // as for showQuickPick -- by index, or by label. An accept the code
+    // refuses leaves it open: that is recorded, and it is then dismissed.
+    createQuickPick: () => {
+      const handlers = { value: [], accept: [], hide: [] };
+      let closed = false;
+      const on = (list) => (handler) => {
+        list.push(handler);
+        return { dispose: noop };
+      };
+      const pick = {
+        items: [], value: '', selectedItems: [], activeItems: [],
+        onDidChangeValue: on(handlers.value),
+        onDidAccept: on(handlers.accept),
+        onDidHide: on(handlers.hide),
+        dispose: noop,
+        hide: () => {
+          if (!closed) {
+            closed = true;
+            handlers.hide.forEach((handler) => handler());
+          }
+        },
+        show: () => {
+          const position = seen.quickPicks.length;
+          const typed = Array.isArray(scenario.typed) ? scenario.typed[position]
+            : scenario.typed;
+          setTimeout(async () => {
+            if (typed !== undefined) {
+              pick.value = typed;
+              handlers.value.forEach((handler) => handler(typed));
+            }
+            seen.quickPicks.push({
+              items: pick.items.map((item) => ({
+                label: item.label, description: item.description, detail: item.detail,
+                value: item.value, separator: item.kind === -1 })),
+              placeHolder: pick.placeholder, typed });
+            const answer = Array.isArray(scenario.picks)
+              ? scenario.picks[seen.quickPicks.length - 1] : scenario.pick;
+            const chosen = typeof answer === 'number' ? pick.items[answer]
+              : pick.items.find((item) => item.label === answer);
+            if (!chosen) {
+              pick.hide();
+              return;
+            }
+            pick.selectedItems = [chosen];
+            pick.activeItems = [chosen];
+            for (const handler of handlers.accept) {
+              await handler();
+            }
+            if (!closed) {
+              seen.events.push({ type: 'quickPickStayedOpen', label: chosen.label });
+              pick.hide();
+            }
+          }, 0);
+        }
+      };
+      return pick;
+    },
     showInputBox: (options) => {
       seen.inputs.push({ title: (options || {}).title,
                          prompt: (options || {}).prompt,

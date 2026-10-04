@@ -174,6 +174,82 @@ def test_editing_a_value_offers_the_classes_the_shape_allows(tmp_path):
     assert written[0]['params']['value'] == '{"@id": "base:state_OFF"}'
 
 
+RELATIONSHIP_ROW = dict(label='hasCartridge', attributePath=['iffBaseEntities:hasCartridge'],
+                        path=['iffBaseEntities:hasCartridge', 0, 'object'],
+                        value='urn:cartridge:1', file='/pkg/examples/x/good/case.jsonld')
+CARTRIDGES = {'choices': [
+    {'value': 'urn:cartridge:1', 'label': 'urn:cartridge:1', 'detail': 'FilterCartridge'},
+    {'value': 'urn:cartridge:2', 'label': 'urn:cartridge:2', 'detail': 'FilterCartridge'}],
+    'note': '',
+    'others': [{'value': 'urn:workpiece:1', 'label': 'urn:workpiece:1',
+                'detail': 'Workpiece'}]}
+
+
+def _relationship(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.editValue', 'node': _row(**RELATIONSHIP_ROW),
+        'replies': {'semforge/valueChoices': CARTRIDGES,
+                    'semforge/setValue': {'ok': True, 'old': 'a', 'new': 'b'}}}, **scenario))
+
+
+def _written(seen):
+    return [r['params']['value'] for r in seen['requests']
+            if r['method'] == 'semforge/setValue']
+
+
+def test_a_relationship_offers_the_shape_s_entities_then_every_other(tmp_path):
+    seen = _relationship(tmp_path, pick='urn:workpiece:1')
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/valueChoices']
+    assert asked[0]['relationship'] is True
+    assert asked[0]['file'] == RELATIONSHIP_ROW['file']
+    items = seen['quickPicks'][0]['items']
+    labels = [i['label'] for i in items]
+    assert labels.index('urn:cartridge:2') < labels.index('urn:workpiece:1')
+    assert any(i['separator'] and 'may flag' in i['label'] for i in items)
+    assert _written(seen) == ['urn:workpiece:1']
+
+
+def test_a_typed_iri_is_written_as_typed(tmp_path):
+    """Any IRI goes, including one no entity in the package has."""
+    seen = _relationship(tmp_path, typed='urn:pump:42', pick='$(edit) Use urn:pump:42')
+    assert seen['quickPicks'][0]['items'][0]['label'] == '$(edit) Use urn:pump:42'
+    assert _written(seen) == ['urn:pump:42']
+    assert seen['inputs'] == []
+
+
+@pytest.mark.parametrize('typed', ['pump 42', 'pump42', 'urn:'])
+def test_what_is_not_an_iri_is_refused_and_says_why(tmp_path, typed):
+    seen = _relationship(tmp_path, typed=typed, pick=f'$(error) {typed}')
+    first = seen['quickPicks'][0]['items'][0]
+    assert first['label'] == f'$(error) {typed}' and 'not an IRI' in first['description']
+    assert any(e['type'] == 'quickPickStayedOpen' for e in seen['events'])
+    assert _written(seen) == []
+
+
+def test_a_property_s_typed_value_is_not_held_to_iri_rules(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.editValue',
+        'node': _row(label='hasState', attributePath=['iffBaseEntities:hasState'],
+                     path=['iffBaseEntities:hasState', 0, 'value'],
+                     value='{"@id": "base:state_ON"}'),
+        'typed': '{"@id": "base:state_X"}', 'pick': '$(edit) Use {"@id": "base:state_X"}',
+        'replies': {'semforge/valueChoices': {'choices': [
+            {'value': '{"@id": "base:state_ON"}', 'label': 'state_ON'}], 'note': ''},
+            'semforge/setValue': {'ok': True, 'old': 'a', 'new': 'b'}}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/valueChoices']
+    assert asked[0]['relationship'] is False
+    assert _written(seen) == ['{"@id": "base:state_X"}']
+
+
+def test_a_relationship_without_a_class_still_lists_the_entities(tmp_path):
+    seen = _relationship(tmp_path, pick='urn:workpiece:1', replies={
+        'semforge/valueChoices': {'choices': [], 'note': 'no sh:class',
+                                  'others': CARTRIDGES['others']},
+        'semforge/setValue': {'ok': True, 'old': 'a', 'new': 'b'}})
+    assert seen['inputs'] == []
+    assert _written(seen) == ['urn:workpiece:1']
+
+
 def test_a_value_with_no_class_constraint_still_gets_an_input_box(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.editValue', 'node': _row(),

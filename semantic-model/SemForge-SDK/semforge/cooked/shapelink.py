@@ -18,6 +18,8 @@ nothing. That is the right report: a stub is a visible TODO, not a finished
 shape, and export refuses until something is added to it.
 """
 
+import os
+
 from rdflib import URIRef
 from rdflib.namespace import RDF, RDFS
 
@@ -265,3 +267,42 @@ def _entities_of(package, cls):
             out.append({'value': str(subject), 'label': str(subject),
                         'detail': local(obj)})
     return sorted(out, key=lambda o: o['label'])
+
+
+def other_entities(package, exclude=(), file=None):
+    """Every entity a relationship could point at besides the shape's choices:
+    the model's own, and those of the document being edited (a case's
+    entities are not in the model). A relationship's target is any IRI; the
+    shape, if it says sh:class, judges it afterwards -- it does not decide
+    what may be written."""
+    import json
+
+    typed = {}
+    for subject, obj in package.model.subject_objects(RDF.type):
+        if str(subject).startswith(('urn:', 'http')):
+            typed.setdefault(str(subject), set()).add(obj)
+    found = {}
+    for ident, types in typed.items():
+        # The model carries the supertypes too; name the most specific one.
+        specific = [t for t in types
+                    if not any(o != t and o in _subclasses(package, t) for o in types)]
+        found[ident] = local(sorted(specific or types, key=str)[0])
+    if file and os.path.isfile(file):
+        try:
+            with open(file, encoding='utf-8') as handle:
+                document = json.load(handle)
+        except (OSError, ValueError):
+            document = []
+        if isinstance(document, dict):
+            document = document.get('@graph', [document])
+        for node in document if isinstance(document, list) else []:
+            if not isinstance(node, dict):
+                continue
+            ident = node.get('id', node.get('@id'))
+            kind = node.get('type', node.get('@type', ''))
+            if isinstance(ident, str) and ident:
+                found.setdefault(ident, local(str(kind[0] if isinstance(kind, list)
+                                                  and kind else kind or '')))
+    skip = set(exclude)
+    return [{'value': ident, 'label': ident, 'detail': kind}
+            for ident, kind in sorted(found.items()) if ident not in skip]

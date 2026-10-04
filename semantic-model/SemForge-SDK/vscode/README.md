@@ -1468,7 +1468,19 @@ relationship, the entity ids of that type — spelled the way the file needs the
 (`{"@id": "base:state_ON"}` for a Property with an IRI value, a bare IRI for a
 Relationship). This is a different question from the `sh:class` picker in the
 Types view: that one asks what the *constraint* may say, this one what the
-*datum* may be. **Enter a different value…** stays at the bottom.
+*datum* may be. **Type a value** stays at the bottom.
+
+You can also just type into the picker: what you type becomes an entry of its
+own, **Use …**, so a value that is not in the list is one Enter away.
+
+A **relationship** may point at any entity. The picker lists the shape's
+entities first, then **other entities** — every other one in the model and in
+the file you are editing, each with its type. Below them, typed text is
+accepted when it is an IRI: a scheme, a colon, no spaces (`urn:pump:42`,
+`https://…`). An entity with that id does not have to exist yet. Anything else
+shows as *not an IRI* with the reason, and Enter does nothing until it is
+fixed. Linking outside the shape's `sh:class` is allowed; the shape then
+reports it, which is what a test of that constraint wants.
 
 Otherwise the input parses JSON, so `42` is a number and
 `{"@id": "…"}` a node reference — typing an IRI into a Property should not
