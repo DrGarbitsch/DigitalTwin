@@ -1094,6 +1094,26 @@ editor area — its tab reads `Filter · type` — with all of it:
 Every name links to its line in the `.ttl` or `.jsonld`. It is one reused tab,
 refreshes on save, and is served from the cache.
 
+**Several shapes on one attribute.** A type has no single shape: every shape
+that targets a Machine is evaluated against every Machine, and SHACL conjoins
+them — an entity conforms only if it satisfies all. So an attribute two shapes
+constrain is **one row**, saying what holds when both apply:
+
+```text
+hasPressure   required · one   number · ≥ 0 and < 100      2 shapes · all apply
+  MachineShape    optional         number · ≥ 0 and < 100   sh:minCount 0: no effect
+  MachineShape2   required · one   < 200                    sh:maxExclusive 200: no effect
+```
+
+The highest minimum and the lowest maximum count win, and so do the tightest
+bounds (an exclusive one at an equal value); each shape's line marks what of
+it the others outdo. Contradictions are said in red — two datatypes no literal
+can have at once, bounds or counts that admit nothing. A shape that applies
+only under a condition is listed beneath the row but not merged into it.
+Clicking the presence or value of the combined row asks **which shape** to
+change; each shape's own line has its own `⋯`. The Types tree shows the
+attribute once (`2 shapes, all apply`).
+
 **Editing on the page.** What is dashed-underlined is clickable, and every
 action is a visible button rather than a hover icon:
 

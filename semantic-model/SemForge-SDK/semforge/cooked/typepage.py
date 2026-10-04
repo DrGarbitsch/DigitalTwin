@@ -490,6 +490,10 @@ def build_type_page(package, entity_type):
             rule.update(inherited=True, inheritedFrom='', via=via['shapeName'],
                         condition=via['condition'])
             rules.append(rule)
+    # Several shapes on one attribute: one row, what holds when all apply.
+    from .accumulate import accumulate
+
+    attributes = accumulate(attributes)
     own_shapes = [n.label for n in shape_nodes if not n.inherited_from]
     from .constrain import own_shape
     own = own_shape(package, entry.iri)

@@ -197,6 +197,9 @@ def test_the_type_page_collects_every_constraint_that_applies(targets):
     from semforge.cooked.typepage import build_type_page
 
     rows = build_type_page(targets, EX + 'Pump')['attributes']
+    # One row per attribute; the shapes behind it are its contributions.
+    assert [r['label'] for r in rows] == ['hasPressure', 'hasValve']
+    rows = [c for r in rows for c in r.get('contributions', [r])]
     found = {(r['label'], r.get('via', ''), r.get('condition', '')) for r in rows}
     assert found == {
         ('hasPressure', '', ''),
@@ -231,8 +234,10 @@ def test_a_conditional_shape_applies_before_any_data_reaches_it(tmp_path):
     also = {a['shapeName'].split(':')[-1]: a for a in page['alsoCheckedBy']}
     assert also['HotShape']['condition'] == 'only when it has hasTemperature'
     assert also['HotShape']['reached'] == 0
-    assert any(r.get('via', '').endswith('HotShape') and r['label'] == 'hasState'
-               for r in page['attributes'])
+    state = next(r for r in page['attributes'] if r['label'] == 'hasState')
+    assert any(c.get('via', '').endswith('HotShape') for c in state['contributions'])
+    # Conditional: listed, not merged -- the row still says what always holds.
+    assert state['presence'] == 'required · one'
 
 
 def test_a_kms_rule_shape_page_has_the_review_s_evidence(corpus):

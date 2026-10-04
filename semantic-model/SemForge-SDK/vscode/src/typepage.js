@@ -104,23 +104,55 @@ function attributeRows(attributes, focused, options) {
       `<td>${row.inherited ? escape(row.value)
         : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
-      `${verbatim}</td>` +
-      (shapeColumn ? `<td>${shapeLink(row.shapeName, row.shape)}` +
+      `${verbatim}` +
+      `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
+      (shapeColumn ? `<td>${row.contributions
+        ? `${row.contributions.length} shapes <span class="dim">· all apply</span>`
+        : shapeLink(row.shapeName, row.shape) +
         `${row.inheritedFrom ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}` +
-        `${row.condition ? ` <span class="cond">· ${escape(row.condition)}</span>` : ''}</td>`
+        `${row.condition ? ` <span class="cond">· ${escape(row.condition)}</span>` : ''}`}</td>`
         : '') +
       `<td><a href="#" class="act" data-action="test" data-row="${index}" ` +
       `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
       `${tested || 'New test…'}</a></td><td>${model}</td>` +
-      `<td class="acts">${row.via
-        // A shape that reaches the type by another target: edited there.
-        ? `<button data-shape="${escape(row.shape)}" title="Edit it on its shape page">` +
-          'Open shape</button>'
-        : row.inherited
-          ? `<button data-action="override" data-row="${index}" title="Declare a stricter ` +
-            'constraint on this type\'s own shape">Override…</button>'
-          : `<button data-action="menu" data-row="${index}" title="More actions">⋯</button>`}` +
-      '</td></tr>';
+      `<td class="acts">${actions(row, index)}</td></tr>` +
+      (row.contributions && shapeColumn
+        ? contributionRows(row, index, row.depth || 0) : '');
+  }).join('');
+}
+
+function actions(row, index, contrib) {
+  const at = `data-row="${index}"${contrib === undefined ? '' : ` data-contrib="${contrib}"`}`;
+  if (row.via) {
+    // A shape that reaches the type by another target: edited there.
+    return `<button data-shape="${escape(row.shape)}" title="Edit it on its shape page">` +
+      'Open shape</button>';
+  }
+  if (row.inherited && !row.contributions) {
+    return `<button data-action="override" ${at} title="Declare a stricter ` +
+      'constraint on this type\'s own shape">Override…</button>';
+  }
+  return `<button data-action="menu" ${at} title="More actions">⋯</button>`;
+}
+
+/** Beneath an attribute several shapes constrain: what each one says, and
+ *  which of it the others already outdo. All of them apply (SHACL
+ *  conjoins); the row above is what holds when they do. */
+function contributionRows(row, index, depth) {
+  const indent = `depth${Math.min(depth + 1, 4)}`;
+  return row.contributions.map((c, j) => {
+    const weaker = (c.noEffect || []).length
+      ? ' ' + c.noEffect.map((n) => chip(`${n}: no effect`, '', 'Another shape on this ' +
+        'attribute says something stricter, so this part never decides anything.')).join(' ')
+      : '';
+    return `<tr class="contrib">` +
+      `<td class="${indent}">${shapeLink(c.shapeName, c.shape)}` +
+      `${c.inheritedFrom ? ` <span class="dim">· from ${escape(c.inheritedFrom)}</span>` : ''}` +
+      `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
+      '<td></td>' +
+      `<td>${escape(c.presence)}</td><td>${escape(c.value)}${weaker}</td>` +
+      '<td></td><td></td><td></td>' +
+      `<td class="acts">${actions(c, index, j)}</td></tr>`;
   }).join('');
 }
 
@@ -207,6 +239,8 @@ function renderTypePage(page, options) {
        white-space: nowrap; vertical-align: top; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.inh td { color: var(--vscode-descriptionForeground); }
+  tr.contrib td { color: var(--vscode-descriptionForeground); font-size: 0.94em; border-top: 0;
+                  padding-top: 2px; padding-bottom: 2px; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
   tr.focus td { background: var(--vscode-editor-selectionHighlightBackground, rgba(128,128,128,.2)); }
   tr.focus td:first-child { box-shadow: inset 3px 0 0 var(--vscode-focusBorder, #0078d4); }
@@ -286,7 +320,9 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
     event.preventDefault();
     if (target.dataset.action) {
       vscode.postMessage({ command: target.dataset.action,
-                           row: target.dataset.row === undefined ? -1 : Number(target.dataset.row) });
+                           row: target.dataset.row === undefined ? -1 : Number(target.dataset.row),
+                           contrib: target.dataset.contrib === undefined ? undefined
+                             : Number(target.dataset.contrib) });
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
@@ -380,8 +416,15 @@ class TypePages {
     }
     const edit = EDITS[message.command];
     if (edit) {
-      const row = this.page && this.page.attributes
+      let row = this.page && this.page.attributes
         ? this.page.attributes[message.row] : undefined;
+      if (row && row.contributions) {
+        row = message.contrib !== undefined ? row.contributions[message.contrib]
+          : message.command === 'test' ? row : await whichShape(row, message.command);
+        if (!row) {
+          return;
+        }
+      }
       const changed = await edit(this, row);
       if (changed) {
         await this.render();
@@ -616,6 +659,30 @@ async function rowMenu(pages, row) {
   ];
   const picked = await vscode.window.showQuickPick(choices, { title: row.label });
   return picked ? picked.run(pages, row) : false;
+}
+
+/** An attribute several shapes constrain is changed in ONE of them: which?
+ *  Only this type's own shapes can be edited here; an inherited one is
+ *  tightened with Override, and a conditional one on its shape page. */
+async function whichShape(row, command) {
+  const own = row.contributions.filter((c) => !c.inherited);
+  const candidates = command === 'override'
+    ? row.contributions.filter((c) => c.inherited && !c.via) : own;
+  if (!candidates.length) {
+    vscode.window.showInformationMessage(
+      `SemForge: ${row.label} is constrained here by shapes this type does not own; ` +
+        'open one of them to change it.');
+    return undefined;
+  }
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+  const picked = await vscode.window.showQuickPick(candidates.map((c) => ({
+    label: c.shapeName.split(':').pop(), description: `${c.presence} · ${c.value}`,
+    detail: (c.noEffect || []).length ? `no effect here: ${c.noEffect.join(', ')}` : undefined,
+    contribution: c })),
+  { title: `${row.label} is constrained by ${row.contributions.length} shapes: change which?` });
+  return picked && picked.contribution;
 }
 
 /** The type has no shape of its own: write one targeting it. The type page

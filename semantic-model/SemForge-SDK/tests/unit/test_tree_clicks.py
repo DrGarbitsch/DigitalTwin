@@ -936,6 +936,73 @@ def test_an_undeclared_file_can_be_declared(tmp_path):
     assert asked[0]['source'] == 'test_MachineShape/good/by-hand.jsonld'
 
 
+# --- several shapes on one attribute --------------------------------------------------------
+
+def _contribution(shape, presence, value, no_effect):
+    return dict(EDITABLE_SHAPE['attributes'][0], shape=f'https://x/{shape}',
+                shapeName=f'x:{shape}', presence=presence, value=value, noEffect=no_effect)
+
+
+GROUPED = dict(EDITABLE_SHAPE['attributes'][0], presence='required · one',
+               value='number · ≥ 0 and < 100', shapes=['x:MachineShape', 'x:MachineShape2'],
+               notes=[], contributions=[
+                   _contribution('MachineShape', 'optional', 'number · ≥ 0 and < 100',
+                                 ['sh:minCount 0']),
+                   _contribution('MachineShape2', 'required · one', '< 200',
+                                 ['sh:maxExclusive 200'])])
+TYPE_WITH_TWO = {'ok': True, 'iri': 'https://x/Machine', 'label': 'Machine', 'crumbs': [],
+                 'summary': {}, 'attributes': [GROUPED], 'rules': [], 'exercisedBy': [],
+                 'instances': [], 'subtypes': [], 'ownShape': 'https://x/MachineShape',
+                 'alsoCheckedBy': []}
+
+
+def _machine(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': 'Machine', 'targetClass': 'https://x/Machine',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/typePage': TYPE_WITH_TWO}}, **scenario))
+
+
+def test_one_row_with_each_shape_beneath_it(tmp_path):
+    html = _machine(tmp_path)['webviews'][0]['html'][-1]
+    assert html.count('data-shape="https://x/MachineShape"') == 1
+    assert html.count('data-shape="https://x/MachineShape2"') == 1
+    assert '2 shapes' in html and 'all apply' in html
+    assert 'sh:maxExclusive 200: no effect' in html and 'sh:minCount 0: no effect' in html
+    assert html.count('class="contrib"') == 2
+    assert 'required · one' in html.split('class="contrib"')[0], 'the combined row first'
+
+
+def test_editing_the_combined_row_asks_which_shape(tmp_path):
+    seen = _machine(tmp_path, picks=['MachineShape2', 'Optional'],
+                    webviewMessages=[{'command': 'presence', 'row': 0}],
+                    replies={'semforge/typePage': TYPE_WITH_TWO,
+                             'semforge/editAttribute': {'ok': True}})
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == \
+        ['MachineShape', 'MachineShape2'], 'both shapes offered'
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/editAttribute']
+    assert asked and asked[0]['shape'] == 'https://x/MachineShape2'
+    assert asked[0]['presence'] == 'optional'
+
+
+def test_a_shape_s_own_line_edits_that_shape(tmp_path):
+    page = json.loads(json.dumps(TYPE_WITH_TWO))
+    page['attributes'][0]['contributions'][0]['parameters'] = [
+        {'parameter': 'sh:maxCount', 'value': '1', 'path': ['x:hasPressure'],
+         'layer': 'attribute'}]
+    seen = _machine(tmp_path, picks=['$(edit) Constraints…', 'sh:maxCount 1',
+                                     '$(trash) Remove sh:maxCount'],
+                    webviewMessages=[{'command': 'menu', 'row': 0, 'contrib': 0}],
+                    replies={'semforge/typePage': page,
+                             'semforge/setConstraint': {'ok': True},
+                             'semforge/choices': {'choices': []}})
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/setConstraint']
+    assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
+                      'path': ['x:hasPressure'], 'parameter': 'sh:maxCount',
+                      'remove': True}]
+
+
 def test_the_click_setting_defaults_to_the_page():
     with open(PACKAGE_JSON) as handle:
         props = json.load(handle)['contributes']['configuration']['properties']

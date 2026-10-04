@@ -184,12 +184,26 @@ def types_tree(by_type, types):
 
     def own_rows(root):
         attributes, rules = [], []
+        seen = {}
         for shape in (root or {}).get('children', []):
             if shape.get('inheritedFrom'):
                 continue
             for child in shape.get('children', []):
-                if child.get('kind') == 'attribute':
-                    attributes.append(child)
+                if child.get('kind') != 'attribute':
+                    continue
+                # Two own shapes on one attribute: one row (the type page
+                # shows what holds when both apply, and each shape's part).
+                key = tuple(child.get('path') or [child.get('label')])
+                if key in seen:
+                    first = seen[key]
+                    first['shapeCount'] = first.get('shapeCount', 1) + 1
+                    # Not the first shape's presence: alone it may say
+                    # "optional" where together they say "required".
+                    first['detail'] = (f'{first["shapeCount"]} shapes, all apply — '
+                                       f'open for what holds')
+                    continue
+                seen[key] = child
+                attributes.append(child)
             raw = [c for c in shape.get('children', []) if c.get('kind') == 'raw']
             if shape.get('rule') or raw:
                 rules.append({
