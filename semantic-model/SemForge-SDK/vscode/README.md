@@ -150,6 +150,28 @@ the knowledge does not declare, so no client can route around it.
 
 Only the id is typed, and it is prefilled from the type (`urn:filter:3`).
 
+### Adding a type or a subtype
+
+A type does not need an entity to exist. **New entity type…** (the class icon
+in the Types view's title bar, or the palette) asks for a name and its parent;
+**New subtype…** (right-click a type in Types, or the button on a type page)
+asks only for the name — the parent is the type you started from. Every type
+has a parent: a top-level one sits under the root of the hierarchy.
+
+Both write two lines into `knowledge.ttl` and show them:
+
+```turtle
+iffBaseEntities:Watercutter a owl:Class ;
+    rdfs:subClassOf iffBaseEntities:Cutter .
+```
+
+A subtype is judged by every shape of its ancestors already — SHACL class
+targets include subclasses — so it appears under Types at once, with those
+shapes marked *inherited*, and its type page lists what it inherits. What it
+lacks is a shape of its own, so the message offers **Create its shape**
+(then its attributes and constraints go on the shape page) or **Open its
+type page**.
+
 ### Adding an attribute
 
 Same rule, one level down. The **+** on an entity offers the attributes the

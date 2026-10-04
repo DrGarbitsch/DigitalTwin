@@ -1965,3 +1965,71 @@ def test_the_cache_row_carries_rescan_and_delete():
     on_row = {e['command'] for e in menus
               if e.get('when') == 'view == semforgeProject && viewItem == cache'}
     assert on_row == {'semforge.rescan', 'semforge.deleteCache'}
+
+
+# --- New entity type… / New subtype… -------------------------------------------------
+
+TYPE_DECLARED = {'ok': True, 'term': 'e:Waterjetcutter', 'label': 'Waterjetcutter',
+            'iri': 'https://example.org/e/Waterjetcutter', 'parent': 'e:Filter',
+            'file': '/pkg/knowledge.ttl', 'line': 42}
+
+
+def _executed(seen, command):
+    return [e['args'] for e in seen['executed'] if e['command'] == command]
+
+
+def test_a_new_entity_type_needs_no_entity(tmp_path):
+    # From the toolbar there is no row: the package is the session's.
+    for name in ('shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld'):
+        (tmp_path / name).write_text('')
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newEntityType',
+        'pick': 'e:Filter', 'inputs': ['Waterjetcutter'],
+        'answer': 'Create its shape',
+        'replies': {'semforge/entityTypes': TYPES_REPLY,
+                    'semforge/addEntityType': TYPE_DECLARED}})
+    declared = [r['params'] for r in seen['requests']
+                if r['method'] == 'semforge/addEntityType']
+    assert declared == [{'uri': f'file://{tmp_path}/shacl.ttl', 'name': 'Waterjetcutter',
+                         'parent': 'e:Filter'}]
+    assert not [r for r in seen['requests'] if r['method'] == 'semforge/addEntity']
+    assert seen['shown'][0]['file'] == '/pkg/knowledge.ttl'
+    assert any('kind of e:Filter' in message for message in seen['info'])
+    shaped = _executed(seen, 'semforge.newShape')
+    assert shaped[0][0]['raw'] == {'kind': 'type', 'label': 'Waterjetcutter',
+                                   'targetClass': 'https://example.org/e/Waterjetcutter'}
+
+
+def test_a_subtype_takes_its_parent_from_the_row(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newSubtype',
+        'node': {'raw': {'kind': 'type', 'label': 'Filter',
+                         'typeClass': 'https://example.org/e/Filter', 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'inputs': ['Waterjetcutter'], 'answer': 'Open its type page',
+        'replies': {'semforge/addEntityType': TYPE_DECLARED}})
+    assert seen['quickPicks'] == [], 'the parent is not asked again'
+    declared = [r['params'] for r in seen['requests']
+                if r['method'] == 'semforge/addEntityType']
+    assert declared[0]['parent'] == 'https://example.org/e/Filter'
+    opened = _executed(seen, 'semforge.openTypePage')
+    assert opened[0][0]['raw'] == {'targetClass': 'https://example.org/e/Waterjetcutter'}
+
+
+def test_a_dismissed_name_declares_nothing(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newSubtype',
+        'node': {'raw': {'kind': 'type', 'typeClass': 'https://example.org/e/Filter',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {}})
+    assert seen['requests'] == []
+
+
+def test_the_types_view_offers_both(tmp_path):
+    with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
+        menus = json.load(handle)['contributes']['menus']
+    title = {e['command'] for e in menus['view/title']
+             if e.get('when') == 'view == semforgeConstraints'}
+    row = {e['command'] for e in menus['view/item/context']
+           if e.get('when') == 'view == semforgeConstraints && viewItem == type'}
+    assert 'semforge.newEntityType' in title and 'semforge.newSubtype' in row

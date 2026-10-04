@@ -103,6 +103,34 @@ def test_a_new_type_lands_beside_its_parent(package):
     assert added.shape.endswith('CutterShape')
 
 
+def test_the_parent_may_be_named_by_its_iri(package):
+    # New subtype… on a type row or page passes the parent's IRI, not its term.
+    made = add_entity_type(
+        package, 'Watercutter',
+        'https://industryfusion.github.io/contexts/example/v0/base_entities/Cutter')
+    assert made['parent'] == 'iffBaseEntities:Cutter'
+    found, _ = entity_types(load(package.path))
+    assert next(e for e in found if e.label == 'Watercutter').parent == 'iffBaseEntities:Cutter'
+
+
+def test_a_new_subtype_is_a_type_with_its_parent_s_constraints(package):
+    """No shape of its own yet, and still judged by the parent's: so it is
+    listed under Types, and its page shows what it inherits."""
+    from semforge.cooked.tree import build_tree
+    from semforge.cooked.typepage import build_type_page
+
+    made = add_entity_type(package, 'Watercutter', 'iffBaseEntities:Cutter')
+    again = load(package.path)
+    root = next(r for r in build_tree(again) if r.target_class == made['iri'])
+    assert root.children and all(child.inherited_from for child in root.children)
+    assert 'iffBaseShacl:CutterShape' in {child.label for child in root.children}
+    page = build_type_page(again, made['term'])
+    cutter = build_type_page(again, 'iffBaseEntities:Cutter')
+    assert page['ownShape'] == ''
+    assert {a['label'] for a in page['attributes']} == {a['label'] for a in cutter['attributes']}
+    assert all(a['inherited'] for a in page['attributes'])
+
+
 def test_a_new_type_is_refused_under_something_that_is_not_a_type(package):
     with pytest.raises(PackageError) as raised:
         add_entity_type(package, 'Thing', 'iffBaseKnowledge:MachineState')

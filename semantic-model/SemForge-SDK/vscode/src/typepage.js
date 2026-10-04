@@ -274,6 +274,7 @@ function renderTypePage(page, options) {
   ${page.ownShape ? '<button class="primary" data-action="addAttribute">+ Attribute</button>'
     : '<button class="primary" data-action="createShape" title="Write a shape targeting this type, so its attributes can be constrained here">Create its shape</button>'}
   ${page.shapeAt ? `<button data-open="${escape(page.shapeAt)}">Open the shape in .ttl</button>` : ''}
+  <button data-action="newSubtype" title="Declare a new entity type that is a kind of ${escape(page.label)}">New subtype…</button>
   <button data-refresh="1">Refresh</button>
 </div>
 
@@ -766,6 +767,14 @@ async function createShape(pages) {
   return Boolean(made);
 }
 
+/** New subtype…: the shared command, with this type as the parent. The page
+ *  itself does not change -- a subtype is not part of its parent's page. */
+async function newSubtype(pages) {
+  await vscode.commands.executeCommand('semforge.newSubtype', {
+    raw: { targetClass: pages.page.iri }, packageUri: pages.current.packageUri });
+  return false;
+}
+
 /** A test for this attribute: the shared command, aimed at this row. */
 async function newTest(pages, row) {
   if (!row) {
@@ -857,7 +866,7 @@ async function addAttribute(pages) {
 }
 
 const EDITS = { presence: editPresence, value: editValue, menu: rowMenu, test: newTest,
-  createShape,
+  createShape, newSubtype,
   override, addAttribute };
 
 /** The entity type a tree row stands for, whichever tree it is in. */

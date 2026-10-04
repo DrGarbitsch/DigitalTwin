@@ -29,7 +29,7 @@ import re
 from dataclasses import dataclass, field
 
 from rdflib import URIRef
-from rdflib.namespace import SH
+from rdflib.namespace import RDFS, SH
 
 from ..errors import PackageError
 from ..rdfio import (find_block, property_blocks, remove_parameter,
@@ -294,11 +294,22 @@ def build_tree(package):
         for target in class_targets(package.shapes, shape):
             by_class.setdefault(target, []).append(shape)
 
+    # A subtype with no shape of its own is still judged by its ancestors'
+    # shapes (class targets include subclasses), so it is a type here too --
+    # with only inherited shapes. Leaving it out hid a new subtype, and its
+    # page said nothing constrains it.
+    classes, pending = set(by_class), list(by_class)
+    while pending:
+        for child in package.knowledge.subjects(RDFS.subClassOf, pending.pop()):
+            if isinstance(child, URIRef) and child not in classes:
+                classes.add(child)
+                pending.append(child)
+
     roots = []
-    for cls in sorted(by_class, key=str):
+    for cls in sorted(classes, key=str):
         node = CookedNode(kind='type', label=local(cls), target_class=str(cls))
         own = 0
-        for shape in by_class[cls]:
+        for shape in by_class.get(cls, []):
             path, text, line_of = source_of(shape)
             if path is None:
                 continue

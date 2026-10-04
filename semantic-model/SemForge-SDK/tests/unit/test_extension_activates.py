@@ -30,7 +30,7 @@ EXPECTED = {
     'semforge.addAttributeConstraint', 'semforge.newAttribute',
     'semforge.deleteAttribute', 'semforge.removeUse', 'semforge.addSubAttribute',
     'semforge.newSubAttribute', 'semforge.rescan', 'semforge.deleteCache',
-    'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openModelPage', 'semforge.openHealthPage',
+    'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openModelPage', 'semforge.newEntityType', 'semforge.newSubtype', 'semforge.openHealthPage',
     'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
     'semforge.openVocabularyPage', 'semforge.newVocabularyClass', 'semforge.newAttributeTest',
     'semforge.newShape', 'semforge.newTestCase', 'semforge.mergeShape',

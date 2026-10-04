@@ -265,5 +265,15 @@ def test_the_rendered_page_offers_the_right_action_per_row(tmp_path, page):
     assert html.count('data-action="override"') == 2, 'the two inherited rows'
     assert html.count('data-action="menu"') == 2, 'the two own rows'
     assert 'data-action="addAttribute"' in html
+    assert 'data-action="newSubtype"' in html
     assert f'data-action="value" data-row="{_row(page, "hasStrength")}"' not in html
     assert f'data-action="value" data-row="{_row(page, "hasCartridge")}"' in html
+
+
+def test_new_subtype_on_the_page_names_the_page_s_type(tmp_path, page):
+    seen = _click(tmp_path, page, [{'command': 'newSubtype', 'row': -1}])
+    assert seen['errors'] == [], seen['errors']
+    asked = [e['args'][0] for e in seen['executed'] if e['command'] == 'semforge.newSubtype']
+    assert asked == [{'raw': {'targetClass': page['iri']},
+                      'packageUri': 'file:///pkg/shacl.ttl'}]
+    assert len(_sent(seen, 'semforge/typePage')) == 1, 'the parent page is unchanged'

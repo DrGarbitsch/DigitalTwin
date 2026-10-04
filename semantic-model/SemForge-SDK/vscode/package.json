@@ -263,6 +263,16 @@
         "icon": "$(preview)"
       },
       {
+        "command": "semforge.newEntityType",
+        "title": "SemForge: New entity type…",
+        "icon": "$(symbol-class)"
+      },
+      {
+        "command": "semforge.newSubtype",
+        "title": "SemForge: New subtype…",
+        "icon": "$(type-hierarchy-sub)"
+      },
+      {
         "command": "semforge.openModelPage",
         "title": "SemForge: Open model data page",
         "icon": "$(preview)"
@@ -358,6 +368,11 @@
     },
     "menus": {
       "view/title": [
+        {
+          "command": "semforge.newEntityType",
+          "when": "view == semforgeConstraints",
+          "group": "navigation@0"
+        },
         {
           "command": "semforge.refreshTree",
           "when": "view == semforgeConstraints",
@@ -714,6 +729,11 @@
           "command": "semforge.newShape",
           "when": "view == semforgeConstraints && viewItem == type",
           "group": "1_add@1"
+        },
+        {
+          "command": "semforge.newSubtype",
+          "when": "view == semforgeConstraints && viewItem == type",
+          "group": "1_add@0"
         },
         {
           "command": "semforge.newTestCase",

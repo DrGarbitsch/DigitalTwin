@@ -527,8 +527,12 @@ async function pickEntityType(client, packageUri) {
   return declareEntityType(client, packageUri, types);
 }
 
-/** Add a class to knowledge.ttl, and return it ready to use. */
-async function declareEntityType(client, packageUri, types) {
+/**
+ * Add a class to knowledge.ttl, and return it ready to use. `parent` (an
+ * entity type's term or IRI) skips the "is a kind of…" question: New subtype…
+ * already knows it.
+ */
+async function declareEntityType(client, packageUri, types, parent) {
   const name = await vscode.window.showInputBox({
     title: 'New entity type',
     prompt: 'Class name, e.g. Waterjetcutter — it is declared in the knowledge',
@@ -540,7 +544,7 @@ async function declareEntityType(client, packageUri, types) {
   if (!name) {
     return undefined;
   }
-  const parent = await vscode.window.showQuickPick(
+  const picked = parent ? { type: { term: parent } } : await vscode.window.showQuickPick(
     types.map((type) => ({
       label: type.term,
       description: type.isRoot ? 'the root of the hierarchy' : '',
@@ -548,13 +552,13 @@ async function declareEntityType(client, packageUri, types) {
     })),
     { placeHolder: `${name} is a kind of…` }
   );
-  if (!parent) {
+  if (!picked) {
     return undefined;
   }
   const made = await client.sendRequest('semforge/addEntityType', {
     uri: packageUri,
     name,
-    parent: parent.type.term
+    parent: picked.type.term
   });
   if (!made || !made.ok) {
     vscode.window.showErrorMessage(
@@ -565,7 +569,56 @@ async function declareEntityType(client, packageUri, types) {
   // Show what was written: a class added out of sight is a class nobody
   // reviews, and this one is now part of the ontology.
   await showLocation(`${made.file}:${made.line}`, false);
-  return { term: made.term, label: made.label, instances: 0 };
+  return { term: made.term, iri: made.iri, label: made.label, parent: made.parent,
+    instances: 0 };
+}
+
+/**
+ * New entity type… / New subtype…: declare a class in the knowledge without
+ * having to add an entity of it. A subtype is checked by every shape of its
+ * parent already (class targets include subclasses); what it lacks is a shape
+ * of its own, so that is the first thing offered.
+ */
+async function newEntityType(clientHolder, session, node) {
+  const client = clientHolder.client;
+  const packageUri = (node && node.packageUri) || session.uri;
+  if (!client || !packageUri) {
+    vscode.window.showWarningMessage(
+      'SemForge: no package is open, or the language server is not running.');
+    return undefined;
+  }
+  const raw = (node && node.raw) || {};
+  const parent = raw.targetClass || raw.typeClass || raw.iri || undefined;
+  let types = [];
+  if (!parent) {
+    const answer = await client.sendRequest('semforge/entityTypes', { uri: packageUri });
+    if (!answer || answer.error) {
+      vscode.window.showErrorMessage(
+        `SemForge: ${(answer && answer.error) || 'the types could not be read'}`);
+      return undefined;
+    }
+    types = answer.types || [];
+  }
+  const made = await declareEntityType(client, packageUri, types, parent);
+  if (!made) {
+    return undefined;
+  }
+  for (const command of ['semforge.refreshTree', 'semforge.refreshKnowledge',
+    'semforge.refreshModel']) {
+    vscode.commands.executeCommand(command);
+  }
+  const next = await vscode.window.showInformationMessage(
+    `SemForge: ${made.label} declared as a kind of ${made.parent}. Every shape of ` +
+      `${made.parent} checks it already; give it a shape of its own for rules only it has.`,
+    'Create its shape', 'Open its type page');
+  if (next === 'Create its shape') {
+    await vscode.commands.executeCommand('semforge.newShape',
+      { raw: { kind: 'type', targetClass: made.iri, label: made.label }, packageUri });
+  } else if (next === 'Open its type page') {
+    await vscode.commands.executeCommand('semforge.openTypePage',
+      { raw: { targetClass: made.iri }, packageUri });
+  }
+  return made;
 }
 
 
@@ -1003,6 +1056,11 @@ function register(context, clientHolder, session, onChanged) {
   }
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('semforge.newEntityType',
+      () => newEntityType(clientHolder, session)),
+    vscode.commands.registerCommand('semforge.newSubtype',
+      (node) => newEntityType(clientHolder, session, node)),
+
     vscode.commands.registerCommand('semforge.addEntity', async (node) => {
       const raw = node && node.raw;
       const file = raw && (raw.file || (raw.children || []).map((c) => c.file)[0]);
