@@ -1166,6 +1166,23 @@ together admit nothing (`> 100` and `≤ 16`) are written as asked and said in a
 warning. The Value column words them: `> 0 and ≤ 16`, `at most 20 characters`,
 `matching ^[A-Z]+$`.
 
+**An `sh:in` list is checked against the rest of the value.** `sh:in` compares
+RDF terms exactly, so each item is read as the term it is and checked against
+the value's datatype, node kind, class, bounds, lengths and pattern: `"warm" is
+xsd:string, but the value must be xsd:double: it can never be given`, `WC9 is
+not a Wasteclass`, `150 is outside ≤ 120`. It is said in a warning after the
+write and in red on the row — on a combined row too, where the list sits in
+one shape and the datatype in another, and two shapes' lists that share no
+value admit nothing.
+
+One trap is avoided rather than only reported: Turtle's `20.5` is an
+`xsd:decimal`, but a JSON `20.5` in an NGSI-LD document arrives as
+`xsd:double`, and the two are never equal — `sh:in ( 20.5 )` rejects every
+20.5 there is (measured). So the editor writes a number with a fraction as
+`"20.5"^^xsd:double` (or with the value's own `sh:datatype`); a whole number
+stays as written, as a JSON whole number arrives. A hand-written list with an
+untyped decimal is flagged.
+
 **The cache: why reloading is fast, and how to distrust it.** What every view
 and the Problems panel show is stored beside the package, in
 `.semforge/cache/views/` (one JSON file per view, never committed — it carries

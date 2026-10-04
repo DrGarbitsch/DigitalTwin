@@ -150,7 +150,7 @@ def _constraint_nodes(block, shape, chain, locate=None, is_value_slot=False):
                 kind='raw', label=f'{local(name)} (raw only)',
                 detail='structure, not a parameter — edit in the .ttl',
                 shape=shape, path_chain=list(chain), parameter=name,
-                value=value.strip()[:60], defined_at=where))
+                value=value.strip(), defined_at=where))
         elif name in EDITABLE:
             nodes.append(CookedNode(
                 kind='constraint', label=local(name), detail=value,
@@ -416,10 +416,16 @@ def list_items(text):
     return LIST_ITEM.findall(inner)
 
 
-def _list_value(package, text, value):
+def _list_value(package, text, value, datatype=None):
     """An sh:in list as Turtle. Items come as a list, or one text separated by
     commas; each is a number, true/false, a "quoted" text, or a prefixed name
-    or IRI -- anything else is taken as text and quoted."""
+    or IRI -- anything else is taken as text and quoted.
+
+    sh:in compares terms exactly, and a JSON 20.5 in an NGSI-LD document is an
+    xsd:double -- never equal to Turtle's 20.5, an xsd:decimal. So a number
+    with a fraction is written typed: with the value's sh:datatype when it
+    has one, else as xsd:double. A whole number stays as written, as a JSON
+    whole number arrives (xsd:integer), unless the datatype says otherwise."""
     if isinstance(value, str):
         items = [i.strip() for i in re.findall(r'"(?:[^"\\]|\\.)*"|[^,]+', value)]
     else:
@@ -428,7 +434,12 @@ def _list_value(package, text, value):
     for item in items:
         if not item:
             continue
-        if NUMBER.fullmatch(item) or item in ('true', 'false') or \
+        if NUMBER.fullmatch(item):
+            whole = re.fullmatch(r'[-+]?\d+', item) is not None
+            typed = datatype if datatype and datatype not in ('xsd:integer', 'xsd:int') \
+                else (None if whole else 'xsd:double')
+            term = f'"{item}"^^{_term(package, text, typed)}' if typed else item
+        elif item in ('true', 'false') or \
                 (item.startswith('"') and item.endswith('"') and len(item) > 1):
             term = item
         elif item.startswith('<') or re.fullmatch(r'[A-Za-z][\w.-]*:[^\s"]+', item):
@@ -442,10 +453,10 @@ def _list_value(package, text, value):
     return '( ' + ' '.join(rendered) + ' )'
 
 
-def _parameter_value(package, text, parameter, value):
+def _parameter_value(package, text, parameter, value, datatype=None):
     """The Turtle for a parameter's value, refusing one SHACL would reject."""
     if parameter == 'sh:in':
-        return _list_value(package, text, value)
+        return _list_value(package, text, value, datatype)
     kind = EDITABLE[parameter][1]
     raw = str(value).strip()
     if kind == 'integer':
@@ -524,15 +535,50 @@ def add_constraint(package, shape, path_chain, parameter, value, layer='value'):
         source_path, text, target = located
     else:
         source_path, text, target = _locate(package, shape, chain)
-    rendered = _parameter_value(package, text, parameter, value)
+    datatype = target.parameter('sh:datatype')
+    rendered = _parameter_value(package, text, parameter, value,
+                                datatype[2] if datatype else None)
     if target.parameter(parameter) is None:
         updated, action = _add_line(text, target, parameter, rendered), 'added'
     else:
         updated, action = set_parameter(text, target, parameter, rendered), 'replaced'
     _write_verified(source_path, updated)
-    # The block as it now reads, for the bounds check.
+    # The block as it now reads, for the bounds and the list checks.
     after = updated[target.start:target.end + len(updated) - len(text)]
-    return {'file': source_path, 'action': action, 'note': _bounds_note(after)}
+    notes = [n for n in (_bounds_note(after), _list_note(package, updated, shape, chain,
+                                                        layer)) if n]
+    return {'file': source_path, 'action': action, 'note': '; '.join(notes)}
+
+
+def _list_note(package, text, shape, chain, layer):
+    """What an sh:in list on the value now contradicts, in one line."""
+    from .listcheck import list_conflicts
+
+    if layer != 'value':
+        return ''
+    try:
+        _, block = _found_in(text, shape, chain)
+    except PackageError:
+        return ''
+    if block is None or block.parameter('sh:in') is None:
+        return ''
+    params = {name: found[2] for name, found in block.parameters.items()}
+    found = list_conflicts(package, params, list_items(params['sh:in']))
+    return '; '.join(found)
+
+
+def _found_in(text, shape, chain):
+    """The value block of the attribute at `chain` in `text`, or (…, None)."""
+    from ..rdfio import TurtleIndex
+
+    statement = TurtleIndex(text).block_for(str(shape))
+    if statement is None:
+        raise PackageError(f'{shape} is not in the text')
+    for slot in SLOTS:
+        block = find_block(property_blocks(text, statement), list(chain) + [slot])
+        if block is not None:
+            return slot, block
+    return None, None
 
 
 def remove_constraint(package, shape, path_chain, parameter):

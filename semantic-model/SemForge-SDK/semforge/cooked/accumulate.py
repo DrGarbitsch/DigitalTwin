@@ -125,7 +125,25 @@ def _no_effect(contribution, attribute, value):
     return found
 
 
-def accumulate(rows):
+def _list_notes(package, basis, value):
+    """An sh:in list in one shape checked against what the others say about
+    the same value; two lists sharing nothing admit nothing."""
+    from .listcheck import list_conflicts
+
+    lists = [(m['inList']['items'], m['shapeName']) for m in basis if m.get('inList')]
+    if not lists or package is None:
+        return []
+    notes = []
+    shared = list(lists[0][0])
+    for items, _ in lists[1:]:
+        shared = [i for i in shared if i in items]
+    if len(lists) > 1 and not shared:
+        notes.append('the sh:in lists of ' + ' and '.join(s for _, s in lists) +
+                     ' share no value: nothing can be given')
+    return notes + list_conflicts(package, value, shared or lists[0][0])
+
+
+def accumulate(rows, package=None):
     """Rows of the type page, one per (shape, attribute) -> one per attribute.
 
     A row constrained by a single shape is returned as it was. A row
@@ -149,6 +167,7 @@ def accumulate(rows):
         always = [m for m in members if not m.get('condition')]
         basis = always or members
         attribute, value, notes = _effective(basis)
+        notes += _list_notes(package, basis, value)
         for member in members:
             member['noEffect'] = _no_effect(member, attribute, value) \
                 if member in always and len(always) > 1 else []

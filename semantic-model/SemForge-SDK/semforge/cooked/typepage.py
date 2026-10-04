@@ -127,9 +127,12 @@ def value_text(kind, parameters, raw):
     if listed:
         from .tree import list_items
 
-        parts.append('one of: ' + ' · '.join(
-            _short(v) if not v.startswith('"') else v.strip('"')
-            for v in list_items(listed)))
+        from .listcheck import QUOTED
+
+        def said(item):
+            quoted = QUOTED.fullmatch(item)
+            return quoted.group(1) if quoted else _short(item)
+        parts.append('one of: ' + ' · '.join(said(v) for v in list_items(listed)))
     if not parts:
         parts.append('an entity' if kind == 'Relationship' else 'any value')
     return ' · '.join(parts)
@@ -237,6 +240,8 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
                         else 'no value layer; edit it in the .ttl'),
         # The value's sh:in list, item by item, for the Constraints… editor.
         'inList': _in_list(raw, value_params, slot),
+        # What the list contradicts on the same value, said on the row.
+        'notes': _list_notes(package, raw, value_params, slot),
         'violations': violated.get((shape_name, _short(token)), []),
         'definedAt': node.defined_at,
     }]
@@ -255,6 +260,13 @@ def _in_list(raw, value_params, slot):
     if not text or slot is None:
         return None
     return {'items': list_items(text), 'path': list(slot.path_chain), 'value': text}
+
+
+def _list_notes(package, raw, value_params, slot):
+    from .listcheck import list_conflicts
+
+    found = _in_list(raw, value_params, slot)
+    return list_conflicts(package, value_params, found['items']) if found else []
 
 
 def _resolve_token(package, token):
@@ -512,7 +524,7 @@ def build_type_page(package, entity_type):
     # Several shapes on one attribute: one row, what holds when all apply.
     from .accumulate import accumulate
 
-    attributes = accumulate(attributes)
+    attributes = accumulate(attributes, package)
     own_shapes = [n.label for n in shape_nodes if not n.inherited_from]
     from .constrain import own_shape
     own = own_shape(package, entry.iri)
