@@ -95,14 +95,53 @@ def test_the_model_scratchpad_has_no_page_and_opens_its_source(tmp_path):
     assert seen['shown'][0]['file'] == '/pkg/model-instance.jsonld'
 
 
-def test_the_model_data_row_opens_the_model_page(tmp_path):
-    seen = _click(tmp_path, 'semforgeModel',
-                  {'kind': 'example', 'label': 'Model data',
-                   'definedAt': '/pkg/model-instance.jsonld:1'})
+# The Tests tree as the server sends it: the model's data is a GROUP ("Main",
+# or "Model data"), under it one example per model file, without a case file.
+TESTS_TREE = [
+    {'kind': 'group', 'label': 'Tests', 'children': [
+        {'kind': 'suite', 'label': 'test_MachineShape', 'children': [
+            {'kind': 'example', 'label': 'too-hot.jsonld',
+             'file': '/pkg/examples/test_MachineShape/bad/too-hot.jsonld',
+             'definedAt': '/pkg/examples/test_MachineShape/bad/too-hot.jsonld:1',
+             'children': []}]}]},
+    {'kind': 'group', 'label': 'Main', 'children': [
+        {'kind': 'example', 'label': 'main.jsonld', 'file': '', 'children': [
+            {'kind': 'entity', 'label': 'urn:m:1', 'entity': 'urn:m:1',
+             'file': '/pkg/main.jsonld', 'definedAt': '/pkg/main.jsonld:2',
+             'children': [
+                 {'kind': 'attribute', 'label': 'hasTemperature', 'entity': 'urn:m:1',
+                  'file': '/pkg/main.jsonld', 'definedAt': '/pkg/main.jsonld:4',
+                  'children': []}]}]}]}]
+
+
+def _click_in_tests(tmp_path, label):
+    return _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeModel', 'label': label, 'config': {},
+        'replies': {'semforge/tree': {'roots': []}, 'semforge/model': {'roots': TESTS_TREE},
+                    'semforge/shapes': {'roots': []}, 'semforge/knowledge': {'roots': []}}})
+
+
+@pytest.mark.parametrize('label, focus', [
+    ('Main', None), ('main.jsonld', None), ('urn:m:1', 'urn:m:1'),
+    ('hasTemperature', 'urn:m:1')])
+def test_the_model_data_opens_the_model_page(tmp_path, label, focus):
+    seen = _click_in_tests(tmp_path, label)
+    assert seen['errors'] == [], seen['errors']
     assert _opened(seen, 'semforge.openCasePage') == []
     opened = _opened(seen, 'semforge.openModelPage')
-    assert len(opened) == 1 and opened[0][1] == {'preserveFocus': True}
-    assert seen['shown'] == []
+    assert len(opened) == 1, seen['executed']
+    expected = {'preserveFocus': True}
+    if focus:
+        expected['focus'] = focus
+    assert opened[0][1] == expected
+    assert seen['shown'] == [], 'the source stays where it was'
+
+
+def test_a_case_in_the_same_tree_still_opens_its_case_page(tmp_path):
+    seen = _click_in_tests(tmp_path, 'too-hot.jsonld')
+    assert seen['errors'] == [], seen['errors']
+    assert len(_opened(seen, 'semforge.openCasePage')) == 1
+    assert _opened(seen, 'semforge.openModelPage') == []
 
 
 def test_an_entity_type_in_the_knowledge_opens_its_page(tmp_path):

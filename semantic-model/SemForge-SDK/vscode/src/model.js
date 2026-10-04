@@ -71,11 +71,18 @@ function caseOf(provider, node) {
   return undefined;
 }
 
-/** The model scratchpad ("Model data") holding a node, or undefined. */
+/**
+ * The model's own data holding a node, or undefined. In the Tests tree that
+ * is a "Main" / "Model data" GROUP, under it one example per model file
+ * (labelled by the file, e.g. main.jsonld) -- an example without a case file.
+ */
 function modelOf(provider, node) {
   for (let at = node; at; at = provider.getParent(at)) {
     if (at.raw.kind === 'example') {
-      return !at.raw.file && DATA.includes(at.raw.label) ? at : undefined;
+      return at.raw.file ? undefined : at;
+    }
+    if (at.raw.kind === 'group' && DATA.includes(at.raw.label)) {
+      return at;
     }
   }
   return undefined;

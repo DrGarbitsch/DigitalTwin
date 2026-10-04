@@ -42,6 +42,7 @@ const seen = {
 const noop = () => undefined;
 const registry = new Map();
 const selections = [];
+const providers = {};
 // VS Code fires this when a document is shown, and the trees listen to it. The
 // harness used to model it as a no-op, which hid a refresh landing in the middle
 // of a reveal.
@@ -76,7 +77,9 @@ const stub = {
       Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000 })
   },
   window: {
-    createTreeView: (id) => (seen.views[id] = {
+    // The provider is kept aside, not on the view: `seen` is printed as JSON.
+    createTreeView: (id, options) => (providers[id] = (options || {}).treeDataProvider,
+                                      seen.views[id] = {
       dispose: noop,
       reveal: (node, options) => {
         seen.events.push({ type: 'reveal', view: id, key: node.key });
@@ -366,9 +369,28 @@ async function runSelect() {
     seen.errors.push(`${scenario.view} registered no selection handler`);
     return;
   }
+  // `label`: walk the view's real tree (so parents are known, as in VS Code)
+  // and click the first row with that label; otherwise click `node` as given.
+  let node = scenario.node;
+  if (scenario.label) {
+    const provider = providers[scenario.view];
+    const walk = async (parent) => {
+      for (const child of (await provider.getChildren(parent)) || []) {
+        if (child.raw.label === scenario.label) { return child; }
+        const deeper = await walk(child);
+        if (deeper) { return deeper; }
+      }
+      return undefined;
+    };
+    node = await walk(undefined);
+    if (!node) {
+      seen.errors.push(`no row labelled ${scenario.label}`);
+      return;
+    }
+  }
   for (const entry of found) {
     seen.events.push({ type: 'click', view: entry.view });
-    await entry.handler({ selection: [scenario.node] });
+    await entry.handler({ selection: [node] });
   }
 }
 
