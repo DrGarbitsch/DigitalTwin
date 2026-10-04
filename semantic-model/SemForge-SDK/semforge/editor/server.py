@@ -1463,6 +1463,22 @@ def add_test_case_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/modelPage')
+def model_page_feature(ls, params):
+    """The model data as cards, each entity with its violations; edited like
+    a case. Cached like every view, so a reopen is cheap."""
+    from ..cooked.casepage import build_model_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        page = _view(root, 'model-page', lambda: {'page': build_model_page(_package_for(root))})
+        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/newCase')
 def new_case_feature(ls, params):
     """Start a case that makes a shape fire (the shape page's New case…)."""

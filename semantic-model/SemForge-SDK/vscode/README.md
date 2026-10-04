@@ -930,6 +930,26 @@ that order:
 Ids, attributes and files link to their line; an entity's type opens the
 type page.
 
+**Editing on the page.** The data is edited where you read it, through the
+same commands as the Tests tree (so the same pickers: a known attribute, the
+values the shape allows):
+
+- a value you can change is a link — click it to edit it;
+- **⋯** on an attribute row: *Edit value*, *Add sub-attribute*, *Add
+  observation*, *Go to the SHACL rule*, *Open in .jsonld*;
+- **+ Attribute** on each entity card, **+ Entity** on each file.
+
+After a change the case runs again and the page re-renders, so you see the
+claims move. An edit in an include still changes every case that shares it —
+the file's header says how many.
+
+**The Model data page.** The package's own `model-instance.jsonld` (or
+`main.jsonld`) has no claims, but it has entities and violations. A click on
+**Model data** in the Tests view, or on any row inside it, opens the same
+cards for it: entity and violation counts instead of *expects/passes*, no
+claims, and the same editing. Violations here are information — the model
+declares nothing, so it cannot fail.
+
 **Assert it.** Each *also fired* line has two buttons. **Assert it** turns the
 firing into a claim: the assert is added to that case in its
 `expectations.yaml` (comments and layout kept) and the line moves to *holds*.

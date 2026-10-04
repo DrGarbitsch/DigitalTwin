@@ -32,30 +32,50 @@ function problem(violation) {
     `${escape(violation.text)} <span class="dim">· ${escape(violation.shape)}</span></div>`;
 }
 
-function attributeRows(rows, file, depth) {
+/**
+ * An entity's attributes, sub-attributes nested. `at` addresses the row for
+ * the editing messages ("file.card.row.row"); a value the data lets be edited
+ * is a link, and every row with a Tests-tree row behind it has a ⋯.
+ */
+function attributeRows(rows, file, depth, at) {
   // Indented by a class: the CSP admits only the nonce'd stylesheet.
-  return rows.map((row) => `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
-    `<span class="name">${open(row.name, file, row.line, row.term)}</span>` +
-    `<span class="value">${escape(row.value)}` +
-    `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : ''}` +
-    `</span>` +
-    `${row.violations.map(problem).join('')}</div>` +
-    attributeRows(row.children || [], file, depth + 1)).join('');
+  return rows.map((row, index) => {
+    const here = at === undefined ? undefined : `${at}.${index}`;
+    const editable = here !== undefined && row.node && row.node.editable;
+    const value = editable
+      ? `<a href="#" class="act" data-edit="${here}" title="Change the value">` +
+        `${escape(row.value) || '<span class="dim">(none)</span>'}</a>`
+      : escape(row.value);
+    const menu = here !== undefined && (row.node || row.attributeNode)
+      ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
+        'the rule">⋯</button>' : '';
+    return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
+      `<span class="name">${open(row.name, file, row.line, row.term)}</span>` +
+      `<span class="value">${value}` +
+      `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : ''}` +
+      `${menu}</span>` +
+      `${row.violations.map(problem).join('')}</div>` +
+      attributeRows(row.children || [], file, depth + 1, here);
+  }).join('');
 }
 
 function anyViolation(rows) {
   return (rows || []).some((row) => row.violations.length || anyViolation(row.children));
 }
 
-function card(entity, focused) {
+function card(entity, focused, at) {
   const bad = entity.violations.length || anyViolation(entity.attributes);
+  const add = entity.node && at !== undefined
+    ? `<button class="mini" data-addattr="${at}" title="Add an attribute to ${escape(entity.id)}">` +
+      '+ Attribute</button>' : '';
   return `<div class="card${bad ? ' bad' : ''}${focused ? ' focus" id="focus' : ''}">` +
     `<div class="title">${open(entity.id || '(no id)', entity.file, entity.line)}` +
     `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
-      ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}</div>` +
+      ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}` +
+    `<span class="acts">${add}</span></div>` +
     `${entity.error ? `<div class="problem">${escape(entity.error)}</div>` : ''}` +
     `${entity.violations.map(problem).join('')}` +
-    `${attributeRows(entity.attributes, entity.file, 0) ||
+    `${attributeRows(entity.attributes, entity.file, 0, at) ||
       '<div class="dim">no attributes</div>'}</div>`;
 }
 
@@ -88,6 +108,7 @@ function renderCasePage(page, options) {
   const claims = page.claims || [];
   const unasserted = page.unasserted || [];
   const files = page.files || [];
+  const model = page.kind === 'model';
   const crumbs = (page.case || '').split('/').slice(0, -1).map(escape).join(' › ');
   // The entity a tree click named: its first card is marked and scrolled to.
   let pending = options && options.focus;
@@ -152,50 +173,67 @@ function renderCasePage(page, options) {
   .attr { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: 2px 12px; }
   .attr .value { font-family: var(--vscode-editor-font-family); font-size: 0.92em;
                  overflow-wrap: anywhere; }
+  button.mini { padding: 0 6px; font-size: 0.86em; margin-left: 4px; }
+  .card .title { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+  .card .title .acts, .file .head .acts { margin-left: auto; }
   .problem { grid-column: 1 / -1; color: var(--vscode-errorForeground, #f14c4c);
              border-left: 2px solid currentColor; padding-left: 8px; font-size: 0.92em; }
 </style></head><body>
 <div class="crumbs">${crumbs}</div>
 <h1>${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
-<div class="chips">
+${model ? `<div class="chips">
+  ${chip(`${(page.summary || {}).entities || 0} entities`)}
+  ${(page.summary || {}).violations
+    ? chip(`${page.summary.violations} violation(s)`, 'warn',
+      'The model declares nothing and cannot fail: these are information.')
+    : chip('all valid', 'ok')}
+</div>` : `<div class="chips">
   ${chip(`expects ${page.expect}`)}
   ${page.passed ? chip('passes', 'ok') : chip('fails', 'bad')}
   ${page.residuePinned ? chip('residue pinned', '', 'Everything else that fires is pinned by digest') : ''}
   ${chip(`${(page.summary || {}).entities || 0} entities`)}
-</div>
+</div>`}
 ${(page.failures || []).length
     ? `<ul class="failures">${page.failures.map((f) => `<li>${escape(f)}</li>`).join('')}</ul>` : ''}
 <div class="bar">
-  <button data-open="${escape(page.file)}:1">Open the case file</button>
+  <button data-open="${escape(page.file)}:1">${model ? 'Open the model file' : 'Open the case file'}</button>
   ${page.expectations ? `<button data-open="${escape(page.expectations)}:1">Open its expectations</button>` : ''}
   <button data-refresh="1">Refresh</button>
 </div>
 
-<h2>Claims</h2>
+${model ? '' : `<h2>Claims</h2>
 ${claims.length || unasserted.length
     ? `<div class="claims">${claims.map((c) => claimRow(c, false)).join('')}` +
       `${unasserted.map((c, i) => claimRow(c, true, i, located[c.resource])).join('')}</div>`
     : `<p class="dim">This case asserts nothing${page.expect === 'valid'
-      ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}
+      ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}`}
 
-<h2>Data</h2>
-${files.map((file) => `<div class="file"><div class="head">
-  ${chip(file.role === 'case' ? 'this case' : 'included')}
+<h2>${model ? 'Entities' : 'Data'}</h2>
+${files.map((file, f) => `<div class="file"><div class="head">
+  ${chip(file.role === 'case' ? 'this case' : file.role === 'model' ? 'model' : 'included')}
   ${open(file.relative, file.path, 1)}
   ${file.sharedBy.length ? `<span class="dim" title="${escape(file.sharedBy.join('\n'))}">· shared with ` +
     `${file.sharedBy.length} other case(s) — an edit here changes them too</span>` : ''}
-</div><div class="cards">${file.cards.map((c) => card(c, mark(c))).join('')}</div></div>`).join('')}
+  <span class="acts"><button class="mini" data-addentity="${f}" title="Add an entity to this file">` +
+  `+ Entity</button></span>
+</div><div class="cards">${file.cards.map((c, j) => card(c, mark(c), `${f}.${j}`)).join('')}</div></div>`).join('')}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert]');
+    const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert],' +
+      '[data-edit],[data-rowmenu],[data-addattr],[data-addentity]');
     if (!target) { return; }
     event.preventDefault();
-    if (target.dataset.assert !== undefined) {
+    const d = target.dataset;
+    if (d.edit) { vscode.postMessage({ command: 'edit', at: d.edit }); }
+    else if (d.rowmenu) { vscode.postMessage({ command: 'rowMenu', at: d.rowmenu }); }
+    else if (d.addattr) { vscode.postMessage({ command: 'addAttribute', at: d.addattr }); }
+    else if (d.addentity !== undefined) { vscode.postMessage({ command: 'addEntity', at: d.addentity }); }
+    else if (target.dataset.assert !== undefined) {
       vscode.postMessage({ command: 'assert', index: Number(target.dataset.assert) });
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
@@ -205,6 +243,9 @@ ${files.map((file) => `<div class="file"><div class="head">
 </script>
 </body></html>`;
 }
+
+// The model's own data has no case file; this stands in for one.
+const MODEL = '@model';
 
 class CasePages {
   constructor(clientHolder) {
@@ -216,7 +257,7 @@ class CasePages {
   /** `focus` is an entity id to mark; `preserveFocus` keeps the keyboard in
    *  the tree the click came from. */
   async show(packageUri, caseFile, focus, preserveFocus) {
-    if (!this.clientHolder.client || !packageUri || !caseFile) {
+    if (!this.clientHolder.client || !packageUri || (!caseFile && caseFile !== MODEL)) {
       vscode.window.showWarningMessage(
         'SemForge: no package is open, or the language server is not running.');
       return;
@@ -246,8 +287,11 @@ class CasePages {
     }
     let page;
     try {
-      page = await this.clientHolder.client.sendRequest('semforge/casePage',
-        { uri: this.current.packageUri, case: this.current.caseFile });
+      page = this.current.caseFile === MODEL
+        ? await this.clientHolder.client.sendRequest('semforge/modelPage',
+          { uri: this.current.packageUri })
+        : await this.clientHolder.client.sendRequest('semforge/casePage',
+          { uri: this.current.packageUri, case: this.current.caseFile });
     } catch (error) {
       page = { ok: false, error: error.message || String(error) };
     }
@@ -263,7 +307,8 @@ class CasePages {
       return;
     }
     this.page = page;
-    this.panel.title = `${page.name.replace(/\.jsonld$/, '')} · test case`;
+    this.panel.title = page.kind === 'model'
+      ? 'Model data' : `${page.name.replace(/\.jsonld$/, '')} · test case`;
     this.panel.webview.html = renderCasePage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }
@@ -281,7 +326,69 @@ class CasePages {
         { raw: { targetClass: message.name }, packageUri: this.current.packageUri });
     } else if (message.command === 'refresh') {
       await this.render();
+    } else if (['edit', 'rowMenu', 'addAttribute', 'addEntity'].includes(message.command)) {
+      await this.edit(message.command, `${message.at}`);
     }
+  }
+
+  /** The row, card or file a page address ("file.card.row.row…") names. */
+  locate(at) {
+    const [f, c, ...rows] = at.split('.').map(Number);
+    const file = ((this.page && this.page.files) || [])[f];
+    const card = file && c !== undefined && !Number.isNaN(c) ? file.cards[c] : undefined;
+    let row;
+    let list = card ? card.attributes : [];
+    for (const index of rows) {
+      row = (list || [])[index];
+      list = row ? row.children : [];
+    }
+    return { file, card, row };
+  }
+
+  /**
+   * Editing from the page goes through the Tests tree's own commands, given
+   * the tree row the server attached -- so the page asks the same questions
+   * (the shape's allowed values, a known attribute) and writes the same way.
+   * Afterwards the case re-runs and the page shows what the change did.
+   */
+  async edit(command, at) {
+    const { file, card, row } = this.locate(at);
+    const packageUri = this.current.packageUri;
+    const run = (name, raw) => vscode.commands.executeCommand(name, { raw, packageUri });
+    if (command === 'addEntity' && file) {
+      await run('semforge.addEntity', { kind: 'example', file: file.path });
+    } else if (command === 'addAttribute' && card && card.node) {
+      await run('semforge.addAttribute', card.node);
+    } else if (command === 'edit' && row && row.node) {
+      await run('semforge.editValue', row.node);
+    } else if (command === 'rowMenu' && row) {
+      const items = [];
+      if (row.node && row.node.editable) {
+        items.push({ label: '$(edit) Edit value', run: () => run('semforge.editValue', row.node) });
+      }
+      if (row.attributeNode) {
+        items.push(
+          { label: '$(add) Add sub-attribute',
+            run: () => run('semforge.addSubAttribute', row.attributeNode) },
+          { label: '$(history) Add observation',
+            run: () => run('semforge.addObservation', row.attributeNode) });
+      }
+      if (row.node) {
+        items.push({ label: '$(symbol-ruler) Go to the SHACL rule',
+          run: () => run('semforge.goToShape', row.node) });
+      }
+      items.push({ label: '$(go-to-file) Open in .jsonld',
+        run: () => showLocation(`${card ? card.file : file.path}:${row.line || 1}`, true) });
+      const picked = await vscode.window.showQuickPick(items,
+        { title: `${row.name} on ${card ? card.id : ''}` });
+      if (!picked) {
+        return;
+      }
+      await picked.run();
+    } else {
+      return;
+    }
+    await this.render();
   }
 
   /** "Assert it": the firing becomes a claim, written into the case's
@@ -350,10 +457,9 @@ function register(context, clientHolder, session) {
       }
       if (node && node.raw && !node.raw.file) {
         // The model scratchpad sits in the same tree as the cases but is not
-        // one: it has no claims to check.
-        vscode.window.showInformationMessage(
-          `SemForge: ${node.raw.label} is the model, not a test case. Its ` +
-            'violations are in the Problems panel; open a case under Tests.');
+        // one: it has no claims to check, so it gets the Model data page.
+        await pages.show(packageUri, MODEL, options && options.focus,
+          !!(options && options.preserveFocus));
         return;
       }
       const caseFile = node && node.raw ? node.raw.file : await pickCase(client, packageUri);
@@ -361,6 +467,11 @@ function register(context, clientHolder, session) {
         await pages.show(packageUri, caseFile, options && options.focus,
           !!(options && options.preserveFocus));
       }
+    }),
+    vscode.commands.registerCommand('semforge.openModelPage', async (node, options) => {
+      const packageUri = (node && node.packageUri) || session.uri;
+      await pages.show(packageUri, MODEL, options && options.focus,
+        !!(options && options.preserveFocus));
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );

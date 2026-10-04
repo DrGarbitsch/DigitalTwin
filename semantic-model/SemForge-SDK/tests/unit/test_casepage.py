@@ -197,15 +197,19 @@ def test_the_case_row_carries_its_file(corpus):
     assert all(not n.file for n in rows if n.label not in declared)
 
 
-def test_the_model_row_says_it_is_not_a_case(tmp_path):
+def test_the_model_row_opens_the_model_data_page(tmp_path):
+    page = {'ok': True, 'kind': 'model', 'name': 'Model data', 'files': [], 'claims': [],
+            'unasserted': [], 'file': '/pkg/model-instance.jsonld',
+            'summary': {'entities': 0, 'violations': 0}}
     seen = _node(tmp_path, {
         'command': 'semforge.openCasePage',
-        'node': {'raw': {'kind': 'example', 'label': 'model-instance.jsonld',
+        'node': {'raw': {'kind': 'example', 'label': 'Model data',
                          'file': '', 'children': []},
                  'packageUri': 'file:///pkg/shacl.ttl'},
-        'replies': {}}, 'extension.js')
-    assert seen['requests'] == [] and seen['webviews'] == []
-    assert any('not a test case' in m for m in seen['info'])
+        'replies': {'semforge/modelPage': page}}, 'extension.js')
+    assert seen['errors'] == [], seen['errors']
+    assert [r['method'] for r in seen['requests']] == ['semforge/modelPage']
+    assert seen['webviews'][0]['title'] == 'Model data'
 
 
 # --- "Assert it" ------------------------------------------------------------------------
@@ -309,3 +313,146 @@ def test_clicking_assert_it_writes_and_re_renders(tmp_path, without):
                      'constraint': UNASSERTED, 'resource': 'urn:filter:9'}]
     assert len([r for r in seen['requests'] if r['method'] == 'semforge/casePage']) == 2
     assert any(e['command'] == 'semforge.refreshModel' for e in seen['executed'])
+
+
+# --- editing from the page ----------------------------------------------------------------
+
+def _first_editable(page):
+    for f, file in enumerate(page['files']):
+        for c, card in enumerate(file['cards']):
+            for r, row in enumerate(card['attributes']):
+                if (row.get('node') or {}).get('editable'):
+                    return f'{f}.{c}.{r}', card, row
+    raise AssertionError('no editable row')
+
+
+def test_every_card_and_row_carries_the_tree_row_it_edits(without):
+    for file in without['files']:
+        for card in file['cards']:
+            assert card['node']['kind'] == 'entity' and card['node']['entity'] == card['id']
+            assert 'children' not in card['node']
+    _, card, row = _first_editable(without)
+    assert row['node']['entity'] == card['id']
+    assert row['attributeNode']['attributePath'][-1] == row['term']
+
+
+def test_the_page_offers_editing(tmp_path, without):
+    html = _render(tmp_path, without)
+    at, _, _ = _first_editable(without)
+    assert f'data-edit="{at}"' in html and f'data-rowmenu="{at}"' in html
+    assert 'data-addattr="0.0"' in html and 'data-addentity="0"' in html
+
+
+def _edit(tmp_path, page, messages, **extra):
+    scenario = dict({
+        'command': 'semforge.openCasePage',
+        'node': {'raw': {'kind': 'example', 'label': 'without-cartridge.jsonld',
+                         'file': page['file'], 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': messages,
+        'replies': {'semforge/casePage': dict(page, ok=True)}}, **extra)
+    seen = _node(tmp_path, scenario, 'extension.js')
+    assert seen['errors'] == [], seen['errors']
+    return seen
+
+
+def _ran(seen, command):
+    return [e['args'][0] for e in seen['executed'] if e['command'] == command]
+
+
+def test_a_value_click_runs_edit_value_and_re_renders(tmp_path, without):
+    at, _, row = _first_editable(without)
+    seen = _edit(tmp_path, without, [{'command': 'edit', 'at': at}])
+    assert _ran(seen, 'semforge.editValue') == [
+        {'raw': row['node'], 'packageUri': 'file:///pkg/shacl.ttl'}]
+    assert len([r for r in seen['requests'] if r['method'] == 'semforge/casePage']) == 2
+
+
+def test_add_attribute_and_add_entity_use_the_tree_commands(tmp_path, without):
+    seen = _edit(tmp_path, without, [{'command': 'addAttribute', 'at': '0.0'},
+                                     {'command': 'addEntity', 'at': '0'}])
+    card = without['files'][0]['cards'][0]
+    assert _ran(seen, 'semforge.addAttribute')[0]['raw'] == card['node']
+    assert _ran(seen, 'semforge.addEntity')[0]['raw'] == {
+        'kind': 'example', 'file': without['files'][0]['path']}
+
+
+@pytest.mark.parametrize('pick, command, which', [
+    (1, 'semforge.addSubAttribute', 'attributeNode'),
+    (2, 'semforge.addObservation', 'attributeNode'),
+    (3, 'semforge.goToShape', 'node')])
+def test_the_row_menu(tmp_path, without, pick, command, which):
+    at, _, row = _first_editable(without)
+    seen = _edit(tmp_path, without, [{'command': 'rowMenu', 'at': at}], pick=pick)
+    labels = [item['label'] for item in seen['quickPicks'][0]['items']]
+    assert labels == ['$(edit) Edit value', '$(add) Add sub-attribute',
+                      '$(history) Add observation', '$(symbol-ruler) Go to the SHACL rule',
+                      '$(go-to-file) Open in .jsonld']
+    assert _ran(seen, command)[0]['raw'] == row[which]
+
+
+def test_a_dismissed_row_menu_changes_nothing(tmp_path, without):
+    at, _, _ = _first_editable(without)
+    seen = _edit(tmp_path, without, [{'command': 'rowMenu', 'at': at}])
+    assert len([r for r in seen['requests'] if r['method'] == 'semforge/casePage']) == 1
+
+
+# --- the Model data page ----------------------------------------------------------------
+
+@pytest.fixture(scope='module')
+def model(corpus):
+    from semforge.cooked.casepage import build_model_page
+    return build_model_page(corpus)
+
+
+def test_the_model_page_shows_the_model_files_and_their_violations(model):
+    assert model['kind'] == 'model' and model['claims'] == []
+    assert model['files'] and all(f['role'] == 'model' for f in model['files'])
+    cards = _cards(model)
+    assert cards and all(c['node']['kind'] == 'entity' for c in cards.values())
+    counted = sum(len(c['violations']) for c in cards.values()) + sum(
+        _violations(row) for c in cards.values() for row in c['attributes'])
+    assert counted == model['summary']['violations']
+
+
+def _violations(row):
+    return len(row['violations']) + sum(_violations(c) for c in row.get('children', []))
+
+
+def test_the_model_page_has_no_claims_or_verdict(tmp_path, model):
+    html = _render(tmp_path, model)
+    assert 'Claims' not in html and 'expects' not in html and 'passes' not in html
+    assert 'Open the model file' in html and 'data-addentity="0"' in html
+
+
+def test_sub_attributes_get_their_own_rows(model):
+    nested = [(row, child) for file in model['files'] for card in file['cards']
+              for row in card['attributes'] for child in row.get('children', [])]
+    assert nested
+    for row, child in nested:
+        assert child['node'] and child['attributeNode']['attributePath'][-1] == child['term']
+        assert len(child['attributeNode']['attributePath']) > len(
+            row['attributeNode']['attributePath'])
+
+
+def test_an_edit_shows_on_the_next_render_of_the_model_page(kms, monkeypatch):
+    from unittest import mock
+
+    from semforge.editor import server
+
+    monkeypatch.setattr(server, '_publish', lambda *args: None)
+    uri = 'file://' + os.path.join(kms, 'shacl.ttl')
+    page = server.model_page_feature(mock.MagicMock(), {'uri': uri})
+    assert page['ok'], page
+    card, row = next((c, r) for f in page['files'] for c in f['cards']
+                     for r in c['attributes']
+                     if (r.get('node') or {}).get('editable') and str(r['value'])[:1].isdigit())
+    node = row['node']
+    done = server.set_example_value(mock.MagicMock(), {
+        'uri': uri, 'entity': node['entity'], 'path': node['path'],
+        'file': node['file'], 'value': '77'})
+    assert done['ok'], done
+    again = server.model_page_feature(mock.MagicMock(), {'uri': uri})
+    assert not again['cached']
+    after = _rows(_cards(again)[card['id']])[row['name']]
+    assert after['value'] == '77' and after['value'] != row['value']

@@ -142,6 +142,105 @@ def _cards(path, role, shared_by, violations):
     return cards
 
 
+# --- the rows the editing commands act on --------------------------------------------
+
+def _bare(node):
+    """A Tests-tree row without its children: what a command needs."""
+    return {k: v for k, v in node.items() if k != 'children'}
+
+
+def _tree_entities(package):
+    """{(entity id, absolute file): its Tests-tree row} over every case and
+    the model -- the rows Add Attribute, Edit Value and the rest act on, so
+    the page edits through the same commands the tree does."""
+    from ..editor.server import _serialise_example
+    from .examples import build_suite
+
+    found = {}
+
+    def walk(node):
+        if node.get('kind') == 'entity' and node.get('file'):
+            found.setdefault((node['entity'], os.path.abspath(node['file'])), node)
+        for child in node.get('children', []):
+            walk(child)
+
+    for root in build_suite(package):
+        walk(_serialise_example(root))
+    return found
+
+
+def _attach(rows, holder):
+    """Give each card row the tree rows it edits through: `node`, whose
+    value Edit Value changes, and `attributeNode`, which sub-attributes and
+    observations are added to."""
+    attributes = [c for c in holder.get('children', []) if c.get('kind') == 'attribute']
+    seen = {}
+    for row in rows:
+        node = next((a for a in attributes
+                     if [s for s in a.get('attributePath', []) if isinstance(s, str)][-1:]
+                     == [row['term']]), None)
+        if node is None:
+            continue
+        position = seen.get(row['term'], 0)
+        seen[row['term']] = position + 1
+        instances = [c for c in node.get('children', [])
+                     if c.get('kind') in ('instance', 'dataset')]
+        target = instances[position] if position < len(instances) else node
+        row['node'] = _bare(target)
+        row['attributeNode'] = _bare(node)
+        if row.get('children'):
+            _attach(row['children'], target)
+
+
+def attach_editing(package, files):
+    """Every card and row of these files, joined to its Tests-tree row."""
+    entities = _tree_entities(package)
+    for file in files:
+        for card in file['cards']:
+            node = entities.get((card['id'], os.path.abspath(card['file'])))
+            if node is None:
+                continue
+            card['node'] = _bare(node)
+            _attach(card['attributes'], node)
+
+
+def build_model_page(package):
+    """The model data -- main.jsonld or the model files -- as cards, each
+    entity with what is wrong with it, edited like a case. No claims: the
+    model declares nothing and cannot fail; its violations are information."""
+    from ..validate import validate_package
+
+    report = validate_package(package, strict=False)
+    violations = {}
+    for result in report.violations:
+        violations.setdefault((str(result.resource), result.attribute or None),
+                              []).append(_explain(result))
+    files = []
+    for path in package.files('model'):
+        if not path.endswith(('.jsonld', '.json')):
+            continue
+        files.append({'role': 'model', 'path': os.path.abspath(path),
+                      'relative': os.path.relpath(path, package.path), 'sharedBy': [],
+                      'cards': _cards(path, 'model', [], violations)})
+    # What is about an attribute the entity does not carry: on its card.
+    for card in (c for f in files for c in f['cards']):
+        for (resource, attribute) in list(violations):
+            if resource == card['id']:
+                card['violations'].extend(violations.pop((resource, attribute)))
+    attach_editing(package, files)
+    return {
+        'kind': 'model', 'name': 'Model data', 'case': '', 'expect': '', 'group': '',
+        'suite': '',
+        'description': 'The model as shipped: what the platform runs on. It declares '
+                       'nothing and cannot fail; its violations are information.',
+        'passed': True, 'failures': [], 'claims': [], 'unasserted': [],
+        'residuePinned': False, 'file': files[0]['path'] if files else '',
+        'expectations': '', 'files': files,
+        'summary': {'entities': sum(len(f['cards']) for f in files),
+                    'violations': len(report.violations), 'includes': 0},
+    }
+
+
 def _explain(result):
     """{'text', 'shape', 'detail'}: what is wrong, by whom, and the engine's
     own words for whoever wants them."""
@@ -231,6 +330,7 @@ def build_case_page(package, case):
             (holder['violations'] if holder else card['violations']).extend(found)
 
     expectations_file = example.source
+    attach_editing(package, files)
     return {
         'case': example.path, 'name': os.path.basename(example.path),
         'description': example.description, 'expect': example.expect,

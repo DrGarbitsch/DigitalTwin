@@ -95,6 +95,16 @@ def test_the_model_scratchpad_has_no_page_and_opens_its_source(tmp_path):
     assert seen['shown'][0]['file'] == '/pkg/model-instance.jsonld'
 
 
+def test_the_model_data_row_opens_the_model_page(tmp_path):
+    seen = _click(tmp_path, 'semforgeModel',
+                  {'kind': 'example', 'label': 'Model data',
+                   'definedAt': '/pkg/model-instance.jsonld:1'})
+    assert _opened(seen, 'semforge.openCasePage') == []
+    opened = _opened(seen, 'semforge.openModelPage')
+    assert len(opened) == 1 and opened[0][1] == {'preserveFocus': True}
+    assert seen['shown'] == []
+
+
 def test_an_entity_type_in_the_knowledge_opens_its_page(tmp_path):
     seen = _click(tmp_path, 'semforgeKnowledge',
                   {'kind': 'class', 'role': 'entityType', 'label': 'Filter',

@@ -263,6 +263,11 @@
         "icon": "$(preview)"
       },
       {
+        "command": "semforge.openModelPage",
+        "title": "SemForge: Open model data page",
+        "icon": "$(preview)"
+      },
+      {
         "command": "semforge.openHealthPage",
         "title": "SemForge: Open package health",
         "icon": "$(pulse)"

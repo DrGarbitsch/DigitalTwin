@@ -71,6 +71,16 @@ function caseOf(provider, node) {
   return undefined;
 }
 
+/** The model scratchpad ("Model data") holding a node, or undefined. */
+function modelOf(provider, node) {
+  for (let at = node; at; at = provider.getParent(at)) {
+    if (at.raw.kind === 'example') {
+      return !at.raw.file && DATA.includes(at.raw.label) ? at : undefined;
+    }
+  }
+  return undefined;
+}
+
 function attributeOf(raw) {
   const address = [].concat(raw.attributePath || [], raw.path || []);
   const names = address.filter((part) => typeof part === 'string' &&
@@ -768,10 +778,14 @@ function register(context, clientHolder, session, onChanged) {
       }
       // A row inside a test case opens the case page, its entity marked: the
       // page shows the claims and the data together, which the .jsonld does
-      // not. Rows outside a case (the model scratchpad) have no page yet.
+      // not. Rows of the model scratchpad open the Model data page instead.
       const holder = treeClick() === 'page' ? caseOf(provider, selected) : undefined;
+      const model = treeClick() === 'page' && !holder ? modelOf(provider, selected) : undefined;
       if (holder) {
         await vscode.commands.executeCommand('semforge.openCasePage', holder,
+          { focus: selected.raw.entity || undefined, preserveFocus: true });
+      } else if (model) {
+        await vscode.commands.executeCommand('semforge.openModelPage', model,
           { focus: selected.raw.entity || undefined, preserveFocus: true });
       } else if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
