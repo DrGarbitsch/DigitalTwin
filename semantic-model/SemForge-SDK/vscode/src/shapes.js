@@ -200,6 +200,9 @@ async function newShape(clientHolder, session, node, options) {
   for (const command of ['semforge.refreshShapes', 'semforge.refreshTree']) {
     vscode.commands.executeCommand(command);
   }
+  if (options && options.quiet) {
+    return made;                       // the caller goes straight on with it
+  }
   if (options && options.stay) {
     // Asked from the type page, which re-renders with + Attribute.
     vscode.window.showInformationMessage(

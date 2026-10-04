@@ -131,6 +131,22 @@ def test_a_new_subtype_is_a_type_with_its_parent_s_constraints(package):
     assert all(a['inherited'] for a in page['attributes'])
 
 
+def test_a_new_subtype_s_own_shape_takes_attributes_at_once(package):
+    """+ Attribute on a shapeless subtype writes its shape, then offers what
+    the knowledge gives the type -- what Cutter's shape already constrains is
+    marked inherited, everything else is free to add."""
+    from semforge.cooked.constrain import attribute_options
+    from semforge.cooked.shapes import add_shape
+
+    made = add_entity_type(package, 'Watercutter', 'iffBaseEntities:Cutter')
+    shape = add_shape(load(package.path), 'WatercutterShape', 'class', made['iri'])
+    options = attribute_options(load(package.path), shape['iri'])
+    assert options
+    assert {o['status'] for o in options} <= {'free', 'inherited'}
+    assert any(o['status'] == 'inherited' and o['by'].endswith('CutterShape')
+               for o in options)
+
+
 def test_a_new_type_is_refused_under_something_that_is_not_a_type(package):
     with pytest.raises(PackageError) as raised:
         add_entity_type(package, 'Thing', 'iffBaseKnowledge:MachineState')

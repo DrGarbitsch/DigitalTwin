@@ -271,8 +271,10 @@ function renderTypePage(page, options) {
 <h1>${escape(page.label)}</h1>
 <div class="chips">${chips}</div>
 <div class="bar">
-  ${page.ownShape ? '<button class="primary" data-action="addAttribute">+ Attribute</button>'
-    : '<button class="primary" data-action="createShape" title="Write a shape targeting this type, so its attributes can be constrained here">Create its shape</button>'}
+  <button class="primary" data-action="addAttribute" title="${page.ownShape
+    ? `Add an attribute to ${escape(page.ownShapeName)}`
+    : `${escape(page.label)} has no shape of its own yet: one is created for it first`}">+ Attribute</button>
+  ${page.ownShape ? '' : '<button data-action="createShape" title="Write an empty shape targeting this type, e.g. for a SPARQL rule">Create its shape</button>'}
   ${page.shapeAt ? `<button data-open="${escape(page.shapeAt)}">Open the shape in .ttl</button>` : ''}
   <button data-action="newSubtype" title="Declare a new entity type that is a kind of ${escape(page.label)}">New subtype…</button>
   <button data-refresh="1">Refresh</button>
@@ -855,13 +857,41 @@ async function override(pages, row) {
 }
 
 async function addAttribute(pages) {
-  if (!pages.page.ownShape) {
-    return false;
+  return addAttributeToType(pages.current.packageUri, {
+    iri: pages.page.iri, label: pages.page.label,
+    shapes: pages.page.ownShape
+      ? [{ shape: pages.page.ownShape, label: pages.page.ownShapeName }] : [] });
+}
+
+/**
+ * + Attribute on a type: the attribute goes into one of the type's OWN shapes.
+ * A type with none yet -- a new subtype, judged only by what it inherits --
+ * gets one first (its name is asked, prefilled), so adding an attribute never
+ * stops at "create a shape first".
+ */
+async function addAttributeToType(packageUri, type) {
+  let target = type.shapes[0];
+  if (type.shapes.length > 1) {
+    const picked = await vscode.window.showQuickPick(
+      type.shapes.map((s) => ({ label: s.label, shape: s })),
+      { title: `+ Attribute on ${type.label}: into which of its shapes?` });
+    if (!picked) {
+      return false;
+    }
+    target = picked.shape;
+  }
+  if (!target) {
+    const made = await vscode.commands.executeCommand('semforge.newShape', {
+      raw: { kind: 'type', targetClass: type.iri, label: type.label }, packageUri },
+    { stay: true, quiet: true });
+    if (!made) {
+      return false;
+    }
+    target = { shape: made.iri, label: made.name };
   }
   await vscode.commands.executeCommand('semforge.addAttributeConstraint', {
-    raw: { kind: 'shape', shape: pages.page.ownShape, label: pages.page.ownShapeName,
-      inheritedFrom: '' },
-    packageUri: pages.current.packageUri });
+    raw: { kind: 'shape', shape: target.shape, label: target.label, inheritedFrom: '' },
+    packageUri });
   return true;
 }
 
@@ -914,6 +944,27 @@ function register(context, clientHolder, session) {
         await pages.show(packageUri, entityType, focusOf(node),
           !!(options && options.preserveFocus));
       }
+    }),
+    // + Attribute on a type row in the Types view: its own shapes are the
+    // children not marked inherited.
+    vscode.commands.registerCommand('semforge.addTypeAttribute', async (node) => {
+      const raw = node && node.raw;
+      const packageUri = (node && node.packageUri) || session.uri;
+      if (!raw || !packageUri || !clientHolder.client) {
+        return false;
+      }
+      const shapes = (raw.children || [])
+        .filter((c) => c.kind === 'shape' && !c.inheritedFrom && c.shape)
+        .map((c) => ({ shape: c.shape, label: c.label }));
+      const changed = await addAttributeToType(packageUri,
+        { iri: typeOf(node), label: raw.label, shapes });
+      if (changed) {
+        for (const command of REFRESH_VIEWS) {
+          vscode.commands.executeCommand(command);
+        }
+        pages.refresh();
+      }
+      return changed;
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );

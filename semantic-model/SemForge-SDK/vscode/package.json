@@ -268,6 +268,11 @@
         "icon": "$(symbol-class)"
       },
       {
+        "command": "semforge.addTypeAttribute",
+        "title": "SemForge: + Attribute",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.newSubtype",
         "title": "SemForge: New subtype…",
         "icon": "$(type-hierarchy-sub)"
@@ -731,9 +736,14 @@
           "group": "1_add@1"
         },
         {
-          "command": "semforge.newSubtype",
+          "command": "semforge.addTypeAttribute",
           "when": "view == semforgeConstraints && viewItem == type",
           "group": "1_add@0"
+        },
+        {
+          "command": "semforge.newSubtype",
+          "when": "view == semforgeConstraints && viewItem == type",
+          "group": "1_add@2"
         },
         {
           "command": "semforge.newTestCase",

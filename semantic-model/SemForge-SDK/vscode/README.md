@@ -172,6 +172,13 @@ lacks is a shape of its own, so the message offers **Create its shape**
 (then its attributes and constraints go on the shape page) or **Open its
 type page**.
 
+**+ Attribute** works on such a type anyway — on its type page and on its
+row in Types. The attribute has to live in a shape of the type's own, so when
+there is none yet the shape is written first (its name asked, prefilled with
+e.g. `WatercutterShape`), and the attribute picker opens on it straight away.
+Attributes a parent's shape already constrains are marked *inherited* there:
+to make one stricter for the subtype, use **Override** on its row instead.
+
 ### Adding an attribute
 
 Same rule, one level down. The **+** on an entity offers the attributes the

@@ -856,6 +856,65 @@ def test_a_type_without_a_shape_offers_to_create_it(tmp_path):
     assert asked[0][1] == {'stay': True}, 'the type page stays, for + Attribute'
 
 
+SHAPELESS_PAGE = {'ok': True, 'iri': 'https://x/Watercutter', 'label': 'Watercutter',
+                  'crumbs': [], 'summary': {}, 'attributes': [], 'rules': [],
+                  'exercisedBy': [], 'instances': [], 'subtypes': [], 'ownShape': ''}
+CREATED = {'ok': True, 'iri': 'https://x/WatercutterShape', 'name': 'WatercutterShape'}
+
+
+def _type_page_plus(tmp_path, page, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': page['label'], 'targetClass': page['iri'],
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'addAttribute', 'row': -1}],
+        'replies': {'semforge/typePage': page}}, **scenario))
+
+
+def test_plus_attribute_is_offered_before_the_type_has_a_shape(tmp_path):
+    seen = _type_page_plus(tmp_path, SHAPELESS_PAGE,
+                           commandResults={'semforge.newShape': CREATED})
+    html = seen['webviews'][0]['html'][0]
+    assert 'data-action="addAttribute"' in html, 'not only "Create its shape"'
+    made = _opened(seen, 'semforge.newShape')
+    assert made[0][0]['raw']['targetClass'] == 'https://x/Watercutter'
+    assert made[0][1] == {'stay': True, 'quiet': True}
+    added = _opened(seen, 'semforge.addAttributeConstraint')
+    assert added[0][0]['raw'] == {'kind': 'shape', 'shape': CREATED['iri'],
+                                  'label': 'WatercutterShape', 'inheritedFrom': ''}
+    assert len([r for r in seen['requests'] if r['method'] == 'semforge/typePage']) == 2
+
+
+def test_no_shape_name_no_attribute(tmp_path):
+    seen = _type_page_plus(tmp_path, SHAPELESS_PAGE)
+    assert _opened(seen, 'semforge.newShape')
+    assert _opened(seen, 'semforge.addAttributeConstraint') == []
+
+
+def test_a_type_with_its_own_shape_adds_to_it(tmp_path):
+    page = dict(SHAPELESS_PAGE, ownShape='https://x/CutterShape', ownShapeName='ex:CutterShape')
+    seen = _type_page_plus(tmp_path, page)
+    assert _opened(seen, 'semforge.newShape') == []
+    added = _opened(seen, 'semforge.addAttributeConstraint')
+    assert added[0][0]['raw']['shape'] == 'https://x/CutterShape'
+
+
+def test_plus_attribute_on_a_types_row_that_only_inherits(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addTypeAttribute',
+        'node': {'raw': {'kind': 'type', 'label': 'Watercutter',
+                         'targetClass': 'https://x/Watercutter', 'children': [
+                             {'kind': 'shape', 'label': 'ex:CutterShape',
+                              'shape': 'https://x/CutterShape', 'inheritedFrom': 'Cutter',
+                              'children': []}]},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'commandResults': {'semforge.newShape': CREATED}, 'replies': {}})
+    assert seen['errors'] == [], seen['errors']
+    assert _opened(seen, 'semforge.newShape'), 'the inherited CutterShape is not its own'
+    added = _opened(seen, 'semforge.addAttributeConstraint')
+    assert added[0][0]['raw']['shape'] == CREATED['iri']
+
+
 # --- the shape page's node selector ---------------------------------------------------------
 
 SELECTING = dict(EDITABLE_SHAPE, targets=[

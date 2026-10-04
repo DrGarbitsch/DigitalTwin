@@ -211,7 +211,9 @@ const stub = {
     // by what it asked for. Running it too would need that command's replies.
     executeCommand: (command, ...args) => {
       seen.executed.push({ command, args });
-      return Promise.resolve(undefined);
+      // `commandResults` answers for a command another one chains on (a
+      // shape created first, then filled).
+      return Promise.resolve((scenario.commandResults || {})[command]);
     }
   },
   EventEmitter: class {
