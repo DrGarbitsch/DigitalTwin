@@ -111,7 +111,8 @@ def test_the_model_folds_type_rows_and_says_each_value_once(full):
     assert values['hasState'] == 'state_ON'
     cartridge = [n['detail'] for _, n in _walk(slim)
                  if n.get('label') == 'hasCartridge' and n['kind'] == 'attribute']
-    assert cartridge and cartridge[0] == 'urn:cartridge:1', 'no JSON quotes'
+    assert 'urn:cartridge:1' in cartridge
+    assert cartridge and not any(d.startswith('"') for d in cartridge), 'no JSON quotes'
     assert not any('Property' in n.get('detail', '').split(' · ')
                    for _, n in _walk(slim) if n['kind'] == 'attribute')
 
@@ -129,17 +130,15 @@ def test_the_entity_types_are_the_types_view_s_not_the_knowledge_s(full):
     assert 'Entity types' in full_groups, 'full mode keeps everything'
 
 
-def test_tests_holds_suites_and_cases_then_the_model_data(full):
+def test_instances_are_main_then_tests(full):
     slim = slim_model(full['model'])
-    labels = [n['label'] for n in slim]
-    assert 'Tests' not in labels and 'Main' not in labels
-    assert labels[-1] == 'Model data'
-    suites = [n for n in slim if n['kind'] == 'suite']
+    assert [n['label'] for n in slim] == ['Main', 'Tests']
+    main, tests = slim
+    assert main['detail'] == '8 entities · 3 violation(s)'
+    assert main['severity'] == 'warning'
+    suites = [n for n in tests['children'] if n['kind'] == 'suite']
     assert 'FilterShape' in [s['label'] for s in suites]
     assert all(s.get('term', '').startswith('test_') for s in suites)
-    data = slim[-1]
-    assert data['detail'] == '8 entities · 3 violation(s)'
-    assert data['severity'] == 'warning'
 
 
 def test_a_vocabulary_class_counts_values(full):

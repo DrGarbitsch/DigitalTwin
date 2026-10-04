@@ -25,8 +25,10 @@ def package(tmp_path, corpus):
 
 
 def _cases(roots):
-    """Every example node, whether it sits in a suite or loose."""
-    return [n for _, n in flatten(roots) if n.kind == 'example']
+    """Every declared case, whether it sits in a suite or loose -- under Tests,
+    not the model's own documents under Main."""
+    tests = [r for r in roots if r.kind == 'group' and r.label == 'Tests'] or roots
+    return [n for _, n in flatten(tests) if n.kind == 'example']
 
 
 def _find(nodes, label, kind=None):
@@ -401,10 +403,10 @@ def test_the_tree_has_two_sections(corpus):
     from semforge.cooked.examples import build_suite
 
     sections = build_suite(corpus)
-    assert [n.label for n in sections] == ['Tests', 'Main']
+    assert [n.label for n in sections] == ['Main', 'Tests']
     assert all(n.kind == 'group' for n in sections)
 
-    tests, main = sections
+    main, tests = sections
     assert '6 case(s)' in tests.detail and 'all ok' in tests.detail
     assert 'not failures' in main.detail
     assert {n.kind for n in main.children} == {'example'}
@@ -413,7 +415,7 @@ def test_the_tree_has_two_sections(corpus):
 def test_cases_are_grouped_by_suite(corpus):
     from semforge.cooked.examples import build_suite
 
-    tests = build_suite(corpus)[0]
+    tests = build_suite(corpus)[1]
     suites = {n.label: n for n in tests.children}
     assert {'test_StateOnCutterShape', 'test_WorkpieceShape',
             'test_FilterShape', 'test_CartridgeShape'} <= set(suites)
@@ -426,7 +428,7 @@ def test_cases_are_grouped_by_suite(corpus):
 def test_the_shipped_model_is_under_main(corpus):
     from semforge.cooked.examples import build_suite
 
-    main = build_suite(corpus)[1]
+    main = build_suite(corpus)[0]
     documents = {n.label: n for n in main.children}
     assert 'model-instance.jsonld' in documents
     assert 'the model as shipped' in documents['model-instance.jsonld'].detail

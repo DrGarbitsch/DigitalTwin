@@ -274,13 +274,12 @@ def slim_model(roots, payload=None):
 
 
 def tests_view(roots):
-    """The Tests view: suites and cases at the top, the model document as one
-    "Model data" row after them.
+    """The Instances view: two groups, Main (the model's own data) first and
+    Tests (the cases) after it -- both are instance data, judged differently.
 
-    The Tests and Main groups were two levels saying what each row already
-    says: a suite is a test, the model document is data. A suite reads by its
-    shape ("FilterShape", not "test_FilterShape"); the directory stays in the
-    tooltip."""
+    Main says in one line how many entities it holds and whether any is
+    violated. A suite reads by its shape ("FilterShape", not
+    "test_FilterShape"); the directory stays in the tooltip."""
     out, data = [], None
     for root in roots:
         if root.get('kind') == 'group' and root.get('label') == 'Tests':
@@ -289,7 +288,7 @@ def tests_view(roots):
                         str(suite.get('label', '')).startswith('test_'):
                     suite['term'] = suite['label']
                     suite['label'] = suite['label'][len('test_'):]
-                out.append(suite)
+            out.append(root)
         elif root.get('kind') == 'group' and root.get('label') == 'Main':
             data = root
         else:
@@ -300,11 +299,10 @@ def tests_view(roots):
         for entity in entities:
             found = re.search(r'(\d+) violation', str(entity.get('detail', '')))
             violations += int(found.group(1)) if found else 0
-        data['label'] = 'Model data'
         data['detail'] = f'{len(entities)} entities · ' + (
             f'{violations} violation(s)' if violations else 'all valid')
         data['severity'] = 'warning' if violations else ''
-        out.append(data)
+        out.insert(0, data)
     return out
 
 

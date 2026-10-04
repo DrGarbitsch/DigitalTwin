@@ -96,7 +96,7 @@ def test_the_model_scratchpad_has_no_page_and_opens_its_source(tmp_path):
 
 
 # The Tests tree as the server sends it: the model's data is a GROUP ("Main",
-# or "Model data"), under it one example per model file, without a case file.
+# first), under it one example per model file, without a case file.
 TESTS_TREE = [
     {'kind': 'group', 'label': 'Tests', 'children': [
         {'kind': 'suite', 'label': 'test_MachineShape', 'children': [
@@ -464,7 +464,9 @@ def test_new_case_writes_the_case_and_opens_it(tmp_path):
 def test_the_views_are_named_for_what_they_hold():
     with open(PACKAGE_JSON) as handle:
         views = json.load(handle)['contributes']['views']['semforge']
-    assert [v['name'] for v in views] == ['Package', 'Types', 'Shapes', 'Tests',
+    # Instances holds the model's own data (Main) and the test cases (Tests):
+    # both are instance data, next to the three views of the schema.
+    assert [v['name'] for v in views] == ['Package', 'Types', 'Shapes', 'Instances',
                                           'Vocabulary']
 
 

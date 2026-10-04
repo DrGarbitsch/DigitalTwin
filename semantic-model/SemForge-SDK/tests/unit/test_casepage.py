@@ -197,19 +197,19 @@ def test_the_case_row_carries_its_file(corpus):
     assert all(not n.file for n in rows if n.label not in declared)
 
 
-def test_the_model_row_opens_the_model_data_page(tmp_path):
-    page = {'ok': True, 'kind': 'model', 'name': 'Model data', 'files': [], 'claims': [],
+def test_the_main_row_opens_the_main_page(tmp_path):
+    page = {'ok': True, 'kind': 'model', 'name': 'Main', 'files': [], 'claims': [],
             'unasserted': [], 'file': '/pkg/model-instance.jsonld',
             'summary': {'entities': 0, 'violations': 0}}
     seen = _node(tmp_path, {
         'command': 'semforge.openCasePage',
-        'node': {'raw': {'kind': 'example', 'label': 'Model data',
+        'node': {'raw': {'kind': 'example', 'label': 'model-instance.jsonld',
                          'file': '', 'children': []},
                  'packageUri': 'file:///pkg/shacl.ttl'},
         'replies': {'semforge/modelPage': page}}, 'extension.js')
     assert seen['errors'] == [], seen['errors']
     assert [r['method'] for r in seen['requests']] == ['semforge/modelPage']
-    assert seen['webviews'][0]['title'] == 'Model data'
+    assert seen['webviews'][0]['title'] == 'Main · instances'
 
 
 # --- "Assert it" ------------------------------------------------------------------------
@@ -397,7 +397,7 @@ def test_a_dismissed_row_menu_changes_nothing(tmp_path, without):
     assert len([r for r in seen['requests'] if r['method'] == 'semforge/casePage']) == 1
 
 
-# --- the Model data page ----------------------------------------------------------------
+# --- the Main page ----------------------------------------------------------------
 
 @pytest.fixture(scope='module')
 def model(corpus):

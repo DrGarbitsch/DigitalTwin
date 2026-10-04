@@ -58,7 +58,8 @@ function keyOf(raw, parentKey, position) {
  * named the parent -- the jump would land on the wrong shape and the value
  * picker would offer the wrong class.
  */
-// The model document's row: "Main" in full mode, "Model data" in summary.
+// The model's own data in the Instances view. "Model data" is what an older
+// language server called it in summary mode.
 const DATA = ['Main', 'Model data'];
 
 /** The test case a row belongs to (the row itself, or an ancestor). */
@@ -72,8 +73,8 @@ function caseOf(provider, node) {
 }
 
 /**
- * The model's own data holding a node, or undefined. In the Tests tree that
- * is a "Main" / "Model data" GROUP, under it one example per model file
+ * The model's own data holding a node, or undefined. In the Instances view that
+ * is the "Main" GROUP, under it one example per model file
  * (labelled by the file, e.g. main.jsonld) -- an example without a case file.
  */
 function modelOf(provider, node) {
@@ -234,7 +235,7 @@ class ModelTreeProvider {
     const item = new vscode.TreeItem(
       raw.label || raw.kind,
       hasChildren
-        ? (raw.kind === 'example' && !raw.severity) || raw.label === 'Model data'
+        ? (raw.kind === 'example' && !raw.severity)
           ? vscode.TreeItemCollapsibleState.Collapsed
           : vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.None
@@ -838,7 +839,7 @@ function register(context, clientHolder, session, onChanged) {
       }
       // A row inside a test case opens the case page, its entity marked: the
       // page shows the claims and the data together, which the .jsonld does
-      // not. Rows of the model scratchpad open the Model data page instead.
+      // not. Rows under Main open the Main page instead.
       const holder = treeClick() === 'page' ? caseOf(provider, selected) : undefined;
       const model = treeClick() === 'page' && !holder ? modelOf(provider, selected) : undefined;
       if (holder) {

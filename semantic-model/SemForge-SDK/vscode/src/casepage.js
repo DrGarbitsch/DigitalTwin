@@ -308,7 +308,7 @@ class CasePages {
     }
     this.page = page;
     this.panel.title = page.kind === 'model'
-      ? 'Model data' : `${page.name.replace(/\.jsonld$/, '')} · test case`;
+      ? 'Main · instances' : `${page.name.replace(/\.jsonld$/, '')} · test case`;
     this.panel.webview.html = renderCasePage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }
@@ -346,7 +346,7 @@ class CasePages {
   }
 
   /**
-   * Editing from the page goes through the Tests tree's own commands, given
+   * Editing from the page goes through the Instances view's own commands, given
    * the tree row the server attached -- so the page asks the same questions
    * (the shape's allowed values, a known attribute) and writes the same way.
    * Afterwards the case re-runs and the page shows what the change did.
@@ -457,7 +457,7 @@ function register(context, clientHolder, session) {
       }
       if (node && node.raw && !node.raw.file) {
         // The model scratchpad sits in the same tree as the cases but is not
-        // one: it has no claims to check, so it gets the Model data page.
+        // one: it has no claims to check, so it gets the Main page.
         await pages.show(packageUri, MODEL, options && options.focus,
           !!(options && options.preserveFocus));
         return;

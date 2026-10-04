@@ -826,7 +826,7 @@ same two layers an attribute gets, *inside* the parent's `sh:property [ … ]`:
                 sh:datatype xsd:double ] ] ]
 ```
 
-In the Tests view, right-click an attribute → **SemForge: Add Sub-attribute**
+In the Instances view, right-click an attribute → **SemForge: Add Sub-attribute**
 puts one into that attribute instance — the one the row shows, chosen by its
 datasetId when the attribute has several. An entity attribute is refused
 inside another attribute, a sub-attribute is refused inside a parent of the
@@ -891,7 +891,7 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **Rescan** on the page rebuilds everything from scratch, ignoring the cache.
 
-**New test case… — adding a test file.** The `+` in the Tests view title (also:
+**New test case… — adding a test file.** The `+` in the Instances view title (also:
 right-click a suite, the status bar menu) asks:
 
 - **which suite** — an existing one, or a new one for a shape (`test_PumpShape`);
@@ -938,7 +938,7 @@ mechanically (a Relationship that is not an IRI) say what to edit instead.
 
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
-over up to nine levels. A click on a case in the Tests view, or on
+over up to nine levels. A click on a case in the Instances view, or on
 any row inside it (or **SemForge: Open test case page**), opens a page that answers them in
 that order:
 
@@ -960,7 +960,7 @@ Ids, attributes and files link to their line; an entity's type opens the
 type page.
 
 **Editing on the page.** The data is edited where you read it, through the
-same commands as the Tests tree (so the same pickers: a known attribute, the
+same commands as the Instances view (so the same pickers: a known attribute, the
 values the shape allows):
 
 - a value you can change is a link — click it to edit it;
@@ -972,9 +972,9 @@ After a change the case runs again and the page re-renders, so you see the
 claims move. An edit in an include still changes every case that shares it —
 the file's header says how many.
 
-**The Model data page.** The package's own `model-instance.jsonld` (or
-`main.jsonld`) has no claims, but it has entities and violations. A click on
-**Model data** in the Tests view, or on any row inside it, opens the same
+**The Main page.** The package's own `main.jsonld` (or
+`model-instance.jsonld`) has no claims, but it has entities and violations. A
+click on **Main** in the Instances view, or on any row inside it, opens the same
 cards for it: entity and violation counts instead of *expects/passes*, no
 claims, and the same editing. Violations here are information — the model
 declares nothing, so it cannot fail.
@@ -1000,7 +1000,7 @@ thing, said once (the `semforge.trees.detail` setting, `summary`):
 |---|---|---|
 | Types | the entity type hierarchy; under each type its OWN attributes (`hasCartridge — required · one · → FilterCartridge`, an inverse path as `inverse of hasCartridge`) and one **Rules** row, then its subtypes. Inherited attributes are on the type page, not repeated under every subtype | types → shapes → every SHACL parameter as a row, editable in place (192 rows for the kms) |
 | Shapes | every shape, prefixes dropped where unique | every shape, full names |
-| Tests | the suites and their cases at the top (`FilterShape — 1 case(s) · all ok`), the model document last as one **Model data** row (`8 entities · 3 violation(s)`), closed; an entity's type in its row, each value once (`hasStrength — 0.6`) | **Tests** and **Main** groups, a separate `type` row, `0.6 — 0.6 · Property` |
+| Instances | **Main** first (`8 entities · 3 violation(s)`), then **Tests** with its suites by shape (`FilterShape — 1 case(s) · all ok`); an entity's type in its row, each value once (`hasStrength — 0.6`) | the same two groups, suites as `test_FilterShape`, a separate `type` row, `0.6 — 0.6 · Property` |
 | Vocabulary | no Entity types group (that is the Types view); a vocabulary class counts its values (`MachineState — 7 values`); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
 
 Prefixes are dropped wherever the local name is unambiguous in that tree; the
@@ -1121,7 +1121,7 @@ Managing it happens on the page, with visible buttons:
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click
 on a type or attribute in the Types view, or on an entity type in the
-Vocabulary view (also: right-click an entity in the Tests view, or
+Vocabulary view (also: right-click an entity in the Instances view, or
 **SemForge: Open entity type page** in the palette) opens one page in the
 editor area — its tab reads `Filter · type` — with all of it:
 
@@ -1308,17 +1308,20 @@ are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the
 `.ttl`.
 
-**The Tests view** (formerly Model) — the second tree in the SemForge container. It shows the
-data the constraints judge, in two sections, because they are judged by
-different rules:
+**The Instances view** (formerly Tests, before that Model) shows the instance
+data the constraints judge — the model's own and the test cases' — in two
+groups, because they are judged by different rules:
 
 ```
+✎ Main    the scratchpad — violations here are information, not failures
+   └── main.jsonld                  the model as shipped
 🧪 Tests   6 case(s) · all ok
    ├── test_CartridgeShape          1 case(s) · all ok
    └── test_StateOnCutterShape      2 case(s) · all ok
-✎ Main    the scratchpad — violations here are information, not failures
-   └── main.jsonld                  the model as shipped
 ```
+
+Main comes first: it is the model you deploy. The cases are evidence about the
+shapes.
 
 **Tests** are the declared cases: each says what it is for, and `semforge test`
 passes or fails on it. **Main** is the scratchpad — where you try a violation to

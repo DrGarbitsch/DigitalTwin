@@ -229,7 +229,7 @@ def build_model_page(package):
                 card['violations'].extend(violations.pop((resource, attribute)))
     attach_editing(package, files)
     return {
-        'kind': 'model', 'name': 'Model data', 'case': '', 'expect': '', 'group': '',
+        'kind': 'model', 'name': 'Main', 'case': '', 'expect': '', 'group': '',
         'suite': '',
         'description': 'The model as shipped: what the platform runs on. It declares '
                        'nothing and cannot fail; its violations are information.',

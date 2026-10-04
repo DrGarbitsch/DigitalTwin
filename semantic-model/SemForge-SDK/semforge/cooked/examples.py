@@ -294,8 +294,8 @@ def build_suite(package, expectations=None):
 
     roots.extend(loose)
 
-    # Two sections, because they answer different questions and are judged by
-    # different rules. A case declares what it is for and passes or fails; the
+    # Two sections of the Instances view, because they answer different
+    # questions and are judged by different rules. A case declares what it is for and passes or fails; the
     # main model declares nothing and cannot fail -- it is where you try a
     # violation to see what a constraint does.
     cases = ExampleNode(
@@ -313,7 +313,9 @@ def build_suite(package, expectations=None):
             'the scratchpad — violations here are information, not failures')
             if p))
     main.children = documents
-    return [cases, main]
+    # Main first: it is the model you deploy; the cases are evidence about
+    # the shapes.
+    return [main, cases]
 
 
 def _suite_summary(roots):

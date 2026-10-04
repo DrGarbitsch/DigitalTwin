@@ -181,8 +181,8 @@ def test_the_shape_jump_names_the_file_it_is_in(split):
 def test_every_model_document_is_its_own_row_under_main(split):
     from semforge.cooked.examples import build_suite
 
-    tests, main = build_suite(split)
-    assert (tests.label, main.label) == ('Tests', 'Main')
+    main, tests = build_suite(split)
+    assert (main.label, tests.label) == ('Main', 'Tests')
     assert len(main.children) == len(split.files('model'))
     assert all(n.label.startswith('model-instance/') for n in main.children)
     # And the declared cases are still there, in the other section.

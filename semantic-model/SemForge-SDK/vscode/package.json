@@ -279,7 +279,7 @@
       },
       {
         "command": "semforge.openModelPage",
-        "title": "SemForge: Open model data page",
+        "title": "SemForge: Open the Main instances page",
         "icon": "$(preview)"
       },
       {
@@ -361,7 +361,7 @@
         },
         {
           "id": "semforgeModel",
-          "name": "Tests",
+          "name": "Instances",
           "contextualTitle": "SemForge"
         },
         {
