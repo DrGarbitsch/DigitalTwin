@@ -29,6 +29,7 @@ const vocabularyPages = require('./vocabpage');
 const attributeTests = require('./attributetest');
 const testCases = require('./testcases');
 const casePages = require('./casepage');
+const sparqlPage = require('./sparqlpage');
 const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
 const shapePages = require('./shapepage');
@@ -279,6 +280,9 @@ function activate(context) {
   testCases.register(context, clientHolder, session);
   // One page per test case: its claims, whether they hold, its data.
   const caseViews = casePages.register(context, clientHolder, session);
+  // A shape's SPARQL query, run over a case's data: where SPARQL constraints
+  // are developed.
+  const sparqlBench = sparqlPage.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
   healthPage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.
@@ -399,7 +403,7 @@ function activate(context) {
     clientHolder,
     session,
     trees: { project, constraints, shapes, model, knowledge },
-    pages: { type: typeViews, case: caseViews }
+    pages: { type: typeViews, case: caseViews, sparql: sparqlBench }
   };
 }
 

@@ -174,7 +174,9 @@ function ruleRows(rules) {
     `${rule.text ? ` <span class="dim">· ${escape(rule.text)}</span>` : ''}` +
     `${rule.inheritedFrom ? ` <span class="dim">· from ${escape(rule.inheritedFrom)}</span>` : ''}` +
     `${rule.condition ? ` <span class="cond">· ${escape(rule.condition)}</span>` : ''}</span>` +
-    `${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}</div>`).join('');
+    `${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}` +
+    `<a href="#" class="act" data-bench="${escape(rule.shape)}" data-benchkind="${escape(rule.kind)}" ` +
+    'title="Open its query in the SPARQL workbench">SPARQL…</a></div>').join('');
 }
 
 function renderTypePage(page, options) {
@@ -321,7 +323,7 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-refresh],[data-action]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-refresh],[data-action],[data-bench]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -329,6 +331,9 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
                            row: target.dataset.row === undefined ? -1 : Number(target.dataset.row),
                            contrib: target.dataset.contrib === undefined ? undefined
                              : Number(target.dataset.contrib) });
+    }
+    else if (target.dataset.bench) {
+      vscode.postMessage({ command: 'bench', shape: target.dataset.bench, kind: target.dataset.benchkind });
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
@@ -440,7 +445,11 @@ class TypePages {
       }
       return;
     }
-    if (message.command === 'open' && message.at) {
+    if (message.command === 'bench' && message.shape) {
+      await vscode.commands.executeCommand('semforge.openSparqlBench',
+        { raw: { shape: message.shape }, packageUri: this.current.packageUri },
+        { kind: message.kind });
+    } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
     } else if (message.command === 'shape' && message.name) {
       await vscode.commands.executeCommand('semforge.openShapePage',

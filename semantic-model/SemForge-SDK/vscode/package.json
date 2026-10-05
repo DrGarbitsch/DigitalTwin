@@ -263,6 +263,16 @@
         "icon": "$(preview)"
       },
       {
+        "command": "semforge.openSparqlBench",
+        "title": "SemForge: Open in SPARQL workbench",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "semforge.addSparqlConstraint",
+        "title": "SemForge: + SPARQL constraint…",
+        "icon": "$(add)"
+      },
+      {
         "command": "semforge.newSuite",
         "title": "SemForge: New suite…",
         "icon": "$(new-folder)"
@@ -450,6 +460,16 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "semforge.openSparqlBench",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "2_row@1"
+        },
+        {
+          "command": "semforge.addSparqlConstraint",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "1_add@3"
+        },
         {
           "command": "semforge.editConstraint",
           "when": "view == semforgeConstraints && viewItem == editable",

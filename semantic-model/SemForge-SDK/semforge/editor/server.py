@@ -336,7 +336,11 @@ def _field(params, name, default=None):
     """
     if isinstance(params, dict):
         return params.get(name, default)
-    return getattr(params, name, default)
+    value = getattr(params, name, default)
+    # That object is a tuple underneath: a parameter the client did not send
+    # and that shares a name with a tuple method -- `index`, `count` -- would
+    # come back as the bound method, not as missing.
+    return default if callable(value) else value
 
 
 def _serialise(node):
@@ -1532,6 +1536,60 @@ def _target_write(ls, params, write):
     _packages.pop(root, None)
     _publish(ls, _path_to_uri(done['file']))
     return dict(done, ok=True)
+
+
+@server.feature('semforge/sparqlBench')
+def sparql_bench_feature(ls, params):
+    """The SPARQL workbench: one query of a shape, the data it runs over.
+    Not cached: it is opened to be changed."""
+    from ..cooked.sparqlbench import MAIN, bench_page
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        page = bench_page(_package_for(root), str(_field(params, 'shape', '') or ''),
+                          _field(params, 'index'), _field(params, 'source') or MAIN,
+                          _field(params, 'query'), _field(params, 'kind'))
+        return dict(page, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/sparqlRun')
+def sparql_run_feature(ls, params):
+    """Run an edited query the way validation would. Writes nothing."""
+    from ..cooked.sparqlbench import MAIN, run_query
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return run_query(_package_for(root), str(_field(params, 'shape', '') or ''),
+                         _field(params, 'index') or 0, _field(params, 'source') or MAIN,
+                         str(_field(params, 'query', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/sparqlSave')
+def sparql_save_feature(ls, params):
+    """Write the edited query over the one the workbench opened."""
+    from ..cooked.sparqlbench import save_query
+
+    return _target_write(ls, params, lambda package: save_query(
+        package, str(_field(params, 'shape', '') or ''), _field(params, 'index') or 0,
+        str(_field(params, 'query', '') or ''), str(_field(params, 'expected', '') or '')))
+
+
+@server.feature('semforge/addSparqlConstraint')
+def add_sparql_constraint_feature(ls, params):
+    """+ SPARQL constraint: a skeleton that fires on nothing, to be written in
+    the workbench."""
+    from ..cooked.sparqlbench import add_constraint
+
+    return _target_write(ls, params, lambda package: add_constraint(
+        package, str(_field(params, 'shape', '') or ''), str(_field(params, 'message', '') or '')))
 
 
 @server.feature('semforge/addTarget')

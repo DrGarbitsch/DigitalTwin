@@ -233,7 +233,9 @@ const stub = {
     // it was set to, and a way for the scenario to "click" in it by posting
     // the messages the page's script would post.
     createWebviewPanel: (viewType, title, column, options) => {
-      const record = { viewType, title, column, options, html: [], receivers: [] };
+      // `posted`: what the extension sent INTO the page (results that must
+      // not re-render it, so the editor keeps its text).
+      const record = { viewType, title, column, options, html: [], receivers: [], posted: [] };
       seen.webviews.push(record);
       const panel = {
         visible: true,
@@ -245,6 +247,7 @@ const stub = {
           set html(value) { record.html.push(value); },
           get html() { return record.html[record.html.length - 1]; },
           onDidReceiveMessage: (fn) => record.receivers.push(fn),
+          postMessage: (message) => Promise.resolve(record.posted.push(message)),
           cspSource: 'vscode-resource:'
         }
       };

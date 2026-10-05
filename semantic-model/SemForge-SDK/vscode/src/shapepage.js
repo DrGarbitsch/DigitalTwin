@@ -107,12 +107,18 @@ function checkSections(page, checks, cases) {
         '<span></span></div>'
       : ''
   ].join('');
-  const queries = checks.filter((c) => c.query).map((c) =>
-    `<pre class="query">${escape(c.query)}</pre>`).join('');
+  // A query is where a SPARQL constraint is developed: a click opens it in
+  // the workbench, run over the same data validation gives it.
+  const queries = checks.map((c, i) => (c.query
+    ? `<div class="bar"><button class="primary" data-action="bench" data-row="${i}" ` +
+      'title="Edit it, run it over a test case\'s data, save it">Open in SPARQL workbench</button>' +
+      `<span class="dim">${escape(c.kind)}${c.message ? ` · ${escape(c.message)}` : ''}</span></div>` +
+      `<pre class="query bench" data-action="bench" data-row="${i}" ` +
+      `title="Open in the SPARQL workbench">${escape(c.query)}</pre>` : '')).join('');
   // Apart, so the page can put what it checks under Constraints and the
   // evidence after what it reaches.
   return { said: `<div class="rules">${said}</div>` +
-      (queries ? `<p class="dim">The query · read-only, edit it in the .ttl</p>${queries}` : ''),
+      (queries ? `<p class="dim">The query · click it to develop it in the SPARQL workbench</p>${queries}` : ''),
     evidence: evidence ? `<div class="rules">${evidence}</div>` : '' };
 }
 
@@ -224,8 +230,8 @@ ${attributes.length ? `<div class="table"><table>
 ${page.ownShape ? '<div class="bar"><button class="primary" data-action="addAttribute">+ Attribute</button></div>' : ''}
 <h3>On the whole node</h3>
 ${parts ? parts.said
-    : '<p class="empty">No SPARQL constraint or rule: one reading the node as a whole is ' +
-      'written in the .ttl.</p>'}
+    : '<p class="empty">No SPARQL constraint or rule yet.</p>'}
+<div class="bar"><button data-action="addSparql" title="A SPARQL constraint reads the node as a whole; it is written in the workbench">+ SPARQL constraint</button></div>
 
 <h2>Reaches</h2>
 ${types.length ? `<div class="chips">${types.map((t) => t.page
@@ -342,6 +348,18 @@ class ShapePages {
           'semforge.refreshKnowledge', 'semforge.refreshModel']) {
           vscode.commands.executeCommand(command);
         }
+      }
+    } else if (message.command === 'bench') {
+      const check = (this.page.checks || [])[message.row];
+      if (check) {
+        await vscode.commands.executeCommand('semforge.openSparqlBench',
+          { raw: { shape: this.page.iri }, packageUri },
+          { query: check.query, kind: check.kind });
+      }
+    } else if (message.command === 'addSparql') {
+      if (await vscode.commands.executeCommand('semforge.addSparqlConstraint',
+        { raw: { shape: this.page.iri, label: this.page.label }, packageUri })) {
+        this.render();
       }
     } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);

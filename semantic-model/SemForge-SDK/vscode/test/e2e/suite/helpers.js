@@ -113,6 +113,16 @@ function answering(answers) {
     const answer = next('message', { message, buttons });
     return answer ? answer.button : undefined;
   });
+  // A modal question ("unsaved edits — discard them?"): a test VS Code
+  // refuses to show one, so it is answered here when the test expects it.
+  replace('showWarningMessage', async (message, ...rest) => {
+    const buttons = rest.filter((item) => typeof item === 'string');
+    if (!buttons.length || !queue.length || queue[0].kind !== 'warning') {
+      return saved.showWarningMessage(message, ...rest);
+    }
+    const answer = next('warning', { message, buttons });
+    return answer.button;
+  });
   replace('createQuickPick', () => {
     const real = saved.createQuickPick();
     // Accepting is a person pressing Enter on THEIR item; the workbench's

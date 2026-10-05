@@ -1020,6 +1020,41 @@ exactly one reason, rather than pinning the accident as expected. The button's
 tooltip says so. A duplicate assert, or one on a constraint no shape declares,
 is refused; a case with a pinned residue is told to `semforge accept` again.
 
+**The SPARQL workbench — developing SPARQL constraints.** A shape page shows
+its SPARQL queries under *On the whole node*; click one (or **Open in SPARQL
+workbench**, or **SPARQL…** on a type page's rule row, or right-click a shape
+in Shapes) and the query opens in a page of its own:
+
+- **Run over** — the data: **Main** or a test case, the cases this shape
+  reaches listed first, each with its number of focus nodes.
+- **Query** — the query, editable. **Apply** (Ctrl+Enter) runs the text as it
+  is now; **Cancel** goes back to the saved text; **Save** (Ctrl+S) writes it
+  over the `"""…"""` literal in `shacl.ttl` and nothing else (checked by
+  parsing; refused if the file changed since the workbench opened it).
+- **Result** — for a constraint, which focus nodes violate, each row the query
+  returned with `sh:message` filled in from it (`{?value}`, `{$this}`), and
+  what the *saved* query says on the same data (*now also …*, *no longer …*).
+  For a rule, the triples its CONSTRUCT builds. A query that does not parse
+  says where; what validation reads differently is warned about (MINUS,
+  VALUES, SERVICE, no `$this`, an aggregate in the current view).
+- **What the query runs over** — the instance data as Turtle, with what the
+  rules derived listed apart.
+
+That data is exactly what validation gives the query, built the same way:
+rules expanded to their fixpoint, the shape's data view (`current` keeps the
+latest observation of each attribute), the knowledge added, and pyshacl's own
+extra rule pass. A **constraint** runs once per focus node with `$this` bound,
+and every row is a violation — the workbench's verdict is the one `semforge
+test` reaches (a test checks this for every constraint and case). A **rule**
+runs earlier, before any view, on every observation; it is shown over the
+rules' fixpoint.
+
+**+ SPARQL constraint** (shape page, or right-click a shape) asks for its
+`sh:message` and writes a constraint that fires on nothing (`FILTER(1 = 0)`,
+with the package's PREFIX lines), then opens it here: write the condition,
+Apply until it finds what you mean, Save. Unsaved edits survive switching tabs;
+closing the page with them offers to reopen it with them.
+
 **Summary trees.** The trees are for finding things; the type page is where a
 type is read and edited. So by default the trees show one row per meaningful
 thing, said once (the `semforge.trees.detail` setting, `summary`):

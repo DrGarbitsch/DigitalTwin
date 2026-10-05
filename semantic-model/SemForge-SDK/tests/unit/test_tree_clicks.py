@@ -421,7 +421,8 @@ def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
     for text in ('Selects', 'Constraints', 'On its attributes', 'On the whole node',
                  'Filter running without running assigned machine', 'severity: warning',
                  'fires in 0', 'holds in 1', 'data-newcase="1"',
-                 'New case…', 'read-only, edit it in the .ttl', 'FILTER(?v != &lt;on&gt;)',
+                 'New case…', 'develop it in the SPARQL workbench', 'data-action="bench"',
+                 'data-action="addSparql"', 'FILTER(?v != &lt;on&gt;)',
                  'Open Pump type page'):
         assert text in html, text
     assert html.index('On the whole node') < html.index('Filter running') < html.index('Evidence')
