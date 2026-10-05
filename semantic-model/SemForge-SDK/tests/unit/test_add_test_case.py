@@ -96,6 +96,8 @@ def test_a_file_nobody_runs_is_found_and_declared_where_it_is(kms):
     (('test_FilterShape', 'valid', 'copy', 'nope.jsonld', 'x'), 'not a declared test case'),
     (('test_FilterShape', 'valid', 'model', 'urn:nope', 'x'), 'not an entity in the model'),
     (('', 'valid', 'existing', '../../shacl.ttl', ''), 'not a file under'),
+    (('test pump', 'valid', 'empty', '', 'x'), 'not a folder name'),
+    (('test_$HOME', 'valid', 'empty', '', 'x'), 'not a folder name'),
 ])
 def test_what_it_cannot_write_is_refused(kms, args, said):
     with pytest.raises(PackageError, match=said):

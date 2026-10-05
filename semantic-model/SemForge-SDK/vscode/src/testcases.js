@@ -20,25 +20,65 @@ function base(path) {
   return String(path).split('/').pop().replace(/\.jsonld$/, '');
 }
 
+/**
+ * A suite's folder name, from what was typed: `test_` in front (that is what
+ * marks a folder under examples/ as a suite), spaces as dashes. Undefined
+ * when nothing usable is left.
+ */
+function suiteName(text) {
+  const cleaned = String(text || '').trim().replace(/\s+/g, '-');
+  if (!/^[A-Za-z0-9_.-]+$/.test(cleaned) || !/[A-Za-z0-9]/.test(cleaned)) {
+    return undefined;
+  }
+  return cleaned.startsWith('test_') ? cleaned : `test_${cleaned}`;
+}
+
+/** New suite…: ask for its name. The folder appears with its first case. */
+async function askSuiteName(existing) {
+  const name = await vscode.window.showInputBox({
+    title: 'New suite',
+    prompt: 'A folder under examples/ — e.g. "pump-limits" becomes test_pump-limits. ' +
+      'Its first test case is asked next.',
+    validateInput: (text) => {
+      const suite = suiteName(text);
+      if (!suite) {
+        return 'letters, digits, "_", "-" and "." only';
+      }
+      return existing.has(suite) ? `${suite} exists already — pick it from the list` : undefined;
+    }
+  });
+  const suite = name === undefined ? undefined : suiteName(name);
+  return suite ? { suite, fresh: true } : undefined;
+}
+
 async function pickSuite(options, preset) {
+  const existing = new Set(options.suites);
+  if (preset === NEW_SUITE) {
+    return askSuiteName(existing);
+  }
   if (preset) {
     return { suite: preset };
   }
-  const existing = new Set(options.suites);
   const items = options.suites.map((suite) => ({ label: `$(beaker) ${suite}`, suite }));
   const fresh = options.shapes.filter((s) => !existing.has(`test_${s.label}`));
-  if (fresh.length) {
-    items.push({ label: 'A new suite for a shape', kind: SEPARATOR });
-    items.push(...fresh.map((s) => ({ label: `$(add) test_${s.label}`,
-      description: `for ${s.name}`, suite: `test_${s.label}` })));
-  }
+  items.push({ label: 'A new suite', kind: SEPARATOR });
+  items.push(...fresh.map((s) => ({ label: `$(add) test_${s.label}`,
+    description: `for ${s.name}`, suite: `test_${s.label}` })));
+  items.push({ label: '$(new-folder) New suite…', alwaysShow: true, named: true,
+    description: fresh.length ? 'any name'
+      : 'any name — every shape has a suite already' });
   if (options.undeclared.length) {
     items.push({ label: 'Already written', kind: SEPARATOR });
     items.push({ label: '$(file-add) Declare a file under examples/ that nothing runs',
       description: `${options.undeclared.length} file(s)`, declare: true });
   }
-  return vscode.window.showQuickPick(items, { title: 'New test case: in which suite?' });
+  const picked = await vscode.window.showQuickPick(items,
+    { title: 'New test case: in which suite?' });
+  return picked && picked.named ? askSuiteName(existing) : picked;
 }
+
+// newSuite's preset: ask for a name instead of offering the list.
+const NEW_SUITE = Symbol('new suite');
 
 async function pickExpect() {
   const picked = await vscode.window.showQuickPick([
@@ -91,7 +131,7 @@ async function pickStart(options) {
   return { start: 'empty', source: '', name: 'new-case' };
 }
 
-async function newTestCase(clientHolder, session, node) {
+async function newTestCase(clientHolder, session, node, newSuite) {
   const client = clientHolder.client;
   const packageUri = (node && node.packageUri) || session.uri;
   if (!client || !packageUri) {
@@ -105,7 +145,7 @@ async function newTestCase(clientHolder, session, node) {
     return false;
   }
   const raw = (node && node.raw) || {};
-  const preset = raw.kind === 'suite' ? (raw.term || raw.label) : '';
+  const preset = newSuite ? NEW_SUITE : raw.kind === 'suite' ? (raw.term || raw.label) : '';
   const where = await pickSuite(options, preset);
   if (!where) {
     return false;
@@ -169,7 +209,10 @@ async function newTestCase(clientHolder, session, node) {
 function register(context, clientHolder, session) {
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.newTestCase',
-      (node) => newTestCase(clientHolder, session, node)));
+      (node) => newTestCase(clientHolder, session, node)),
+    // A suite is a folder with cases in it, so it is made with its first one.
+    vscode.commands.registerCommand('semforge.newSuite',
+      (node) => newTestCase(clientHolder, session, node, true)));
 }
 
-module.exports = { register, newTestCase };
+module.exports = { register, newTestCase, suiteName };

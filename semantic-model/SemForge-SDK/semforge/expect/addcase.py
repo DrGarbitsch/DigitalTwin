@@ -15,6 +15,7 @@ is shown on its case page, and "Assert it" turns each firing into a claim.
 
 import json
 import os
+import re
 
 from ..errors import PackageError
 from .store import (EXPECTATIONS, _yaml, compose, discover, examples_root,
@@ -151,6 +152,9 @@ def add_test_case(package, suite, expect, start, source='', name='', description
         suite = str(suite or '').strip().strip('/')
         if not suite or '..' in suite.split('/'):
             raise PackageError('a case needs a suite: a folder under examples/')
+        if not re.fullmatch(r'[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*', suite):
+            raise PackageError(f'{suite!r} is not a folder name: letters, digits, '
+                               '"_", "-" and "." only')
         directory = os.path.join(root, suite, 'good' if expect == 'valid' else 'bad')
         file_name = f'{_slug(name)}.jsonld'
         path = os.path.join(directory, file_name)

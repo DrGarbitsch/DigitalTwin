@@ -1035,6 +1035,74 @@ def test_a_suite_row_presets_the_suite(tmp_path):
     assert any('Nothing fires yet' in text for text in seen['warnings'])
 
 
+NEW_SUITE_ITEM = '$(new-folder) New suite…'
+
+
+def _new_suite_case(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.newTestCase',
+        'picks': [NEW_SUITE_ITEM, '$(pass) Should conform', '$(file) An empty file'],
+        'inputs': ['pump limits', 'first'],
+        'replies': {'semforge/testCaseOptions': CASE_OPTIONS,
+                    'semforge/addTestCase': MADE_CASE}}, **scenario))
+
+
+def test_new_suite_takes_any_name(tmp_path):
+    seen = _new_suite_case(tmp_path)
+    assert NEW_SUITE_ITEM in [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert seen['inputs'][0]['title'] == 'New suite'
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTestCase']
+    assert asked[0]['suite'] == 'test_pump-limits', 'test_ in front, the space a dash'
+    assert asked[0]['name'] == 'first'
+
+
+def test_new_suite_is_offered_when_every_shape_has_a_suite(tmp_path):
+    every = dict(CASE_OPTIONS, suites=['test_MachineShape', 'test_PumpShape'])
+    seen = _new_suite_case(tmp_path, replies={'semforge/testCaseOptions': every,
+                                              'semforge/addTestCase': MADE_CASE})
+    items = seen['quickPicks'][0]['items']
+    assert not any(i['label'].startswith('$(add) test_') for i in items)
+    new = next(i for i in items if i['label'] == NEW_SUITE_ITEM)
+    assert 'every shape has a suite already' in new['description']
+
+
+def test_the_tests_group_s_new_suite_asks_the_name_first(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.newSuite',
+        'node': {'raw': {'kind': 'group', 'label': 'Tests', 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'picks': ['$(error) Should violate', '$(file) An empty file'],
+        'inputs': ['test_overheat', 'too-hot'],
+        'replies': {'semforge/testCaseOptions': CASE_OPTIONS,
+                    'semforge/addTestCase': MADE_CASE}})
+    assert [q['items'][0]['label'] for q in seen['quickPicks']][0] == '$(pass) Should conform', \
+        'no suite list: the name is asked instead'
+    asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addTestCase']
+    assert asked[0]['suite'] == 'test_overheat' and asked[0]['expect'] == 'invalid'
+
+
+def test_cancelling_the_suite_name_writes_nothing(tmp_path):
+    seen = _new_suite_case(tmp_path, inputs=[])
+    assert [r for r in seen['requests'] if r['method'] == 'semforge/addTestCase'] == []
+
+
+@pytest.mark.parametrize('typed, suite', [
+    ('pump limits', 'test_pump-limits'), ('test_x', 'test_x'), ('Pump_2.v1', 'test_Pump_2.v1'),
+    ('a/b', None), ('../up', None), ('---', None), ('', None), ('pump!', None)])
+def test_a_suite_name_is_a_folder_name(tmp_path, typed, suite):
+    seen = _drive(tmp_path, {'mode': 'render', 'function': 'suiteName', 'payload': typed},
+                  target='testcases.js')
+    assert seen.get('html') == suite
+
+
+def test_the_tests_group_carries_new_suite():
+    with open(PACKAGE_JSON) as handle:
+        menus = json.load(handle)['contributes']['menus']['view/item/context']
+    on_group = {e['command'] for e in menus
+                if e.get('when') == 'view == semforgeModel && viewItem == testsGroup'}
+    assert {'semforge.newSuite', 'semforge.newTestCase'} <= on_group
+
+
 def test_an_undeclared_file_can_be_declared(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.newTestCase',

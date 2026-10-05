@@ -4,7 +4,9 @@
 
 const assert = require('assert');
 const vscode = require('vscode');
-const { semforge, row, until, answering, read } = require('./helpers');
+const fs = require('fs');
+const path = require('path');
+const { WORKSPACE, semforge, row, until, answering, read } = require('./helpers');
 
 const MODEL = 'model-instance.jsonld';
 
@@ -111,6 +113,31 @@ describe('editing from the Main page', () => {
     assert.ok(entity('urn:workpiece:99'), 'written into the model file');
     await until(() => api.pages.case.page.files[0].cards.some((c) => c.id === 'urn:workpiece:99'),
       'its card on the page');
+  });
+});
+
+describe('a new suite', () => {
+  it('New suite… on the Tests group makes the folder with its first case', async () => {
+    const api = await semforge();
+    const tests = await row(api.trees.model, (raw) => raw.kind === 'group' &&
+      raw.label === 'Tests', 'the Tests group');
+    assert.strictEqual((await api.trees.model.getTreeItem(tests)).contextValue, 'testsGroup',
+      'its right-click menu is the one with New suite…');
+    await withAnswers([
+      { kind: 'input', value: 'pump limits' },
+      { kind: 'pick', label: '$(pass) Should conform' },
+      { kind: 'pick', label: '$(file) An empty file' },
+      { kind: 'input', value: 'first' },
+      { kind: 'message', button: undefined }],
+    () => vscode.commands.executeCommand('semforge.newSuite', tests));
+    const folder = path.join(WORKSPACE, 'examples', 'test_pump-limits', 'good');
+    assert.ok(fs.existsSync(path.join(folder, 'first.jsonld')), 'the case file');
+    assert.match(fs.readFileSync(path.join(folder, 'expectations.yaml'), 'utf-8'),
+      /first\.jsonld/);
+    // Summary mode names a suite without its test_ prefix; the term keeps it.
+    await row(api.trees.model, (raw) => raw.kind === 'suite' &&
+      (raw.term === 'test_pump-limits' || raw.label === 'test_pump-limits'),
+    'the suite in the Instances view');
   });
 });
 

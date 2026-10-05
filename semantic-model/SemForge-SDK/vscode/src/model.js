@@ -256,7 +256,9 @@ class ModelTreeProvider {
     const series = raw.observations > 1;
     const holdsValue = ['attribute', 'dataset', 'instance', 'meta']
       .includes(raw.kind);
-    if (!raw.editable) {
+    if (raw.kind === 'group' && raw.label === 'Tests') {
+      item.contextValue = 'testsGroup';      // New suite… / New test case… on it
+    } else if (!raw.editable) {
       item.contextValue = holdsValue
         ? 'attributeReadOnly'
         : CONTEXT_BY_KIND[raw.kind] || raw.kind;

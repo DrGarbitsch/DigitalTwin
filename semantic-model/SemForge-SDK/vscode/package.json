@@ -263,6 +263,11 @@
         "icon": "$(preview)"
       },
       {
+        "command": "semforge.newSuite",
+        "title": "SemForge: New suite…",
+        "icon": "$(new-folder)"
+      },
+      {
         "command": "semforge.newEntityType",
         "title": "SemForge: New entity type…",
         "icon": "$(symbol-class)"
@@ -744,6 +749,21 @@
           "command": "semforge.newSubtype",
           "when": "view == semforgeConstraints && viewItem == type",
           "group": "1_add@2"
+        },
+        {
+          "command": "semforge.newSuite",
+          "when": "view == semforgeModel && viewItem == testsGroup",
+          "group": "1_add@0"
+        },
+        {
+          "command": "semforge.newTestCase",
+          "when": "view == semforgeModel && viewItem == testsGroup",
+          "group": "1_add@1"
+        },
+        {
+          "command": "semforge.newSuite",
+          "when": "view == semforgeModel && viewItem == testsGroup && config.semforge.trees.detail == full",
+          "group": "inline@0"
         },
         {
           "command": "semforge.newTestCase",

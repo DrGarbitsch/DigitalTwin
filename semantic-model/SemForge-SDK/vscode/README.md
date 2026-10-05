@@ -910,9 +910,10 @@ one page that puts side by side what `test`, `validate`, `check` and
 **Rescan** on the page rebuilds everything from scratch, ignoring the cache.
 
 **New test case… — adding a test file.** The `+` in the Instances view title (also:
-right-click a suite, the status bar menu) asks:
+right-click a suite or the **Tests** group, the status bar menu) asks:
 
-- **which suite** — an existing one, or a new one for a shape (`test_PumpShape`);
+- **which suite** — an existing one, a new one for a shape that has none yet
+  (`test_PumpShape`), or **New suite…** with any name you like;
 - **should it conform or violate** — `good/` with `expect: valid`, or `bad/`
   with `expect: invalid`;
 - **where it starts** — a copy of a case (its includes written into the new
@@ -920,6 +921,15 @@ right-click a suite, the status bar menu) asks:
   model, a new entity of a type (its required attributes given valid values),
   or an empty file;
 - **its name** (suggested).
+
+**New suite… — a new test-case folder.** Right-click **Tests** in the
+Instances view → **New suite…** (or pick it at the bottom of the suite list
+above). A suite is a folder under `examples/` named `test_…`; type `pump
+limits` and it becomes `test_pump-limits` — letters, digits, `_`, `-` and `.`,
+`test_` added when missing. A folder only exists with something in it, so the
+suite's first case is asked for right away (conform or violate, where it
+starts, its name), and the folder appears with `good/` or `bad/` and its
+`expectations.yaml`.
 
 It is written, declared in that folder's `expectations.yaml`, run once, and
 its case page opens. A bad case is declared without asserts: what fires shows
