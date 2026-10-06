@@ -1572,6 +1572,23 @@ def sparql_run_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
+@server.feature('semforge/sparqlInspect')
+def sparql_inspect_feature(ls, params):
+    """The query taken apart, text untouched: every variable of every row its
+    WHERE makes, and which FILTER part dropped the rows it dropped."""
+    from ..cooked.sparqlbench import MAIN, inspect
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return inspect(_package_for(root), str(_field(params, 'shape', '') or ''),
+                       _field(params, 'index') or 0, _field(params, 'source') or MAIN,
+                       str(_field(params, 'query', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/sparqlSave')
 def sparql_save_feature(ls, params):
     """Write the edited query over the one the workbench opened."""

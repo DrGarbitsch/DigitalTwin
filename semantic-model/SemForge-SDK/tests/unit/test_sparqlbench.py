@@ -313,3 +313,106 @@ def test_a_query_that_is_the_whole_statement_is_not_cut_out(kms):
     query = sb.holders(load(kms), lone)[0]['query']
     with pytest.raises(PackageError, match='remove the shape instead'):
         sb.remove_holder(load(kms), lone, 0, query)
+
+
+# --- the selector, said ----------------------------------------------------------------------
+
+def test_the_page_says_how_this_is_bound(corpus):
+    selects = sb.bench_page(corpus, CUTTER, 0, sb.MAIN)['selector']
+    assert selects['text'] == 'every Cutter, and every subclass of it'
+    assert selects['count'] == 2 and selects['binds']
+    assert 'VALUES $this { <urn:plasmacutter:1> <urn:plasmacutter:2> }' in selects['sparql']
+    assert 'not written in the query' in selects['sparql']
+
+
+def test_a_query_without_this_is_said_to_run_once(corpus):
+    selects = sb.selector(corpus, CUTTER, [], 'SELECT ?x WHERE { ?x ?p ?o }')
+    assert not selects['binds'] and 'runs once, unbound' in selects['sparql']
+
+
+def test_the_skeleton_starts_from_this_and_says_why(kms):
+    made = sb.add_constraint(load(kms), BASE + 'WorkpieceShape', 'm')
+    query = sb.holders(load(kms), BASE + 'WorkpieceShape')[made['index']]['query']
+    assert '$this ?attribute ?value' in query and '$this a ?type' not in query
+    assert '# $this is each node the shape selects' in query
+
+
+# --- Inspect -----------------------------------------------------------------------------------
+
+ON = 'test_StateOnCutterShape/good/filter-on.jsonld'
+
+
+def test_inspect_shows_every_variable_and_which_filter_part_dropped_a_row(corpus):
+    query = sb.holders(corpus, CUTTER)[0]['query']
+    result = sb.inspect(corpus, CUTTER, 0, ON, query)
+    assert result['ok'] and result['columns'] == ['this', 'v1', 'f', 'v2']
+    assert result['filters'] == ['?v1 = base:state_PROCESSING', '?v2 != base:state_ON']
+    (node,) = result['focus']
+    assert node['node'] == 'urn:plasmacutter:1' and node['total'] == 1 and node['kept'] == 0
+    row = node['rows'][0]
+    assert row['values'] == {'this': 'urn:plasmacutter:1', 'v1': 'base:state_PROCESSING',
+                             'f': 'urn:filter:1', 'v2': 'base:state_ON'}
+    assert row['checks'] == [True, False] and not row['kept']
+    assert not any(key.startswith('N') for key in row['values']), 'no [] node names'
+
+
+def test_inspect_agrees_with_apply_everywhere(corpus):
+    """A row Inspect keeps is a violation Apply reports, for every constraint
+    and every data source -- it explains the run, not something like it."""
+    checked = 0
+    for shape in _sparql_shapes(corpus):
+        for holder in sb.holders(corpus, shape):
+            if holder['kind'] != 'constraint':
+                continue
+            for source in [s['id'] for s in sb.sources(corpus, shape)]:
+                ran = sb.run_query(corpus, shape, holder['index'], source, holder['query'])
+                seen = sb.inspect(corpus, shape, holder['index'], source, holder['query'])
+                kept = sorted(f['node'] for f in seen['focus'] if f['kept'])
+                assert kept == sorted(ran['violating']), (shape, source)
+                checked += 1
+    assert checked >= 20
+
+
+def test_without_a_filter_every_row_is_kept(corpus):
+    result = sb.inspect(corpus, CUTTER, 0, sb.MAIN,
+                        'SELECT $this ?p WHERE { $this ?p ?o }')
+    assert result['filters'] == []
+    assert all(f['kept'] == f['total'] > 0 for f in result['focus'])
+
+
+def test_inspect_says_what_it_cannot_take_apart(corpus):
+    grouped = sb.inspect(corpus, CUTTER, 0, sb.MAIN,
+                         'SELECT $this (COUNT(?o) AS ?n) WHERE { $this ?p ?o } GROUP BY $this')
+    assert any('before GROUP BY' in note for note in grouped['notes'])
+    assert grouped['focus'][0]['total'] > 1, 'the rows before grouping'
+    nested = sb.inspect(corpus, CUTTER, 0, sb.MAIN,
+                        'SELECT $this WHERE { $this ?p ?o OPTIONAL { ?o ?q ?r FILTER(?r = 1) } }')
+    assert any('inside OPTIONAL' in note for note in nested['notes'])
+
+
+def test_a_filter_part_in_error_is_shown_as_such(corpus):
+    result = sb.inspect(corpus, CUTTER, 0, sb.MAIN,
+                        'SELECT $this WHERE { $this ?p ?o FILTER(?o > "a" && ?missing > 1) }')
+    checks = {tuple(r['checks']) for f in result['focus'] for r in f['rows']}
+    assert any(None in c for c in checks), 'an unbound variable is an error, not false'
+
+
+@pytest.mark.parametrize('condition, said', [
+    ('?o IN (1, 2)', '?o IN (1, 2)'),
+    ('NOT EXISTS { ?o ?q ?r }', 'NOT EXISTS { … }'),
+    ('STRSTARTS(STR(?o), "urn:")', 'STRSTARTS(STR(?o), "urn:")'),
+    ('!(?p = rdf:type)', '!(?p = rdf:type)'),
+    ('!BOUND(?o)', '!BOUND(?o)'),
+])
+def test_filter_parts_read_back_as_sparql(corpus, condition, said):
+    query = ('PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n'
+             f'SELECT $this WHERE {{ $this ?p ?o FILTER({condition}) }}')
+    result = sb.inspect(corpus, CUTTER, 0, sb.MAIN, query)
+    assert result['filters'] == [said], result['filters']
+
+
+def test_a_rule_is_inspected_over_its_own_graph(corpus):
+    query = sb.holders(corpus, UNTIL)[0]['query']
+    result = sb.inspect(corpus, UNTIL, 0, sb.MAIN, query)
+    assert result['ok'] and result['kind'] == 'rule'
+    assert all(f['kept'] == 0 for f in result['focus']), 'the rule finds nothing to build'

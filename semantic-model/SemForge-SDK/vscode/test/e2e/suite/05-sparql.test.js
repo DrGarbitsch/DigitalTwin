@@ -69,6 +69,40 @@ describe('the SPARQL workbench', () => {
       'the filter is off in this case: the saved query fires');
   });
 
+  it('Inspect shows every variable and the FILTER part that dropped a row', async () => {
+    const api = await semforge();
+    await open(api, CUTTER);
+    await api.pages.sparql.receive({ command: 'source', source: 'test_StateOnCutterShape/good/filter-on.jsonld',
+      query: api.pages.sparql.page.holder.query });
+    await until(() => api.pages.sparql.page.source.endsWith('filter-on.jsonld'), 'filter-on');
+    const result = await api.pages.sparql.receive({ command: 'inspect',
+      query: api.pages.sparql.page.holder.query });
+    assert.ok(result.ok, JSON.stringify(result));
+    assert.deepStrictEqual(result.filters, ['?v1 = base:state_PROCESSING', '?v2 != base:state_ON']);
+    const row = result.focus[0].rows[0];
+    assert.strictEqual(row.values.f, 'urn:filter:1');
+    assert.deepStrictEqual(row.checks, [true, false], 'the filter is ON: the second part fails');
+    assert.ok(api.pages.sparql.page.selector.sparql.includes('VALUES $this'));
+  });
+
+  it('a snapshot is kept for the session, with what it did', async () => {
+    const api = await semforge();
+    await open(api, CUTTER);
+    const session = answering([{ kind: 'input', value: 'the original' }]);
+    let entry;
+    try {
+      entry = await api.pages.sparql.receive({ command: 'snapshot',
+        query: api.pages.sparql.page.holder.query });
+    } finally {
+      session.restore();
+    }
+    assert.strictEqual(entry.name, 'the original');
+    assert.match(entry.verdict, /violating on/);
+    assert.deepStrictEqual(api.pages.sparql.snapshotList().map((s) => s.name), ['the original']);
+    api.pages.sparql.deleteSnapshot(entry.id);
+    assert.deepStrictEqual(api.pages.sparql.snapshotList(), []);
+  });
+
   it('Save writes the edit into shacl.ttl, and Cancel needs no server', async () => {
     const api = await semforge();
     await open(api, CUTTER);

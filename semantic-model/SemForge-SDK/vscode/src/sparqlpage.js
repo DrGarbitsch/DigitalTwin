@@ -45,7 +45,9 @@ function renderSparqlBench(page, options) {
     `${s.id === page.source ? ' selected' : ''}>${escape(s.label)}` +
     `${s.expect ? ` (${escape(s.expect)})` : ''} — ${s.focus} focus node(s)</option>`).join('');
   const state = { baseline: holder.query, draft: draft === undefined ? holder.query : draft,
-    kind: holder.kind, message: holder.message };
+    kind: holder.kind, message: holder.message,
+    snapshots: (options && options.snapshots) || [] };
+  const selects = page.selector;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -96,6 +98,15 @@ function renderSparqlBench(page, options) {
   .warning { color: var(--vscode-editorWarning-foreground, #cca700);
              border-left: 2px solid currentColor; padding-left: 8px; margin: 2px 0; }
   details summary { cursor: pointer; }
+  .selects { margin: 6px 0 2px; }
+  .selects b { font-weight: 600; margin-right: 6px; }
+  tr.dropped td { opacity: .55; }
+  td.yes { color: var(--vscode-testing-iconPassed, #388a34); }
+  td.no { color: var(--vscode-errorForeground, #f14c4c); }
+  td.err { color: var(--vscode-editorWarning-foreground, #cca700); }
+  .snap { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+  .snap .name { font-weight: 600; }
+  h3 { font-size: 1em; margin: 12px 0 4px; }
   .status { margin-left: auto; }
 </style></head><body>
 <div class="dim">SPARQL workbench · <a href="#" data-shape="1">${escape(page.shapeName)}</a></div>
@@ -114,21 +125,30 @@ ${tabs}
   <span class="dim">${page.focus.length} focus node(s): ${escape(page.focus.slice(0, 6).join(', '))}${
   page.focus.length > 6 ? ' …' : ''}</span>
 </div>
+${selects ? `<div class="selects"><b>Selects</b><span>${selects.binds
+    ? `$this = each of ${escape(selects.text)} → ${selects.count} node(s), bound before the query runs`
+    : `the query never mentions $this: it runs once, unbound (${escape(selects.text)})`}</span></div>
+<details><summary class="dim">Show as SPARQL — what the engine adds</summary><pre>${
+  escape(selects.sparql)}</pre></details>` : ''}
 
 <h2>Query</h2>
 <textarea id="query" spellcheck="false" aria-label="SPARQL query"></textarea>
 <div class="bar">
   <button class="primary" id="apply" title="Run the edited query (Ctrl+Enter)">Apply</button>
+  <button id="inspect" title="Every variable of every row, and which FILTER part dropped a row — the query is not changed">Inspect</button>
+  <button id="snapshot" title="Keep this text to come back to — for this session; closing VS Code forgets it">Snapshot</button>
   <button id="cancel" title="Back to the saved query">Cancel</button>
   <button id="save" title="Write it into shacl.ttl (Ctrl+S)">Save</button>
   <span class="status dim" id="status"></span>
   <button id="remove" title="Remove this ${escape(holder.kind)} from the shape">Remove…</button>
 </div>
 <div id="warnings"></div>
+<div id="snapshots"></div>
 
 <h2>Result</h2>
 <div id="result" class="dim">${rule ? 'Apply shows the triples the rule constructs.'
     : 'Apply shows which focus nodes violate, and what the saved query says.'}</div>
+<div id="inspected"></div>
 
 <h2>What the query runs over</h2>
 <p class="dim">${escape(page.stats.graph)} · ${page.data.triples} instance triple(s), ${
@@ -192,6 +212,12 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
     }
   });
   apply.addEventListener('click', run);
+  document.getElementById('inspect').addEventListener('click', () => {
+    status.textContent = 'inspecting…';
+    vscode.postMessage({ command: 'inspect', query: editor.value });
+  });
+  document.getElementById('snapshot').addEventListener('click', () =>
+    vscode.postMessage({ command: 'snapshot', query: editor.value }));
   cancel.addEventListener('click', () => { editor.value = state.baseline; update(); run(); });
   save.addEventListener('click', () => vscode.postMessage({ command: 'save', query: editor.value }));
   document.getElementById('remove').addEventListener('click', () =>
@@ -199,6 +225,22 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   document.getElementById('source').addEventListener('change', (event) =>
     vscode.postMessage({ command: 'source', source: event.target.value, query: editor.value }));
   document.addEventListener('click', (event) => {
+    const snap = event.target.closest('[data-load],[data-drop]');
+    if (snap) {
+      event.preventDefault();
+      if (snap.dataset.drop) {
+        vscode.postMessage({ command: 'deleteSnapshot', id: Number(snap.dataset.drop) });
+        return;
+      }
+      const chosen = snap.dataset.load === 'saved' ? { query: state.baseline }
+        : state.snapshots.find((s) => String(s.id) === snap.dataset.load);
+      if (chosen) {
+        editor.value = chosen.query;
+        update();
+        run();
+      }
+      return;
+    }
     const target = event.target.closest('[data-open],[data-shape],[data-holder]');
     if (!target) { return; }
     event.preventDefault();
@@ -251,9 +293,56 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
       table(result.columns || [], f.rows)).join('');
     out.innerHTML = summary + rows;
   }
+  function snapshots() {
+    const list = state.snapshots;
+    const box = document.getElementById('snapshots');
+    if (!list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<h2>Snapshots · this session only</h2>' +
+      '<div class="snap"><span class="name">Saved in shacl.ttl</span>' +
+      '<a href="#" data-load="saved">Load</a></div>' +
+      list.map((s) => '<div class="snap"><span class="name">' + esc(s.name) + '</span>' +
+        '<span class="dim">' + esc(s.verdict) + ' · ' + esc(s.at) + '</span>' +
+        '<a href="#" data-load="' + s.id + '">Load</a>' +
+        '<a href="#" data-drop="' + s.id + '">Delete</a></div>').join('');
+  }
+  function mark(held) {
+    return held === true ? '<td class="yes">✓</td>' : held === false ? '<td class="no">✗</td>'
+      : '<td class="err" title="an error: FILTER counts it as false">⚠</td>';
+  }
+  function inspected(result) {
+    const out = document.getElementById('inspected');
+    if (!result.ok) {
+      out.innerHTML = '<h2>Inspect</h2><div class="problem">' + esc(result.error) + '</div>';
+      return;
+    }
+    status.textContent = 'inspected in ' + result.ms + ' ms';
+    const filters = result.filters || [];
+    const legend = filters.map((f, i) => '<div><b>F' + (i + 1) + '</b> <code>' + esc(f) +
+      '</code></div>').join('');
+    const head = '<tr>' + result.columns.map((c) => '<th>?' + esc(c) + '</th>').join('') +
+      filters.map((f, i) => '<th title="' + esc(f) + '">F' + (i + 1) + '</th>').join('') +
+      '<th></th></tr>';
+    const blocks = (result.focus || []).map((f) => {
+      const rows = f.rows.map((r) => '<tr class="' + (r.kept ? 'kept' : 'dropped') + '">' +
+        result.columns.map((c) => '<td>' + esc(r.values[c] || '') + '</td>').join('') +
+        r.checks.map(mark).join('') + '<td>' + (r.kept ? (result.kind === 'rule'
+          ? 'constructs' : 'violation') : 'dropped') + '</td></tr>').join('');
+      return '<h3>' + esc(f.node) + ' <span class="dim">· ' + f.total + ' row(s) from the WHERE, ' +
+        f.kept + ' kept' + (f.total > f.rows.length ? ', first ' + f.rows.length + ' shown' : '') +
+        '</span></h3>' + (f.total ? '<table><thead>' + head + '</thead><tbody>' + rows +
+        '</tbody></table>' : '<p class="dim">The pattern matches nothing for this node: ' +
+        'no FILTER is reached.</p>');
+    }).join('');
+    out.innerHTML = '<h2>Inspect</h2>' + (result.notes || []).map((n) =>
+      '<div class="warning">' + esc(n) + '</div>').join('') +
+      (legend ? '<div class="dim">' + legend + '</div>' : '<p class="dim">No outer FILTER: every ' +
+        'row of the WHERE is kept.</p>') + blocks;
+  }
   window.addEventListener('message', (event) => {
     const message = event.data || {};
     if (message.type === 'result') { show(message.result); }
+    else if (message.type === 'inspect') { inspected(message.result); }
+    else if (message.type === 'snapshots') { state.snapshots = message.list; snapshots(); }
     else if (message.type === 'saved') {
       state.baseline = message.query;
       update();
@@ -261,6 +350,7 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
     } else if (message.type === 'error') { status.textContent = message.text; }
   });
   update();
+  snapshots();
   run();
 </script>
 </body></html>`;
@@ -280,6 +370,48 @@ class SparqlBench {
     this.page = undefined;
     this.draft = undefined;          // the editor's text, kept across re-renders
     this.dirty = false;
+    // Snapshots: texts kept to come back to, per query, for this session only.
+    // Nothing is written anywhere: closing VS Code keeps the saved query alone.
+    this.snapshots = new Map();
+    this.nextSnapshot = 1;
+  }
+
+  snapshotKey() {
+    return this.current && this.page
+      ? `${this.current.packageUri}|${this.current.shape}|${this.page.holder.index}` : '';
+  }
+
+  snapshotList() {
+    return this.snapshots.get(this.snapshotKey()) || [];
+  }
+
+  async snapshot(query) {
+    const list = this.snapshotList();
+    const name = await vscode.window.showInputBox({
+      title: 'Snapshot', value: `Snapshot ${list.length + 1}`,
+      prompt: 'Kept for this session, to come back to — closing VS Code forgets it. ' +
+        'Only Save writes shacl.ttl.'
+    });
+    if (name === undefined) {
+      return undefined;
+    }
+    const ran = await this.request('semforge/sparqlRun', { index: this.page.holder.index,
+      source: this.current.source, query });
+    const where = (this.page.sources.find((s) => s.id === this.current.source) || {}).label ||
+      this.current.source;
+    const verdict = !ran.ok ? 'does not run'
+      : ran.kind === 'rule' ? `${ran.triples} triple(s) on ${where}`
+        : `${ran.violating.length} violating on ${where}`;
+    const entry = { id: this.nextSnapshot++, name: name || `Snapshot ${list.length + 1}`,
+      query, verdict, at: new Date().toLocaleTimeString() };
+    this.snapshots.set(this.snapshotKey(), list.concat([entry]));
+    this.post({ type: 'snapshots', list: this.snapshotList() });
+    return entry;
+  }
+
+  deleteSnapshot(id) {
+    this.snapshots.set(this.snapshotKey(), this.snapshotList().filter((s) => s.id !== id));
+    this.post({ type: 'snapshots', list: this.snapshotList() });
   }
 
   /** `options`: {index, query, kind, source} -- which query, over which data. */
@@ -378,7 +510,8 @@ class SparqlBench {
     this.current.query = page.holder.query;
     this.panel.title = `${page.label} · SPARQL`;
     this.panel.webview.html = renderSparqlBench(page, {
-      nonce: crypto.randomBytes(16).toString('base64'), draft: this.draft });
+      nonce: crypto.randomBytes(16).toString('base64'), draft: this.draft,
+      snapshots: this.snapshotList() });
   }
 
   async receive(message) {
@@ -395,6 +528,15 @@ class SparqlBench {
         source: this.current.source, query: message.query });
       this.post({ type: 'result', result });
       return result;
+    } else if (message.command === 'inspect') {
+      const result = await this.request('semforge/sparqlInspect', {
+        index: this.page.holder.index, source: this.current.source, query: message.query });
+      this.post({ type: 'inspect', result });
+      return result;
+    } else if (message.command === 'snapshot') {
+      return this.snapshot(message.query);
+    } else if (message.command === 'deleteSnapshot') {
+      this.deleteSnapshot(message.id);
     } else if (message.command === 'save') {
       return this.save(message.query);
     } else if (message.command === 'remove') {

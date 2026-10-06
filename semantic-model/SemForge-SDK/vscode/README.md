@@ -1039,6 +1039,25 @@ in Shapes) and the query opens in a page of its own:
   VALUES, SERVICE, no `$this`, an aggregate in the current view).
 - **What the query runs over** — the instance data as Turtle, with what the
   rules derived listed apart.
+- **Selects** — how `$this` gets its value. A SHACL-SPARQL query never picks
+  its own nodes: the engine takes the shape's target (*every Cutter, and every
+  subclass of it → 2 node(s)*) and runs the query once per node with `$this`
+  already bound. **Show as SPARQL** shows that hidden part as what it amounts
+  to — `VALUES $this { <urn:plasmacutter:1> <urn:plasmacutter:2> }`. A query
+  that never mentions `$this` runs once, and the page says so.
+- **Inspect** — the query taken apart, its text untouched: per focus node,
+  every row its WHERE makes with *every* variable (not only the SELECTed
+  ones), and for each part of the outer FILTERs (`&&` split up) whether it
+  held: ✓, ✗, or ⚠ for an error such as an unbound variable, which FILTER
+  counts as false. A dropped row is greyed, so "why does it not fire here?"
+  is answered by the ✗. With GROUP BY it shows the rows before grouping; a
+  FILTER inside OPTIONAL or a nested group is noted, not split. Its verdict is
+  Apply's (a test checks this for every constraint and case).
+- **Snapshot** — keep the current text, named, with what it did (*1 violating
+  on filter-off.jsonld*), to come back to while experimenting: **Load** puts
+  it into the editor, **Delete** drops it; *Saved in shacl.ttl* is always
+  listed first. Snapshots last for the session only — nothing is written
+  anywhere; closing VS Code keeps the saved query and nothing else.
 
 That data is exactly what validation gives the query, built the same way:
 rules expanded to their fixpoint, the shape's data view (`current` keeps the

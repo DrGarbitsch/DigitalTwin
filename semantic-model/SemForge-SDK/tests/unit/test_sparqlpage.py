@@ -351,3 +351,68 @@ def test_the_server_finds_the_query_by_its_text(corpus_path, tmp_path):
             'uri': uri, 'shape': CUTTER, 'query': query, 'expected': query,
             'dropAsserts': True})
         assert done['ok'] and done['asserts'] == 1
+
+
+# --- the selector, Inspect, snapshots ----------------------------------------------------------
+
+def test_the_page_says_how_this_is_bound(tmp_path, page):
+    html = _render(tmp_path, page)
+    assert '<b>Selects</b>' in html
+    assert '$this = each of every Cutter, and every subclass of it → 2 node(s)' in html
+    assert 'Show as SPARQL — what the engine adds' in html
+    assert 'VALUES $this { &lt;urn:plasmacutter:1&gt; &lt;urn:plasmacutter:2&gt; }' in html
+
+
+def test_inspect_asks_with_the_text_as_it_is_and_posts_the_answer(tmp_path, page, corpus):
+    inspected = sb.inspect(corpus, CUTTER, 0, sb.MAIN, page['holder']['query'])
+    seen = _open(tmp_path, page, [{'command': 'inspect', 'query': 'SELECT $this WHERE {}'}],
+                 replies={'semforge/sparqlInspect': inspected})
+    assert _asked(seen, 'semforge/sparqlInspect') == [{
+        'uri': PACKAGE, 'shape': CUTTER, 'index': 0, 'source': '@main',
+        'query': 'SELECT $this WHERE {}'}]
+    assert seen['webviews'][0]['posted'] == [{'type': 'inspect', 'result': inspected}]
+    assert len(seen['webviews'][0]['html']) == 1, 'the editor is not re-rendered away'
+    html = seen['webviews'][0]['html'][0]
+    assert 'id="inspect"' in html and 'id="inspected"' in html
+
+
+def _snap(tmp_path, page, messages, **scenario):
+    ran = {'ok': True, 'kind': 'constraint', 'violating': ['urn:plasmacutter:1']}
+    return _open(tmp_path, page, messages, replies={'semforge/sparqlRun': ran}, **scenario)
+
+
+def test_a_snapshot_keeps_the_text_with_what_it_did(tmp_path, page):
+    seen = _snap(tmp_path, page, [{'command': 'snapshot', 'query': 'SELECT 1'}],
+                 inputs=['works on filter-off'])
+    assert seen['inputs'][0]['title'] == 'Snapshot'
+    assert 'closing VS Code forgets it' in seen['inputs'][0]['prompt']
+    (posted,) = seen['webviews'][0]['posted']
+    (entry,) = posted['list']
+    assert posted['type'] == 'snapshots'
+    assert entry['name'] == 'works on filter-off' and entry['query'] == 'SELECT 1'
+    assert entry['verdict'] == '1 violating on Main'
+
+
+def test_snapshots_outlive_a_rerender_and_can_be_deleted(tmp_path, page):
+    seen = _snap(tmp_path, page, [{'command': 'snapshot', 'query': 'SELECT 1'},
+                                  {'command': 'snapshot', 'query': 'SELECT 2'},
+                                  {'command': 'source', 'source': OFF, 'query': 'SELECT 2'},
+                                  {'command': 'deleteSnapshot', 'id': 1}],
+                 inputs=['first', 'second'])
+    html = seen['webviews'][0]['html'][-1]
+    state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
+    assert [s['name'] for s in state['snapshots']] == ['first', 'second'], 'kept across data'
+    assert [s['name'] for s in seen['webviews'][0]['posted'][-1]['list']] == ['second']
+
+
+def test_a_dismissed_name_takes_no_snapshot(tmp_path, page):
+    seen = _snap(tmp_path, page, [{'command': 'snapshot', 'query': 'SELECT 1'}])
+    assert seen['webviews'][0]['posted'] == [] and _asked(seen, 'semforge/sparqlRun') == []
+
+
+def test_nothing_of_the_workbench_is_stored_anywhere():
+    """Agreed: only Save persists. Snapshots and drafts live in memory and go
+    with VS Code."""
+    source = open(os.path.join(SRC, 'sparqlpage.js')).read()
+    for storage in ('workspaceState', 'globalState', 'storageUri', 'writeFile', 'setState('):
+        assert storage not in source, storage

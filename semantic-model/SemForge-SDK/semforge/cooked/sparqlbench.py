@@ -286,6 +286,7 @@ def bench_page(package, shape, index=0, source=MAIN, query=None, kind=None):
         'label': local(URIRef(shape)), 'holders': found, 'holder': holder,
         'sources': sources(package, shape), 'source': source or MAIN,
         'focus': [_term(data, node) for node in focus],
+        'selector': selector(package, shape, focus, holder['query']),
         'data': shown, 'stats': stats}
 
 
@@ -425,10 +426,12 @@ def save_query(package, shape, index, query, expected):
 SKELETON = """
 {prefixes}
 
+# $this is each node the shape selects (its target), bound before this runs.
+# Every row returned is a violation of that node.
 SELECT $this
 WHERE {{
-    $this a ?type .
-    FILTER(1 = 0)    # fires on nothing yet: write the condition that is a violation
+    $this ?attribute ?value .
+    FILTER(1 = 0)    # fires on nothing yet: write the condition that is wrong
 }}
 """
 
@@ -606,3 +609,221 @@ def _drop_asserts(package, shape):
             with open(path, 'w', encoding='utf-8') as handle:
                 _yaml().dump(raw, handle)
     return dropped
+
+
+# --- the selector, said ------------------------------------------------------------------
+
+def selector(package, shape, focus, query):
+    """How `$this` gets its value: the shape's target, applied by the engine
+    before the query runs -- said in words, and as the SPARQL it amounts to."""
+    from .shapes import targets, used_by
+
+    declared = targets(package, URIRef(shape))
+    if declared:
+        said = '; '.join(t['text'] for t in declared)
+    else:
+        users = used_by(package, URIRef(shape))
+        said = ('no target of its own: the nodes the shapes using it reach (' +
+                ', '.join(curie(package.shapes, URIRef(u)) for u in users) + ')'
+                if users else 'no target: it selects nothing')
+    shown = focus[:50]
+    values = ' '.join(f'<{node}>' for node in shown) + (' …' if len(focus) > 50 else '')
+    binds = bool(re.search(r'[$?]this\b', query))
+    return {
+        'text': said, 'count': len(focus), 'binds': binds,
+        'sparql': ('# Added by the SHACL engine, not written in the query: $this is\n'
+                   '# bound to each node the shape selects, one run per node.\n'
+                   f'VALUES $this {{ {values} }}') if binds else
+                  ('# The query never mentions $this: it runs once, unbound, and every\n'
+                   '# row it returns is a violation of every selected node.')}
+
+
+# --- Inspect: every variable, and why rows were dropped ----------------------------------
+
+ABOVE = ('Project', 'Distinct', 'Reduced', 'Slice', 'OrderBy', 'ToMultiSet')
+
+
+def _contains(part, name):
+    if not hasattr(part, 'name'):
+        return False
+    if part.name == name:
+        return True
+    return any(_contains(part[k], name) for k in ('p', 'p1', 'p2') if k in part)
+
+
+def _filters_inside(part):
+    """A FILTER below the outer ones: a Filter node, or the condition rdflib
+    folds into an OPTIONAL (LeftJoin.expr)."""
+    if not hasattr(part, 'name'):
+        return False
+    if part.name == 'Filter':
+        return True
+    if part.name == 'LeftJoin' and getattr(part.get('expr'), 'name', '') != 'TrueFilter':
+        return True
+    return any(_filters_inside(part[k]) for k in ('p', 'p1', 'p2') if k in part)
+
+
+def _explainable(algebra):
+    """(pattern, [Filter], notes): the query's WHERE as rows are made, its
+    outer FILTERs taken off to be checked one by one."""
+    part, notes = algebra.p, []
+    while hasattr(part, 'name'):
+        if part.name in ABOVE:
+            part = part.p
+        elif part.name == 'Extend' and _contains(part.p, 'AggregateJoin'):
+            part = part.p                    # (COUNT(?x) AS ?n): computed after grouping
+        elif part.name in ('AggregateJoin', 'Group'):
+            if part.name == 'AggregateJoin':
+                notes.append('the rows before GROUP BY: an aggregate is computed from them')
+            part = part.p
+        else:
+            break
+    filters = []
+    while hasattr(part, 'name') and part.name == 'Filter':
+        filters.append(part)
+        part = part.p
+    if _filters_inside(part):
+        notes.append('a FILTER inside OPTIONAL or a nested group acts inside it; only the '
+                     'outer FILTERs are checked one by one')
+    return part, filters, notes
+
+
+def _conjuncts(expr):
+    if getattr(expr, 'name', '') == 'ConditionalAndExpression':
+        out = []
+        for part in [expr['expr']] + list(expr.get('other') or []):
+            out.extend(_conjuncts(part))
+        return out
+    return [expr]
+
+
+XSD = 'http://www.w3.org/2001/XMLSchema#'
+PLAIN_TYPES = {URIRef(XSD + t) for t in ('integer', 'decimal', 'double', 'boolean')}
+
+
+def _held(part, solution):
+    """True / False, or None when evaluating it is an error (an unbound
+    variable, a type clash): FILTER counts that as false, but it is worth
+    seeing that it was not a plain no. rdflib's own _ebv folds the two."""
+    from rdflib import Variable
+    from rdflib.plugins.sparql.operators import EBV
+    from rdflib.plugins.sparql.sparql import SPARQLError
+
+    try:
+        if isinstance(part, Variable):
+            if part not in solution:
+                return None
+            value = solution[part]
+        elif isinstance(part, Literal):
+            value = part
+        else:
+            value = part.eval(solution)
+        if isinstance(value, SPARQLError):
+            return None
+        return bool(EBV(value))
+    except Exception:                                # noqa: BLE001
+        return None
+
+
+def expression(expr, graph):
+    """A FILTER expression read back as SPARQL, near enough to recognise."""
+    from rdflib import Variable
+
+    if isinstance(expr, Variable):
+        return f'?{expr}'
+    if isinstance(expr, (URIRef, BNode, Literal)):
+        if isinstance(expr, Literal):
+            if expr.datatype in PLAIN_TYPES:
+                return str(expr)              # 1, 2.5, true -- as written
+            return expr.n3(graph.namespace_manager)
+        return _term(graph, expr) if isinstance(expr, URIRef) else '[]'
+    name = getattr(expr, 'name', '')
+    text = lambda key: expression(expr[key], graph)  # noqa: E731
+    if name == 'RelationalExpression':
+        other = expr.get('other')
+        if isinstance(other, list):
+            return f'{text("expr")} {expr["op"]} ({", ".join(expression(o, graph) for o in other)})'
+        return f'{text("expr")} {expr["op"]} {text("other")}'
+    if name in ('ConditionalAndExpression', 'ConditionalOrExpression'):
+        glue = ' && ' if name == 'ConditionalAndExpression' else ' || '
+        return '(' + glue.join(expression(p, graph)
+                               for p in [expr['expr']] + list(expr.get('other') or [])) + ')'
+    if name in ('AdditiveExpression', 'MultiplicativeExpression'):
+        out = text('expr')
+        for op, other in zip(expr.get('op') or [], expr.get('other') or []):
+            out += f' {op} {expression(other, graph)}'
+        return out
+    if name == 'UnaryNot':
+        inner = text('expr')
+        atomic = not hasattr(expr['expr'], 'name') or expr['expr'].name.startswith('Builtin_')
+        return f'!{inner}' if atomic or inner.startswith('(') else f'!({inner})'
+    if name == 'UnaryMinus':
+        return f'-{text("expr")}'
+    if name in ('Builtin_EXISTS', 'Builtin_NOTEXISTS'):
+        return ('EXISTS' if name == 'Builtin_EXISTS' else 'NOT EXISTS') + ' { … }'
+    if name.startswith('Builtin_'):
+        args = [expression(expr[k], graph) for k in ('arg', 'arg1', 'arg2', 'arg3')
+                if k in expr and expr[k] is not None]
+        return f'{name[len("Builtin_"):]}({", ".join(args)})'
+    if name == 'Function':
+        return f'{_term(graph, expr["iri"])}({", ".join(expression(a, graph) for a in expr["expr"])})'
+    return str(expr)
+
+
+def inspect(package, shape, index, source, query):
+    """The query taken apart, its text untouched: per focus node, every row
+    its WHERE makes with every variable, and for each outer FILTER part
+    whether it held -- so a row that was dropped says what dropped it."""
+    from rdflib import Variable
+    from rdflib.plugins.sparql import prepareQuery
+    from rdflib.plugins.sparql.evaluate import evalPart
+    from rdflib.plugins.sparql.sparql import QueryContext
+
+    found = holders(package, shape)
+    holder = found[min(max(int(index or 0), 0), len(found) - 1)]
+    prefixes = _prefix_lines(package, _holder_node(package, shape, holder['kind'],
+                                                   holder['query']))
+    data, focus, _ = data_graph(package, shape, source, holder['kind'])
+    try:
+        prepared = prepareQuery('\n'.join(prefixes + [query]))
+    except Exception as exc:                         # noqa: BLE001
+        return {'ok': False, 'error': f'the query does not parse: {exc}'}
+    pattern, filters, notes = _explainable(prepared.algebra)
+    checks = [(f, part) for f in filters for part in _conjuncts(f.expr)]
+    order = []
+    for name in re.findall(r'[?$](\w+)', query):
+        if name not in order:
+            order.append(name)
+
+    started = time.perf_counter()
+    binds = bool(re.search(r'[$?]this\b', query))
+    per_focus, seen_vars = [], set()
+    for node in focus if binds else [None]:
+        ctx = QueryContext(data, initBindings={Variable('this'): node} if node is not None
+                           else {})
+        ctx.prologue = prepared.prologue
+        rows, kept, total = [], 0, 0
+        for solution in evalPart(ctx, pattern):
+            total += 1
+            values = {str(k): _term(data, v) for k, v in solution.items()
+                      if isinstance(k, Variable)}
+            seen_vars.update(values)
+            results, all_hold = [], True
+            for f, part in checks:
+                scoped = solution.forget(ctx, _except=f._vars) \
+                    if not f.no_isolated_scope else solution
+                held = _held(part, scoped)
+                results.append(held)
+                all_hold = all_hold and bool(held)
+            kept += all_hold
+            if len(rows) < 100:
+                rows.append({'values': values, 'checks': results, 'kept': all_hold})
+        per_focus.append({'node': _term(data, node) if node is not None else '(unbound)',
+                          'rows': rows, 'total': total, 'kept': kept})
+    columns = ['this'] if 'this' in seen_vars else []
+    columns += [v for v in order if v in seen_vars and v not in columns]
+    columns += sorted(v for v in seen_vars if v not in columns)
+    return {'ok': True, 'kind': holder['kind'], 'columns': columns,
+            'filters': [expression(part, data) for _, part in checks],
+            'focus': per_focus, 'notes': notes,
+            'ms': round((time.perf_counter() - started) * 1000)}
