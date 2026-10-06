@@ -1027,10 +1027,13 @@ in Shapes) and the query opens in a page of its own:
 
 - **Run over** — the data: **Main** or a test case, the cases this shape
   reaches listed first, each with its number of focus nodes.
-- **Query** — the query, editable. **Apply** (Ctrl+Enter) runs the text as it
-  is now; **Cancel** goes back to the saved text; **Save** (Ctrl+S) writes it
+- **Query** — edited in a real editor beside the page, `<Shape>.rq` (language
+  SPARQL), with VS Code's own undo, find and multi-cursor. **Apply**
+  (Ctrl+Enter in the editor) runs the text as it is now; **Cancel** is the
+  editor's Revert, back to what `shacl.ttl` holds; **Save** (Ctrl+S) writes it
   over the `"""…"""` literal in `shacl.ttl` and nothing else (checked by
-  parsing; refused if the file changed since the workbench opened it).
+  parsing; refused — as a failed save, the edit kept — if the literal changed
+  since the editor read it). See *The SPARQL editor* below.
 - **Result** — for a constraint, which focus nodes violate, each row the query
   returned with `sh:message` filled in from it (`{?value}`, `{$this}`), and
   what the *saved* query says on the same data (*now also …*, *no longer …*).
@@ -1073,6 +1076,37 @@ rules' fixpoint.
 with the package's PREFIX lines), then opens it here: write the condition,
 Apply until it finds what you mean, Save. Unsaved edits survive switching tabs;
 closing the page with them offers to reopen it with them.
+
+**The SPARQL editor.** The query's editor knows the package — its
+namespaces, its classes, its attributes and whether each is a Property or a
+Relationship — through the SemForge language server:
+
+- **Completion** (Ctrl+Space, and as you type `:` `?` `$`): after `PREFIX`,
+  the package's namespaces written out; after `iffBaseEntities:`, that
+  namespace's classes, attributes and individuals, each with what it is
+  (*Property · on iffBaseEntities:Machine*). A prefix the query has not
+  declared is declared by the completion — its PREFIX line is added. Where a
+  predicate goes, an attribute also comes as the whole NGSI-LD step:
+  `iffBaseEntities:hasCartridge [ ngsild:hasObject ?cartridge ]` for a
+  Relationship, `[ ngsild:hasValue ?state ]` for a Property. `?`/`$` offers
+  the query's variables; anything else, keywords and built-in functions.
+- **Squiggles**, as you type: a syntax error at the bracket or clause where
+  the query stops reading; a prefix used but not declared (red, with **Add
+  PREFIX** as its quick fix); a name in the package's own namespaces the
+  knowledge does not declare — *iffBaseEntities:hasStat … did you mean
+  iffBaseEntities:hasState?* — with the correction as its fix; an attribute
+  read through the wrong NGSI-LD layer (`hasValue` on a Relationship, which
+  matches nothing); what SHACL refuses (MINUS, VALUES, SERVICE, `AS ?this`);
+  a constraint without `$this`; an aggregate in the current view.
+- **Hover** on a name: its full IRI, what it is, its comment — and for an
+  attribute, how to read it (`[ ngsild:hasObject ?x ]`).
+- **Format Document** (Shift+Alt+F): one layout — a PREFIX per line, clauses
+  on their own lines, a triple per line ending ` .`, `;` continuing on the next
+  line, `[ … ]` and `( … )` kept on one line, keywords in capitals, comments
+  where they were. Only whitespace and keyword case change, and that is
+  checked: if a token would change, nothing is formatted.
+- **Write out / Shorten** (the light bulb on a name): `iffBaseEntities:hasState`
+  ⇄ `<https://…/base_entities/hasState>`, declaring the prefix when shortening.
 
 **Remove…** (in the workbench, or next to each query on the shape page)
 takes one SPARQL constraint or rule out of its shape: its whole `[ … ]` and

@@ -137,18 +137,123 @@ def _publish(ls, uri):
     _published[root] = now
 
 
+# --- the SPARQL workbench's query documents (semforge-sparql:) ----------------------
+
+def _query_context(uri):
+    from .sparqldocs import context
+    return context(uri, _package_for, package_root, _uri_to_path)
+
+
+def _publish_query(ls, uri):
+    """Squiggles for a query document, from its text as it is now."""
+    from .sparqldocs import diagnostics
+
+    try:
+        ctx = _query_context(uri)
+        found = diagnostics(ls.workspace.get_text_document(uri).source, ctx) if ctx else []
+    except Exception as exc:                       # noqa: BLE001
+        found = [types.Diagnostic(
+            range=types.Range(types.Position(0, 0), types.Position(0, 1)),
+            message=f'semforge could not check this query: {exc}',
+            severity=types.DiagnosticSeverity.Warning, source='semforge-sparql')]
+    ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
+        uri=uri, diagnostics=found))
+
+
+def _offset(document, position):
+    from ..sparql.lexer import offset_of
+    return offset_of(document.source, position.line, position.character)
+
+
+@server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
+def did_change(ls, params):
+    from .sparqldocs import is_query
+    if is_query(params.text_document.uri):
+        _publish_query(ls, params.text_document.uri)
+
+
+@server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
+def did_close(ls, params):
+    from .sparqldocs import is_query
+    if is_query(params.text_document.uri):
+        ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
+            uri=params.text_document.uri, diagnostics=[]))
+
+
+@server.feature(types.TEXT_DOCUMENT_COMPLETION,
+                types.CompletionOptions(trigger_characters=[':', '?', '$']))
+def completion(ls, params):
+    from .sparqldocs import completion as complete_query, is_query
+
+    if not is_query(params.text_document.uri):
+        return None
+    ctx = _query_context(params.text_document.uri)
+    if ctx is None:
+        return None
+    document = ls.workspace.get_text_document(params.text_document.uri)
+    return complete_query(document.source, _offset(document, params.position), ctx)
+
+
+@server.feature(types.TEXT_DOCUMENT_FORMATTING)
+def formatting(ls, params):
+    from ..sparql.format import FormatError
+    from .sparqldocs import formatting as format_query, is_query
+
+    if not is_query(params.text_document.uri):
+        return None
+    document = ls.workspace.get_text_document(params.text_document.uri)
+    try:
+        return format_query(document.source)
+    except FormatError as exc:
+        ls.window_show_message(types.ShowMessageParams(
+            type=types.MessageType.Warning, message=f'SemForge: {exc}'))
+        return None
+
+
+@server.feature('semforge/sparqlQuery')
+def sparql_query_feature(ls, params):
+    """One query's saved text: what a query document opens with."""
+    from ..cooked.sparqlbench import holders
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        found = holders(_package_for(root), str(_field(params, 'shape', '') or ''))
+        index = int(_field(params, 'holder') or 0)
+        if not 0 <= index < len(found):
+            return {'ok': False, 'error': 'this shape has no such SPARQL query (any more)'}
+        return dict(found[index], ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
 def did_open(ls, params):
+    from .sparqldocs import is_query
+    if is_query(params.text_document.uri):
+        _publish_query(ls, params.text_document.uri)
+        return
     _publish(ls, params.text_document.uri)
 
 
 @server.feature(types.TEXT_DOCUMENT_DID_SAVE)
 def did_save(ls, params):
+    from .sparqldocs import is_query
+    if is_query(params.text_document.uri):
+        return
     _publish(ls, params.text_document.uri)
 
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls, params):
+    from .sparqldocs import hover as hover_query, is_query
+
+    if is_query(params.text_document.uri):
+        ctx = _query_context(params.text_document.uri)
+        document = ls.workspace.get_text_document(params.text_document.uri)
+        return hover_query(document.source, _offset(document, params.position), ctx) \
+            if ctx else None
     root = package_root(_uri_to_path(params.text_document.uri))
     if root is None:
         return None
@@ -250,6 +355,13 @@ def _fixes_for(diagnostic, uri):
 
 @server.feature(types.TEXT_DOCUMENT_CODE_ACTION)
 def code_action(ls, params):
+    from .sparqldocs import code_actions, is_query
+
+    if is_query(params.text_document.uri):
+        ctx = _query_context(params.text_document.uri)
+        document = ls.workspace.get_text_document(params.text_document.uri)
+        return code_actions(params.text_document.uri, document.source, ctx, params) \
+            if ctx else None
     actions = []
     for diagnostic in params.context.diagnostics or []:
         if str(diagnostic.source or '').startswith('semforge'):

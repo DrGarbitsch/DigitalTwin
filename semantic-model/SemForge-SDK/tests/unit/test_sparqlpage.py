@@ -1,10 +1,10 @@
 """The SPARQL workbench page, driven through the extension with the harness,
 on the payloads the real server builds (so page and server cannot drift).
 
-Apply, Cancel and Save are the page's own buttons; what reaches the
-extension is a message, and what it sends back -- a result, a save -- is
-posted INTO the page rather than re-rendering it, so the editor keeps what
-was typed.
+The query is edited in a real editor: a `semforge-sparql:` document the
+extension's file system reads from and saves into shacl.ttl. The page's
+buttons act on that document; what the extension sends back -- a result, a
+save -- is posted INTO the page rather than re-rendering it.
 """
 
 import json
@@ -49,13 +49,14 @@ def _drive(tmp_path, scenario, target='extension.js'):
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
-def _render(tmp_path, page, draft=None):
+def _render(tmp_path, page, dirty=False):
     return _drive(tmp_path, {'mode': 'render', 'function': 'renderSparqlBench', 'payload': page,
-                             'options': {'nonce': 'n1', 'draft': draft}}, 'sparqlpage.js')['html']
+                             'options': {'nonce': 'n1', 'dirty': dirty}}, 'sparqlpage.js')['html']
 
 
 def _open(tmp_path, page, messages, **scenario):
-    replies = {'semforge/sparqlBench': page, 'semforge/sparqlRun': {'ok': True}}
+    replies = {'semforge/sparqlBench': page, 'semforge/sparqlRun': {'ok': True},
+               'semforge/sparqlQuery': dict(page['holder'], ok=True)}
     replies.update(scenario.pop('replies', {}))
     return _drive(tmp_path, dict({
         'command': 'semforge.openSparqlBench',
@@ -69,18 +70,18 @@ def _asked(seen, method):
 
 # --- the page ---------------------------------------------------------------------------
 
-def test_it_shows_the_query_the_data_and_the_three_buttons(tmp_path, page):
+def test_it_shows_its_editor_the_data_and_the_buttons(tmp_path, page):
     html = _render(tmp_path, page)
-    for text in ('id="query"', 'id="apply"', 'id="cancel"', 'id="save"', 'id="source"',
-                 'Cutter running without running filter', 'severity: base:severityCritical',
-                 'Instance data (Turtle)', 'urn:plasmacutter:1', '2 focus node(s)'):
+    for text in ('data-editor="1"', 'StateOnCutterShape.rq', 'Ctrl+Space completes',
+                 'Shift+Alt+F formats', 'id="apply"', 'id="inspect"', 'id="cancel"', 'id="save"',
+                 'id="source"', 'Cutter running without running filter',
+                 'severity: base:severityCritical', 'Instance data (Turtle)',
+                 'urn:plasmacutter:1', '2 focus node(s)'):
         assert text in html, text
-    # The query is handed to the page as data and put into the editor by its
-    # script: markup would lose the query's leading newline.
-    assert html.split('id="query"', 1)[1].split('</textarea>', 1)[0].endswith('>')
+    assert '<textarea' not in html, 'the query is edited in its own editor'
     state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
-    assert state['draft'] == state['baseline'] == page['holder']['query']
-    assert state['draft'].startswith('\n')
+    assert state['dirty'] is False
+    assert 'id="dirty" hidden' in html
     assert "script-src 'nonce-n1'" in html
     assert html.count('<option') == len(page['sources'])
 
@@ -98,77 +99,86 @@ def test_the_page_script_parses(tmp_path, page):
     assert checked.returncode == 0, checked.stderr[-800:]
 
 
-def test_a_draft_is_shown_instead_of_the_saved_text(tmp_path, page):
-    html = _render(tmp_path, page, draft='SELECT $this WHERE { $this ?p ?o }')
+def test_unsaved_changes_in_the_editor_are_said_on_the_page(tmp_path, page):
+    html = _render(tmp_path, page, dirty=True)
+    assert 'id="dirty">unsaved changes' in html
     state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
-    assert state['draft'] == 'SELECT $this WHERE { $this ?p ?o }'
-    # The saved text stays the baseline Cancel returns to.
-    assert state['baseline'] == page['holder']['query']
+    assert state['dirty'] is True
 
 
 def test_nothing_reaches_the_page_unescaped(tmp_path, page):
     hostile = json.loads(json.dumps(page))
-    hostile['holder']['query'] = '</textarea><script>alert(1)</script>'
     hostile['holder']['message'] = '<img src=x onerror=alert(2)>'
+    hostile['label'] = '<script>alert(1)</script>'
     html = _render(tmp_path, hostile)
     assert '<script>alert' not in html and '<img src=x' not in html
-    assert '</textarea><script>' not in html
 
 
 # --- what the buttons do -----------------------------------------------------------------
 
-def test_apply_runs_the_edited_text_and_posts_the_result_back(tmp_path, page, run):
-    seen = _open(tmp_path, page, [{'command': 'run', 'query': 'SELECT $this WHERE {}'}],
-                 replies={'semforge/sparqlRun': run})
+def test_the_query_opens_as_a_document_read_from_shacl_ttl(tmp_path, page):
+    seen = _open(tmp_path, page, [])
     assert seen['errors'] == [], seen['errors']
+    assert _asked(seen, 'semforge/sparqlQuery') == [{'uri': PACKAGE, 'shape': CUTTER,
+                                                    'holder': 0}]
     assert seen['webviews'][0]['title'] == 'StateOnCutterShape · SPARQL'
+    assert 'StateOnCutterShape.rq' in seen['webviews'][0]['html'][0]
+
+
+def test_apply_runs_what_the_editor_holds_and_posts_the_result_back(tmp_path, page, run):
+    seen = _open(tmp_path, page, [{'command': 'run'}], replies={'semforge/sparqlRun': run})
     assert _asked(seen, 'semforge/sparqlRun') == [{
         'uri': PACKAGE, 'shape': CUTTER, 'index': 0, 'source': '@main',
-        'query': 'SELECT $this WHERE {}'}]
-    posted = seen['webviews'][0]['posted']
-    assert posted == [{'type': 'result', 'result': run}]
-    assert len(seen['webviews'][0]['html']) == 1, 'a run never re-renders the editor away'
+        'query': page['holder']['query']}]
+    assert seen['webviews'][0]['posted'] == [{'type': 'result', 'result': run}]
+    assert len(seen['webviews'][0]['html']) == 1, 'a run never re-renders the page'
 
 
 def test_save_writes_over_the_query_it_opened(tmp_path, page):
     edited = page['holder']['query'] + '\n'
-    seen = _open(tmp_path, page, [{'command': 'draft', 'query': edited, 'dirty': True},
-                                  {'command': 'save', 'query': edited}],
+    seen = _open(tmp_path, page, [{'command': 'save', 'query': edited}],
                  replies={'semforge/sparqlSave': {'ok': True, 'file': '/pkg/shacl.ttl',
                                                   'line': 187}})
     assert _asked(seen, 'semforge/sparqlSave') == [{
         'uri': PACKAGE, 'shape': CUTTER, 'index': 0, 'query': edited,
         'expected': page['holder']['query']}]
-    assert seen['webviews'][0]['posted'][-1] == {
-        'type': 'saved', 'query': edited, 'where': 'shacl.ttl:187'}
+    assert {'type': 'saved', 'query': edited, 'where': 'shacl.ttl:187'} in \
+        seen['webviews'][0]['posted']
+    assert seen['webviews'][0]['posted'][-1] == {'type': 'dirty', 'dirty': False}
     assert any(e['command'] == 'semforge.refreshShapes' for e in seen['executed'])
+    assert any(e['type'] == 'saved' for e in seen['events']), 'the document was saved'
 
 
-def test_a_refused_save_says_why_and_keeps_the_edit(tmp_path, page):
+def test_a_refused_save_fails_as_a_save_and_keeps_the_edit(tmp_path, page):
     seen = _open(tmp_path, page, [{'command': 'save', 'query': 'x'}],
                  replies={'semforge/sparqlSave': {'ok': False, 'error': 'changed in the file'}})
-    assert any('changed in the file' in e for e in seen['errors'])
+    assert any('changed in the file' in e for e in seen['saveErrors'])
     assert seen['webviews'][0]['posted'][-1] == {'type': 'error', 'text': 'not saved'}
+    assert not any(e['type'] == 'saved' for e in seen['events'])
 
 
-def test_another_source_rerenders_with_the_draft_kept(tmp_path, page):
-    seen = _open(tmp_path, page, [{'command': 'source', 'source': OFF,
-                                   'query': 'SELECT $this WHERE { $this ?p ?o }'}])
+def test_cancel_is_the_editor_s_revert(tmp_path, page):
+    seen = _open(tmp_path, page, [{'command': 'loadSnapshot', 'id': 'saved'},
+                                  {'command': 'cancel'}])
+    assert any(e['command'] == 'workbench.action.files.revert' for e in seen['executed'])
+
+
+def test_another_source_rerenders_and_leaves_the_editor_alone(tmp_path, page):
+    seen = _open(tmp_path, page, [{'command': 'source', 'source': OFF}])
     asked = _asked(seen, 'semforge/sparqlBench')
     assert [a['source'] for a in asked] == ['@main', OFF]
-    html = seen['webviews'][0]['html'][-1]
-    assert 'SELECT $this WHERE { $this ?p ?o }' in html.split('id="query"', 1)[1]
+    assert not any(e['type'] == 'edited' for e in seen['events'])
 
 
-def test_switching_query_with_unsaved_edits_asks_first(tmp_path, page):
-    two = dict(page, holders=page['holders'] + [dict(page['holder'], index=1, query='SELECT 2')])
-    for answer, renders in ((None, 1), ('Discard them', 2)):
-        scenario = {'replies': {'semforge/sparqlBench': two}}
-        if answer:
-            scenario['answer'] = answer
-        seen = _open(tmp_path, two, [{'command': 'holder', 'index': 1, 'dirty': True}], **scenario)
-        assert any('unsaved edits' in w for w in seen['warnings'])
-        assert len(_asked(seen, 'semforge/sparqlBench')) == renders
+def test_another_query_of_the_shape_opens_its_own_document(tmp_path, page):
+    second = dict(page['holder'], index=1, query='SELECT 2')
+    two = dict(page, holders=page['holders'] + [second])
+    seen = _open(tmp_path, two, [{'command': 'holder', 'index': 1}],
+                 replies={'semforge/sparqlBench': [two, dict(two, holder=second)]})
+    assert [a.get('index') for a in _asked(seen, 'semforge/sparqlBench')] == [None, 1]
+    assert [a['holder'] for a in _asked(seen, 'semforge/sparqlQuery')] == [0, 1]
+    assert 'StateOnCutterShape-2.rq' in seen['webviews'][0]['html'][-1]
+    assert seen['warnings'] == [], 'each query is its own document: nothing to discard'
 
 
 # --- the way in ------------------------------------------------------------------------
@@ -196,7 +206,8 @@ def test_add_sparql_constraint_asks_the_message_and_opens_it(tmp_path, page):
         'inputs': ['Cutter too hot'],
         'replies': {'semforge/addSparqlConstraint': {'ok': True, 'file': '/pkg/shacl.ttl',
                                                      'index': 1, 'line': 210},
-                    'semforge/sparqlBench': page}})
+                    'semforge/sparqlBench': page,
+                    'semforge/sparqlQuery': dict(page['holder'], ok=True)}})
     assert _asked(seen, 'semforge/addSparqlConstraint') == [
         {'uri': PACKAGE, 'shape': CUTTER, 'message': 'Cutter too hot'}]
     assert _asked(seen, 'semforge/sparqlBench')[0]['index'] == 1
@@ -273,11 +284,13 @@ def _remove(tmp_path, page, plan, answer, dirty=False, after=None):
                'semforge/sparqlRemove': {'ok': True, 'file': '/pkg/shacl.ttl', 'line': 185,
                                          'asserts': 1 if answer and 'asserts' in answer else 0}}
     if after is not None:
-        replies['semforge/sparqlBench'] = after
+        replies['semforge/sparqlBench'] = [page, after]
     scenario = {'replies': replies}
     if answer:
         scenario['answer'] = answer
-    return _open(tmp_path, page, [{'command': 'remove', 'dirty': dirty}], **scenario)
+    # Unsaved changes: the saved text put back into the editor marks it edited.
+    edit = [{'command': 'loadSnapshot', 'id': 'saved'}] if dirty else []
+    return _open(tmp_path, page, edit + [{'command': 'remove'}], **scenario)
 
 
 def test_remove_says_which_cases_assert_it_and_can_take_them(tmp_path, page):
@@ -309,6 +322,7 @@ def test_asserts_another_constraint_answers_for_are_only_mentioned(tmp_path, pag
 
 def test_unsaved_edits_are_mentioned_and_a_dismissal_removes_nothing(tmp_path, page):
     seen = _remove(tmp_path, page, _plan(page, []), None, dirty=True)
+    assert any(e['type'] == 'edited' for e in seen['events'])
     assert any('unsaved edits in the workbench go with it' in w for w in seen['warnings'])
     assert _asked(seen, 'semforge/sparqlRemove') == []
 
@@ -411,8 +425,9 @@ def test_a_dismissed_name_takes_no_snapshot(tmp_path, page):
 
 
 def test_nothing_of_the_workbench_is_stored_anywhere():
-    """Agreed: only Save persists. Snapshots and drafts live in memory and go
-    with VS Code."""
+    """Agreed: only Save persists -- through the query's file system, into
+    shacl.ttl, via the server. Snapshots live in memory and go with VS Code."""
     source = open(os.path.join(SRC, 'sparqlpage.js')).read()
-    for storage in ('workspaceState', 'globalState', 'storageUri', 'writeFile', 'setState('):
+    for storage in ('workspaceState', 'globalState', 'storageUri', "require('fs')",
+                    'setState('):
         assert storage not in source, storage

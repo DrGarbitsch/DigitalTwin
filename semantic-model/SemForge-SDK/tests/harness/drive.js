@@ -43,6 +43,52 @@ const noop = () => undefined;
 const registry = new Map();
 const selections = [];
 const providers = {};
+// Documents of a file system an extension registers (the SPARQL workbench's
+// semforge-sparql: queries): opened through its provider, edited in memory,
+// saved through it -- so a test sees what a save sent and what it refused.
+const fileSystems = {};
+const documents = [];
+const changeListeners = [];
+const saveListeners = [];
+
+function lineAt(text, offset) {
+  const before = text.slice(0, offset);
+  const line = before.split('\n').length - 1;
+  return { line, character: offset - (before.lastIndexOf('\n') + 1) };
+}
+
+async function openDocument(uri) {
+  const key = uri.toString();
+  const known = documents.find((d) => d.uri.toString() === key);
+  if (known) {
+    return known;
+  }
+  const content = await fileSystems[uri.scheme].readFile(uri);
+  const doc = {
+    uri, text: Buffer.from(content).toString('utf-8'), isDirty: false,
+    getText() { return this.text; },
+    positionAt(offset) {
+      const at = lineAt(this.text, offset);
+      return new stub.Position(at.line, at.character);
+    },
+    get lineCount() { return this.text.split('\n').length; },
+    async save() {
+      try {
+        await fileSystems[uri.scheme].writeFile(uri, Buffer.from(this.text, 'utf-8'),
+          { create: false, overwrite: true });
+      } catch (error) {
+        seen.saveErrors = (seen.saveErrors || []).concat([error.message]);
+        return false;
+      }
+      this.isDirty = false;
+      seen.events.push({ type: 'saved', uri: key });
+      saveListeners.forEach((listener) => listener(this));
+      return true;
+    }
+  };
+  documents.push(doc);
+  return doc;
+}
 // VS Code fires this when a document is shown, and the trees listen to it. The
 // harness used to model it as a no-op, which hid a refresh landing in the middle
 // of a reveal.
@@ -54,7 +100,31 @@ const stub = {
     workspaceFolders: [{ uri: { fsPath: process.argv[2] } }],
     createFileSystemWatcher: () => ({ dispose: noop }),
     onDidChangeConfiguration: noop,
-    onDidSaveTextDocument: noop,
+    onDidSaveTextDocument: (listener) => {
+      saveListeners.push(listener);
+      return { dispose: noop };
+    },
+    onDidChangeTextDocument: (listener) => {
+      changeListeners.push(listener);
+      return { dispose: noop };
+    },
+    registerFileSystemProvider: (scheme, provider) => {
+      fileSystems[scheme] = provider;
+      return { dispose: noop };
+    },
+    get textDocuments() { return documents; },
+    applyEdit: (edit) => {
+      for (const change of edit.changes) {
+        const doc = documents.find((d) => d.uri.toString() === change.uri.toString());
+        if (doc) {
+          doc.text = change.text;              // a whole-text replace is all the workbench does
+          doc.isDirty = true;
+          seen.events.push({ type: 'edited', uri: change.uri.toString() });
+          changeListeners.forEach((listener) => listener({ document: doc }));
+        }
+      }
+      return Promise.resolve(true);
+    },
     // Recorded AND performed, but only inside the workspace the test built --
     // which is a pytest tmp_path. Recording alone was not enough: what happens
     // after a deletion is that the package is gone, and a stub that leaves it
@@ -73,8 +143,9 @@ const stub = {
     // A real document's uri answers both fsPath and toString; the trees use
     // one to filter and the other to compare packages, so a stub with only
     // fsPath made every opened file look like a different package.
-    openTextDocument: (file) =>
-      Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000 })
+    openTextDocument: (file) => (file && file.scheme && fileSystems[file.scheme]
+      ? openDocument(file)
+      : Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000 }))
   },
   window: {
     // The provider is kept aside, not on the view: `seen` is printed as JSON.
@@ -311,7 +382,23 @@ const stub = {
   TextEditorRevealType: { InCenter: 2 }, SymbolKind: { Class: 4 },
   StatusBarAlignment: { Left: 1, Right: 2 },
   MarkupKind: { Markdown: 'markdown' },
-  Uri: { file: (p) => ({ fsPath: p, toString: () => 'file://' + p }) }
+  Uri: {
+    file: (p) => ({ scheme: 'file', path: p, fsPath: p, toString: () => 'file://' + p }),
+    from: (parts) => ({ scheme: parts.scheme, path: parts.path || '', query: parts.query || '',
+      fsPath: parts.path || '',
+      toString() { return `${this.scheme}:${this.path}${this.query ? `?${this.query}` : ''}`; } })
+  },
+  WorkspaceEdit: class {
+    constructor() { this.changes = []; }
+    replace(uri, range, text) { this.changes.push({ uri, range, text }); }
+  },
+  Disposable: class { constructor(fn) { this.dispose = fn; } },
+  FileType: { File: 1, Directory: 2 },
+  FileChangeType: { Changed: 1, Created: 2, Deleted: 3 },
+  FileSystemError: {
+    FileNotFound: (m) => new Error(m), NoPermissions: (m) => new Error(m),
+    Unavailable: (m) => new Error(m)
+  }
 };
 
 // The server, canned: method -> result. Anything not listed rejects, which is

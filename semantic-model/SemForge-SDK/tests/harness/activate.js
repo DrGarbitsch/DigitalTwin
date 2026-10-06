@@ -28,6 +28,10 @@ const stub = {
     createFileSystemWatcher: () => ({ dispose: noop }),
     onDidChangeConfiguration: noop,
     onDidSaveTextDocument: noop,
+    onDidChangeTextDocument: noop,
+    // The SPARQL workbench's query documents (semforge-sparql:).
+    registerFileSystemProvider: () => ({ dispose: noop }),
+    textDocuments: [],
     // Recorded, never performed: a test that actually deleted a directory
     // would be a test you could only run once.
     fs: {

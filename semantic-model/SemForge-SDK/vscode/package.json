@@ -35,6 +35,17 @@
           ".ttl"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "sparql",
+        "aliases": [
+          "SPARQL"
+        ],
+        "extensions": [
+          ".rq",
+          ".sparql"
+        ],
+        "configuration": "./language/sparql.language-configuration.json"
       }
     ],
     "configuration": {
@@ -351,6 +362,16 @@
         "command": "semforge.mergeShape",
         "title": "SemForge: Merge into…",
         "icon": "$(merge)"
+      },
+      {
+        "command": "semforge.sparqlApply",
+        "title": "SemForge: Apply the query (SPARQL workbench)",
+        "icon": "$(play)"
+      },
+      {
+        "command": "semforge.sparqlInspect",
+        "title": "SemForge: Inspect the query (SPARQL workbench)",
+        "icon": "$(debug-alt)"
       }
     ],
     "viewsContainers": {
@@ -880,6 +901,26 @@
         {
           "command": "semforge.mergeShape",
           "when": "false"
+        },
+        {
+          "command": "semforge.sparqlApply",
+          "when": "resourceScheme == semforge-sparql"
+        },
+        {
+          "command": "semforge.sparqlInspect",
+          "when": "resourceScheme == semforge-sparql"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "semforge.sparqlApply",
+          "when": "resourceScheme == semforge-sparql",
+          "group": "navigation@1"
+        },
+        {
+          "command": "semforge.sparqlInspect",
+          "when": "resourceScheme == semforge-sparql",
+          "group": "navigation@2"
         }
       ]
     },
@@ -915,6 +956,27 @@
         "id": "semforge.model",
         "label": "SemForge",
         "icon": "$(symbol-field)"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sparql",
+        "scopeName": "source.sparql",
+        "path": "./syntaxes/sparql.tmLanguage.json"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "semforge.sparqlApply",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && resourceScheme == semforge-sparql"
+      },
+      {
+        "command": "semforge.sparqlInspect",
+        "key": "ctrl+shift+enter",
+        "mac": "cmd+shift+enter",
+        "when": "editorTextFocus && resourceScheme == semforge-sparql"
       }
     ]
   },

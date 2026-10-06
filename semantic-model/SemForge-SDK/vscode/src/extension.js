@@ -183,7 +183,10 @@ function startClient(context) {
     documentSelector: [
       { scheme: 'file', language: 'turtle' },
       { scheme: 'file', pattern: '**/*.ttl' },
-      { scheme: 'file', pattern: '**/*.jsonld' }
+      { scheme: 'file', pattern: '**/*.jsonld' },
+      // The SPARQL workbench's query documents: completion, diagnostics,
+      // hover, formatting and quick fixes, from the package's own terms.
+      { scheme: 'semforge-sparql', language: 'sparql' }
     ],
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher(

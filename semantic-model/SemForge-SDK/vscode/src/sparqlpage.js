@@ -3,13 +3,14 @@
  * and what it returns -- to develop a SPARQL constraint (or rule) against the
  * very graph validation hands it.
  *
- * The query is edited in place. Apply (Ctrl+Enter) runs the edited text the
- * way validation does -- once per focus node, $this bound -- and shows, for a
- * constraint, which nodes would violate next to the saved query's verdict; for
- * a rule, the triples it would construct. Cancel goes back to the saved text,
- * Save (Ctrl+S) writes it over the literal in shacl.ttl. The data source is
- * Main or any test case, those the shape reaches first. Nothing is written
- * until Save, and Save refuses if the file changed underneath.
+ * The query is edited in a real editor beside the page: a document
+ * `semforge-sparql:/<Shape>.rq`, read from and saved into the shape's
+ * literal in shacl.ttl by the file system provider below, with the language
+ * server's completion, diagnostics, hover, formatting and quick fixes. The
+ * page runs what the editor holds: Apply (Ctrl+Enter in the editor) the way
+ * validation does -- once per focus node, $this bound -- Inspect
+ * (Ctrl+Shift+Enter), Snapshot. Cancel is the editor's Revert, Save is its
+ * Save (Ctrl+S), which refuses if the literal changed underneath.
  *
  * `renderSparqlBench` is a pure function from the `semforge/sparqlBench`
  * payload; results arrive later by postMessage, so a run never resets the
@@ -32,7 +33,6 @@ function chip(text, tone, title) {
 
 function renderSparqlBench(page, options) {
   const nonce = (options && options.nonce) || '';
-  const draft = options && typeof options.draft === 'string' ? options.draft : undefined;
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
   const holder = page.holder;
   const rule = holder.kind === 'rule';
@@ -44,9 +44,10 @@ function renderSparqlBench(page, options) {
   const sources = page.sources.map((s) => `<option value="${escape(s.id)}"` +
     `${s.id === page.source ? ' selected' : ''}>${escape(s.label)}` +
     `${s.expect ? ` (${escape(s.expect)})` : ''} — ${s.focus} focus node(s)</option>`).join('');
-  const state = { baseline: holder.query, draft: draft === undefined ? holder.query : draft,
-    kind: holder.kind, message: holder.message,
+  const state = { kind: holder.kind, message: holder.message,
+    dirty: !!(options && options.dirty),
     snapshots: (options && options.snapshots) || [] };
+  const file = (options && options.file) || `${page.label}.rq`;
   const selects = page.selector;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -80,12 +81,7 @@ function renderSparqlBench(page, options) {
   .tab.on { border-color: var(--vscode-focusBorder, #0078d4); }
   select { font: inherit; color: var(--vscode-dropdown-foreground); padding: 2px 4px;
            background: var(--vscode-dropdown-background); border: 1px solid var(--vscode-dropdown-border); }
-  textarea { width: 100%; box-sizing: border-box; min-height: 18em; resize: vertical;
-             font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size, 13px);
-             color: var(--vscode-input-foreground); background: var(--vscode-input-background);
-             border: 1px solid var(--vscode-input-border, rgba(128,128,128,.35)); padding: 8px;
-             tab-size: 4; line-height: 1.4; }
-  textarea.dirty { border-color: var(--vscode-editorWarning-foreground, #cca700); }
+  .keys { margin: 2px 0 6px; font-size: 0.9em; }
   pre { font-family: var(--vscode-editor-font-family); font-size: 0.9em; margin: 0;
         padding: 8px; overflow: auto; max-height: 28em;
         background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.1)); }
@@ -132,7 +128,12 @@ ${selects ? `<div class="selects"><b>Selects</b><span>${selects.binds
   escape(selects.sparql)}</pre></details>` : ''}
 
 <h2>Query</h2>
-<textarea id="query" spellcheck="false" aria-label="SPARQL query"></textarea>
+<div class="bar">
+  <span>Edited in <a href="#" data-editor="1" title="Show the query's editor">${escape(file)}</a></span>
+  <span class="chip warn" id="dirty"${state.dirty ? '' : ' hidden'}>unsaved changes</span>
+</div>
+<p class="dim keys">Ctrl+Space completes · Shift+Alt+F formats · Ctrl+Enter applies ·
+  Ctrl+Shift+Enter inspects · Ctrl+S saves into shacl.ttl</p>
 <div class="bar">
   <button class="primary" id="apply" title="Run the edited query (Ctrl+Enter)">Apply</button>
   <button id="inspect" title="Every variable of every row, and which FILTER part dropped a row — the query is not changed">Inspect</button>
@@ -161,7 +162,6 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const state = ${JSON.stringify(state).replace(/</g, '\\u003c')};
-  const editor = document.getElementById('query');
   const apply = document.getElementById('apply');
   const cancel = document.getElementById('cancel');
   const save = document.getElementById('save');
@@ -169,85 +169,48 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   const esc = (text) => String(text == null ? '' : text).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-  // Set here, not in the markup: HTML drops a newline right after <textarea>,
-  // and a query starts with one (""" then a line break) -- every query opened
-  // as edited, and a Save would have stripped it. A text box also turns CRLF
-  // into LF, so "edited" is judged with line ends normalised. (This script is
-  // a template string: a backslash escape here must be written doubled.)
-  const lines = (text) => String(text).replace(/\\r\\n?/g, '\\n');
-  editor.value = state.draft;
-  if (editor.value !== lines(state.draft)) {
-    let at = 0;
-    while (at < state.draft.length && editor.value[at] === state.draft[at]) { at += 1; }
-    const codes = (text) => Array.from(text.slice(Math.max(at - 3, 0), at + 3))
-      .map((c) => c.charCodeAt(0));
-    vscode.postMessage({ command: 'mismatch', shown: editor.value.length,
-      expected: state.draft.length, at, shownCodes: codes(editor.value),
-      expectedCodes: codes(state.draft) });
-  }
-  function dirty() { return editor.value !== lines(state.baseline); }
-  function update() {
-    const changed = dirty();
-    editor.classList.toggle('dirty', changed);
-    cancel.disabled = !changed;
-    save.disabled = !changed;
-    vscode.postMessage({ command: 'draft', query: editor.value, dirty: changed });
+  // The query lives in its editor; the page asks the extension to act on it.
+  function dirty(on) {
+    state.dirty = on;
+    document.getElementById('dirty').hidden = !on;
+    cancel.disabled = !on;
+    save.disabled = !on;
   }
   function run() {
     status.textContent = 'running…';
-    vscode.postMessage({ command: 'run', query: editor.value });
+    vscode.postMessage({ command: 'run' });
   }
-  editor.addEventListener('input', update);
-  editor.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab' && !event.shiftKey) {
-      event.preventDefault();
-      editor.setRangeText('    ', editor.selectionStart, editor.selectionEnd, 'end');
-      update();
-    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      run();
-    } else if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      if (dirty()) { vscode.postMessage({ command: 'save', query: editor.value }); }
-    }
-  });
   apply.addEventListener('click', run);
   document.getElementById('inspect').addEventListener('click', () => {
     status.textContent = 'inspecting…';
-    vscode.postMessage({ command: 'inspect', query: editor.value });
+    vscode.postMessage({ command: 'inspect' });
   });
   document.getElementById('snapshot').addEventListener('click', () =>
-    vscode.postMessage({ command: 'snapshot', query: editor.value }));
-  cancel.addEventListener('click', () => { editor.value = state.baseline; update(); run(); });
-  save.addEventListener('click', () => vscode.postMessage({ command: 'save', query: editor.value }));
+    vscode.postMessage({ command: 'snapshot' }));
+  cancel.addEventListener('click', () => vscode.postMessage({ command: 'cancel' }));
+  save.addEventListener('click', () => vscode.postMessage({ command: 'save' }));
   document.getElementById('remove').addEventListener('click', () =>
-    vscode.postMessage({ command: 'remove', dirty: dirty() }));
+    vscode.postMessage({ command: 'remove' }));
   document.getElementById('source').addEventListener('change', (event) =>
-    vscode.postMessage({ command: 'source', source: event.target.value, query: editor.value }));
+    vscode.postMessage({ command: 'source', source: event.target.value }));
   document.addEventListener('click', (event) => {
     const snap = event.target.closest('[data-load],[data-drop]');
     if (snap) {
       event.preventDefault();
       if (snap.dataset.drop) {
         vscode.postMessage({ command: 'deleteSnapshot', id: Number(snap.dataset.drop) });
-        return;
-      }
-      const chosen = snap.dataset.load === 'saved' ? { query: state.baseline }
-        : state.snapshots.find((s) => String(s.id) === snap.dataset.load);
-      if (chosen) {
-        editor.value = chosen.query;
-        update();
-        run();
+      } else {
+        vscode.postMessage({ command: 'loadSnapshot', id: snap.dataset.load });
       }
       return;
     }
-    const target = event.target.closest('[data-open],[data-shape],[data-holder]');
+    const target = event.target.closest('[data-open],[data-shape],[data-holder],[data-editor]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape' }); }
-    else { vscode.postMessage({ command: 'holder', index: Number(target.dataset.holder),
-      dirty: dirty() }); }
+    else if (target.dataset.editor) { vscode.postMessage({ command: 'editor' }); }
+    else { vscode.postMessage({ command: 'holder', index: Number(target.dataset.holder) }); }
   });
 
   function table(columns, rows) {
@@ -344,12 +307,12 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
     else if (message.type === 'inspect') { inspected(message.result); }
     else if (message.type === 'snapshots') { state.snapshots = message.list; snapshots(); }
     else if (message.type === 'saved') {
-      state.baseline = message.query;
-      update();
+      dirty(false);
       status.textContent = 'saved to ' + message.where;
-    } else if (message.type === 'error') { status.textContent = message.text; }
+    } else if (message.type === 'dirty') { dirty(message.dirty); }
+    else if (message.type === 'error') { status.textContent = message.text; }
   });
-  update();
+  dirty(state.dirty);
   snapshots();
   run();
 </script>
@@ -362,18 +325,108 @@ function renderMessage(text) {
     `<body><p>${escape(text)}</p></body></html>`;
 }
 
-class SparqlBench {
+// --- query documents: semforge-sparql:/<Shape>.rq ------------------------------------------
+
+const SCHEME = 'semforge-sparql';
+
+/** Which query a document is: package, shape, which of its queries, kind. */
+function reference(uri) {
+  return JSON.parse(Buffer.from(uri.query, 'base64url').toString('utf-8'));
+}
+
+function queryUri(packageUri, shape, holder, label) {
+  const name = `${label}${holder.index ? `-${holder.index + 1}` : ''}.rq`;
+  const ref = { p: packageUri, s: shape, h: holder.index, k: holder.kind };
+  return vscode.Uri.from({ scheme: SCHEME, path: `/${name}`,
+    query: Buffer.from(JSON.stringify(ref), 'utf-8').toString('base64url') });
+}
+
+/**
+ * The file system behind query documents: reading one is reading the
+ * shape's literal from shacl.ttl, writing one is the workbench's Save --
+ * refused, as a failed save, if the literal changed since it was read.
+ */
+class QueryFiles {
   constructor(clientHolder) {
     this.clientHolder = clientHolder;
+    this.saved = new Map();          // uri -> the text shacl.ttl holds
+    this.mtime = new Map();
+    this.listeners = [];
+    this.emitter = new vscode.EventEmitter();
+    this.onDidChangeFile = this.emitter.event;
+  }
+
+  async client() {
+    for (let waited = 0; !this.clientHolder.client && waited < 30000; waited += 200) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!this.clientHolder.client) {
+      throw vscode.FileSystemError.Unavailable('the SemForge language server is not running');
+    }
+    return this.clientHolder.client;
+  }
+
+  watch() {
+    return new vscode.Disposable(() => {});
+  }
+
+  stat(uri) {
+    const text = this.saved.get(uri.toString()) || '';
+    return { type: vscode.FileType.File, ctime: 0, mtime: this.mtime.get(uri.toString()) || 1,
+      size: Buffer.byteLength(text, 'utf-8') };
+  }
+
+  async readFile(uri) {
+    const ref = reference(uri);
+    const client = await this.client();
+    const got = await client.sendRequest('semforge/sparqlQuery',
+      { uri: ref.p, shape: ref.s, holder: ref.h });
+    if (!got.ok) {
+      throw vscode.FileSystemError.FileNotFound(`SemForge: ${got.error}`);
+    }
+    this.saved.set(uri.toString(), got.query);
+    return Buffer.from(got.query, 'utf-8');
+  }
+
+  async writeFile(uri, content) {
+    const ref = reference(uri);
+    const text = Buffer.from(content).toString('utf-8');
+    const client = await this.client();
+    const result = await client.sendRequest('semforge/sparqlSave', { uri: ref.p, shape: ref.s,
+      index: ref.h, query: text, expected: this.saved.get(uri.toString()) });
+    if (!result.ok) {
+      throw vscode.FileSystemError.NoPermissions(`SemForge: ${result.error}`);
+    }
+    this.saved.set(uri.toString(), text);
+    this.mtime.set(uri.toString(), Date.now());
+    this.emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
+    for (const listener of this.listeners) {
+      listener(uri, text, result);
+    }
+  }
+
+  readDirectory() { return []; }
+
+  createDirectory() { throw vscode.FileSystemError.NoPermissions('queries are not folders'); }
+
+  delete() { throw vscode.FileSystemError.NoPermissions('remove a query from its workbench'); }
+
+  rename() { throw vscode.FileSystemError.NoPermissions('a query is named by its shape'); }
+}
+
+class SparqlBench {
+  constructor(clientHolder, files) {
+    this.clientHolder = clientHolder;
+    this.files = files;
     this.panel = undefined;
     this.current = undefined;
     this.page = undefined;
-    this.draft = undefined;          // the editor's text, kept across re-renders
-    this.dirty = false;
+    this.uri = undefined;            // the query document the page acts on
     // Snapshots: texts kept to come back to, per query, for this session only.
     // Nothing is written anywhere: closing VS Code keeps the saved query alone.
     this.snapshots = new Map();
     this.nextSnapshot = 1;
+    files.listeners.push((uri, text, result) => this.saved(uri, text, result));
   }
 
   snapshotKey() {
@@ -383,6 +436,109 @@ class SparqlBench {
 
   snapshotList() {
     return this.snapshots.get(this.snapshotKey()) || [];
+  }
+
+  document() {
+    return this.uri && vscode.workspace.textDocuments.find((d) =>
+      d.uri.toString() === this.uri.toString());
+  }
+
+  /** What the editor holds now -- the query every button acts on. */
+  text() {
+    const doc = this.document();
+    return doc ? doc.getText() : this.page.holder.query;
+  }
+
+  get dirty() {
+    const doc = this.document();
+    return !!(doc && doc.isDirty);
+  }
+
+  /** `options`: {index, query, kind, source, preserveFocus}. */
+  async show(packageUri, shape, options) {
+    if (!this.clientHolder.client || !packageUri || !shape) {
+      vscode.window.showWarningMessage(
+        'SemForge: no package is open, or the language server is not running.');
+      return;
+    }
+    const wanted = Object.assign({}, options || {});
+    this.current = { packageUri, shape, index: wanted.index, query: wanted.query,
+      kind: wanted.kind,
+      source: wanted.source || (this.current && this.current.shape === shape
+        ? this.current.source : '@main') };
+    const page = await this.load();
+    if (!page) {
+      return;
+    }
+    this.uri = queryUri(packageUri, shape, page.holder, page.label);
+    const doc = await vscode.workspace.openTextDocument(this.uri);
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One,
+      preview: false, preserveFocus: !!wanted.preserveFocus });
+    if (!this.panel) {
+      this.panel = vscode.window.createWebviewPanel('semforgeSparqlBench', 'SPARQL',
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] });
+      this.panel.onDidDispose(() => { this.panel = undefined; });
+      this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
+    } else {
+      this.panel.reveal(undefined, true);
+    }
+    this.draw();
+  }
+
+  async request(method, params) {
+    try {
+      return await this.clientHolder.client.sendRequest(method,
+        Object.assign({ uri: this.current.packageUri, shape: this.current.shape }, params));
+    } catch (error) {
+      return { ok: false, error: error.message || String(error) };
+    }
+  }
+
+  /** The page's payload for the current query and data. */
+  async load() {
+    const page = await this.request('semforge/sparqlBench', {
+      index: this.current.index, query: this.current.query, kind: this.current.kind,
+      source: this.current.source });
+    if (!page.ok) {
+      if (this.panel) {
+        this.panel.title = 'SPARQL';
+        this.panel.webview.html = renderMessage(`SemForge: ${page.error}`);
+      } else {
+        vscode.window.showErrorMessage(`SemForge: ${page.error}`);
+      }
+      return undefined;
+    }
+    this.page = page;
+    this.current.index = page.holder.index;
+    this.current.query = page.holder.query;
+    return page;
+  }
+
+  draw() {
+    if (!this.panel || !this.page) {
+      return;
+    }
+    this.panel.title = `${this.page.label} · SPARQL`;
+    this.panel.webview.html = renderSparqlBench(this.page, {
+      nonce: crypto.randomBytes(16).toString('base64'), snapshots: this.snapshotList(),
+      dirty: this.dirty, file: this.uri ? this.uri.path.slice(1) : undefined });
+  }
+
+  async render() {
+    if (this.current && (await this.load())) {
+      this.draw();
+    }
+  }
+
+  /** Put text into the query's editor -- a snapshot, an edit from a test. */
+  async replaceText(text) {
+    const doc = this.document() || await vscode.workspace.openTextDocument(this.uri);
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(doc.uri, new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length)),
+      text);
+    await vscode.workspace.applyEdit(edit);
+    return doc;
   }
 
   async snapshot(query) {
@@ -414,146 +570,48 @@ class SparqlBench {
     this.post({ type: 'snapshots', list: this.snapshotList() });
   }
 
-  /** `options`: {index, query, kind, source} -- which query, over which data. */
-  async show(packageUri, shape, options) {
-    if (!this.clientHolder.client || !packageUri || !shape) {
-      vscode.window.showWarningMessage(
-        'SemForge: no package is open, or the language server is not running.');
-      return;
-    }
-    const wanted = Object.assign({}, options || {});
-    const same = this.current && this.current.packageUri === packageUri &&
-      this.current.shape === shape && (wanted.query === undefined ||
-        (this.page && this.page.holder.query.trim() === String(wanted.query).trim()));
-    if (this.panel && this.dirty && !same && !(await this.discard())) {
-      this.panel.reveal();
-      return;
-    }
-    this.current = { packageUri, shape, index: wanted.index, query: wanted.query,
-      kind: wanted.kind, source: wanted.source || '@main' };
-    if (!same) {
-      this.draft = undefined;
-      this.dirty = false;
-    }
-    if (!this.panel) {
-      this.panel = vscode.window.createWebviewPanel('semforgeSparqlBench', 'SPARQL',
-        { viewColumn: vscode.ViewColumn.Active, preserveFocus: !!wanted.preserveFocus },
-        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] });
-      this.panel.onDidDispose(() => this.closed());
-      this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
-    } else {
-      this.panel.reveal(undefined, !!wanted.preserveFocus);
-      if (same && this.page) {
-        return;
-      }
-    }
-    await this.render();
-  }
-
-  async discard() {
-    const answer = await vscode.window.showWarningMessage(
-      `The SPARQL query of ${this.page ? this.page.label : 'this shape'} has unsaved edits.`,
-      { modal: true }, 'Discard them');
-    return answer === 'Discard them';
-  }
-
-  closed() {
-    this.panel = undefined;
-    if (this.dirty && this.current) {
-      // A webview cannot refuse to close; what it can do is not lose the text.
-      const kept = Object.assign({}, this.current, { draft: this.draft,
-        query: this.page && this.page.holder.query });
-      vscode.window.showWarningMessage(
-        `SemForge: the SPARQL workbench closed with unsaved edits to ${this.page
-          ? this.page.label : 'a query'}.`,
-        'Reopen with them').then((answer) => {
-        if (answer === 'Reopen with them') {
-          this.reopen(kept);
-        }
-      });
-    }
-  }
-
-  async reopen(kept) {
-    await this.show(kept.packageUri, kept.shape, { query: kept.query, source: kept.source });
-    this.draft = kept.draft;
-    this.dirty = true;
-    await this.render();
-  }
-
-  async request(method, params) {
-    try {
-      return await this.clientHolder.client.sendRequest(method,
-        Object.assign({ uri: this.current.packageUri, shape: this.current.shape }, params));
-    } catch (error) {
-      return { ok: false, error: error.message || String(error) };
-    }
-  }
-
-  async render() {
-    if (!this.panel || !this.current) {
-      return;
-    }
-    const page = await this.request('semforge/sparqlBench', {
-      index: this.current.index, query: this.current.query, kind: this.current.kind,
-      source: this.current.source });
-    if (!this.panel) {
-      return;
-    }
-    if (!page.ok) {
-      this.panel.title = 'SPARQL';
-      this.panel.webview.html = renderMessage(`SemForge: ${page.error}`);
-      return;
-    }
-    this.page = page;
-    this.current.index = page.holder.index;
-    this.current.query = page.holder.query;
-    this.panel.title = `${page.label} · SPARQL`;
-    this.panel.webview.html = renderSparqlBench(page, {
-      nonce: crypto.randomBytes(16).toString('base64'), draft: this.draft,
-      snapshots: this.snapshotList() });
-  }
-
   async receive(message) {
     if (!message || !this.current || !this.page) {
-      return;
+      return undefined;
     }
-    if (message.command === 'mismatch') {
-      this.mismatch = message;          // the editor does not hold what it was given
-    } else if (message.command === 'draft') {
-      this.draft = message.query;
-      this.dirty = !!message.dirty;
-    } else if (message.command === 'run') {
+    const query = typeof message.query === 'string' ? message.query : this.text();
+    if (message.command === 'run') {
       const result = await this.request('semforge/sparqlRun', { index: this.page.holder.index,
-        source: this.current.source, query: message.query });
+        source: this.current.source, query });
       this.post({ type: 'result', result });
       return result;
     } else if (message.command === 'inspect') {
       const result = await this.request('semforge/sparqlInspect', {
-        index: this.page.holder.index, source: this.current.source, query: message.query });
+        index: this.page.holder.index, source: this.current.source, query });
       this.post({ type: 'inspect', result });
       return result;
     } else if (message.command === 'snapshot') {
-      return this.snapshot(message.query);
+      return this.snapshot(query);
     } else if (message.command === 'deleteSnapshot') {
       this.deleteSnapshot(message.id);
+    } else if (message.command === 'loadSnapshot') {
+      const chosen = message.id === 'saved' ? { query: this.files.saved.get(this.uri.toString()) ||
+        this.page.holder.query } : this.snapshotList().find((s) => String(s.id) === String(message.id));
+      if (chosen) {
+        await this.replaceText(chosen.query);
+        return this.receive({ command: 'run' });
+      }
     } else if (message.command === 'save') {
       return this.save(message.query);
+    } else if (message.command === 'cancel') {
+      return this.cancel();
     } else if (message.command === 'remove') {
-      return this.remove(!!message.dirty);
+      return this.remove();
     } else if (message.command === 'source') {
-      this.draft = message.query;
       this.current.source = message.source;
       await this.render();
     } else if (message.command === 'holder') {
-      if (message.dirty && !(await this.discard())) {
-        return;
-      }
-      this.draft = undefined;
-      this.dirty = false;
-      this.current.query = undefined;
-      this.current.index = message.index;
-      await this.render();
+      await this.show(this.current.packageUri, this.current.shape,
+        { index: message.index, source: this.current.source });
+    } else if (message.command === 'editor') {
+      const doc = this.document() || await vscode.workspace.openTextDocument(this.uri);
+      await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One,
+        preview: false });
     } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
     } else if (message.command === 'shape') {
@@ -563,46 +621,92 @@ class SparqlBench {
     return undefined;
   }
 
+  /** The editor's Save; with `query`, that text is put in first. */
   async save(query) {
-    const result = await this.request('semforge/sparqlSave', {
-      index: this.page.holder.index, query, expected: this.page.holder.query });
-    if (!result.ok) {
-      vscode.window.showErrorMessage(`SemForge: ${result.error}`);
-      this.post({ type: 'error', text: 'not saved' });
-      return result;
+    const doc = typeof query === 'string' ? await this.replaceText(query)
+      : this.document() || await vscode.workspace.openTextDocument(this.uri);
+    this.lastSave = undefined;
+    let ok = false;
+    try {
+      ok = await doc.save();
+    } catch (error) {
+      this.lastSave = { ok: false, error: error.message || String(error) };
     }
-    this.page.holder.query = query;
-    this.current.query = query;
-    this.draft = query;
-    this.dirty = false;
-    this.post({ type: 'saved', query, where: `shacl.ttl:${result.line}` });
+    if (!ok && !this.lastSave) {
+      this.lastSave = { ok: false, error: 'not saved' };
+    }
+    if (!this.lastSave.ok) {
+      this.post({ type: 'error', text: 'not saved' });
+    }
+    return this.lastSave;
+  }
+
+  /** The editor's Revert: back to what shacl.ttl holds. */
+  async cancel() {
+    const doc = this.document();
+    if (!doc || !doc.isDirty) {
+      return false;
+    }
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One,
+      preview: false });
+    await vscode.commands.executeCommand('workbench.action.files.revert');
+    this.post({ type: 'dirty', dirty: false });
+    await this.receive({ command: 'run' });
+    return true;
+  }
+
+  /** The file system wrote a query into shacl.ttl. */
+  saved(uri, text, result) {
+    this.lastSave = Object.assign({ ok: true }, result);
+    if (!this.uri || uri.toString() !== this.uri.toString() || !this.page) {
+      return;
+    }
+    this.page.holder.query = text;
+    this.current.query = text;
+    this.post({ type: 'saved', query: text, where: `shacl.ttl:${result.line}` });
     for (const command of REFRESH_VIEWS) {
       vscode.commands.executeCommand(command);
     }
     vscode.window.setStatusBarMessage(
       `SemForge: the query of ${this.page.label} saved — validation re-runs`, 5000);
-    return result;
   }
 
   /** Remove the open query; the page then shows the shape's next one, or closes. */
-  async remove(dirty) {
+  async remove() {
+    const doc = this.document();
     const done = await removeQuery(this.clientHolder, this.current.packageUri,
-      this.current.shape, this.page.holder, this.page.label, dirty);
+      this.current.shape, this.page.holder, this.page.label, !!(doc && doc.isDirty));
     if (!done) {
       return undefined;
     }
-    this.draft = undefined;
-    this.dirty = false;
+    await this.close(this.uri);
     this.current.query = undefined;
     this.current.index = 0;
     const next = await this.request('semforge/sparqlBench', { index: 0,
       source: this.current.source });
-    if (!next.ok && this.panel) {
-      this.panel.dispose();            // that was the shape's last query
+    if (!next.ok) {
+      if (this.panel) {
+        this.panel.dispose();          // that was the shape's last query
+      }
     } else {
-      await this.render();
+      await this.show(this.current.packageUri, this.current.shape,
+        { index: 0, source: this.current.source });
     }
     return done;
+  }
+
+  /** Close a query's editor without asking to save: its query is gone. */
+  async close(uri) {
+    const doc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+    if (doc && doc.isDirty) {
+      await vscode.window.showTextDocument(doc, { preview: false });
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+    }
+    const tabs = vscode.window.tabGroups ? vscode.window.tabGroups.all.flatMap((g) => g.tabs)
+      .filter((t) => t.input && t.input.uri && t.input.uri.toString() === uri.toString()) : [];
+    if (tabs.length) {
+      await vscode.window.tabGroups.close(tabs);
+    }
   }
 
   post(message) {
@@ -611,10 +715,19 @@ class SparqlBench {
     }
   }
 
-  /** A save elsewhere: re-read the data, but never over unsaved edits. */
-  refresh() {
-    if (this.panel && this.panel.visible && !this.dirty) {
-      this.draft = undefined;
+  /** The editor changed: say so on the page. */
+  changed(document) {
+    if (this.uri && document.uri.toString() === this.uri.toString()) {
+      this.post({ type: 'dirty', dirty: document.isDirty });
+    }
+  }
+
+  /** A save elsewhere: the data may have changed; the editor is left alone. */
+  refresh(document) {
+    if (document && document.uri.scheme === SCHEME) {
+      return;
+    }
+    if (this.panel && this.panel.visible) {
       this.render();
     }
   }
@@ -698,13 +811,34 @@ async function addConstraint(bench, clientHolder, packageUri, shape, label) {
   return made;
 }
 
+/** The workbench of the query document in the active editor, opened if needed. */
+async function forActiveQuery(bench) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.uri.scheme !== SCHEME) {
+    return false;
+  }
+  const uri = editor.document.uri;
+  if (!bench.uri || bench.uri.toString() !== uri.toString() || !bench.panel) {
+    const ref = reference(uri);
+    await bench.show(ref.p, ref.s, { index: ref.h, preserveFocus: true });
+  }
+  return true;
+}
+
 function register(context, clientHolder, session) {
-  const bench = new SparqlBench(clientHolder);
+  const files = new QueryFiles(clientHolder);
+  const bench = new SparqlBench(clientHolder, files);
   const target = (node) => ({
     packageUri: (node && node.packageUri) || session.uri,
     shape: node && node.raw && (node.raw.shape || node.raw.iri)
   });
   context.subscriptions.push(
+    vscode.workspace.registerFileSystemProvider(SCHEME, files, { isCaseSensitive: true }),
+    vscode.commands.registerCommand('semforge.sparqlApply', async () =>
+      (await forActiveQuery(bench)) && bench.receive({ command: 'run' })),
+    vscode.commands.registerCommand('semforge.sparqlInspect', async () =>
+      (await forActiveQuery(bench)) && bench.receive({ command: 'inspect' })),
+    vscode.workspace.onDidChangeTextDocument((event) => bench.changed(event.document)),
     vscode.commands.registerCommand('semforge.openSparqlBench', async (node, options) => {
       const { packageUri, shape } = target(node);
       if (!shape) {
@@ -732,13 +866,17 @@ function register(context, clientHolder, session) {
         bench.page && bench.page.holder.query.trim() === String(holder.query).trim();
       if (open) {
         bench.panel.reveal();
-        return bench.remove(bench.dirty);
+        return bench.remove();
       }
       return removeQuery(clientHolder, packageUri, shape, holder, label, false);
     }),
-    vscode.workspace.onDidSaveTextDocument(() => bench.refresh())
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      bench.changed(document);
+      bench.refresh(document);
+    })
   );
   return bench;
 }
 
-module.exports = { register, renderSparqlBench, SparqlBench };
+module.exports = { register, renderSparqlBench, SparqlBench, QueryFiles, queryUri, reference,
+  SCHEME };
