@@ -33,6 +33,7 @@ EXPECTED = {
     'semforge.openTypePage', 'semforge.openCasePage', 'semforge.openModelPage',
     'semforge.newEntityType', 'semforge.newSubtype', 'semforge.addTypeAttribute',
     'semforge.newSuite', 'semforge.openSparqlBench', 'semforge.addSparqlConstraint',
+    'semforge.removeSparqlQuery',
     'semforge.openHealthPage',
     'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
     'semforge.openVocabularyPage', 'semforge.newVocabularyClass', 'semforge.newAttributeTest',

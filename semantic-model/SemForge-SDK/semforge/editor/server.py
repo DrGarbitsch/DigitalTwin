@@ -1582,6 +1582,47 @@ def sparql_save_feature(ls, params):
         str(_field(params, 'query', '') or ''), str(_field(params, 'expected', '') or '')))
 
 
+@server.feature('semforge/sparqlRemovalPlan')
+def sparql_removal_plan_feature(ls, params):
+    """What removing one SPARQL query would take with it: asked first."""
+    from ..cooked.sparqlbench import removal_plan
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        shape = str(_field(params, 'shape', '') or '')
+        return dict(removal_plan(package, shape, _holder_index(package, shape, params)), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/sparqlRemove')
+def sparql_remove_feature(ls, params):
+    """Remove one SPARQL constraint or rule -- and, when asked, the asserts
+    no remaining query could satisfy."""
+    from ..cooked.sparqlbench import remove_holder
+
+    shape = str(_field(params, 'shape', '') or '')
+    return _target_write(ls, params, lambda package: remove_holder(
+        package, shape, _holder_index(package, shape, params),
+        str(_field(params, 'expected', '') or ''), bool(_field(params, 'dropAsserts'))))
+
+
+def _holder_index(package, shape, params):
+    """Which of a shape's queries: by its text when the page knows it (pages
+    list them in graph order, not file order), else by `holder`."""
+    from ..cooked.sparqlbench import holders, pick
+    from ..errors import PackageError
+
+    found = holders(package, shape)
+    if not found:
+        raise PackageError('this shape has no SPARQL query')
+    return pick(found, _field(params, 'holder'), _field(params, 'query'),
+                _field(params, 'kind'))['index']
+
+
 @server.feature('semforge/addSparqlConstraint')
 def add_sparql_constraint_feature(ls, params):
     """+ SPARQL constraint: a skeleton that fires on nothing, to be written in

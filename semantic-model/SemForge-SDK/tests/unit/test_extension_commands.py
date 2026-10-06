@@ -1819,9 +1819,10 @@ def test_remove_this_use_is_not_in_the_palette():
     with open(os.path.join(SDK, 'vscode', 'package.json')) as handle:
         menus = json.load(handle)['contributes']['menus']
     hidden = {e['command'] for e in menus['commandPalette'] if e['when'] == 'false'}
-    # Open source likewise: it opens the row it was invoked on.
+    # Open source likewise: it opens the row it was invoked on. Removing a
+    # SPARQL query needs the shape and the query it was offered on.
     assert hidden == {'semforge.removeUse', 'semforge.openSource', 'semforge.newAttributeTest',
-                      'semforge.mergeShape'}
+                      'semforge.mergeShape', 'semforge.removeSparqlQuery'}
 
 
 # --- sub-attributes ---------------------------------------------------------------

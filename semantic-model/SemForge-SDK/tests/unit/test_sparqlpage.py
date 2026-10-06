@@ -75,19 +75,35 @@ def test_it_shows_the_query_the_data_and_the_three_buttons(tmp_path, page):
                  'Cutter running without running filter', 'severity: base:severityCritical',
                  'Instance data (Turtle)', 'urn:plasmacutter:1', '2 focus node(s)'):
         assert text in html, text
-    editor = html.split('id="query"', 1)[1].split('</textarea>', 1)[0]
-    assert 'FILTER(?v1 = base:state_PROCESSING &amp;&amp; ?v2 != base:state_ON)' in editor
+    # The query is handed to the page as data and put into the editor by its
+    # script: markup would lose the query's leading newline.
+    assert html.split('id="query"', 1)[1].split('</textarea>', 1)[0].endswith('>')
+    state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
+    assert state['draft'] == state['baseline'] == page['holder']['query']
+    assert state['draft'].startswith('\n')
     assert "script-src 'nonce-n1'" in html
     assert html.count('<option') == len(page['sources'])
 
 
+def test_the_page_script_parses(tmp_path, page):
+    """The script is generated inside a template string, where `\\n` in a regex
+    turns into a real line break -- a page whose script does not parse shows
+    everything and does nothing. Checked here, not only in a real VS Code."""
+    html = _render(tmp_path, page)
+    script = html.split('<script nonce="n1">', 1)[1].split('</script>', 1)[0]
+    path = tmp_path / 'page-script.js'
+    path.write_text('function acquireVsCodeApi() {}\n' + script)
+    node = shutil.which('node')
+    checked = subprocess.run([node, '--check', str(path)], capture_output=True, text=True)
+    assert checked.returncode == 0, checked.stderr[-800:]
+
+
 def test_a_draft_is_shown_instead_of_the_saved_text(tmp_path, page):
     html = _render(tmp_path, page, draft='SELECT $this WHERE { $this ?p ?o }')
-    editor = html.split('id="query"', 1)[1].split('</textarea>', 1)[0]
-    assert 'SELECT $this WHERE { $this ?p ?o }' in editor
-    assert 'base:state_PROCESSING' not in editor
+    state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
+    assert state['draft'] == 'SELECT $this WHERE { $this ?p ?o }'
     # The saved text stays the baseline Cancel returns to.
-    assert '"baseline":' in html and 'base:state_PROCESSING' in html.split('"baseline":', 1)[1]
+    assert state['baseline'] == page['holder']['query']
 
 
 def test_nothing_reaches_the_page_unescaped(tmp_path, page):
@@ -242,3 +258,96 @@ def test_a_parameter_the_client_left_out_is_missing_not_a_tuple_method():
     assert _field(Sent('u', 's'), 'shape') == 's'
     WithIndex = namedtuple('Object', ['uri', 'index'])
     assert _field(WithIndex('u', 2), 'index') == 2
+
+
+# --- Remove… ----------------------------------------------------------------------------
+
+def _plan(page, asserts, last=True, others=0):
+    return {'ok': True, 'holder': page['holder'], 'last': last, 'others': others,
+            'asserts': [{'file': '/pkg/examples/x/expectations.yaml', 'case': case,
+                         'resource': 'urn:plasmacutter:1'} for case in asserts]}
+
+
+def _remove(tmp_path, page, plan, answer, dirty=False, after=None):
+    replies = {'semforge/sparqlRemovalPlan': plan,
+               'semforge/sparqlRemove': {'ok': True, 'file': '/pkg/shacl.ttl', 'line': 185,
+                                         'asserts': 1 if answer and 'asserts' in answer else 0}}
+    if after is not None:
+        replies['semforge/sparqlBench'] = after
+    scenario = {'replies': replies}
+    if answer:
+        scenario['answer'] = answer
+    return _open(tmp_path, page, [{'command': 'remove', 'dirty': dirty}], **scenario)
+
+
+def test_remove_says_which_cases_assert_it_and_can_take_them(tmp_path, page):
+    seen = _remove(tmp_path, page, _plan(page, ['filter-off.jsonld']),
+                   'Remove it and its asserts')
+    warning = next(w for w in seen['warnings'] if w.startswith('Remove the SPARQL constraint'))
+    assert '"Cutter running without running filter"' in warning
+    assert 'filter-off.jsonld (on urn:plasmacutter:1)' in warning
+    assert 'no other SPARQL constraint of this shape is left' in warning
+    sent = _asked(seen, 'semforge/sparqlRemove')
+    assert sent == [{'uri': PACKAGE, 'shape': CUTTER, 'query': page['holder']['query'],
+                     'kind': 'constraint', 'expected': page['holder']['query'],
+                     'dropAsserts': True}]
+    assert any(e['command'] == 'semforge.refreshShapes' for e in seen['executed'])
+
+
+def test_remove_it_only_keeps_the_asserts(tmp_path, page):
+    seen = _remove(tmp_path, page, _plan(page, ['filter-off.jsonld']), 'Remove it only')
+    assert _asked(seen, 'semforge/sparqlRemove')[0]['dropAsserts'] is False
+
+
+def test_asserts_another_constraint_answers_for_are_only_mentioned(tmp_path, page):
+    seen = _remove(tmp_path, page, _plan(page, ['filter-off.jsonld'], last=False, others=1),
+                   'Remove')
+    warning = next(w for w in seen['warnings'] if w.startswith('Remove the'))
+    assert '1 other(s) remain, so the asserts are kept' in warning
+    assert _asked(seen, 'semforge/sparqlRemove')[0]['dropAsserts'] is False
+
+
+def test_unsaved_edits_are_mentioned_and_a_dismissal_removes_nothing(tmp_path, page):
+    seen = _remove(tmp_path, page, _plan(page, []), None, dirty=True)
+    assert any('unsaved edits in the workbench go with it' in w for w in seen['warnings'])
+    assert _asked(seen, 'semforge/sparqlRemove') == []
+
+
+def test_after_the_last_query_the_page_closes(tmp_path, page):
+    gone = {'ok': False, 'error': 'iffBaseShacl:StateOnCutterShape has no SPARQL query'}
+    seen = _remove(tmp_path, page, _plan(page, []), 'Remove', after=gone)
+    assert len(seen['webviews'][0]['html']) == 1, 'not re-rendered into an error page'
+
+
+def test_the_shape_page_s_remove_names_the_query_by_its_text(tmp_path, corpus):
+    from semforge.cooked.shapepage import build_shape_page
+
+    shape_page = dict(build_shape_page(corpus, CUTTER), ok=True)
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': {'shape': CUTTER}, 'packageUri': PACKAGE},
+        'webviewMessages': [{'command': 'removeSparql', 'row': 0}],
+        'replies': {'semforge/shapePage': shape_page}})
+    assert 'data-action="removeSparql" data-row="0"' in seen['webviews'][0]['html'][0]
+    asked = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.removeSparqlQuery']
+    check = shape_page['checks'][0]
+    assert asked[0][1] == {'query': check['query'], 'kind': 'constraint',
+                           'message': check['message']}
+
+
+def test_the_server_finds_the_query_by_its_text(corpus_path, tmp_path):
+    from semforge.editor import server
+    from semforge.package import load
+
+    copy = tmp_path / 'kms'
+    shutil.copytree(corpus_path, copy, symlinks=False, ignore=shutil.ignore_patterns('.semforge'))
+    uri = f'file://{copy}/shacl.ttl'
+    query = sb.holders(load(str(copy)), CUTTER)[0]['query']
+    with mock.patch.object(server, '_publish'):
+        plan = server.sparql_removal_plan_feature(mock.MagicMock(), {
+            'uri': uri, 'shape': CUTTER, 'query': query})
+        assert plan['ok'] and plan['last'] and len(plan['asserts']) == 1
+        done = server.sparql_remove_feature(mock.MagicMock(), {
+            'uri': uri, 'shape': CUTTER, 'query': query, 'expected': query,
+            'dropAsserts': True})
+        assert done['ok'] and done['asserts'] == 1

@@ -112,6 +112,8 @@ function checkSections(page, checks, cases) {
   const queries = checks.map((c, i) => (c.query
     ? `<div class="bar"><button class="primary" data-action="bench" data-row="${i}" ` +
       'title="Edit it, run it over a test case\'s data, save it">Open in SPARQL workbench</button>' +
+      `<button data-action="removeSparql" data-row="${i}" title="Remove this ${escape(c.kind)} ` +
+      'from the shape">Remove…</button>' +
       `<span class="dim">${escape(c.kind)}${c.message ? ` · ${escape(c.message)}` : ''}</span></div>` +
       `<pre class="query bench" data-action="bench" data-row="${i}" ` +
       `title="Open in the SPARQL workbench">${escape(c.query)}</pre>` : '')).join('');
@@ -355,6 +357,13 @@ class ShapePages {
         await vscode.commands.executeCommand('semforge.openSparqlBench',
           { raw: { shape: this.page.iri }, packageUri },
           { query: check.query, kind: check.kind });
+      }
+    } else if (message.command === 'removeSparql') {
+      const check = (this.page.checks || [])[message.row];
+      if (check && await vscode.commands.executeCommand('semforge.removeSparqlQuery',
+        { raw: { shape: this.page.iri, label: this.page.label }, packageUri },
+        { query: check.query, kind: check.kind, message: check.message })) {
+        await this.render();
       }
     } else if (message.command === 'addSparql') {
       if (await vscode.commands.executeCommand('semforge.addSparqlConstraint',

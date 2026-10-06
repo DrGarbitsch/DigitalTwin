@@ -225,3 +225,91 @@ def test_a_new_constraint_fires_on_nothing_until_written(kms):
 def test_a_constraint_needs_its_message(kms):
     with pytest.raises(PackageError, match='needs its message'):
         sb.add_constraint(load(kms), BASE + 'WorkpieceShape', '  ')
+
+
+# --- removing ------------------------------------------------------------------------------
+
+def _statement(kms, shape):
+    package = load(kms)
+    index = package.index('shapes')
+    path, block = index.block_for(URIRef(shape))
+    return index.source_of(path)[block.start:block.end]
+
+
+def test_removing_a_query_followed_by_more_of_the_shape(kms):
+    query = sb.holders(load(kms), CUTTER)[0]['query']
+    done = sb.remove_holder(load(kms), CUTTER, 0, query)
+    assert _statement(kms, CUTTER) == ('iffBaseShacl:StateOnCutterShape a sh:NodeShape ;\n'
+                                       '    sh:targetClass iffBaseEntities:Cutter .')
+    assert sb.holders(load(kms), CUTTER) == [] and done['asserts'] == 0
+
+
+def test_removing_a_rule(kms):
+    query = sb.holders(load(kms), UNTIL)[0]['query']
+    sb.remove_holder(load(kms), UNTIL, 0, query)
+    assert _statement(kms, UNTIL) == ('iffBaseShacl:TimestampCartridgeUntilRulesShape a '
+                                      'sh:NodeShape ;\n    sh:targetClass '
+                                      'iffBaseEntities:FilterCartridge .')
+
+
+def test_removing_the_last_part_of_a_statement_restores_it_exactly(kms):
+    shape = BASE + 'WorkpieceShape'
+    before = _statement(kms, shape)
+    made = sb.add_constraint(load(kms), shape, 'temporary')
+    query = sb.holders(load(kms), shape)[made['index']]['query']
+    sb.remove_holder(load(kms), shape, made['index'], query)
+    assert _statement(kms, shape) == before
+
+
+def test_every_other_triple_survives(kms):
+    before = load(kms).shapes
+    query = sb.holders(load(kms), CUTTER)[0]['query']
+    sb.remove_holder(load(kms), CUTTER, 0, query)
+    after = load(kms).shapes
+    assert len(before) - len(after) == len(before.cbd(next(
+        before.objects(URIRef(CUTTER), SH.sparql)))) + 1
+
+
+def test_the_plan_names_the_cases_that_assert_it(kms):
+    plan = sb.removal_plan(load(kms), CUTTER, 0)
+    assert plan['last'] and plan['others'] == 0
+    assert [(a['case'], a['resource']) for a in plan['asserts']] == \
+        [('filter-off.jsonld', 'urn:plasmacutter:1')]
+    assert sb.removal_plan(load(kms), UNTIL, 0)['asserts'] == [], 'a rule is not asserted'
+
+
+def test_removing_the_last_constraint_can_take_its_asserts(kms):
+    from semforge.expect.store import load_expectations
+
+    query = sb.holders(load(kms), CUTTER)[0]['query']
+    done = sb.remove_holder(load(kms), CUTTER, 0, query, drop_asserts=True)
+    assert done['asserts'] == 1
+    left = [a for e in load_expectations(kms).examples for a in e.asserts
+            if 'StateOnCutterShape' in str(a)]
+    assert left == []
+
+
+def test_asserts_stay_while_another_constraint_can_satisfy_them(kms):
+    sb.add_constraint(load(kms), CUTTER, 'a second one')
+    plan = sb.removal_plan(load(kms), CUTTER, 1)
+    assert not plan['last'] and plan['others'] == 1 and plan['asserts']
+    query = sb.holders(load(kms), CUTTER)[1]['query']
+    done = sb.remove_holder(load(kms), CUTTER, 1, query, drop_asserts=True)
+    assert done['asserts'] == 0, 'the first constraint still answers for them'
+    assert sb._asserting(load(kms), CUTTER)
+
+
+def test_a_removal_over_a_changed_file_is_refused(kms):
+    with pytest.raises(PackageError, match='changed in the file'):
+        sb.remove_holder(load(kms), CUTTER, 0, 'SELECT $this WHERE { }')
+    assert sb.holders(load(kms), CUTTER), 'nothing was removed'
+
+
+def test_a_query_that_is_the_whole_statement_is_not_cut_out(kms):
+    path = sb.holders(load(kms), CUTTER)[0]['file']
+    with open(path, 'a', encoding='utf-8') as handle:
+        handle.write('\niffBaseShacl:Lone sh:sparql [ sh:select """SELECT $this WHERE { }""" ] .\n')
+    lone = BASE + 'Lone'
+    query = sb.holders(load(kms), lone)[0]['query']
+    with pytest.raises(PackageError, match='remove the shape instead'):
+        sb.remove_holder(load(kms), lone, 0, query)

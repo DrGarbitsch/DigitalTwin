@@ -1055,6 +1055,23 @@ with the package's PREFIX lines), then opens it here: write the condition,
 Apply until it finds what you mean, Save. Unsaved edits survive switching tabs;
 closing the page with them offers to reopen it with them.
 
+**Remove…** (in the workbench, or next to each query on the shape page)
+takes one SPARQL constraint or rule out of its shape: its whole `[ … ]` and
+the `;` joining it, nothing else — checked by parsing, and refused if the file
+changed since the page showed it. It asks first, and says what goes with it:
+
+- **the test cases that assert it.** An assert names the shape's SPARQL
+  constraints together (`StateOnCutterShape/SPARQLConstraintComponent`), not
+  one query. When this is the shape's *last* SPARQL constraint, nothing is
+  left to satisfy them: **Remove it and its asserts** keeps those cases
+  meaningful, **Remove it only** leaves them to fail. While another one
+  remains, the asserts are listed and kept.
+- **unsaved edits** in the workbench, if any.
+
+After the last query of a shape the workbench closes; otherwise it shows the
+next one. A query that is the whole shape statement (no target, nothing else)
+is not cut out — remove the shape instead.
+
 **Summary trees.** The trees are for finding things; the type page is where a
 type is read and edited. So by default the trees show one row per meaningful
 thing, said once (the `semforge.trees.detail` setting, `summary`):

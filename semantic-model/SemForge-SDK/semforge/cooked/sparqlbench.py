@@ -477,3 +477,132 @@ def add_constraint(package, shape, message):
     from ..package import load
     return {'file': path, 'index': len(holders(load(package.path), shape)) - 1,
             'line': text.count('\n', 0, cut) + 2}
+
+
+# --- removing ---------------------------------------------------------------------------
+
+COMPONENT = 'SPARQLConstraintComponent'
+
+
+def _asserting(package, shape):
+    """[(expectations.yaml, case, resource)] -- the asserts that name this
+    shape's SPARQL constraints. They name the shape and the component, not one
+    query, so they are about ALL of a shape's SPARQL constraints at once."""
+    from ..expect.store import _yaml, expectation_files
+
+    wanted = f'{curie(package.shapes, URIRef(shape))}/{COMPONENT}'
+    found = []
+    for path in expectation_files(package.path):
+        with open(path, encoding='utf-8') as handle:
+            raw = _yaml().load(handle) or {}
+        for entry in raw.get('examples') or []:
+            for item in entry.get('asserts') or []:
+                if str(item.get('constraint', '')) == wanted:
+                    found.append((path, str(entry.get('path', '')), str(item.get('resource', ''))))
+    return found
+
+
+def removal_plan(package, shape, index):
+    """What removing one SPARQL query would take with it -- asked before it is done."""
+    found = holders(package, shape)
+    index = int(index)
+    if not 0 <= index < len(found):
+        raise PackageError('no such SPARQL query on this shape')
+    holder = found[index]
+    constraints = [h for h in found if h['kind'] == 'constraint']
+    last = holder['kind'] == 'constraint' and len(constraints) == 1
+    asserts = _asserting(package, shape) if holder['kind'] == 'constraint' else []
+    return {'holder': holder, 'last': last,
+            'asserts': [{'file': f, 'case': c, 'resource': r} for f, c, r in asserts],
+            'others': len(constraints) - 1 if holder['kind'] == 'constraint' else 0}
+
+
+def _cut(text, start, end):
+    """(start, end) of the text to delete for the group at [start, end): the
+    predicate and its `[ … ]`, with the `;` that joins it to the statement."""
+    after = end
+    while after < len(text) and text[after] in ' \t\r\n':
+        after += 1
+    if after < len(text) and text[after] == ';':
+        # More of the statement follows: take the ';' and the space up to the
+        # next predicate. The indentation in front of `start` is kept and now
+        # stands in front of that predicate.
+        after += 1
+        while after < len(text) and text[after] in ' \t\r\n':
+            after += 1
+        return start, after
+    # The last part of the statement: take the ';' before it instead.
+    before = start
+    while before > 0 and text[before - 1] in ' \t\r\n':
+        before -= 1
+    if before == 0 or text[before - 1] != ';':
+        raise PackageError('this query is all the shape statement says; remove the shape '
+                           'instead')
+    before -= 1
+    while before > 0 and text[before - 1] in ' \t':
+        before -= 1                     # "X ;" leaves "X .", not "X  ."
+    return before, end
+
+
+def remove_holder(package, shape, index, expected, drop_asserts=False):
+    """Remove one SPARQL constraint or rule: its whole `[ … ]`, nothing else.
+    `expected` is the query the page shows; a file that says something else
+    now is left alone. With `drop_asserts`, the asserts no remaining query
+    could satisfy go too. Returns {'file', 'line', 'asserts': n}."""
+    from .tree import _write_verified
+
+    plan = removal_plan(package, shape, index)
+    bodies, text, path = _bodies(package, shape)
+    kind, group = bodies[int(index)]
+    if plan['holder']['query'] != expected:
+        raise PackageError('the query changed in the file since the workbench opened it; '
+                           'reopen it to see the file\'s version')
+    predicate = KINDS[kind][0]
+    head = text.rfind(predicate, 0, group.start)
+    if head < 0 or text[head + len(predicate):group.start].strip():
+        raise PackageError('could not find where this query is attached to the shape')
+    cut_start, cut_end = _cut(text, head, group.end)
+    updated = text[:cut_start] + text[cut_end:]
+
+    link, slot = (SH.sparql, SH.select) if kind == 'constraint' else (SH.rule, SH.construct)
+    before = Graph().parse(data=text, format='turtle')
+    after = Graph().parse(data=updated, format='turtle')
+    holder_node = next(h for h in before.objects(URIRef(shape), link)
+                       if str(before.value(h, slot) or '') == expected)
+    removed = len(before.cbd(holder_node)) + 1
+    if len(after) != len(before) - removed or \
+            len(list(after.objects(URIRef(shape), link))) != \
+            len(list(before.objects(URIRef(shape), link))) - 1:
+        raise PackageError('removing it would have changed more than the query; '
+                           'the file is unchanged')
+    _write_verified(path, updated)
+
+    dropped = 0
+    if drop_asserts and plan['last'] and plan['asserts']:
+        dropped = _drop_asserts(package, shape)
+    return {'file': path, 'line': text.count('\n', 0, cut_start) + 1, 'asserts': dropped}
+
+
+def _drop_asserts(package, shape):
+    from ..expect.store import _yaml, expectation_files
+
+    wanted = f'{curie(package.shapes, URIRef(shape))}/{COMPONENT}'
+    dropped = 0
+    for path in expectation_files(package.path):
+        with open(path, encoding='utf-8') as handle:
+            raw = _yaml().load(handle) or {}
+        changed = False
+        for entry in raw.get('examples') or []:
+            asserts = entry.get('asserts')
+            if not asserts:
+                continue
+            keep = [a for a in asserts if str(a.get('constraint', '')) != wanted]
+            if len(keep) != len(asserts):
+                dropped += len(asserts) - len(keep)
+                del asserts[:]
+                asserts.extend(keep)
+                changed = True
+        if changed:
+            with open(path, 'w', encoding='utf-8') as handle:
+                _yaml().dump(raw, handle)
+    return dropped

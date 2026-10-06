@@ -46,6 +46,11 @@ describe('the SPARQL workbench', () => {
       'the page script to ask for a run (it runs on load)');
     assert.ok(result.result.ok, JSON.stringify(result.result));
     assert.deepStrictEqual(result.result.violating, [], 'Main conforms to the saved query');
+    // The query starts with a newline; the editor must hold it exactly, or
+    // it opens looking edited (and a Save would strip the newline).
+    assert.strictEqual(api.pages.sparql.mismatch, undefined,
+      JSON.stringify(api.pages.sparql.mismatch));
+    assert.strictEqual(api.pages.sparql.dirty, false, 'a query just opened is not edited');
   });
 
   it('Apply runs an edit over a case and compares it with the saved query', async () => {
@@ -98,5 +103,28 @@ describe('the SPARQL workbench', () => {
     const result = await api.pages.sparql.receive({ command: 'run', query: page.holder.query });
     assert.ok(result.ok && result.focusCount >= 1, JSON.stringify(result));
     assert.deepStrictEqual(result.violating, [], 'a skeleton fires on nothing');
+  });
+
+  it('Remove… takes the last query and its asserts, and the page closes', async () => {
+    const api = await semforge();
+    await open(api, CUTTER);
+    const query = api.pages.sparql.page.holder.query;
+    assert.match(read('examples/test_StateOnCutterShape/bad/expectations.yaml'),
+      /StateOnCutterShape\/SPARQLConstraintComponent/);
+    const session = answering([{ kind: 'warning', button: 'Remove it and its asserts' }]);
+    let done;
+    try {
+      done = await api.pages.sparql.receive({ command: 'remove', dirty: false });
+    } finally {
+      session.restore();
+    }
+    assert.ok(done && done.ok, JSON.stringify(done));
+    assert.strictEqual(session.asked.length, 1, 'it asked first');
+    assert.ok(session.asked[0].offered.message.includes('Remove the SPARQL constraint'));
+    assert.ok(read('shacl.ttl').includes('Cutter running') === false && query,
+      'the constraint is gone, its message with it');
+    assert.doesNotMatch(read('examples/test_StateOnCutterShape/bad/expectations.yaml'),
+      /StateOnCutterShape\/SPARQLConstraintComponent/);
+    await until(() => !api.pages.sparql.panel, 'the page to close: no query is left');
   });
 });

@@ -116,12 +116,13 @@ ${tabs}
 </div>
 
 <h2>Query</h2>
-<textarea id="query" spellcheck="false" aria-label="SPARQL query">${escape(state.draft)}</textarea>
+<textarea id="query" spellcheck="false" aria-label="SPARQL query"></textarea>
 <div class="bar">
   <button class="primary" id="apply" title="Run the edited query (Ctrl+Enter)">Apply</button>
   <button id="cancel" title="Back to the saved query">Cancel</button>
   <button id="save" title="Write it into shacl.ttl (Ctrl+S)">Save</button>
   <span class="status dim" id="status"></span>
+  <button id="remove" title="Remove this ${escape(holder.kind)} from the shape">Remove…</button>
 </div>
 <div id="warnings"></div>
 
@@ -148,7 +149,23 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   const esc = (text) => String(text == null ? '' : text).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-  function dirty() { return editor.value !== state.baseline; }
+  // Set here, not in the markup: HTML drops a newline right after <textarea>,
+  // and a query starts with one (""" then a line break) -- every query opened
+  // as edited, and a Save would have stripped it. A text box also turns CRLF
+  // into LF, so "edited" is judged with line ends normalised. (This script is
+  // a template string: a backslash escape here must be written doubled.)
+  const lines = (text) => String(text).replace(/\\r\\n?/g, '\\n');
+  editor.value = state.draft;
+  if (editor.value !== lines(state.draft)) {
+    let at = 0;
+    while (at < state.draft.length && editor.value[at] === state.draft[at]) { at += 1; }
+    const codes = (text) => Array.from(text.slice(Math.max(at - 3, 0), at + 3))
+      .map((c) => c.charCodeAt(0));
+    vscode.postMessage({ command: 'mismatch', shown: editor.value.length,
+      expected: state.draft.length, at, shownCodes: codes(editor.value),
+      expectedCodes: codes(state.draft) });
+  }
+  function dirty() { return editor.value !== lines(state.baseline); }
   function update() {
     const changed = dirty();
     editor.classList.toggle('dirty', changed);
@@ -177,6 +194,8 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   apply.addEventListener('click', run);
   cancel.addEventListener('click', () => { editor.value = state.baseline; update(); run(); });
   save.addEventListener('click', () => vscode.postMessage({ command: 'save', query: editor.value }));
+  document.getElementById('remove').addEventListener('click', () =>
+    vscode.postMessage({ command: 'remove', dirty: dirty() }));
   document.getElementById('source').addEventListener('change', (event) =>
     vscode.postMessage({ command: 'source', source: event.target.value, query: editor.value }));
   document.addEventListener('click', (event) => {
@@ -366,7 +385,9 @@ class SparqlBench {
     if (!message || !this.current || !this.page) {
       return;
     }
-    if (message.command === 'draft') {
+    if (message.command === 'mismatch') {
+      this.mismatch = message;          // the editor does not hold what it was given
+    } else if (message.command === 'draft') {
       this.draft = message.query;
       this.dirty = !!message.dirty;
     } else if (message.command === 'run') {
@@ -376,6 +397,8 @@ class SparqlBench {
       return result;
     } else if (message.command === 'save') {
       return this.save(message.query);
+    } else if (message.command === 'remove') {
+      return this.remove(!!message.dirty);
     } else if (message.command === 'source') {
       this.draft = message.query;
       this.current.source = message.source;
@@ -419,6 +442,27 @@ class SparqlBench {
     return result;
   }
 
+  /** Remove the open query; the page then shows the shape's next one, or closes. */
+  async remove(dirty) {
+    const done = await removeQuery(this.clientHolder, this.current.packageUri,
+      this.current.shape, this.page.holder, this.page.label, dirty);
+    if (!done) {
+      return undefined;
+    }
+    this.draft = undefined;
+    this.dirty = false;
+    this.current.query = undefined;
+    this.current.index = 0;
+    const next = await this.request('semforge/sparqlBench', { index: 0,
+      source: this.current.source });
+    if (!next.ok && this.panel) {
+      this.panel.dispose();            // that was the shape's last query
+    } else {
+      await this.render();
+    }
+    return done;
+  }
+
   post(message) {
     if (this.panel) {
       this.panel.webview.postMessage(message);
@@ -432,6 +476,57 @@ class SparqlBench {
       this.render();
     }
   }
+}
+
+/**
+ * Remove one SPARQL constraint or rule, after saying what goes with it: the
+ * test cases that assert it (asserts name the shape's SPARQL constraints
+ * together, so they only lose their meaning with its LAST one), and unsaved
+ * edits in the workbench. Returns the server's answer, or undefined.
+ */
+async function removeQuery(clientHolder, packageUri, shape, holder, label, dirty) {
+  const client = clientHolder.client;
+  const which = { uri: packageUri, shape, query: holder.query, kind: holder.kind };
+  const plan = await client.sendRequest('semforge/sparqlRemovalPlan', which);
+  if (!plan.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${plan.error}`);
+    return undefined;
+  }
+  const what = holder.kind === 'rule' ? 'SPARQL rule'
+    : `SPARQL constraint${holder.message ? ` "${holder.message}"` : ''}`;
+  const lines = [];
+  const cases = plan.asserts.map((a) => `  ${a.case}${a.resource ? ` (on ${a.resource})` : ''}`);
+  let buttons = ['Remove'];
+  if (plan.asserts.length && plan.last) {
+    lines.push(`${plan.asserts.length} test case assert(s) name it, and no other SPARQL ` +
+      'constraint of this shape is left to satisfy them:', ...cases,
+    'Removing them too keeps those cases meaningful; keeping them makes them fail.');
+    buttons = ['Remove it and its asserts', 'Remove it only'];
+  } else if (plan.asserts.length) {
+    lines.push(`${plan.asserts.length} test case assert(s) name this shape's SPARQL ` +
+      `constraints; ${plan.others} other(s) remain, so the asserts are kept:`, ...cases);
+  }
+  if (dirty) {
+    lines.push('Its unsaved edits in the workbench go with it.');
+  }
+  lines.push(`Written at shacl.ttl:${plan.holder.line}.`);
+  const answer = await vscode.window.showWarningMessage(
+    `Remove the ${what} from ${label}?`, { modal: true, detail: lines.join('\n') }, ...buttons);
+  if (!answer) {
+    return undefined;
+  }
+  const done = await client.sendRequest('semforge/sparqlRemove', Object.assign(which,
+    { expected: holder.query, dropAsserts: answer === 'Remove it and its asserts' }));
+  if (!done.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${done.error}`);
+    return undefined;
+  }
+  for (const command of REFRESH_VIEWS) {
+    vscode.commands.executeCommand(command);
+  }
+  vscode.window.setStatusBarMessage(`SemForge: the ${what} removed from ${label}` +
+    (done.asserts ? `, with ${done.asserts} assert(s)` : ''), 6000);
+  return done;
 }
 
 /** + SPARQL constraint: ask what a violation means, write a skeleton, open it. */
@@ -483,6 +578,21 @@ function register(context, clientHolder, session) {
       }
       return addConstraint(bench, clientHolder, packageUri, shape,
         (node.raw.label || shape.split(/[/#]/).pop()));
+    }),
+    // From the shape page: which query is said by its text.
+    vscode.commands.registerCommand('semforge.removeSparqlQuery', async (node, holder) => {
+      const { packageUri, shape } = target(node);
+      if (!shape || !holder || !clientHolder.client) {
+        return undefined;
+      }
+      const label = node.raw.label || shape.split(/[/#]/).pop();
+      const open = bench.panel && bench.current && bench.current.shape === shape &&
+        bench.page && bench.page.holder.query.trim() === String(holder.query).trim();
+      if (open) {
+        bench.panel.reveal();
+        return bench.remove(bench.dirty);
+      }
+      return removeQuery(clientHolder, packageUri, shape, holder, label, false);
     }),
     vscode.workspace.onDidSaveTextDocument(() => bench.refresh())
   );
