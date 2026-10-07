@@ -145,7 +145,11 @@ const stub = {
     // fsPath made every opened file look like a different package.
     openTextDocument: (file) => (file && file.scheme && fileSystems[file.scheme]
       ? openDocument(file)
-      : Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000 }))
+      : Promise.resolve({ uri: stub.Uri.file(file), lineCount: 10000,
+        save() {
+          seen.events.push({ type: 'saved', uri: `file://${file}` });
+          return Promise.resolve(true);
+        } }))
   },
   window: {
     // The provider is kept aside, not on the view: `seen` is printed as JSON.
@@ -458,6 +462,17 @@ async function runCommand() {
     for (const receive of (panel && panel.receivers) || []) {
       await receive(message);
     }
+  }
+  // Further commands, in order -- a key pressed in the editor the first one
+  // opened (Ctrl+Enter in a query document runs semforge.sparqlApply).
+  for (const next of scenario.then || []) {
+    const run = registry.get(next.command);
+    if (!run) {
+      seen.errors.push(`command ${next.command} is not registered`);
+      continue;
+    }
+    seen.thenResults = (seen.thenResults || []).concat(
+      [await run(next.node, ...(next.args || []))]);
   }
   for (const panel of seen.webviews) {
     delete panel.receivers;                     // functions do not serialise

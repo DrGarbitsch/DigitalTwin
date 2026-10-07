@@ -503,7 +503,8 @@ Three layers, each catching what the one before cannot:
 |---|---|---|
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, clicks opening pages, editing values and relationships from the Main page, + Entity, New subtype…, + Attribute on a type without a shape |
+| **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window

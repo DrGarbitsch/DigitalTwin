@@ -276,7 +276,7 @@ function activate(context) {
   // One page per entity type, in the editor area: read there, find in the trees.
   const typeViews = typePages.register(context, clientHolder, session);
   // One page per vocabulary class: its values, their uses, and their care.
-  vocabularyPages.register(context, clientHolder, session);
+  const vocabularyViews = vocabularyPages.register(context, clientHolder, session);
   // New test… for one attribute: valid, or one of its constraints firing.
   attributeTests.register(context, clientHolder, session);
   // New test case…: add a test file to a suite, from wherever it should start.
@@ -287,9 +287,9 @@ function activate(context) {
   // are developed.
   const sparqlBench = sparqlPage.register(context, clientHolder, session);
   // The package at a glance: what needs attention first.
-  healthPage.register(context, clientHolder, session);
+  const healthView = healthPage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.
-  shapePages.register(context, clientHolder, session);
+  const shapeViews = shapePages.register(context, clientHolder, session);
 
   // Summary or full trees: switching re-asks every tree at once.
   context.subscriptions.push(
@@ -406,7 +406,8 @@ function activate(context) {
     clientHolder,
     session,
     trees: { project, constraints, shapes, model, knowledge },
-    pages: { type: typeViews, case: caseViews, sparql: sparqlBench }
+    pages: { type: typeViews, case: caseViews, sparql: sparqlBench, shape: shapeViews,
+      vocabulary: vocabularyViews, health: healthView }
   };
 }
 

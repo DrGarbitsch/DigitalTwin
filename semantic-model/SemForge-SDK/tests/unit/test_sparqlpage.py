@@ -460,3 +460,28 @@ def test_a_type_without_a_shape_gets_one_first(tmp_path):
     assert [a['shape'] for a in asked] == [None, 'https://x/CutterShape']
     made = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.newShape']
     assert made[0][0]['raw']['targetClass'] == 'https://x/Cutter'
+
+
+# --- the editor's keys: Ctrl+Enter applies, Ctrl+Shift+Enter inspects -----------------------------
+
+def test_the_keys_act_on_the_query_in_the_active_editor(tmp_path, page, run, corpus):
+    inspected = sb.inspect(corpus, CUTTER, 0, sb.MAIN, page['holder']['query'])
+    seen = _open(tmp_path, page, [], then=[{'command': 'semforge.sparqlApply'},
+                                           {'command': 'semforge.sparqlInspect'}],
+                 replies={'semforge/sparqlRun': run, 'semforge/sparqlInspect': inspected})
+    assert seen['errors'] == [], seen['errors']
+    assert [a['query'] for a in _asked(seen, 'semforge/sparqlRun')] == [page['holder']['query']]
+    assert [a['query'] for a in _asked(seen, 'semforge/sparqlInspect')] == \
+        [page['holder']['query']]
+    assert [m['type'] for m in seen['webviews'][0]['posted']] == ['result', 'inspect']
+
+
+def test_the_keys_do_nothing_outside_a_query(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openSource',
+        'node': {'raw': {'kind': 'attribute', 'label': 'x', 'definedAt': '/pkg/shacl.ttl:3',
+                         'children': []}, 'packageUri': PACKAGE},
+        'then': [{'command': 'semforge.sparqlApply'}, {'command': 'semforge.sparqlInspect'}],
+        'replies': {}})
+    assert seen['errors'] == [] and seen['webviews'] == []
+    assert seen['thenResults'] == [False, False]

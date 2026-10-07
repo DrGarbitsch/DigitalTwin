@@ -154,3 +154,34 @@ def test_go_to_definition_opens_where_the_row_is_written(tmp_path):
                                       'packageUri': PACKAGE},
                              'replies': {'semforge/tree': {'roots': []}}})
     assert seen['shown'][-1]['file'] == '/pkg/shacl.ttl' and seen['shown'][-1]['line'] == 39
+
+
+# --- revalidate, refresh ----------------------------------------------------------------------
+
+def test_revalidate_saves_the_active_file_so_the_server_analyses_it(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openSource',
+        'node': {'raw': {'kind': 'attribute', 'label': 'x', 'definedAt': '/pkg/shacl.ttl:3',
+                         'children': []}, 'packageUri': PACKAGE},
+        'then': [{'command': 'semforge.revalidate'}], 'replies': {}})
+    assert seen['errors'] == [], seen['errors']
+    assert {'type': 'saved', 'uri': 'file:///pkg/shacl.ttl'} in seen['events']
+
+
+def test_revalidate_without_an_editor_does_nothing(tmp_path):
+    seen = _drive(tmp_path, {'command': 'semforge.revalidate', 'replies': {}})
+    assert seen['errors'] == [] and not [e for e in seen['events'] if e['type'] == 'saved']
+
+
+@pytest.mark.parametrize('command', ['semforge.refreshProject', 'semforge.refreshTree',
+                                     'semforge.refreshShapes', 'semforge.refreshModel',
+                                     'semforge.refreshKnowledge'])
+def test_refresh_redraws_its_view(tmp_path, command):
+    for name in ('shacl.ttl', 'knowledge.ttl', 'model-instance.jsonld'):
+        (tmp_path / name).write_text('')
+    seen = _drive(tmp_path, {'command': command, 'replies': {}})
+    assert seen['errors'] == [], seen['errors']
+    before = len([e for e in _drive(tmp_path, {'command': 'semforge.revalidate',
+                                               'replies': {}})['events']
+                  if e['type'] == 'refresh'])
+    assert len([e for e in seen['events'] if e['type'] == 'refresh']) > before
