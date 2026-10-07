@@ -30,9 +30,28 @@ describe('every page, in a real VS Code', () => {
     const panel = await rendered(api.pages.shape, 'the shape page');
     assert.strictEqual(panel.title, 'WorkpieceShape · shape');
     const text = body(panel);
-    for (const part of ['Selects', 'Constraints', 'Reaches', '+ SPARQL constraint']) {
+    for (const part of ['Checks', 'Applies to', 'Tested by', '+ Add check ▾', 'Edit targets']) {
       assert.ok(text.includes(part), part);
     }
+  });
+
+  it("a shape page's ⋯ opens its .ttl", async () => {
+    const api = await semforge();
+    await vscode.commands.executeCommand('semforge.openShapePage',
+      { raw: { shape: `${BASE}WorkpieceShape` }, packageUri: PACKAGE_URI });
+    await rendered(api.pages.shape, 'the shape page');
+    const session = answering([{ kind: 'pick', labelStarts: '$(go-to-file) Open in .ttl' }]);
+    try {
+      await api.pages.shape.receive({ command: 'pageMenu', row: -1 });
+    } finally {
+      session.restore();
+    }
+    assert.ok(session.asked[0].offered.some((label) => label.includes('Merge into…')));
+    const editor = await until(() => vscode.window.activeTextEditor &&
+      vscode.window.activeTextEditor.document.fileName.endsWith('shacl.ttl') &&
+      vscode.window.activeTextEditor, 'shacl.ttl');
+    assert.ok(editor.document.lineAt(editor.selection.active.line).text.includes('WorkpieceShape'),
+      editor.document.lineAt(editor.selection.active.line).text);
   });
 
   it('the package health page', async () => {
@@ -112,6 +131,24 @@ describe('the SPARQL workbench on the real editor', () => {
     } finally {
       watch.stop();
     }
+  });
+
+  it("the ⋯ shows the query's place in shacl.ttl", async () => {
+    const api = await semforge();
+    await open(api);
+    const session = answering([{ kind: 'pick', labelStarts: '$(go-to-file) Show it in shacl.ttl' }]);
+    try {
+      await api.pages.sparql.receive({ command: 'menu' });
+    } finally {
+      session.restore();
+    }
+    const labels = session.asked[0].offered;
+    assert.ok(labels[labels.length - 1].startsWith('$(trash) Remove this'), labels.join(', '));
+    const holder = api.pages.sparql.page.holder;
+    const editor = await until(() => vscode.window.activeTextEditor &&
+      vscode.window.activeTextEditor.document.fileName.endsWith('shacl.ttl') &&
+      vscode.window.activeTextEditor, 'shacl.ttl');
+    assert.strictEqual(editor.selection.active.line, holder.line - 1);
   });
 
   it('Cancel reverts the editor to what shacl.ttl holds', async () => {

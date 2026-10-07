@@ -8,6 +8,7 @@ save -- is posted INTO the page rather than re-rendering it.
 """
 
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -72,17 +73,25 @@ def _asked(seen, method):
 
 def test_it_shows_its_editor_the_data_and_the_buttons(tmp_path, page):
     html = _render(tmp_path, page)
-    for text in ('data-editor="1"', 'StateOnCutterShape.rq', 'Ctrl+Space completes',
-                 'Shift+Alt+F formats', 'id="apply"', 'id="inspect"', 'id="cancel"', 'id="save"',
-                 'id="source"', 'Cutter running without running filter',
-                 'severity: base:severityCritical', 'Instance data (Turtle)',
-                 'urn:plasmacutter:1', '2 focus node(s)'):
+    for text in ('data-editor="1"', 'StateOnCutterShape.rq', '<kbd>Ctrl+Space</kbd> completes',
+                 '<kbd>Shift+Alt+F</kbd> formats', 'id="apply"', 'id="inspect"', 'id="cancel"',
+                 'id="save"', 'id="more"', 'id="source"', 'Cutter running without running filter',
+                 '>critical</span>', 'Instance data (Turtle)',
+                 'urn:plasmacutter:1', '2 focus nodes'):
         assert text in html, text
+    assert 'severity: base:severityCritical' not in html, 'said as a reader says it'
+    assert 'id="remove"' not in html, 'Remove waits behind the ⋯'
     assert '<textarea' not in html, 'the query is edited in its own editor'
     state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
     assert state['dirty'] is False
     assert 'id="dirty" hidden' in html
     assert "script-src 'nonce-n1'" in html
+    # The result comes first; what is looked at now and then is folded away.
+    body = html.split('<body>', 1)[1]
+    assert body.index('<h2>Result</h2>') < body.index('id="fold-selects"') \
+        < body.index('id="fold-data"') < body.index('id="fold-keys"')
+    assert '<details class="fold" id="fold-data">' in html, 'the data is collapsed'
+    assert '<details class="fold" id="fold-snapshots" hidden>' in html, 'no snapshot yet'
     assert html.count('<option') == len(page['sources'])
 
 
@@ -101,7 +110,7 @@ def test_the_page_script_parses(tmp_path, page):
 
 def test_unsaved_changes_in_the_editor_are_said_on_the_page(tmp_path, page):
     html = _render(tmp_path, page, dirty=True)
-    assert 'id="dirty">unsaved changes' in html
+    assert 'id="dirty"\n    title="The editor holds changes not in shacl.ttl">● unsaved' in html
     state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
     assert state['dirty'] is True
 
@@ -193,7 +202,7 @@ def test_the_shape_page_opens_the_workbench_on_the_clicked_query(tmp_path, corpu
         'webviewMessages': [{'command': 'bench', 'row': 0}],
         'replies': {'semforge/shapePage': shape_page}})
     html = seen['webviews'][0]['html'][0]
-    assert 'data-action="bench" data-row="0"' in html and 'data-action="addSparql"' in html
+    assert 'data-action="bench" data-row="0"' in html and 'data-action="addCheck"' in html
     opened = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.openSparqlBench']
     assert opened[0][0]['raw']['shape'] == CUTTER
     assert opened[0][1] == {'query': shape_page['checks'][0]['query'], 'kind': 'constraint'}
@@ -340,9 +349,12 @@ def test_the_shape_page_s_remove_names_the_query_by_its_text(tmp_path, corpus):
     seen = _drive(tmp_path, {
         'command': 'semforge.openShapePage',
         'node': {'raw': {'shape': CUTTER}, 'packageUri': PACKAGE},
-        'webviewMessages': [{'command': 'removeSparql', 'row': 0}],
+        'webviewMessages': [{'command': 'checkMenu', 'row': 0}],
+        'picks': ['$(trash) Remove…'],
         'replies': {'semforge/shapePage': shape_page}})
-    assert 'data-action="removeSparql" data-row="0"' in seen['webviews'][0]['html'][0]
+    assert 'data-action="checkMenu" data-row="0"' in seen['webviews'][0]['html'][0]
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(beaker) Open in SPARQL workbench', '$(trash) Remove…']
     asked = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.removeSparqlQuery']
     check = shape_page['checks'][0]
     assert asked[0][1] == {'query': check['query'], 'kind': 'constraint',
@@ -367,11 +379,38 @@ def test_the_server_finds_the_query_by_its_text(corpus_path, tmp_path):
         assert done['ok'] and done['asserts'] == 1
 
 
+def test_add_check_offers_a_sparql_constraint(tmp_path, corpus):
+    """+ Add check ▾ on a shape with no attributes of its own: only SPARQL."""
+    from semforge.cooked.shapepage import build_shape_page
+
+    shape_page = dict(build_shape_page(corpus, CUTTER), ok=True)
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': {'shape': CUTTER}, 'packageUri': PACKAGE},
+        'webviewMessages': [{'command': 'addCheck', 'row': -1}],
+        'picks': ['$(beaker) SPARQL constraint'],
+        'replies': {'semforge/shapePage': shape_page}})
+    labels = [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert labels[-1] == '$(beaker) SPARQL constraint'
+    assert ('$(symbol-field) Attribute' in labels) == bool(shape_page.get('ownShape'))
+    asked = [e['command'] for e in seen['executed']]
+    assert 'semforge.addSparqlConstraint' in asked
+
+
+def test_the_workbench_menu_holds_what_is_used_now_and_then(tmp_path, page):
+    seen = _open(tmp_path, page, [{'command': 'menu'}], picks=['$(go-to-file) Show it in shacl.ttl'])
+    labels = [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert labels[0] == "$(edit) Show the query's editor"
+    assert labels[-1] == '$(trash) Remove this constraint…'
+    assert '$(save) Save into shacl.ttl' not in labels, 'nothing unsaved: nothing to save'
+
+
 # --- the selector, Inspect, snapshots ----------------------------------------------------------
 
 def test_the_page_says_how_this_is_bound(tmp_path, page):
     html = _render(tmp_path, page)
     assert '<b>Selects</b>' in html
+    assert 'What it selects <span class="dim">· $this = 2 node(s)</span>' in html
     assert '$this = each of every Cutter, and every subclass of it → 2 node(s)' in html
     assert 'Show as SPARQL — what the engine adds' in html
     assert 'VALUES $this { &lt;urn:plasmacutter:1&gt; &lt;urn:plasmacutter:2&gt; }' in html
@@ -429,8 +468,12 @@ def test_nothing_of_the_workbench_is_stored_anywhere():
     shacl.ttl, via the server. Snapshots live in memory and go with VS Code."""
     source = open(os.path.join(SRC, 'sparqlpage.js')).read()
     for storage in ('workspaceState', 'globalState', 'storageUri', "require('fs')",
-                    'setState('):
+                    'registerWebviewPanelSerializer'):
         assert storage not in source, storage
+    # The webview's own state dies with the panel (no serializer): it keeps
+    # which folds are open and the Inspect toggle, never a query.
+    assert set(re.findall(r'setState\((\w+)\)', source)) == {'kept'}
+    assert "{ open: {}, inspect: false }" in source
 
 
 # --- the Flink quick fix's command -------------------------------------------------------------

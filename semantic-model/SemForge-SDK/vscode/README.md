@@ -1021,35 +1021,41 @@ exactly one reason, rather than pinning the accident as expected. The button's
 tooltip says so. A duplicate assert, or one on a constraint no shape declares,
 is refused; a case with a pinned residue is told to `semforge accept` again.
 
-**The SPARQL workbench — developing SPARQL constraints.** A shape page shows
-its SPARQL queries under *On the whole node*; click one (or **Open in SPARQL
-workbench**, or **SPARQL…** on a type page's rule row, or right-click a shape
-in Shapes) and the query opens in a page of its own:
+**The SPARQL workbench — developing SPARQL constraints.** A shape page lists
+its SPARQL queries under **Checks**; **Open** on one (or **Open in workbench**
+at the top of a SPARQL shape, **SPARQL…** on a type page's rule row, or
+right-click a shape in Shapes) opens the query in a page of its own. The page
+shows what you work with — the query's name, severity and message, one
+toolbar, the result — and folds the rest away:
 
-- **Run over** — the data: **Main** or a test case, the cases this shape
-  reaches listed first, each with its number of focus nodes.
-- **Query** — edited in a real editor beside the page, `<Shape>.rq` (language
-  SPARQL), with VS Code's own undo, find and multi-cursor. **Apply**
-  (Ctrl+Enter in the editor) runs the text as it is now; **Cancel** is the
-  editor's Revert, back to what `shacl.ttl` holds; **Save** (Ctrl+S) writes it
-  over the `"""…"""` literal in `shacl.ttl` and nothing else (checked by
-  parsing; refused — as a failed save, the edit kept — if the literal changed
-  since the editor read it). See *The SPARQL editor* below.
+- **The toolbar** — **Run over** the data (**Main** or a test case, the cases
+  this shape reaches listed first) and how many focus nodes it has; **▶ Apply**
+  (Ctrl+Enter in the editor) runs the editor's text as it is now;
+  **Snapshot**; and **⋯** for what is used now and then: show the editor, show
+  the query in `shacl.ttl`, open the shape page, **Remove…**. While the editor
+  holds unsaved changes, *● unsaved* shows and so do **Save** (Ctrl+S) and
+  **Revert** (the editor's Revert, back to what `shacl.ttl` holds).
+- **The query** is edited in a real editor beside the page, `<Shape>.rq`
+  (language SPARQL), with VS Code's own undo, find and multi-cursor. Save
+  writes it over the `"""…"""` literal in `shacl.ttl` and nothing else
+  (checked by parsing; refused — as a failed save, the edit kept — if the
+  literal changed since the editor read it). See *The SPARQL editor* below.
 - **Result** — for a constraint, which focus nodes violate, each row the query
   returned with `sh:message` filled in from it (`{?value}`, `{$this}`), and
   what the *saved* query says on the same data (*now also …*, *no longer …*).
   For a rule, the triples its CONSTRUCT builds. A query that does not parse
   says where; what validation reads differently is warned about (MINUS,
   VALUES, SERVICE, no `$this`, an aggregate in the current view).
-- **What the query runs over** — the instance data as Turtle, with what the
-  rules derived listed apart.
-- **Selects** — how `$this` gets its value. A SHACL-SPARQL query never picks
+- **What it runs over** (folded) — the instance data as Turtle, with what
+  the rules derived listed apart.
+- **What it selects** (folded) — how `$this` gets its value. A SHACL-SPARQL query never picks
   its own nodes: the engine takes the shape's target (*every Cutter, and every
   subclass of it → 2 node(s)*) and runs the query once per node with `$this`
   already bound. **Show as SPARQL** shows that hidden part as what it amounts
   to — `VALUES $this { <urn:plasmacutter:1> <urn:plasmacutter:2> }`. A query
   that never mentions `$this` runs once, and the page says so.
-- **Inspect** — the query taken apart, its text untouched: per focus node,
+- **Show every row and the FILTER checks** — the toggle on the Result
+  (Ctrl+Shift+Enter turns it on): the query taken apart, its text untouched: per focus node,
   every row its WHERE makes with *every* variable (not only the SELECTed
   ones), and for each part of the outer FILTERs (`&&` split up) whether it
   held: ✓, ✗, or ⚠ for an error such as an unbound variable, which FILTER
@@ -1057,11 +1063,13 @@ in Shapes) and the query opens in a page of its own:
   is answered by the ✗. With GROUP BY it shows the rows before grouping; a
   FILTER inside OPTIONAL or a nested group is noted, not split. Its verdict is
   Apply's (a test checks this for every constraint and case).
-- **Snapshot** — keep the current text, named, with what it did (*1 violating
+- **Snapshots** (folded, there once you take one) — keep the current text, named, with what it did (*1 violating
   on filter-off.jsonld*), to come back to while experimenting: **Load** puts
   it into the editor, **Delete** drops it; *Saved in shacl.ttl* is always
   listed first. Snapshots last for the session only — nothing is written
-  anywhere; closing VS Code keeps the saved query and nothing else.
+  anywhere; closing VS Code keeps the saved query and nothing else. Which
+  folds are open, and the toggle, are remembered while the page is open.
+- **Shortcuts** (folded) — the editor's keys.
 
 That data is exactly what validation gives the query, built the same way:
 rules expanded to their fixpoint, the shape's data view (`current` keeps the
@@ -1072,7 +1080,7 @@ test` reaches (a test checks this for every constraint and case). A **rule**
 runs earlier, before any view, on every observation; it is shown over the
 rules' fixpoint.
 
-**+ SPARQL constraint** (shape page, or right-click a shape) asks for its
+**+ Add check ▾ → SPARQL constraint** (shape page, or right-click a shape) asks for its
 `sh:message` and writes a constraint that fires on nothing (`FILTER(1 = 0)`,
 with the package's PREFIX lines), then opens it here: write the condition,
 Apply until it finds what you mean, Save. Unsaved edits survive switching tabs;
@@ -1149,7 +1157,7 @@ an attribute needs, its sub-attributes, and whether Flink knows it. Inspect
 and Apply show an attribute instance by what it holds — `[hasValue 21.5 ·
 observedAt 2024-…]` — instead of a blank node id.
 
-**Remove…** (in the workbench, or next to each query on the shape page)
+**Remove…** (behind the workbench's ⋯, or a query's ⋯ on the shape page)
 takes one SPARQL constraint or rule out of its shape: its whole `[ … ]` and
 the `;` joining it, nothing else — checked by parsing, and refused if the file
 changed since the page showed it. It asks first, and says what goes with it:
@@ -1209,13 +1217,27 @@ views:
   them, the nodes it reaches in the model with their verdicts, the types those
   are, and the test cases that reach it and whether it fires in them.
 
-  The page is laid out as SHACL is: **Selects** — the node selector, every
-  target with **Remove** (a SPARQL target, being a query, stays in the `.ttl`)
-  and **+ Target** to add one (several targets add up; taking off the last
-  one leaves a shape that runs only where another reaches it via `sh:node`)
-  — then **Constraints**, in two parts: **on its attributes** (the table) and
-  **on the whole node** (its SPARQL constraints and rules, with the query),
-  then what it **Reaches** and the **Evidence**.
+  The page says first what matters, and keeps the rest one click away. At
+  the top, the name, one status line (*2 in the model, all valid · 2 case(s),
+  all pass*, or what is wrong), the one action the shape is usually opened
+  for — **Open in workbench** for a SPARQL shape, **+ Attribute** for one
+  with attributes — and a **⋯** for the rest (Open in .ttl, the type page,
+  **+ Target**, **Merge into…**, Refresh). Then three sections:
+
+  - **Checks** — every check, one row each: its SPARQL constraints and rules
+    (message, severity, *tested both ways* / *never fired*, **Open** in the
+    workbench, a **⋯** with Remove…, the query folded under it) and the
+    attribute table. **+ Add check ▾** adds an attribute or a SPARQL
+    constraint.
+  - **Applies to** — the node selector in one line, with the type it is
+    about, and the nodes it reaches in the model with their verdicts.
+    **Edit targets** unfolds every target with **Remove** (a SPARQL target,
+    being a query, stays in the `.ttl`) and **+ Target** (several targets
+    add up; taking off the last one leaves a shape that runs only where
+    another reaches it via `sh:node`).
+  - **Tested by** — the cases that reach it, one row each: *fires* (and on
+    what) or *holds*, and whether the case passes. **+ New case** shows while
+    no case makes it fire.
 
   Its attributes are **edited exactly as on the type page** — the same rows,
   the same actions: click the presence or the value, the `⋯` menu (edit a
@@ -1239,12 +1261,12 @@ kept. Its page opens; attributes and constraints are added there. A type with
 no shape of its own shows **Create its shape** on its page, which then offers
 **+ Attribute**.
 
-**A rule's evidence, and New case….** For a shape with a SPARQL constraint
+**A rule's evidence, and + New case.** For a shape with a SPARQL constraint
 or rule the page says **what it checks** (its `sh:message` and severity — the
-kms's own `base:severityWarning` reads as *warning*), the **evidence** (the
-cases it fires in and on which entity, the cases it is evaluated in and
-holds), and **the query**, read-only, with its prefixes. A SPARQL constraint
-that fires in no case gets **New case…**: it writes
+kms's own `base:severityWarning` reads as *warning*), how well the cases prove
+it (*tested both ways*, *fires in 1*, *never fired*), the cases under
+**Tested by**, and **the query**, folded, with its prefixes. A shape that
+fires in no case gets **+ New case**: it writes
 `examples/test_<Shape>/bad/<name>.jsonld`, copied from a case where the shape
 is evaluated and holds (a valid one first, so no other shape's violation comes
 along; its includes written into the file, so editing an entity does not
@@ -1252,7 +1274,7 @@ change a shared subobject), and declares it `expect: invalid` with an assert
 that the shape fires on that entity. The case fails until you edit its data so
 the rule is broken — it cannot pass by accident. With no case to start from it
 copies the model's document for an entity the shape reaches. A `sh:rule`
-derives data rather than firing, so it gets the query and no New case….
+derives data rather than firing, so it gets the query and no + New case.
 
 Validation runs every shape that has a target, of any kind. Until this release
 it ran only `sh:targetClass` shapes — a shape written with `sh:targetNode` was

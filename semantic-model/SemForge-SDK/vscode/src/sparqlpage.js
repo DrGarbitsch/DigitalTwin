@@ -9,8 +9,10 @@
  * server's completion, diagnostics, hover, formatting and quick fixes. The
  * page runs what the editor holds: Apply (Ctrl+Enter in the editor) the way
  * validation does -- once per focus node, $this bound -- Inspect
- * (Ctrl+Shift+Enter), Snapshot. Cancel is the editor's Revert, Save is its
- * Save (Ctrl+S), which refuses if the literal changed underneath.
+ * (Ctrl+Shift+Enter, or the toggle on the result), Snapshot. Revert is the
+ * editor's Revert, Save is its Save (Ctrl+S), which refuses if the literal
+ * changed underneath; both show only while the editor has unsaved changes,
+ * the rest waits behind ⋯.
  *
  * `renderSparqlBench` is a pure function from the `semforge/sparqlBench`
  * payload; results arrive later by postMessage, so a run never resets the
@@ -31,6 +33,12 @@ function chip(text, tone, title) {
     `${escape(text)}</span>`;
 }
 
+/** sh:severity as a reader says it: base:severityCritical -> critical. */
+function severityText(severity) {
+  const local = String(severity || '').split(/[/#:]/).pop();
+  return local.replace(/^severity/i, '').toLowerCase();
+}
+
 function renderSparqlBench(page, options) {
   const nonce = (options && options.nonce) || '';
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
@@ -43,12 +51,14 @@ function renderSparqlBench(page, options) {
         ? ` · ${escape(h.message.slice(0, 40))}` : ''}</button>`).join('')}</div>` : '';
   const sources = page.sources.map((s) => `<option value="${escape(s.id)}"` +
     `${s.id === page.source ? ' selected' : ''}>${escape(s.label)}` +
-    `${s.expect ? ` (${escape(s.expect)})` : ''} — ${s.focus} focus node(s)</option>`).join('');
+    `${s.expect ? ` (${escape(s.expect)})` : ''}</option>`).join('');
   const state = { kind: holder.kind, message: holder.message,
     dirty: !!(options && options.dirty),
     snapshots: (options && options.snapshots) || [] };
   const file = (options && options.file) || `${page.label}.rq`;
   const selects = page.selector;
+  const severity = severityText(holder.severity);
+  const focus = page.focus.length;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -61,11 +71,19 @@ function renderSparqlBench(page, options) {
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .dim { color: var(--vscode-descriptionForeground); }
-  h1 { font-size: 1.4em; font-weight: 600; margin: 2px 0 4px; }
+  .crumbs { font-size: 0.9em; }
+  .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  h1 { font-size: 1.4em; font-weight: 600; margin: 2px 0; }
+  .head .right { margin-left: auto; }
+  .message { margin: 0 0 6px; }
   h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-       color: var(--vscode-descriptionForeground); margin: 18px 0 6px; }
-  .chips, .bar, .tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .bar { margin: 8px 0; gap: 8px; }
+       color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
+  .sechead { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 6px; padding-bottom: 4px;
+             border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
+  .bar, .tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar { margin: 10px 0 4px; padding: 8px 10px; border-radius: 3px;
+             background: var(--vscode-sideBar-background, rgba(128,128,128,.06)); }
+  .sechead .status { font-size: 0.9em; }
   .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
@@ -77,12 +95,11 @@ function renderSparqlBench(page, options) {
            padding: 3px 12px; border-radius: 2px; cursor: pointer; }
   button.primary { color: var(--vscode-button-foreground); background: var(--vscode-button-background);
                    border-color: var(--vscode-button-background); }
-  button:disabled { opacity: .45; cursor: default; }
   .tab.on { border-color: var(--vscode-focusBorder, #0078d4); }
-  select { font: inherit; color: var(--vscode-dropdown-foreground); padding: 2px 4px;
+  select { font: inherit; color: var(--vscode-dropdown-foreground); padding: 2px 4px; max-width: 22em;
            background: var(--vscode-dropdown-background); border: 1px solid var(--vscode-dropdown-border); }
-  .keys { margin: 2px 0 6px; font-size: 0.9em; }
-  pre { font-family: var(--vscode-editor-font-family); font-size: 0.9em; margin: 0;
+  label.toggle { font-size: 0.92em; color: var(--vscode-descriptionForeground); cursor: pointer; }
+  pre { font-family: var(--vscode-editor-font-family); font-size: 0.9em; margin: 4px 0 0;
         padding: 8px; overflow: auto; max-height: 28em;
         background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.1)); }
   table { border-collapse: collapse; width: 100%; font-size: 0.92em; }
@@ -93,9 +110,13 @@ function renderSparqlBench(page, options) {
              border-left: 2px solid currentColor; padding-left: 8px; }
   .warning { color: var(--vscode-editorWarning-foreground, #cca700);
              border-left: 2px solid currentColor; padding-left: 8px; margin: 2px 0; }
-  details summary { cursor: pointer; }
-  .selects { margin: 6px 0 2px; }
-  .selects b { font-weight: 600; margin-right: 6px; }
+  details.fold { margin: 6px 0; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
+                 padding-top: 6px; }
+  details.fold > summary { cursor: pointer; font-size: 0.78em; font-weight: 600; letter-spacing: .08em;
+                           text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+  details.fold > summary .dim { text-transform: none; letter-spacing: 0; font-weight: normal; }
+  details.inner > summary { cursor: pointer; color: var(--vscode-descriptionForeground); }
+  .fold > :not(summary) { margin-left: 14px; }
   tr.dropped td { opacity: .55; }
   td.yes { color: var(--vscode-testing-iconPassed, #388a34); }
   td.no { color: var(--vscode-errorForeground, #f14c4c); }
@@ -103,61 +124,67 @@ function renderSparqlBench(page, options) {
   .snap { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
   .snap .name { font-weight: 600; }
   h3 { font-size: 1em; margin: 12px 0 4px; }
-  .status { margin-left: auto; }
+  kbd { font-family: var(--vscode-editor-font-family); font-size: 0.9em; padding: 0 4px;
+        border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 3px; }
+  .keys div { margin: 2px 0; }
 </style></head><body>
-<div class="dim">SPARQL workbench · <a href="#" data-shape="1">${escape(page.shapeName)}</a></div>
-<h1>${escape(page.label)} <span class="dim">· ${escape(holder.kind)}</span></h1>
-<div class="chips">
-  ${holder.message ? chip(holder.message, '', 'sh:message — {?var} is filled from each row') : ''}
-  ${holder.severity ? chip(`severity: ${holder.severity}`) : ''}
-  <a href="#" data-open="${escape(holder.file)}:${holder.line}">shacl.ttl:${holder.line}</a>
+<div class="dim crumbs">SPARQL workbench · <a href="#" data-shape="1">${escape(page.shapeName)}</a></div>
+<div class="head">
+  <h1>${escape(page.label)}</h1>
+  <span class="dim">${escape(holder.kind)}</span>
+  ${severity ? chip(severity, ['warning', 'info', 'information'].includes(severity) ? 'warn' : 'bad',
+    `sh:severity ${holder.severity}`) : ''}
+  <span class="right"><span class="chip warn" id="dirty"${state.dirty ? '' : ' hidden'}
+    title="The editor holds changes not in shacl.ttl">● unsaved</span></span>
 </div>
+${holder.message ? `<p class="message" title="sh:message — {?var} is filled from each row">` +
+  `“${escape(holder.message)}”</p>` : ''}
 ${tabs}
 
-<h2>Data</h2>
-<div class="bar">
+<div class="bar toolbar">
   <label for="source">Run over</label>
-  <select id="source">${sources}</select>
-  <span class="dim">${page.focus.length} focus node(s): ${escape(page.focus.slice(0, 6).join(', '))}${
-  page.focus.length > 6 ? ' …' : ''}</span>
-</div>
-${selects ? `<div class="selects"><b>Selects</b><span>${selects.binds
-    ? `$this = each of ${escape(selects.text)} → ${selects.count} node(s), bound before the query runs`
-    : `the query never mentions $this: it runs once, unbound (${escape(selects.text)})`}</span></div>
-<details><summary class="dim">Show as SPARQL — what the engine adds</summary><pre>${
-  escape(selects.sparql)}</pre></details>` : ''}
-
-<h2>Query</h2>
-<div class="bar">
-  <span>Edited in <a href="#" data-editor="1" title="Show the query's editor">${escape(file)}</a></span>
-  <span class="chip warn" id="dirty"${state.dirty ? '' : ' hidden'}>unsaved changes</span>
-</div>
-<p class="dim keys">Ctrl+Space completes · Shift+Alt+F formats · Ctrl+Enter applies ·
-  Ctrl+Shift+Enter inspects · Ctrl+S saves into shacl.ttl</p>
-<div class="bar">
-  <button class="primary" id="apply" title="Run the edited query (Ctrl+Enter)">Apply</button>
-  <button id="inspect" title="Every variable of every row, and which FILTER part dropped a row — the query is not changed">Inspect</button>
-  <button id="snapshot" title="Keep this text to come back to — for this session; closing VS Code forgets it">Snapshot</button>
-  <button id="cancel" title="Back to the saved query">Cancel</button>
+  <select id="source" title="The data validation would see for this case">${sources}</select>
+  <span class="dim" title="${escape(page.focus.join('\n'))}">${focus} focus node${focus === 1 ? '' : 's'}</span>
+  <button class="primary" id="apply" title="Run the query in the editor (Ctrl+Enter)">▶ Apply</button>
   <button id="save" title="Write it into shacl.ttl (Ctrl+S)">Save</button>
-  <span class="status dim" id="status"></span>
-  <button id="remove" title="Remove this ${escape(holder.kind)} from the shape">Remove…</button>
+  <button id="cancel" title="Back to the query shacl.ttl holds">Revert</button>
+  <button id="snapshot" title="Keep this text to come back to — this session only">Snapshot</button>
+  <button id="more" title="Edit in ${escape(file)}, show in shacl.ttl, Remove…">⋯</button>
 </div>
 <div id="warnings"></div>
-<div id="snapshots"></div>
 
-<h2>Result</h2>
+<div class="sechead"><h2>Result</h2>
+  <span class="status dim" id="status"></span>
+  <label class="toggle" title="Every variable of every row, and which FILTER part dropped a row (Ctrl+Shift+Enter) — the query is not changed">
+    <input type="checkbox" id="inspect"> show every row and the FILTER checks</label></div>
 <div id="result" class="dim">${rule ? 'Apply shows the triples the rule constructs.'
     : 'Apply shows which focus nodes violate, and what the saved query says.'}</div>
 <div id="inspected"></div>
 
-<h2>What the query runs over</h2>
+<details class="fold" id="fold-snapshots"${state.snapshots.length ? '' : ' hidden'}>
+  <summary>Snapshots <span class="dim" id="snapcount"></span></summary><div id="snapshots"></div></details>
+${selects ? `<details class="fold" id="fold-selects"><summary>What it selects <span class="dim">· ${
+  selects.binds ? `$this = ${selects.count} node(s)` : 'runs once, unbound'}</span></summary>
+<div class="selects"><b>Selects</b> <span>${selects.binds
+    ? `$this = each of ${escape(selects.text)} → ${selects.count} node(s), bound before the query runs`
+    : `the query never mentions $this: it runs once, unbound (${escape(selects.text)})`}</span></div>
+<details class="inner"><summary>Show as SPARQL — what the engine adds</summary><pre>${
+  escape(selects.sparql)}</pre></details></details>` : ''}
+<details class="fold" id="fold-data"><summary>What it runs over <span class="dim">· ${
+  page.data.triples} instance triple(s)${page.data.derivedTriples
+  ? `, ${page.data.derivedTriples} derived` : ''}</span></summary>
 <p class="dim">${escape(page.stats.graph)} · ${page.data.triples} instance triple(s), ${
   page.data.derivedTriples} of them derived by rules, and ${page.stats.knowledge} knowledge
   triple(s) not shown.</p>
-<details open><summary>Instance data (Turtle)</summary><pre id="data">${escape(page.data.turtle)}</pre></details>
-${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.derivedTriples})</summary>` +
-  `<pre>${escape(page.data.derived)}</pre></details>` : ''}
+<details class="inner" open><summary>Instance data (Turtle)</summary><pre id="data">${escape(page.data.turtle)}</pre></details>
+${page.data.derivedTriples ? `<details class="inner"><summary>Derived by rules (${page.data.derivedTriples})</summary>` +
+  `<pre>${escape(page.data.derived)}</pre></details>` : ''}</details>
+<details class="fold" id="fold-keys"><summary>Shortcuts <span class="dim">· in
+  <a href="#" data-editor="1" title="Show the query's editor">${escape(file)}</a></span></summary>
+<div class="dim keys">
+  <div><kbd>Ctrl+Space</kbd> completes · <kbd>Shift+Alt+F</kbd> formats</div>
+  <div><kbd>Ctrl+Enter</kbd> applies · <kbd>Ctrl+Shift+Enter</kbd> inspects</div>
+  <div><kbd>Ctrl+S</kbd> saves into shacl.ttl</div></div></details>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
@@ -166,31 +193,48 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   const cancel = document.getElementById('cancel');
   const save = document.getElementById('save');
   const status = document.getElementById('status');
+  const inspect = document.getElementById('inspect');
   const esc = (text) => String(text == null ? '' : text).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  // Folds and the Inspect toggle are remembered while the page is open,
+  // and forgotten with it.
+  const kept = vscode.getState() || { open: {}, inspect: false };
+  for (const fold of document.querySelectorAll('details.fold')) {
+    if (kept.open[fold.id] !== undefined) { fold.open = kept.open[fold.id]; }
+    fold.addEventListener('toggle', () => { kept.open[fold.id] = fold.open; vscode.setState(kept); });
+  }
+  inspect.checked = !!kept.inspect;
 
   // The query lives in its editor; the page asks the extension to act on it.
   function dirty(on) {
     state.dirty = on;
     document.getElementById('dirty').hidden = !on;
-    cancel.disabled = !on;
-    save.disabled = !on;
+    cancel.hidden = !on;
+    save.hidden = !on;
   }
   function run() {
     status.textContent = 'running…';
     vscode.postMessage({ command: 'run' });
+    if (inspect.checked) { vscode.postMessage({ command: 'inspect' }); }
   }
   apply.addEventListener('click', run);
-  document.getElementById('inspect').addEventListener('click', () => {
-    status.textContent = 'inspecting…';
-    vscode.postMessage({ command: 'inspect' });
+  inspect.addEventListener('change', () => {
+    kept.inspect = inspect.checked;
+    vscode.setState(kept);
+    if (inspect.checked) {
+      status.textContent = 'inspecting…';
+      vscode.postMessage({ command: 'inspect' });
+    } else {
+      document.getElementById('inspected').innerHTML = '';
+    }
   });
   document.getElementById('snapshot').addEventListener('click', () =>
     vscode.postMessage({ command: 'snapshot' }));
+  document.getElementById('more').addEventListener('click', () =>
+    vscode.postMessage({ command: 'menu' }));
   cancel.addEventListener('click', () => vscode.postMessage({ command: 'cancel' }));
   save.addEventListener('click', () => vscode.postMessage({ command: 'save' }));
-  document.getElementById('remove').addEventListener('click', () =>
-    vscode.postMessage({ command: 'remove' }));
   document.getElementById('source').addEventListener('change', (event) =>
     vscode.postMessage({ command: 'source', source: event.target.value }));
   document.addEventListener('click', (event) => {
@@ -254,13 +298,16 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
       '<h3>' + esc(f.node) + '</h3>' + (f.messages || []).filter(Boolean).map((m) =>
         '<div class="warning">' + esc(m) + '</div>').join('') +
       table(result.columns || [], f.rows)).join('');
-    out.innerHTML = summary + rows;
+    // With the toggle on, the inspected rows below say it all, and more.
+    out.innerHTML = summary + (inspect.checked ? '' : rows);
   }
   function snapshots() {
     const list = state.snapshots;
-    const box = document.getElementById('snapshots');
-    if (!list.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<h2>Snapshots · this session only</h2>' +
+    const fold = document.getElementById('fold-snapshots');
+    fold.hidden = !list.length;
+    document.getElementById('snapcount').textContent = list.length ? '· ' + list.length +
+      ', this session only' : '';
+    document.getElementById('snapshots').innerHTML = !list.length ? '' :
       '<div class="snap"><span class="name">Saved in shacl.ttl</span>' +
       '<a href="#" data-load="saved">Load</a></div>' +
       list.map((s) => '<div class="snap"><span class="name">' + esc(s.name) + '</span>' +
@@ -274,8 +321,14 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
   }
   function inspected(result) {
     const out = document.getElementById('inspected');
+    if (!inspect.checked) {
+      // Asked from the editor's key: the toggle follows.
+      inspect.checked = true;
+      kept.inspect = true;
+      vscode.setState(kept);
+    }
     if (!result.ok) {
-      out.innerHTML = '<h2>Inspect</h2><div class="problem">' + esc(result.error) + '</div>';
+      out.innerHTML = '<div class="problem">' + esc(result.error) + '</div>';
       return;
     }
     status.textContent = 'inspected in ' + result.ms + ' ms';
@@ -296,7 +349,7 @@ ${page.data.derivedTriples ? `<details><summary>Derived by rules (${page.data.de
         '</tbody></table>' : '<p class="dim">The pattern matches nothing for this node: ' +
         'no FILTER is reached.</p>');
     }).join('');
-    out.innerHTML = '<h2>Inspect</h2>' + (result.notes || []).map((n) =>
+    out.innerHTML = (result.notes || []).map((n) =>
       '<div class="warning">' + esc(n) + '</div>').join('') +
       (legend ? '<div class="dim">' + legend + '</div>' : '<p class="dim">No outer FILTER: every ' +
         'row of the WHERE is kept.</p>') + blocks;
@@ -608,6 +661,25 @@ class SparqlBench {
     } else if (message.command === 'holder') {
       await this.show(this.current.packageUri, this.current.shape,
         { index: message.index, source: this.current.source });
+    } else if (message.command === 'menu') {
+      // What is used now and then: one ⋯.
+      const holder = this.page.holder;
+      const doc = this.document();
+      const items = [
+        { label: '$(edit) Show the query\'s editor', message: { command: 'editor' } },
+        { label: '$(go-to-file) Show it in shacl.ttl', message: { command: 'open',
+          at: `${holder.file}:${holder.line}` } },
+        { label: '$(type-hierarchy) Open the shape page', message: { command: 'shape' } }];
+      if (doc && doc.isDirty) {
+        items.unshift({ label: '$(save) Save into shacl.ttl', description: 'Ctrl+S',
+          message: { command: 'save' } },
+        { label: '$(discard) Revert to the saved query', message: { command: 'cancel' } });
+      }
+      items.push({ label: `$(trash) Remove this ${holder.kind}…`, message: { command: 'remove' } });
+      const picked = await vscode.window.showQuickPick(items, { title: this.page.label });
+      if (picked) {
+        return this.receive(picked.message);
+      }
     } else if (message.command === 'editor') {
       const doc = this.document() || await vscode.workspace.openTextDocument(this.uri);
       await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One,

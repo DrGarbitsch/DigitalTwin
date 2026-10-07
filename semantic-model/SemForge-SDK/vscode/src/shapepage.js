@@ -32,30 +32,6 @@ function shapeLink(name, iri) {
   return `<a href="#" data-shape="${escape(iri)}">${escape(name)}</a>`;
 }
 
-function targetSection(page) {
-  const targets = page.targets || [];
-  if (!targets.length) {
-    const users = page.usedBy || [];
-    return users.length
-      ? `<p>No target of its own. It is checked wherever ${users.map((u) =>
-        shapeLink(u.name, u.iri)).join(', ')} reaches it through <span class="mono">sh:node</span>.</p>`
-      : '<p class="empty">No target, and no shape uses it: SHACL never evaluates it.</p>';
-  }
-  // Each target can be taken off here; a SPARQL target is a query, and an
-  // implicit one is the shape being a class -- both are edited in the .ttl.
-  return `<div class="rules">${targets.map((t, index) => `<div class="rule">` +
-    `<span class="mono">${escape(
-      { class: 'sh:targetClass', node: 'sh:targetNode', subjectsOf: 'sh:targetSubjectsOf',
-        objectsOf: 'sh:targetObjectsOf', sparql: 'sh:target', implicit: 'implicit' }[t.kind] ||
-      t.kind)}</span><span>${escape(t.text)}` +
-    (t.kind === 'sparql' && t.value
-      ? `<pre class="query">${escape(t.value.trim())}</pre>` : '') + '</span>' +
-    (['class', 'node', 'subjectsOf', 'objectsOf'].includes(t.kind)
-      ? `<button data-action="removeTarget" data-row="${index}" ` +
-        'title="Take this target off the shape">Remove</button>' : '<span></span>') +
-    '</div>').join('')}</div>`;
-}
-
 /** The type page's rows, actions and all: a shape's attributes are edited
  *  here the same way, written into this shape. */
 function attributeRows(attributes) {
@@ -66,62 +42,98 @@ const NEW_CASE_TIP = 'Writes a bad case asserting this shape fires, copied from 
   'scene where it holds. It fails until you edit its data so the rule is broken: ' +
   'it cannot pass by accident.';
 
-function caseChips(cases) {
-  return cases.length ? `<div class="chips">${cases.map((c) =>
-    `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
-    chip(`${c.case.split('/').slice(-3).join(' / ')} · ` +
-      (c.fired ? `fires ${c.fired}×` : 'holds') + ` · ${c.passed ? 'passes' : 'FAILS'}`,
-    c.passed ? (c.fired ? 'ok' : '') : 'bad') + '</a>').join('')}</div>` : '';
+/** sh:severity as a reader says it: base:severityCritical -> critical. */
+function severityText(severity) {
+  const local = String(severity || '').split(/[/#:]/).pop();
+  return local.replace(/^severity/i, '').toLowerCase() || '';
 }
 
-/** What a SPARQL shape checks, the evidence it can fire, and its query. */
-function checkSections(page, checks, cases) {
-  const fires = cases.filter((c) => c.fired);
-  const holds = cases.filter((c) => !c.fired);
-  const said = checks.map((c) => `<div class="rule"><span class="kind">${escape(c.kind)}</span>` +
-    `<span>${escape(c.message || (c.kind === 'rule'
-      ? 'Derives data; a rule adds facts rather than reporting'
-      : 'No sh:message: the query below is all it says'))}</span>` +
-    `${c.severity ? chip(`severity: ${c.severity}`,
-      c.severity === 'warning' ? 'warn' : c.severity === 'info' ? '' : 'bad') : ''}</div>`).join('');
-  const constraint = checks.some((c) => c.kind === 'constraint');
-  const evidence = !constraint ? '' : [
-    fires.length
-      ? `<div class="rule">${chip(`fires in ${fires.length}`, 'ok')}<span>` +
-        fires.map((c) => `<a href="#" data-case="${escape(c.file)}">` +
-          `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
-          (c.firedOn.length ? ` <span class="dim">on ${escape(c.firedOn.join(', '))}</span>` : ''))
-          .join('<br>') + '</span><span></span></div>'
-      : `<div class="rule">${chip('fires in 0', 'warn')}<span>No test case makes it fire. ` +
-        'A rule that cannot fire looks exactly like one that holds.</span>' +
-        (page.canNewCase ? `<button class="primary" data-newcase="1" title="${escape(NEW_CASE_TIP)}">` +
-          'New case…</button>' : '<span></span>') + '</div>',
-    holds.length
-      ? `<div class="rule">${chip(`holds in ${holds.length}`)}<span>Evaluated in ` +
-        `${holds.length} case(s), conforming: ` + holds.map((c) =>
-          `<a href="#" data-case="${escape(c.file)}">${escape(c.case.split('/').slice(-3).join(' / '))}</a>`)
-          .join(', ') + '</span><span></span></div>'
-      : '',
-    !cases.length
-      ? `<div class="rule">${chip('0 cases')}<span>No test case reaches it at all.</span>` +
-        '<span></span></div>'
-      : ''
-  ].join('');
-  // A query is where a SPARQL constraint is developed: a click opens it in
-  // the workbench, run over the same data validation gives it.
-  const queries = checks.map((c, i) => (c.query
-    ? `<div class="bar"><button class="primary" data-action="bench" data-row="${i}" ` +
-      'title="Edit it, run it over a test case\'s data, save it">Open in SPARQL workbench</button>' +
-      `<button data-action="removeSparql" data-row="${i}" title="Remove this ${escape(c.kind)} ` +
-      'from the shape">Remove…</button>' +
-      `<span class="dim">${escape(c.kind)}${c.message ? ` · ${escape(c.message)}` : ''}</span></div>` +
-      `<pre class="query bench" data-action="bench" data-row="${i}" ` +
-      `title="Open in the SPARQL workbench">${escape(c.query)}</pre>` : '')).join('');
-  // Apart, so the page can put what it checks under Constraints and the
-  // evidence after what it reaches.
-  return { said: `<div class="rules">${said}</div>` +
-      (queries ? `<p class="dim">The query · click it to develop it in the SPARQL workbench</p>${queries}` : ''),
-    evidence: evidence ? `<div class="rules">${evidence}</div>` : '' };
+function severityTone(text) {
+  return ['warning', 'warn'].includes(text) ? 'warn' : ['info', 'information'].includes(text)
+    ? '' : 'bad';
+}
+
+/** How well the cases prove this shape: both ways, only one, or not at all. */
+function provenChip(cases) {
+  const fires = cases.filter((c) => c.fired).length;
+  const holds = cases.length - fires;
+  if (!cases.length) {
+    return chip('no case reaches it', 'warn', 'Nothing proves it can fire.');
+  }
+  if (!fires) {
+    return chip('never fired', 'warn', 'No test case makes it fire: a check that cannot fire ' +
+      'looks exactly like one that holds.');
+  }
+  return holds ? chip('tested both ways', 'ok', `fires in ${fires} case(s), holds in ${holds}`)
+    : chip(`fires in ${fires}`, 'ok', 'No case where it holds');
+}
+
+/** A SPARQL constraint or rule: what it says, how proven, its query folded. */
+function checkRows(checks, cases) {
+  return checks.map((c, i) => `<div class="check">` +
+    `<span class="kind" title="${c.kind === 'rule' ? 'A SPARQL rule: it derives data'
+      : 'A SPARQL constraint: every row it returns is a violation'}">${c.kind === 'rule'
+      ? 'rule' : 'SPARQL'}</span>` +
+    `<span class="what">${escape(c.message || (c.kind === 'rule'
+      ? 'Derives data' : '(no sh:message)'))}</span>` +
+    `<span class="tags">${c.severity ? chip(severityText(c.severity),
+      severityTone(severityText(c.severity)), `sh:severity ${c.severity}`) : ''}` +
+    `${c.kind === 'constraint' ? provenChip(cases) : ''}</span>` +
+    `<span class="acts">${c.query ? `<button data-action="bench" data-row="${i}" ` +
+      'title="Edit and run it in the SPARQL workbench">Open</button>' : ''}` +
+    `<button data-action="checkMenu" data-row="${i}" title="More">⋯</button></span>` +
+    (c.query ? `<details class="query"><summary>query</summary>` +
+      `<pre>${escape(c.query.trim())}</pre></details>` : '') +
+    '</div>').join('');
+}
+
+/** What the shape applies to, in one line; its targets edited in a fold. */
+function appliesTo(page) {
+  const targets = page.targets || [];
+  const users = page.usedBy || [];
+  const reach = page.reach || { nodes: [], more: 0 };
+  const said = targets.length ? targets.map((t) => escape(t.text)).join('; ')
+    : users.length ? `no target of its own — what ${users.map((u) =>
+      shapeLink(u.name, u.iri)).join(', ')} reach through <span class="mono">sh:node</span>`
+      : '<span class="warn-text">nothing: no target, and no shape uses it</span>';
+  const nodes = reach.nodes.map((n) => `<span class="node${n.violations.length ? ' bad' : ''}" ` +
+    `title="${escape(n.violations.length ? n.violations.join('\n') : 'valid')}">` +
+    `<span class="mono">${escape(n.id)}</span> ${n.violations.length
+      ? `✗ ${n.violations.length}` : '✓'}</span>`).join('') +
+    (reach.more ? `<span class="dim">… and ${reach.more} more</span>` : '');
+  const editable = targets.map((t, index) => `<div class="target">` +
+    `<span class="mono">${escape({ class: 'sh:targetClass', node: 'sh:targetNode',
+      subjectsOf: 'sh:targetSubjectsOf', objectsOf: 'sh:targetObjectsOf', sparql: 'sh:target',
+      implicit: 'implicit' }[t.kind] || t.kind)}</span><span>${escape(t.text)}` +
+    (t.kind === 'sparql' && t.value ? `<pre class="query-inline">${escape(t.value.trim())}</pre>`
+      : '') + '</span>' +
+    (['class', 'node', 'subjectsOf', 'objectsOf'].includes(t.kind)
+      ? `<button data-action="removeTarget" data-row="${index}" ` +
+        'title="Take this target off the shape">Remove</button>' : '<span></span>') +
+    '</div>').join('');
+  const types = (page.types || []).filter((t) => t.page).map((t) =>
+    `<a href="#" data-type="${escape(t.iri)}" title="Open the ${escape(t.label)} type page">` +
+    `${escape(t.label)}</a>`).join(', ');
+  return `<p class="line" title="The node selector: which nodes the checks run on">${said}` +
+    `${types ? ` <span class="dim">· type</span> ${types}` : ''}</p>` +
+    (nodes ? `<div class="nodes" title="In the model">${nodes}</div>`
+      : '<p class="empty">Nothing in the model is one of them.</p>') +
+    `<details class="fold"><summary>Edit targets</summary>${editable}` +
+    '<div class="bar"><button data-action="addTarget">+ Target</button></div></details>';
+}
+
+/** The cases that reach the shape: one row each, the ones it fires in first. */
+function testedBy(page, cases) {
+  const rows = cases.slice().sort((a, b) => (b.fired ? 1 : 0) - (a.fired ? 1 : 0))
+    .map((c) => `<div class="case">` +
+      chip(c.fired ? 'fires' : 'holds', c.fired ? 'ok' : '',
+        c.fired ? `reports it ${c.fired}× here` : 'evaluated here, conforming') +
+      `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
+      `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
+      `<span class="dim">${c.firedOn && c.firedOn.length
+        ? `on ${escape(c.firedOn.join(', '))}` : ''}</span>` +
+      (c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')) + '</div>').join('');
+  return rows || '<p class="empty">No test case reaches it: nothing proves it can fire.</p>';
 }
 
 function renderShapePage(page, options) {
@@ -131,24 +143,25 @@ function renderShapePage(page, options) {
   const attributes = page.attributes || [];
   const checks = page.checks || [];
   const cases = page.exercisedBy || [];
-  const parts = checks.length ? checkSections(page, checks, cases) : null;
-  const reach = page.reach || { nodes: [], more: 0 };
-  const types = page.types || [];
-  const chips = [
-    chip(page.target || ''),
+  const status = [
     summary.violations
-      ? chip(`${summary.violations} violation(s) in the model`, 'bad')
-      : summary.reached ? chip(`${summary.reached} in the model · all valid`, 'ok')
-        : chip('reaches nothing in the model'),
+      ? `<span class="bad-text">${summary.violations} violation(s) in the model</span>`
+      : summary.reached ? `<span class="ok-text">${summary.reached} in the model, all valid</span>`
+        : '<span class="dim">reaches nothing in the model</span>',
     summary.cases
-      ? chip(`${summary.cases} case(s) reach it · ` +
-        (summary.casesFailing ? `${summary.casesFailing} failing` : 'all pass'),
-      summary.casesFailing ? 'bad' : 'ok')
-      : chip('no test case reaches it', 'warn'),
-    summary.neverFired ? chip('never fired', 'warn',
-      'No test case makes this shape report anything. A shape that cannot fire ' +
-      'looks exactly like one that holds.') : ''
-  ].join('');
+      ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ` +
+        `${summary.cases} case(s) failing</span>` : `${summary.cases} case(s), all pass`)
+      : '<span class="warn-text">no test case reaches it</span>',
+    summary.neverFired ? '<span class="warn-text" title="No test case makes it report anything">' +
+      'never fired</span>' : ''
+  ].filter(Boolean).join(' · ');
+  // The one thing most visits are for: a SPARQL shape is developed in the
+  // workbench, an attribute shape grows by attributes.
+  const primary = checks.some((c) => c.query) && !attributes.length
+    ? `<button class="primary" data-action="bench" data-row="${checks.findIndex((c) => c.query)}" ` +
+      'title="Edit and run its query over a case\'s data">Open in workbench</button>'
+    : page.ownShape ? '<button class="primary" data-action="addAttribute">+ Attribute</button>' : '';
+  const anything = attributes.length || checks.length;
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -157,36 +170,65 @@ function renderShapePage(page, options) {
 <style nonce="${nonce}">
   body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);
          color: var(--vscode-foreground); background: var(--vscode-editor-background);
-         padding: 16px 22px 40px; line-height: 1.45; }
+         padding: 14px 22px 40px; line-height: 1.45; max-width: 1100px; }
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .crumbs, .dim, .empty { color: var(--vscode-descriptionForeground); }
-  .crumbs { font-size: 0.92em; }
-  .empty { font-style: italic; }
-  h1 { font-size: 1.6em; font-weight: 600; margin: 4px 0 8px; }
-  h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-       color: var(--vscode-descriptionForeground); margin: 26px 0 8px; }
-  h3 { font-size: 1em; font-weight: 600; margin: 14px 0 6px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips.top { margin-top: 8px; }
-  .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  .crumbs { font-size: 0.9em; }
+  .empty { font-style: italic; margin: 4px 0; }
+  .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .head h1 { font-size: 1.5em; font-weight: 600; margin: 2px 0; flex: 1 1 auto; }
+  .head .acts { display: flex; gap: 6px; }
+  .status { margin: 2px 0 6px; }
+  .ok-text { color: var(--vscode-testing-iconPassed, #388a34); }
+  .bad-text { color: var(--vscode-errorForeground, #f14c4c); }
+  .warn-text { color: var(--vscode-editorWarning-foreground, #cca700); }
+  .sechead { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 6px;
+             border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
+             padding-bottom: 4px; }
+  .sechead h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
+  .chip { font-size: 0.84em; padding: 0 8px; border-radius: 999px; white-space: nowrap;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
   .chip.warn { color: var(--vscode-editorWarning-foreground, #cca700); border-color: currentColor; }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   button { font: inherit; color: var(--vscode-button-secondaryForeground, inherit);
            background: var(--vscode-button-secondaryBackground, transparent);
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
-           padding: 3px 10px; border-radius: 2px; cursor: pointer; }
+           padding: 2px 10px; border-radius: 2px; cursor: pointer; }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
                    border-color: var(--vscode-button-background); }
-  .table { overflow-x: auto; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
+  .check { display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 10px;
+           align-items: baseline; padding: 6px 8px;
+           border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.2)); }
+  .check .tags { display: flex; gap: 6px; }
+  .check .acts { display: flex; gap: 4px; }
+  .check .acts button { padding: 0 8px; }
+  .check details { grid-column: 2 / -1; }
+  .kind { font-size: 0.8em; padding: 0 6px; border-radius: 3px;
+          background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+  details summary { cursor: pointer; color: var(--vscode-descriptionForeground); font-size: 0.92em; }
+  .mono, pre { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; padding: 8px 10px;
+        background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.1)); }
+  .verbatim { color: var(--vscode-descriptionForeground); white-space: normal; margin-top: 2px;
+              font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
+  .line { margin: 4px 0; }
+  .nodes { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0; }
+  .node.bad { color: var(--vscode-errorForeground, #f14c4c); }
+  .fold { margin-top: 6px; }
+  .target { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline;
+            padding: 4px 0; }
+  .case { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: baseline;
+          padding: 4px 0; }
+  .table { overflow-x: auto; margin-top: 6px;
+           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   table { border-collapse: collapse; width: 100%; }
   th { text-align: left; font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase;
-       color: var(--vscode-descriptionForeground); font-weight: 600; padding: 7px 12px;
-       background: var(--vscode-sideBar-background, transparent); }
-  td { padding: 6px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
+       color: var(--vscode-descriptionForeground); font-weight: 600; padding: 6px 12px; }
+  td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
@@ -196,57 +238,27 @@ function renderShapePage(page, options) {
   td.acts button { padding: 0 8px; }
   td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
-  .kind { font-size: 0.84em; padding: 0 6px; border-radius: 3px;
-          background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
-  .mono, .verbatim, .query { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
-  .verbatim { color: var(--vscode-descriptionForeground); white-space: normal; margin-top: 2px; }
-  .query { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; padding: 8px 10px;
-           background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.1)); }
-  ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
-  .rule { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline;
-          padding: 6px 10px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
-          margin-bottom: 6px; }
 </style></head><body>
-<div class="crumbs">Shapes ›</div>
-<h1>${escape(page.label)}</h1>
-<div class="dim mono">${escape(page.name)}</div>
-<div class="chips top">${chips}</div>
-<div class="bar">${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
-${types.filter((t) => t.page).slice(0, 1).map((t) =>
-    `<button data-type="${escape(t.iri)}">Open ${escape(t.label)} type page</button>`).join('')}
-<button data-action="merge" title="Fold this shape into another that selects the same nodes">Merge into…</button>
-<button data-refresh="1">Refresh</button></div>
+<div class="crumbs">Shapes › <span class="mono">${escape(page.name)}</span></div>
+<div class="head"><h1>${escape(page.label)}</h1>
+  <div class="acts">${primary}<button data-action="pageMenu" title="Open in .ttl, the type page, merge, targets, refresh">⋯</button></div></div>
+<p class="status">${status}</p>
 
-<h2>Selects</h2>
-<p class="dim">The node selector: which nodes the constraints below are checked on.
-Several targets add up.</p>
-${targetSection(page)}
-<div class="bar"><button data-action="addTarget">+ Target</button></div>
-
-<h2>Constraints</h2>
-<h3>On its attributes</h3>
+<div class="sechead"><h2>Checks</h2>
+  <button data-action="addCheck" title="An attribute, or a SPARQL constraint on the whole node">+ Add check ▾</button></div>
+${checkRows(checks, cases)}
 ${attributes.length ? `<div class="table"><table>
 <thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Tested</th><th>Model</th><th></th></tr></thead>
-<tbody>${attributeRows(attributes)}</tbody></table></div>`
-    : '<p class="empty">None yet.</p>'}
-${page.ownShape ? '<div class="bar"><button class="primary" data-action="addAttribute">+ Attribute</button></div>' : ''}
-<h3>On the whole node</h3>
-${parts ? parts.said
-    : '<p class="empty">No SPARQL constraint or rule yet.</p>'}
-<div class="bar"><button data-action="addSparql" title="A SPARQL constraint reads the node as a whole; it is written in the workbench">+ SPARQL constraint</button></div>
+<tbody>${attributeRows(attributes)}</tbody></table></div>` : ''}
+${anything ? '' : '<p class="empty">No checks yet.</p>'}
 
-<h2>Reaches</h2>
-${types.length ? `<div class="chips">${types.map((t) => t.page
-    ? `<a href="#" data-type="${escape(t.iri)}">${chip(t.label)}</a>`
-    : chip(t.label, '', t.iri)).join('')}</div>` : ''}
-${reach.nodes.length ? `<ul>${reach.nodes.map((n) => `<li><span class="mono">${escape(n.id)}</span> ` +
-    (n.violations.length ? n.violations.map((v) => chip(v, 'bad')).join(' ') : chip('valid', 'ok')) +
-    '</li>').join('')}${reach.more ? `<li class="dim">… and ${reach.more} more</li>` : ''}</ul>`
-    : '<p class="empty">Nothing in the model is a focus node of this shape.</p>'}
+<div class="sechead"><h2>Applies to</h2></div>
+${appliesTo(page)}
 
-<h2>Evidence</h2>
-${parts && parts.evidence ? parts.evidence
-    : caseChips(cases) || '<p class="empty">No test case reaches it. Nothing proves it can fire.</p>'}
+<div class="sechead"><h2>Tested by</h2>
+  ${page.canNewCase && !cases.some((c) => c.fired)
+    ? `<button data-newcase="1" title="${escape(NEW_CASE_TIP)}">+ New case</button>` : ''}</div>
+${testedBy(page, cases)}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
@@ -350,6 +362,50 @@ class ShapePages {
           'semforge.refreshKnowledge', 'semforge.refreshModel']) {
           vscode.commands.executeCommand(command);
         }
+      }
+    } else if (message.command === 'pageMenu') {
+      // What is used now and then, kept off the page: one ⋯.
+      const page = this.page;
+      const items = [];
+      if (page.definedAt) {
+        items.push({ label: '$(go-to-file) Open in .ttl', message: { command: 'open', at: page.definedAt } });
+      }
+      for (const t of (page.types || []).filter((type) => type.page)) {
+        items.push({ label: `$(symbol-class) Open the ${t.label} type page`,
+          message: { command: 'type', name: t.iri } });
+      }
+      items.push(
+        { label: '$(add) + Target', message: { command: 'addTarget', row: -1 } },
+        { label: '$(git-merge) Merge into…', message: { command: 'merge' } },
+        { label: '$(refresh) Refresh', message: { command: 'refresh' } });
+      const picked = await vscode.window.showQuickPick(items, { title: page.label });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+    } else if (message.command === 'addCheck') {
+      const items = [];
+      if (this.page.ownShape) {
+        items.push({ label: '$(symbol-field) Attribute', description: 'a constraint on one attribute',
+          message: { command: 'addAttribute', row: -1 } });
+      }
+      items.push({ label: '$(beaker) SPARQL constraint',
+        description: 'reads the node as a whole; written in the workbench',
+        message: { command: 'addSparql' } });
+      const picked = await vscode.window.showQuickPick(items, { title: 'Add a check' });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+    } else if (message.command === 'checkMenu') {
+      const check = (this.page.checks || [])[message.row];
+      if (!check) {
+        return;
+      }
+      const picked = await vscode.window.showQuickPick([
+        { label: '$(beaker) Open in SPARQL workbench', message: { command: 'bench', row: message.row } },
+        { label: '$(trash) Remove…', message: { command: 'removeSparql', row: message.row } }],
+      { title: check.message || check.kind });
+      if (picked) {
+        await this.receive(picked.message);
       }
     } else if (message.command === 'bench') {
       const check = (this.page.checks || [])[message.row];

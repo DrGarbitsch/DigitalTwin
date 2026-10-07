@@ -367,7 +367,9 @@ def test_the_shape_page_says_its_target_and_links_onwards(tmp_path):
     assert page['title'] == 'HighPressureShape · shape'
     html = page['html'][-1]
     for text in ('sh:target', 'the nodes a SPARQL query selects', 'FILTER(?o &gt; 5)',
-                 'data-type="https://x/Pump"', 'urn:pump:2', 'never fired'):
+                 'data-type="https://x/Pump"', 'urn:pump:2', 'never fired',
+                 'class="primary" data-action="addAttribute"' if SHAPE_PAGE.get('ownShape')
+                 else 'data-action="addCheck"'):
         assert text in html, text
     assert ' style="' not in html, 'the CSP drops inline styles'
     assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == 'https://x/Pump'
@@ -396,6 +398,31 @@ def test_the_type_page_links_its_shapes_and_the_ones_that_reach_it(tmp_path):
         'https://x/HasValveShape'
 
 
+def test_the_shape_page_menu_keeps_the_rare_actions(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': SHAPE_ROW, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'pageMenu', 'row': -1}],
+        'picks': ['$(symbol-class) Open the Pump type page'],
+        'replies': {'semforge/shapePage': SHAPE_PAGE}})
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(go-to-file) Open in .ttl', '$(symbol-class) Open the Pump type page',
+        '$(add) + Target', '$(git-merge) Merge into…', '$(refresh) Refresh']
+    assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == 'https://x/Pump'
+
+
+def test_add_check_on_a_shape_of_its_own_offers_an_attribute_first(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': SHAPE_ROW, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'addCheck', 'row': -1}],
+        'replies': {'semforge/shapePage': dict(SHAPE_PAGE, ownShape='https://x/HighPressureShape')}})
+    html = seen['webviews'][0]['html'][-1]
+    assert 'class="primary" data-action="addAttribute"' in html
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(symbol-field) Attribute', '$(beaker) SPARQL constraint']
+
+
 # --- step D: the rule section and New case… ------------------------------------------
 
 RULE_PAGE = dict(
@@ -418,14 +445,21 @@ def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
                  'packageUri': 'file:///pkg/shacl.ttl'},
         'replies': {'semforge/shapePage': RULE_PAGE}})
     html = seen['webviews'][0]['html'][-1]
-    for text in ('Selects', 'Constraints', 'On its attributes', 'On the whole node',
-                 'Filter running without running assigned machine', 'severity: warning',
-                 'fires in 0', 'holds in 1', 'data-newcase="1"',
-                 'New case…', 'develop it in the SPARQL workbench', 'data-action="bench"',
-                 'data-action="addSparql"', 'FILTER(?v != &lt;on&gt;)',
-                 'Open Pump type page'):
+    for text in ('<h2>Checks</h2>', '<h2>Applies to</h2>', '<h2>Tested by</h2>',
+                 'Filter running without running assigned machine', '>warning</span>',
+                 '>never fired</span>', '>holds</span>', 'data-newcase="1"', '+ New case',
+                 'Open in workbench', 'data-action="bench"', 'data-action="addCheck"',
+                 'data-action="checkMenu"', 'FILTER(?v != &lt;on&gt;)', 'data-action="pageMenu"',
+                 'data-type="https://x/Pump"'):
         assert text in html, text
-    assert html.index('On the whole node') < html.index('Filter running') < html.index('Evidence')
+    # The essentials in reading order; the query folded under its check.
+    assert html.index('<h2>Checks</h2>') < html.index('Filter running') \
+        < html.index('<h2>Applies to</h2>') < html.index('<h2>Tested by</h2>')
+    assert '<details class="query"><summary>query</summary>' in html
+    head = html.split('<div class="head">', 1)[1].split('</div></div>', 1)[0]
+    assert 'class="primary" data-action="bench"' in head, 'a SPARQL shape opens in the workbench'
+    for rare in ('data-action="merge"', 'Refresh</button>', 'Open in .ttl</button>'):
+        assert rare not in html, f'{rare}: behind the ⋯'
 
 
 def test_a_rule_that_fires_says_where_and_offers_no_new_case(tmp_path):
@@ -436,8 +470,9 @@ def test_a_rule_that_fires_says_where_and_offers_no_new_case(tmp_path):
         'node': {'raw': dict(SHAPE_ROW, shape=page['iri']), 'packageUri': 'file:///pkg/shacl.ttl'},
         'replies': {'semforge/shapePage': page}})
     html = seen['webviews'][0]['html'][-1]
-    assert 'fires in 1' in html and 'on urn:filter:1' in html
-    assert 'data-newcase="1"' not in html
+    assert '>fires</span>' in html and 'on urn:filter:1' in html
+    assert '>fires in 1</span>' in html, 'proven one way, no case where it holds'
+    assert 'data-newcase="1"' not in html, 'it fires: no new case needed'
 
 
 def test_new_case_writes_the_case_and_opens_it(tmp_path):
@@ -930,9 +965,10 @@ SELECTING = dict(EDITABLE_SHAPE, targets=[
 
 def test_the_selector_lists_targets_each_removable_but_a_query(tmp_path):
     html = _shape(tmp_path, replies={'semforge/shapePage': SELECTING})['webviews'][0]['html'][-1]
-    selects = html.split('<h2>Selects</h2>', 1)[1].split('<h2>Constraints</h2>', 1)[0]
-    assert selects.count('data-action="removeTarget"') == 1, 'not the SPARQL one'
-    assert 'data-action="addTarget"' in selects
+    applies = html.split('<h2>Applies to</h2>', 1)[1].split('<h2>Tested by</h2>', 1)[0]
+    edit = applies.split('<summary>Edit targets</summary>', 1)[1]
+    assert edit.count('data-action="removeTarget"') == 1, 'not the SPARQL one'
+    assert 'data-action="addTarget"' in edit
 
 
 def test_plus_target_adds_what_is_picked(tmp_path):
@@ -1238,8 +1274,9 @@ def test_no_candidate_says_why(tmp_path):
 
 
 def test_merge_is_offered_where_shapes_are(tmp_path):
-    html = _shape(tmp_path)['webviews'][0]['html'][-1]
-    assert 'data-action="merge"' in html and 'Merge into…' in html
+    seen = _shape(tmp_path, webviewMessages=[{'command': 'pageMenu', 'row': -1}])
+    assert 'data-action="pageMenu"' in seen['webviews'][0]['html'][-1]
+    assert '$(git-merge) Merge into…' in [i['label'] for i in seen['quickPicks'][0]['items']]
     with open(PACKAGE_JSON) as handle:
         menus = json.load(handle)['contributes']['menus']['view/item/context']
     assert any(e['command'] == 'semforge.mergeShape' and 'semforgeShapes' in e['when']
