@@ -354,3 +354,31 @@ def test_more_writes_data_tests_merge_override_removal(wire):
     assert 'hasHumidity' not in wire.read('knowledge.ttl')
     assert 'hasHumidity' not in wire.read('model-instance.jsonld')
     assert wire.ok('semforge/tree', {'detail': 'full'})['roots']
+
+
+def test_renames_on_the_wire(wire):
+    """Rename… as the extension sends it: a shape with its suite, a case and a
+    suite, each checked on the files -- then named back, so nothing after
+    this test sees a different package."""
+    shape = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/StateOnCutterShape'
+    plan = wire.ok('semforge/renameShapePlan', {'shape': shape, 'name': 'SweepRenamedShape'})
+    assert plan['suite']['free'] and plan['asserts']
+    done = wire.ok('semforge/renameShape', {'shape': shape, 'name': 'SweepRenamedShape',
+                                            'suite': True})
+    assert 'iffBaseShacl:SweepRenamedShape' in wire.read('shacl.ttl')
+    assert 'StateOnCutterShape' not in wire.read('shacl.ttl')
+    examples = os.path.join(wire.kms, 'examples')
+    assert os.path.isdir(os.path.join(examples, done['suiteMoved']))
+    case = wire.ok('semforge/renameCase', {'case': 'test_SweepRenamedShape/bad/filter-off.jsonld',
+                                           'name': 'sweep-off'})
+    assert os.path.exists(case['file'])
+    suite = wire.ok('semforge/renameSuite', {'suite': 'test_SweepRenamedShape', 'name': 'sweep'})
+    assert os.path.isdir(suite['folder'])
+    # And back.
+    wire.ok('semforge/renameSuite', {'suite': 'sweep', 'name': 'test_SweepRenamedShape'})
+    wire.ok('semforge/renameCase', {'case': 'test_SweepRenamedShape/bad/sweep-off.jsonld',
+                                    'name': 'filter-off'})
+    wire.ok('semforge/renameShape', {'shape': done['newIri'], 'name': 'StateOnCutterShape',
+                                     'suite': True})
+    assert 'iffBaseShacl:StateOnCutterShape' in wire.read('shacl.ttl')
+    assert os.path.isdir(os.path.join(examples, 'test_StateOnCutterShape'))

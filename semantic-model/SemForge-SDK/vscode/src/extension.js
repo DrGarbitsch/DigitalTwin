@@ -33,6 +33,7 @@ const sparqlPage = require('./sparqlpage');
 const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
 const shapePages = require('./shapepage');
+const rename = require('./rename');
 const { showLocation } = require('./reveal');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
@@ -286,6 +287,7 @@ function activate(context) {
   // A shape's SPARQL query, run over a case's data: where SPARQL constraints
   // are developed.
   const sparqlBench = sparqlPage.register(context, clientHolder, session);
+  rename.register(context, clientHolder, session, sparqlBench);
   // The package at a glance: what needs attention first.
   const healthView = healthPage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.

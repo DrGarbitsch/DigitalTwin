@@ -364,6 +364,21 @@
         "icon": "$(merge)"
       },
       {
+        "command": "semforge.renameShape",
+        "title": "SemForge: Rename…",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "semforge.renameTestCase",
+        "title": "SemForge: Rename…",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "semforge.renameSuite",
+        "title": "SemForge: Rename…",
+        "icon": "$(edit)"
+      },
+      {
         "command": "semforge.sparqlApply",
         "title": "SemForge: Apply the query (SPARQL workbench)",
         "icon": "$(play)"
@@ -824,6 +839,26 @@
           "command": "semforge.mergeShape",
           "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
           "group": "2_edit@1"
+        },
+        {
+          "command": "semforge.renameShape",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "2_edit@0"
+        },
+        {
+          "command": "semforge.renameShape",
+          "when": "view == semforgeConstraints && viewItem =~ /^(shape|rule)$/",
+          "group": "2_edit@0"
+        },
+        {
+          "command": "semforge.renameSuite",
+          "when": "view == semforgeModel && viewItem == suite",
+          "group": "2_edit@0"
+        },
+        {
+          "command": "semforge.renameTestCase",
+          "when": "view == semforgeModel && viewItem == example",
+          "group": "2_edit@0"
         }
       ],
       "semforge.project": [
@@ -904,6 +939,18 @@
         },
         {
           "command": "semforge.mergeShape",
+          "when": "false"
+        },
+        {
+          "command": "semforge.renameShape",
+          "when": "false"
+        },
+        {
+          "command": "semforge.renameTestCase",
+          "when": "false"
+        },
+        {
+          "command": "semforge.renameSuite",
           "when": "false"
         },
         {

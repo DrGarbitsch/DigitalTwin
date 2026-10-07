@@ -242,7 +242,7 @@ function renderShapePage(page, options) {
 </style></head><body>
 <div class="crumbs">Shapes › <span class="mono">${escape(page.name)}</span></div>
 <div class="head"><h1>${escape(page.label)}</h1>
-  <div class="acts">${primary}<button data-action="pageMenu" title="Open in .ttl, the type page, merge, targets, refresh">⋯</button></div></div>
+  <div class="acts">${primary}<button data-action="pageMenu" title="Open in .ttl, the type page, + Target, Rename…, Merge into…, Refresh">⋯</button></div></div>
 <p class="status">${status}</p>
 
 <div class="sechead"><h2>Checks</h2>
@@ -377,6 +377,7 @@ class ShapePages {
       }
       items.push(
         { label: '$(add) + Target', message: { command: 'addTarget', row: -1 } },
+        { label: '$(edit) Rename…', message: { command: 'rename' } },
         { label: '$(git-merge) Merge into…', message: { command: 'merge' } },
         { label: '$(refresh) Refresh', message: { command: 'refresh' } });
       const picked = await vscode.window.showQuickPick(items, { title: page.label });
@@ -437,6 +438,10 @@ class ShapePages {
     } else if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri });
+    } else if (message.command === 'rename') {
+      // On success the renamed shape's page replaces this one.
+      await vscode.commands.executeCommand('semforge.renameShape',
+        { raw: { shape: this.current.shape }, packageUri });
     } else if (message.command === 'merge') {
       // On success the merged-into shape's page replaces this one.
       await vscode.commands.executeCommand('semforge.mergeShape',

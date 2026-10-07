@@ -197,9 +197,9 @@ ${model ? `<div class="chips">
 ${(page.failures || []).length
     ? `<ul class="failures">${page.failures.map((f) => `<li>${escape(f)}</li>`).join('')}</ul>` : ''}
 <div class="bar">
-  <button data-open="${escape(page.file)}:1">${model ? 'Open the model file' : 'Open the case file'}</button>
-  ${page.expectations ? `<button data-open="${escape(page.expectations)}:1">Open its expectations</button>` : ''}
-  <button data-refresh="1">Refresh</button>
+  ${model ? `<button data-open="${escape(page.file)}:1">Open the model file</button>
+  <button data-refresh="1">Refresh</button>`
+    : '<button data-pagemenu="1" title="Open the case file, its expectations, Rename…, Refresh">⋯</button>'}
 </div>
 
 ${model ? '' : `<h2>Claims</h2>
@@ -225,11 +225,12 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert],' +
-      '[data-edit],[data-rowmenu],[data-addattr],[data-addentity]');
+      '[data-edit],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu]');
     if (!target) { return; }
     event.preventDefault();
     const d = target.dataset;
-    if (d.edit) { vscode.postMessage({ command: 'edit', at: d.edit }); }
+    if (d.pagemenu) { vscode.postMessage({ command: 'pageMenu' }); }
+    else if (d.edit) { vscode.postMessage({ command: 'edit', at: d.edit }); }
     else if (d.rowmenu) { vscode.postMessage({ command: 'rowMenu', at: d.rowmenu }); }
     else if (d.addattr) { vscode.postMessage({ command: 'addAttribute', at: d.addattr }); }
     else if (d.addentity !== undefined) { vscode.postMessage({ command: 'addEntity', at: d.addentity }); }
@@ -326,6 +327,23 @@ class CasePages {
         { raw: { targetClass: message.name }, packageUri: this.current.packageUri });
     } else if (message.command === 'refresh') {
       await this.render();
+    } else if (message.command === 'pageMenu' && this.page) {
+      const page = this.page;
+      const items = [{ label: '$(go-to-file) Open the case file', message: { command: 'open', at: `${page.file}:1` } }];
+      if (page.expectations) {
+        items.push({ label: '$(list-unordered) Open its expectations',
+          message: { command: 'open', at: `${page.expectations}:1` } });
+      }
+      items.push({ label: '$(edit) Rename…', message: { command: 'rename' } },
+        { label: '$(refresh) Refresh', message: { command: 'refresh' } });
+      const picked = await vscode.window.showQuickPick(items, { title: page.name });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+    } else if (message.command === 'rename' && this.page) {
+      // On success the case page reopens on the renamed file.
+      await vscode.commands.executeCommand('semforge.renameTestCase',
+        { raw: { kind: 'example', file: this.page.file }, packageUri: this.current.packageUri });
     } else if (['edit', 'rowMenu', 'addAttribute', 'addEntity'].includes(message.command)) {
       await this.edit(message.command, `${message.at}`);
     }

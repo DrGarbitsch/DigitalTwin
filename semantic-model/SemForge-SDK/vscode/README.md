@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -1386,6 +1386,38 @@ can have at once, bounds or counts that admit nothing. A shape that applies
 only under a condition is listed beneath the row but not merged into it.
 Clicking the presence or value of the combined row asks **which shape** to
 change; each shape's own line — `↳` and its name — has its own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
+
+**Rename….** A shape's name is written in more places than its declaration,
+and a rename that misses one leaves a package that reads as validated and is
+not. **Rename…** (right-click a shape in Shapes or Types, or the shape page's
+`⋯`) asks the new name — same namespace — and says before writing what
+follows it:
+
+- every reference in the shapes and knowledge files: its declaration, another
+  shape's `sh:node`, a SPARQL body naming it — rewritten term by term, a
+  prefixed name keeping its prefix, an `<IRI>` staying one, nothing else in the
+  file touched. It is written only if the shapes graph after is the graph
+  before with that one name replaced; anything more and nothing is written;
+- every assert naming one of its constraints
+  (`iffBaseShacl:StateOnCutterShape/SPARQLConstraintComponent`);
+- every pinned residue: the digest names the shape, so each case whose residue
+  held before is pinned again — a rename changes no verdict. A case that was
+  failing stays failing;
+- its suite folder, `test_<Shape>`, if you choose **Rename it and
+  test_<Shape>** (and the new name is free) — a convention only, nothing
+  depends on it.
+
+A shape that is also a class is refused (that would rename an entity type), as
+is a name already taken or one that is not a name. The workbench of the shape
+closes, since its query document is named by the shape; the shape page opens
+on the new name.
+
+A **test case** (right-click it in Instances, or the case page's `⋯`) is its
+file: Rename… moves it, and its expectations entry and any `include` naming it
+follow; its asserts and residue do not change, since a case's name is not in
+any digest. A **suite** (right-click it) is its folder: nothing inside changes,
+and an `include` elsewhere reaching into it follows. Open editors of moved
+files are reopened where the files went.
 
 **Merge into….** Two shapes selecting the same nodes can become one: the shape
 page's **Merge into…** button, `⋯ → Merge … into…` on a row, or right-click a

@@ -1838,6 +1838,63 @@ def merge_shape_feature(ls, params):
     return dict(done, ok=True)
 
 
+@server.feature('semforge/renameShapePlan')
+def rename_shape_plan_feature(ls, params):
+    """What renaming a shape would change, or why it cannot be renamed so."""
+    from ..cooked.rename import rename_plan
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return dict(rename_plan(_package_for(root), _field(params, 'shape', ''),
+                                _field(params, 'name', '')), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+def _rename_write(ls, params, write):
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        done = write(_package_for(root))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    for path in _package_for(root).files('shapes'):
+        _publish(ls, _path_to_uri(path))
+    return dict(done, ok=True)
+
+
+@server.feature('semforge/renameShape')
+def rename_shape_feature(ls, params):
+    """Rename a shape everywhere it is named: .ttl, asserts, residues, suite."""
+    from ..cooked.rename import rename_shape
+
+    return _rename_write(ls, params, lambda package: rename_shape(
+        package, _field(params, 'shape', ''), _field(params, 'name', ''),
+        suite=bool(_field(params, 'suite', False))))
+
+
+@server.feature('semforge/renameCase')
+def rename_case_feature(ls, params):
+    """Rename a test case's file, and the entries that name it."""
+    from ..cooked.rename import rename_case
+
+    return _rename_write(ls, params, lambda package: rename_case(
+        package, _field(params, 'case', ''), _field(params, 'name', '')))
+
+
+@server.feature('semforge/renameSuite')
+def rename_suite_feature(ls, params):
+    """Rename a suite folder, and the includes that reach into it."""
+    from ..cooked.rename import rename_suite
+
+    return _rename_write(ls, params, lambda package: rename_suite(
+        package, _field(params, 'suite', ''), _field(params, 'name', '')))
+
+
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
     """Every named shape with its target in words, for the Shapes view."""
