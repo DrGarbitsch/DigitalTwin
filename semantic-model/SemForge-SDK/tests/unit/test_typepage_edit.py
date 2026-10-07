@@ -264,8 +264,9 @@ def test_the_rendered_page_offers_the_right_action_per_row(tmp_path, page):
     html = json.loads(out.stdout.strip().splitlines()[-1])['html']
     assert html.count('data-action="override"') == 2, 'the two inherited rows'
     assert html.count('data-action="menu"') == 2, 'the two own rows'
-    assert 'data-action="addAttribute"' in html
-    assert 'data-action="newSubtype"' in html
+    assert 'class="primary" data-action="addAttribute"' in html
+    assert 'data-action="pageMenu"' in html, 'New subtype… waits behind the ⋯'
+    assert '<button data-action="override"' not in html, 'override is a quiet link'
     assert f'data-action="value" data-row="{_row(page, "hasStrength")}"' not in html
     assert f'data-action="value" data-row="{_row(page, "hasCartridge")}"' in html
 

@@ -9,6 +9,7 @@ hover buttons on rows in summary mode.
 """
 
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -579,12 +580,48 @@ def test_the_vocabulary_page_shows_values_uses_and_what_draws_from_it(tmp_path):
     page = seen['webviews'][0]
     assert page['title'] == 'MachineState · vocabulary'
     html = page['html'][-1]
-    for text in ('2 value(s)', '1 unused', '1 constraint(s) draw from it', 'unused',
+    for text in ('2 values', '1 unused', 'drawn from by', 'unused',
                  '7 in data', '6 in queries', 'data-shape="https://x/MachineShape"',
-                 'hasState', '+ Value', 'Delete…', 'StateOnFilterShape'):
+                 'hasState', '+ Value', 'data-action="rowMenu"', 'data-action="pageMenu"',
+                 'StateOnFilterShape'):
         assert text in html, text
+    assert 'Delete…</button>' not in html, 'Delete waits behind each value\'s ⋯'
+    # The values in use first; an unused one is a question, kept for last.
+    rows = html.split('<tbody>', 1)[1]
+    names = re.findall(r'title="https://x/(state_\w+)"', rows)
+    used = [v['name'] for v in VOCAB_PAGE['values'] if v['uses']['total']]
+    assert names[:len(used)] == used
     assert '<b>ON</b>' not in html and '&lt;b&gt;ON&lt;/b&gt;' in html
     assert ' style="' not in html, 'the CSP drops inline styles'
+
+
+def test_a_value_s_menu_holds_label_open_and_delete(tmp_path):
+    seen = _vocab(tmp_path, webviewMessages=[{'command': 'rowMenu', 'row': 1}],
+                  picks=['$(go-to-file) Open in .ttl'])
+    items = seen['quickPicks'][0]['items']
+    assert [i['label'] for i in items] == ['$(edit) Label…', '$(go-to-file) Open in .ttl',
+                                           '$(trash) Delete…']
+    assert items[2]['description'] == 'used in 13 place(s)', 'what Delete would break'
+    assert seen['shown'][0]['line'] == 172
+
+
+def test_a_value_s_type_opens_the_type_page(tmp_path):
+    page = json.loads(json.dumps(VOCAB_PAGE))
+    page['values'][1]['properties'] = [{
+        'property': 'base:isValidFor', 'value': 'x:Machine', 'name': 'valid for',
+        'shortValue': 'Machine', 'link': '', 'type': 'https://x/Machine'}]
+    seen = _vocab(tmp_path, webviewMessages=[{'command': 'type', 'iri': 'https://x/Machine'}],
+                  replies={'semforge/vocabularyPage': page})
+    html = seen['webviews'][0]['html'][-1]
+    assert '<span class="dim">valid for</span> <a href="#" data-type="https://x/Machine"' in html
+    assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == \
+        'https://x/Machine'
+
+
+def test_the_vocabulary_page_menu(tmp_path):
+    seen = _vocab(tmp_path, webviewMessages=[{'command': 'pageMenu', 'row': -1}])
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(go-to-file) Open in .ttl', '$(refresh) Refresh']
 
 
 def test_a_value_click_marks_it_on_its_class_page(tmp_path):
@@ -878,6 +915,88 @@ def test_new_shape_for_other_targets(tmp_path, pick, inputs, kind, target):
     assert seen['inputs'][-1]['value'] == inputs[-1], 'the suggested name'
 
 
+TYPE_WITH_RULES = dict(SHAPE_PAGE, iri='https://x/Pump', label='Pump', crumbs=['Machine'],
+                       term='x:Pump', subtypes=['BigPump'], ownShape='https://x/PumpShape',
+                       ownShapeName='x:PumpShape', shapeAt='/pkg/shacl.ttl:40',
+                       alsoCheckedBy=[], instances=[
+                           {'id': 'urn:pump:1', 'type': 'Pump', 'violations': []}],
+                       exercisedBy=[{'case': 'test_P/good/ok.jsonld', 'file': '/pkg/examples/ok.jsonld',
+                                     'description': '', 'expect': 'valid', 'passed': True,
+                                     'entities': ['urn:pump:9']}],
+                       rules=[{'shape': 'https://x/PumpRuleShape', 'shapeName': 'x:PumpRuleShape',
+                               'kind': 'constraint', 'text': 'Pump running dry',
+                               'inherited': False, 'inheritedFrom': '', 'tested': 'never fired',
+                               'definedAt': '/pkg/shacl.ttl:80'},
+                              {'shape': 'https://x/MachineRule', 'shapeName': 'x:MachineRule',
+                               'kind': 'rule', 'text': '', 'inherited': True,
+                               'inheritedFrom': 'Machine', 'tested': '',
+                               'definedAt': '/pkg/shacl.ttl:90'}],
+                       summary={'cases': 1, 'casesFailing': 0, 'instances': 1,
+                                'instancesViolating': 0, 'neverFired': 1})
+
+
+def _pump(tmp_path, **scenario):
+    return _drive(tmp_path, dict({
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'label': 'Pump', 'targetClass': 'https://x/Pump',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/typePage': TYPE_WITH_RULES}}, **scenario))
+
+
+def test_the_type_page_says_the_essentials_first(tmp_path):
+    html = _pump(tmp_path)['webviews'][0]['html'][-1]
+    body = html.split('<body>', 1)[1]
+    # One status line, one primary action, the rest behind the ⋯.
+    assert '1 in the model, all valid' in body and '1 case(s), all pass' in body
+    assert 'class="primary" data-action="addAttribute"' in body
+    assert 'data-action="pageMenu"' in body
+    for rare in ('data-action="newSubtype"', 'Refresh</button>', 'Open the shape in .ttl</button>'):
+        assert rare not in body, rare
+    # Subtypes are navigation, next to the crumbs.
+    crumbs = body.split('<div class="crumbs">', 1)[1].split('</div>', 1)[0]
+    assert 'subtypes: <a href="#" data-type="BigPump">' in crumbs
+    # The sections, in reading order.
+    assert body.index('>Attributes</h2>') < body.index('>Rules</h2>') < body.index('>Instances</h2>')
+    # A rule says what it checks first, then where; inherited ones grouped.
+    assert 'Pump running dry <span class="dim">·</span> <a href="#" class="mono" ' \
+        'data-shape="https://x/PumpRuleShape"' in body
+    assert '<div class="group">From Machine</div>' in body
+    assert 'data-action="addSparql"' in body
+    # Model entities first, then the cases, one row each.
+    assert body.index('urn:pump:1') < body.index('data-case="/pkg/examples/ok.jsonld"')
+
+
+def test_the_type_page_menu_keeps_the_rare_actions(tmp_path):
+    seen = _pump(tmp_path, webviewMessages=[{'command': 'pageMenu', 'row': -1}],
+                 picks=['$(type-hierarchy-sub) New subtype…'])
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(type-hierarchy-sub) New subtype…', '$(go-to-file) Open the shape in .ttl',
+        '$(refresh) Refresh']
+    assert _opened(seen, 'semforge.newSubtype')
+
+
+def test_a_rule_s_menu_opens_it_where_it_is_edited(tmp_path):
+    seen = _pump(tmp_path, webviewMessages=[{'command': 'ruleMenu', 'row': 1}],
+                 picks=['$(beaker) Open in SPARQL workbench'])
+    assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
+        '$(beaker) Open in SPARQL workbench', '$(symbol-interface) Open its shape page',
+        '$(go-to-file) Open in .ttl']
+    opened = _opened(seen, 'semforge.openSparqlBench')
+    assert opened[0][0]['raw']['shape'] == 'https://x/MachineRule' and \
+        opened[0][1] == {'kind': 'rule'}
+
+
+def test_plus_sparql_constraint_goes_on_the_type_s_own_shape(tmp_path):
+    seen = _pump(tmp_path, webviewMessages=[{'command': 'addSparql', 'row': -1}])
+    assert _opened(seen, 'semforge.addSparqlConstraint')[0][0]['raw']['shape'] == \
+        'https://x/PumpShape'
+
+
+def test_a_case_on_the_type_page_opens_its_case_page(tmp_path):
+    seen = _pump(tmp_path, webviewMessages=[{'command': 'case', 'file': '/pkg/examples/ok.jsonld'}])
+    assert _opened(seen, 'semforge.openCasePage')[0][0]['raw']['file'] == '/pkg/examples/ok.jsonld'
+
+
 def test_a_type_without_a_shape_offers_to_create_it(tmp_path):
     page = {'ok': True, 'iri': 'https://x/Pump', 'label': 'Pump', 'crumbs': [],
             'summary': {}, 'attributes': [], 'rules': [], 'exercisedBy': [],
@@ -889,7 +1008,7 @@ def test_a_type_without_a_shape_offers_to_create_it(tmp_path):
         'webviewMessages': [{'command': 'createShape', 'row': -1}],
         'replies': {'semforge/typePage': page}})
     html = seen['webviews'][0]['html'][0]
-    assert 'data-action="createShape"' in html and 'Create its shape' in html
+    assert 'data-action="pageMenu"' in html, 'Create its shape waits behind the ⋯'
     asked = _opened(seen, 'semforge.newShape')
     assert asked and asked[0][0]['raw']['targetClass'] == 'https://x/Pump'
     assert asked[0][1] == {'stay': True}, 'the type page stays, for + Attribute'
@@ -1012,7 +1131,9 @@ def test_the_type_page_marks_a_conditional_row_and_sends_it_to_its_shape(tmp_pat
     html = seen['webviews'][0]['html'][-1]
     assert 'only when it has hasValve' in html
     assert 'Open shape' in html and 'data-action="override"' not in html
-    assert 'Rules on the whole entity' in html
+    assert '<tr class="group"><td colspan="6"><a href="#" class="mono" ' \
+        'data-shape="https://x/HasValveShape"' in html, 'grouped under its shape'
+    assert '>Rules</h2>' in html
 
 
 # --- New test case… ------------------------------------------------------------------------
@@ -1184,7 +1305,7 @@ def test_one_row_with_each_shape_beneath_it(tmp_path):
     html = _machine(tmp_path)['webviews'][0]['html'][-1]
     assert html.count('data-shape="https://x/MachineShape"') == 1
     assert html.count('data-shape="https://x/MachineShape2"') == 1
-    assert '2 shapes' in html and 'all apply' in html
+    assert 'several shapes' in html and 'all apply' in html
     assert 'sh:maxExclusive 200: no effect' in html and 'sh:minCount 0: no effect' in html
     assert html.count('class="contrib"') == 2
     assert 'required · one' in html.split('class="contrib"')[0], 'the combined row first'
@@ -1219,12 +1340,14 @@ def test_a_shape_s_own_line_edits_that_shape(tmp_path):
                       'remove': True}]
 
 
-def test_each_shape_s_name_is_under_declared_in(tmp_path):
+def test_each_shape_s_name_leads_its_own_line(tmp_path):
+    """No Declared-in column: each shape's line beneath the combined row
+    starts with the shape, where the attribute's name stands above."""
     html = _machine(tmp_path)['webviews'][0]['html'][-1]
     line = html.split('<tr class="contrib">', 2)[1].split('</tr>', 1)[0]
     cells = line.split('<td')[1:]
-    assert 'data-shape' not in cells[0], 'not under the attribute name'
-    assert 'data-shape="https://x/MachineShape"' in cells[4], 'under Declared in'
+    assert '↳' in cells[0] and 'data-shape="https://x/MachineShape"' in cells[0]
+    assert len(cells) == 6, 'the table has six columns'
 
 
 # --- Merge into… ---------------------------------------------------------------------------

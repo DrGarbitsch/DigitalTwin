@@ -67,7 +67,21 @@ describe('every page, in a real VS Code', () => {
     await vscode.commands.executeCommand('semforge.openVocabularyPage',
       { packageUri: PACKAGE_URI }, { cls: `${KNOW}MachineState` });
     const panel = await rendered(api.pages.vocabulary, 'the vocabulary page');
-    assert.ok(body(panel).includes('state_ON'), body(panel).slice(0, 300));
+    const text = body(panel);
+    assert.ok(text.includes('state_ON'), text.slice(0, 300));
+    assert.ok(text.includes('valid for Machine'), 'a property as a reader says it');
+    assert.ok(text.includes('drawn from by'), text.slice(0, 300));
+  });
+
+  it("a vocabulary value's type opens its type page", async () => {
+    const api = await semforge();
+    await vscode.commands.executeCommand('semforge.openVocabularyPage',
+      { packageUri: PACKAGE_URI }, { cls: `${KNOW}MachineState` });
+    await rendered(api.pages.vocabulary, 'the vocabulary page');
+    const on = api.pages.vocabulary.page.values.find((v) => v.name === 'state_ON');
+    const type = on.properties.find((p) => p.type).type;
+    await api.pages.vocabulary.receive({ command: 'type', iri: type });
+    await until(() => api.pages.type.page && api.pages.type.page.iri === type, 'its type page');
   });
 });
 

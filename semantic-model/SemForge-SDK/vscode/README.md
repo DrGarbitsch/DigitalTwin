@@ -154,7 +154,7 @@ Only the id is typed, and it is prefilled from the type (`urn:filter:3`).
 
 A type does not need an entity to exist. **New entity type…** (the class icon
 in the Types view's title bar, or the palette) asks for a name and its parent;
-**New subtype…** (right-click a type in Types, or the button on a type page)
+**New subtype…** (right-click a type in Types, or a type page's `⋯`)
 asks only for the name — the parent is the type you started from. Every type
 has a parent: a top-level one sits under the root of the hierarchy.
 
@@ -1207,8 +1207,28 @@ views:
   Pump page as `· only when it has hasValve`. That is decided from the
   knowledge where it can be (hasValve's `rdfs:domain` is Pump), so it shows
   before any data exists; a named node or a SPARQL target is found through the
-  data. Such rows are edited on their shape's page (**Open shape**). SPARQL
-  constraints and rules are listed under **Rules on the whole entity**.
+  data. Such rows are edited on their shape's page (**Open shape**).
+
+  The page says the essentials first. At the top: the crumbs (with the
+  type's **subtypes** beside them, for navigating down), the name, one status
+  line (*2 of 2 in the model violate · 4 case(s), all pass · 5 never fired*),
+  **+ Attribute**, and a **⋯** for the rest (New subtype…, Open the shape in
+  .ttl, Create its shape, Refresh). Then three sections:
+
+  - **Attributes**, grouped by where they come from — *Own · FilterShape*,
+    *From Machine · MachineShape*, a shape's condition — instead of a column
+    repeating it on every row. One **Status** column says how each stands,
+    worst first: *✗ 2 in the model*, then how well the cases prove it
+    (*never fired*, *both ways*; a click writes a new test). Own rows have a
+    `⋯`; inherited ones a quiet **override…**.
+  - **Rules** — each SPARQL constraint or rule by what it says (its
+    `sh:message`), then its shape; **Open** takes it to the SPARQL workbench,
+    its `⋯` to the shape page or the `.ttl`. Inherited ones are grouped the
+    same way. **+ SPARQL constraint** writes one on the type's own shape.
+  - **Instances** — the model's entities with their verdicts, then the test
+    cases with theirs, one row each; a case opens its case page.
+
+  *Shapes that apply under a condition* is folded at the bottom.
 - **Shapes** answers *what does this shape check and what does it reach*: one
   row per shape, its target in words (`targets Filter`, `targets subjects of
   hasValve`, `targets urn:valve:1`, `SPARQL target`, `no target · used by
@@ -1258,8 +1278,8 @@ points at — then the target and a name (suggested: `PumpShape`), and writes
 `ns:PumpShape a sh:NodeShape ; sh:targetClass ns:Pump .` into the shapes
 file, in the namespace the other shapes use, checked by parsing before it is
 kept. Its page opens; attributes and constraints are added there. A type with
-no shape of its own shows **Create its shape** on its page, which then offers
-**+ Attribute**.
+no shape of its own offers **Create its shape** in its page's `⋯` (and
+**+ Attribute** creates one first anyway).
 
 **A rule's evidence, and + New case.** For a shape with a SPARQL constraint
 or rule the page says **what it checks** (its `sh:message` and severity — the
@@ -1288,17 +1308,22 @@ one of them, a SPARQL rule tests for `base:state_ON`, a case writes
 `{"@id": "base:state_OFF"}`. A click on a vocabulary class in the Vocabulary
 view (or on one of its values, which is then marked) opens its page:
 
-- **Values**: each with its label, its other properties (`isValidFor Machine`,
-  `higherHazardLevel WC0`) and where it is used, counted per kind — `7 in data
-  · 6 in queries` for state_ON, the places in the tooltip. A value nothing
-  names is **unused**; MachineState has four.
-- **Drawn from by**: the constraints that take their values from the class
-  (`MachineShape · hasState · sh:class`) or list some of them (`sh:in`), each
-  opening its shape page. None is a warning: nothing checks that an attribute
-  holds one of the values.
-- **Relations** whose domain or range is the class, and its subclasses.
+- **The status line**: how many values, how many unused, and what draws
+  from the class — the constraint that takes its values from it
+  (`MachineShape › hasState (sh:class)`) or lists some of them (`sh:in`),
+  opening its shape page; with several, a *Drawn from by* list below. None
+  is a warning: nothing checks that an attribute holds one of the values.
+- **Values**: each with its label, its other properties as a reader says
+  them (*valid for **Machine***, the type a link to its type page; the RDF in
+  the tooltip) and where it is used, counted per kind — `7 in data · 6 in
+  queries` for state_ON, the places in the tooltip. A value nothing names is
+  **unused** and listed last; MachineState has four.
+- Folded below: **Properties of its values** (whose domain or range is the
+  class; *(no range declared)* where none is) and **Subclasses**.
 
-Managing it happens on the page, with visible buttons:
+Managing it happens on the page — **+ Value** at the top, a click on a
+label, each value's `⋯` (Label…, Open in .ttl, Delete…), and the page's `⋯`
+(Open in .ttl, Refresh):
 
 - **+ Value** asks a name and an optional label and appends
   `ns:name a owl:NamedIndividual, ns:Class ; rdfs:label "…"` in the class's
@@ -1345,12 +1370,13 @@ them — an entity conforms only if it satisfies all. So an attribute two shapes
 constrain is **one row**, saying what holds when both apply:
 
 ```text
-Attribute     Presence         Value                                  Declared in
-hasPressure   required · one   number · ≥ 0 and < 100                 2 shapes · all apply
-              optional         number · ≥ 0 and < 100                 MachineShape
-                                 sh:minCount 0: no effect
-              required · one   < 200                                  MachineShape2
-                                 sh:maxExclusive 200: no effect
+Attribute            Presence         Value
+Constrained by several shapes · all apply
+hasPressure          required · one   number · ≥ 0 and < 100
+  ↳ MachineShape     optional         number · ≥ 0 and < 100
+                                        sh:minCount 0: no effect
+  ↳ MachineShape2    required · one   < 200
+                                        sh:maxExclusive 200: no effect
 ```
 
 The highest minimum and the lowest maximum count win, and so do the tightest
@@ -1359,8 +1385,7 @@ it the others outdo. Contradictions are said in red — two datatypes no literal
 can have at once, bounds or counts that admit nothing. A shape that applies
 only under a condition is listed beneath the row but not merged into it.
 Clicking the presence or value of the combined row asks **which shape** to
-change; each shape's own line — its name under **Declared in** — has its
-own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
+change; each shape's own line — `↳` and its name — has its own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
 
 **Merge into….** Two shapes selecting the same nodes can become one: the shape
 page's **Merge into…** button, `⋯ → Merge … into…` on a row, or right-click a

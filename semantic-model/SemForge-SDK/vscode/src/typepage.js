@@ -74,11 +74,55 @@ function focusIndex(attributes, focus) {
   return best;
 }
 
+/** Where an attribute row comes from, as its group says it. */
+function origin(row) {
+  if (row.contributions) {
+    return { key: 'several', html: 'Constrained by several shapes <span class="dim">· all apply</span>' };
+  }
+  const where = shapeLink(row.shapeName, row.shape);
+  if (row.via || row.condition) {
+    return { key: `via|${row.shape}|${row.condition || ''}`,
+      html: `${where} <span class="cond">· ${escape(row.condition || 'by another target')}</span>` };
+  }
+  if (row.inherited) {
+    return { key: `from|${row.inheritedFrom}|${row.shape}`,
+      html: `From ${escape(row.inheritedFrom)} <span class="dim">·</span> ${where}` };
+  }
+  return { key: `own|${row.shape}`, html: `Own <span class="dim">·</span> ${where}` };
+}
+
+/** How an attribute stands, worst news first: what violates it in the model,
+ *  then how well the test cases prove it -- which also starts a new test. */
+function statusCell(row, index) {
+  const model = row.violations.length
+    ? chip(`✗ ${row.violations.length} in the model`, 'bad', row.violations.join('\n')) + ' '
+    : '';
+  const tested = row.tested && row.tested !== 'untested'
+    ? chip(row.tested, TESTED_CLASS[row.tested],
+      row.tested === 'never fired'
+        ? 'No example makes this attribute\'s constraints fire. A constraint ' +
+          'that cannot fire looks exactly like one that is satisfied. Click: New test…'
+        : 'Click: New test…')
+    : '';
+  return `${model}<a href="#" class="act" data-action="test" data-row="${index}" ` +
+    `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
+    `${tested || 'New test…'}</a>`;
+}
+
 function attributeRows(attributes, focused, options) {
-  // The shape page shows one shape's rows: a "Declared in" column would say
-  // the same name on every row.
-  const shapeColumn = !(options && options.shapeColumn === false);
+  // The shape page shows one shape's rows: a group saying where they are
+  // declared would say the same name over every row.
+  const grouped = !(options && options.shapeColumn === false);
+  let group;
   return attributes.map((row, index) => {
+    let head = '';
+    if (grouped && !row.depth) {
+      const from = origin(row);
+      if (from.key !== group) {
+        group = from.key;
+        head = `<tr class="group"><td colspan="6">${from.html}</td></tr>`;
+      }
+    }
     const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '',
       index === focused ? 'focus' : ''].filter(Boolean).join(' ');
     // A class, not a style attribute: the page's CSP admits only its own
@@ -86,17 +130,7 @@ function attributeRows(attributes, focused, options) {
     const indent = row.depth ? ` class="depth${Math.min(row.depth, 4)}"` : '';
     const verbatim = row.verbatim.length
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '';
-    const tested = row.tested && row.tested !== 'untested'
-      ? chip(row.tested, TESTED_CLASS[row.tested],
-        row.tested === 'never fired'
-          ? 'No example makes this attribute\'s constraints fire. A constraint ' +
-            'that cannot fire looks exactly like one that is satisfied.'
-          : '')
-      : '';
-    const model = row.violations.length
-      ? chip(`${row.violations.length} in the model`, 'bad', row.violations.join('\n'))
-      : '';
-    return `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
+    return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
       `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
@@ -106,17 +140,9 @@ function attributeRows(attributes, focused, options) {
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}` +
       `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
-      (shapeColumn ? `<td>${row.contributions
-        ? `${row.contributions.length} shapes <span class="dim">· all apply</span>`
-        : shapeLink(row.shapeName, row.shape) +
-        `${row.inheritedFrom ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}` +
-        `${row.condition ? ` <span class="cond">· ${escape(row.condition)}</span>` : ''}`}</td>`
-        : '') +
-      `<td><a href="#" class="act" data-action="test" data-row="${index}" ` +
-      `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
-      `${tested || 'New test…'}</a></td><td>${model}</td>` +
+      `<td class="status">${statusCell(row, index)}</td>` +
       `<td class="acts">${actions(row, index)}</td></tr>` +
-      (row.contributions && shapeColumn
+      (row.contributions && grouped
         ? contributionRows(row, index, row.depth || 0) : '');
   }).join('');
 }
@@ -129,8 +155,8 @@ function actions(row, index, contrib) {
       'Open shape</button>';
   }
   if (row.inherited && !row.contributions) {
-    return `<button data-action="override" ${at} title="Declare a stricter ` +
-      'constraint on this type\'s own shape">Override…</button>';
+    return `<a href="#" class="act" data-action="override" ${at} title="Declare a stricter ` +
+      'constraint on this type\'s own shape">override…</a>';
   }
   return `<button data-action="menu" ${at} title="More actions">⋯</button>`;
 }
@@ -148,13 +174,12 @@ function contributionRows(row, index, depth) {
     // The shape's name goes where every row says where it is declared; the
     // attribute column stays empty -- these lines are about the same one.
     return `<tr class="contrib">` +
-      `<td class="${indent}"></td>` +
-      '<td></td>' +
-      `<td>${escape(c.presence)}</td><td>${escape(c.value)}${weaker}</td>` +
-      `<td>${shapeLink(c.shapeName, c.shape)}` +
+      `<td class="${indent}">↳ ${shapeLink(c.shapeName, c.shape)}` +
       `${c.inheritedFrom ? ` <span class="dim">· from ${escape(c.inheritedFrom)}</span>` : ''}` +
       `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
-      '<td></td><td></td>' +
+      '<td></td>' +
+      `<td>${escape(c.presence)}</td><td>${escape(c.value)}${weaker}</td>` +
+      '<td></td>' +
       `<td class="acts">${actions(c, index, j)}</td></tr>`;
   }).join('');
 }
@@ -167,16 +192,53 @@ function shapeLink(name, iri) {
     : `<span class="mono">${escape(short)}</span>`;
 }
 
+function ruleOrigin(rule) {
+  if (rule.via || rule.condition) {
+    return `<span class="cond">${escape(rule.condition || 'by another target')}</span>`;
+  }
+  return rule.inherited ? `From ${escape(rule.inheritedFrom)}` : 'Own';
+}
+
 function ruleRows(rules) {
-  return rules.map((rule) => `<div class="rule">` +
-    `<span class="kind">${escape(rule.kind)}</span>` +
-    `<span class="what">${shapeLink(rule.shapeName, rule.shape)}` +
-    `${rule.text ? ` <span class="dim">· ${escape(rule.text)}</span>` : ''}` +
-    `${rule.inheritedFrom ? ` <span class="dim">· from ${escape(rule.inheritedFrom)}</span>` : ''}` +
-    `${rule.condition ? ` <span class="cond">· ${escape(rule.condition)}</span>` : ''}</span>` +
-    `${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}` +
-    `<a href="#" class="act" data-bench="${escape(rule.shape)}" data-benchkind="${escape(rule.kind)}" ` +
-    'title="Open its query in the SPARQL workbench">SPARQL…</a></div>').join('');
+  const groups = new Set(rules.map(ruleOrigin));
+  let group;
+  return rules.map((rule, index) => {
+    const from = ruleOrigin(rule);
+    const head = groups.size > 1 && from !== group
+      ? `<div class="group">${from}</div>` : '';
+    group = from;
+    return head + `<div class="rule">` +
+      `<span class="kind" title="${rule.kind === 'rule' ? 'A SPARQL rule: it derives data'
+        : 'A SPARQL constraint: every row it returns is a violation'}">${rule.kind === 'rule'
+        ? 'rule' : 'SPARQL'}</span>` +
+      `<span class="what">${rule.text ? escape(rule.text)
+        : `<span class="dim">(no message)</span>`} <span class="dim">·</span> ` +
+      `${shapeLink(rule.shapeName, rule.shape)}</span>` +
+      `<span>${rule.tested ? chip(rule.tested, TESTED_CLASS[rule.tested]) : ''}</span>` +
+      `<span class="acts"><button data-bench="${escape(rule.shape)}" data-benchkind="${escape(rule.kind)}" ` +
+      'title="Edit and run its query in the SPARQL workbench">Open</button>' +
+      `<button data-action="ruleMenu" data-row="${index}" title="More">⋯</button></span></div>`;
+  }).join('');
+}
+
+/** Who has this type: the model's entities, then the test cases. */
+function instanceRows(page) {
+  const model = (page.instances || []).map((i) => `<div class="inst">` +
+    `<span class="${i.violations.length ? 'bad-text' : 'ok-text'}">${i.violations.length ? '✗' : '✓'}</span>` +
+    `<span class="mono">${escape(i.id)}</span>` +
+    `<span class="dim">model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
+    `<span>${i.violations.length ? i.violations.map((v) =>
+      chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ')
+      : '<span class="dim">valid</span>'}</span></div>`).join('');
+  const cases = (page.exercisedBy || []).map((c) => `<div class="inst">` +
+    `<span class="${c.passed ? 'ok-text' : 'bad-text'}">${c.passed ? '✓' : '✗'}</span>` +
+    `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
+    `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
+    `<span class="dim">${escape(c.expect)}</span>` +
+    `<span>${c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')}</span></div>`).join('');
+  return (model || '<p class="empty">No entity of this type in the model.</p>') +
+    (cases || '<p class="empty">No test case has an entity of this type: nothing proves ' +
+      'its constraints can fire.</p>');
 }
 
 function renderTypePage(page, options) {
@@ -185,27 +247,23 @@ function renderTypePage(page, options) {
   const summary = page.summary || {};
   const crumbs = (page.crumbs || []).map((name) =>
     `<a href="#" data-type="${escape(name)}">${escape(name)}</a> › `).join('');
-  const chips = [
-    summary.cases
-      ? chip(`${summary.cases} case(s) use it · ` +
-        (summary.casesFailing ? `${summary.casesFailing} failing` : 'all pass'),
-      summary.casesFailing ? 'bad' : 'ok')
-      : chip('no test case uses it', 'warn'),
-    summary.instances
-      ? chip(summary.instancesViolating
-        ? `${summary.instancesViolating} of ${summary.instances} in the model violate`
-        : `${summary.instances} in the model · all valid`,
-      summary.instancesViolating ? 'bad' : 'ok')
-      : chip('no instance in the model'),
-    summary.neverFired ? chip(`${summary.neverFired} never fired`, 'warn',
-      'Constraints or rules that no example makes fire') : ''
-  ].join('');
   const attributes = page.attributes || [];
   const rules = page.rules || [];
-  const cases = page.exercisedBy || [];
-  const instances = page.instances || [];
   const subtypes = page.subtypes || [];
   const also = page.alsoCheckedBy || [];
+  const status = [
+    summary.instances
+      ? (summary.instancesViolating
+        ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the model violate</span>`
+        : `<span class="ok-text">${summary.instances} in the model, all valid</span>`)
+      : '<span class="dim">none in the model</span>',
+    summary.cases
+      ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ${summary.cases} ` +
+        'case(s) failing</span>' : `${summary.cases} case(s), all pass`)
+      : '<span class="warn-text">no test case uses it</span>',
+    summary.neverFired ? `<span class="warn-text" title="Constraints or rules that no example ` +
+      `makes fire">${summary.neverFired} never fired</span>` : ''
+  ].filter(Boolean).join(' · ');
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -214,36 +272,47 @@ function renderTypePage(page, options) {
 <style nonce="${nonce}">
   body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);
          color: var(--vscode-foreground); background: var(--vscode-editor-background);
-         padding: 16px 22px 40px; line-height: 1.45; }
+         padding: 14px 22px 40px; line-height: 1.45; max-width: 1100px; }
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .crumbs, .dim { color: var(--vscode-descriptionForeground); }
   .cond { color: var(--vscode-descriptionForeground); font-style: italic; }
-  .crumbs { font-size: 0.92em; }
-  h1 { font-size: 1.6em; font-weight: 600; margin: 4px 0 8px; }
-  h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-       color: var(--vscode-descriptionForeground); margin: 26px 0 8px; }
+  .crumbs { font-size: 0.9em; }
+  .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .head h1 { font-size: 1.5em; font-weight: 600; margin: 2px 0; flex: 1 1 auto; }
+  .head .acts { display: flex; gap: 6px; }
+  .status { margin: 2px 0 6px; }
+  .ok-text { color: var(--vscode-testing-iconPassed, #388a34); }
+  .bad-text { color: var(--vscode-errorForeground, #f14c4c); }
+  .warn-text { color: var(--vscode-editorWarning-foreground, #cca700); }
+  .sechead { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 6px;
+             border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
+             padding-bottom: 4px; }
+  .sechead h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  .chip { font-size: 0.86em; padding: 0 8px; border-radius: 999px; white-space: nowrap;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
   .chip.warn { color: var(--vscode-editorWarning-foreground, #cca700); border-color: currentColor; }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   button { font: inherit; color: var(--vscode-button-secondaryForeground, inherit);
            background: var(--vscode-button-secondaryBackground, transparent);
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
-           padding: 3px 10px; border-radius: 2px; cursor: pointer; }
+           padding: 2px 10px; border-radius: 2px; cursor: pointer; }
   button:hover { background: var(--vscode-button-secondaryHoverBackground, transparent); }
   .table { overflow-x: auto; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   table { border-collapse: collapse; width: 100%; }
   th { text-align: left; font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase;
        color: var(--vscode-descriptionForeground); font-weight: 600; padding: 7px 12px;
        background: var(--vscode-sideBar-background, transparent); }
-  td { padding: 6px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
+  td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
+  td.status { white-space: normal; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.inh td { color: var(--vscode-descriptionForeground); }
+  tr.group td { font-size: 0.86em; color: var(--vscode-descriptionForeground); padding-top: 9px;
+                background: var(--vscode-sideBar-background, rgba(128,128,128,.05)); }
   tr.contrib td { color: var(--vscode-descriptionForeground); font-size: 0.94em; border-top: 0;
                   padding-top: 2px; padding-bottom: 2px; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
@@ -251,79 +320,66 @@ function renderTypePage(page, options) {
   tr.focus td:first-child { box-shadow: inset 3px 0 0 var(--vscode-focusBorder, #0078d4); }
   td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
-  .kind { font-size: 0.84em; padding: 0 6px; border-radius: 3px;
+  .kind { font-size: 0.8em; padding: 0 6px; border-radius: 3px;
           background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
   .mono, .verbatim { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .verbatim { color: var(--vscode-descriptionForeground); white-space: normal; margin-top: 2px; }
-  .rules { display: grid; gap: 6px; }
-  .rule { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline;
-          padding: 6px 10px; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
-  .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
+  .rule { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: baseline;
+          padding: 6px 8px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.2)); }
+  .rule .acts { display: flex; gap: 4px; }
+  .rule .acts button, td.acts button { padding: 0 8px; }
+  div.group { font-size: 0.86em; color: var(--vscode-descriptionForeground); margin: 8px 0 0; }
+  .inst { display: grid; grid-template-columns: 1.2em minmax(12em, auto) auto 1fr; gap: 10px;
+          align-items: baseline; padding: 3px 0; }
+  .empty { color: var(--vscode-descriptionForeground); font-style: italic; margin: 4px 0; }
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
   a.act:hover, a.act:focus-visible { color: var(--vscode-textLink-foreground); text-decoration: none; }
   td.acts { text-align: right; }
-  td.acts button { padding: 0 8px; }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
                    border-color: var(--vscode-button-background); }
   button.primary:hover { background: var(--vscode-button-hoverBackground); }
-  ul { margin: 0; padding-left: 1.1em; }
-  li { margin: 2px 0; }
+  details.fold { margin-top: 18px; }
+  details.fold > summary { cursor: pointer; font-size: 0.78em; font-weight: 600; letter-spacing: .08em;
+                           text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+  details.fold .rule { grid-template-columns: auto 1fr auto; }
 </style></head><body>
-<div class="crumbs">${crumbs}<b>${escape(page.label)}</b> · <span class="mono">${escape(page.term)}</span></div>
-<h1>${escape(page.label)}</h1>
-<div class="chips">${chips}</div>
-<div class="bar">
-  <button class="primary" data-action="addAttribute" title="${page.ownShape
+<div class="crumbs">${crumbs}<b>${escape(page.label)}</b> · <span class="mono">${escape(page.term)}</span>${
+  subtypes.length ? ` <span class="sep">·</span> subtypes: ${subtypes.map((name) =>
+    `<a href="#" data-type="${escape(name)}">${escape(name)}</a>`).join(', ')}` : ''}</div>
+<div class="head"><h1>${escape(page.label)}</h1>
+  <div class="acts"><button class="primary" data-action="addAttribute" title="${page.ownShape
     ? `Add an attribute to ${escape(page.ownShapeName)}`
     : `${escape(page.label)} has no shape of its own yet: one is created for it first`}">+ Attribute</button>
-  ${page.ownShape ? '' : '<button data-action="createShape" title="Write an empty shape targeting this type, e.g. for a SPARQL rule">Create its shape</button>'}
-  ${page.shapeAt ? `<button data-open="${escape(page.shapeAt)}">Open the shape in .ttl</button>` : ''}
-  <button data-action="newSubtype" title="Declare a new entity type that is a kind of ${escape(page.label)}">New subtype…</button>
-  <button data-refresh="1">Refresh</button>
-</div>
+  <button data-action="pageMenu" title="New subtype…, the shape in .ttl, Refresh">⋯</button></div></div>
+<p class="status">${status}</p>
 
-<h2>Attributes · own and inherited</h2>
+<div class="sechead"><h2>Attributes</h2></div>
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Declared in</th><th>Tested</th><th>Model</th><th></th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Status</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes, focusIndex(attributes, options && options.focus))}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
-<h2>Rules on the whole entity</h2>
-<p class="dim">SPARQL constraints and rules read the entity as a whole, not one attribute.</p>
-${rules.length ? `<div class="rules">${ruleRows(rules)}</div>`
+<div class="sechead"><h2 title="SPARQL constraints and rules read the entity as a whole, not one attribute">Rules</h2>
+  ${page.ownShape ? '<button data-action="addSparql" title="A SPARQL constraint on the whole entity, written in the workbench">+ SPARQL constraint</button>' : ''}</div>
+${rules.length ? ruleRows(rules)
     : '<p class="empty">No SPARQL constraint or rule applies to this type.</p>'}
 
-${also.length ? `<h2>Shapes that apply under a condition</h2>
+<div class="sechead"><h2>Instances</h2></div>
+${instanceRows(page)}
+
+${also.length ? `<details class="fold"><summary>Shapes that apply under a condition (${also.length})</summary>
 <p class="dim">They do not target ${escape(page.label)} by class; their constraints are in the
-tables above, marked with the condition.</p>
-<div class="rules">${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
+tables above, under their condition.</p>
+${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
     `<span class="what">${shapeLink(a.shapeName, a.shape)} <span class="cond">· ${escape(a.condition || a.target)}</span></span>` +
-    `${a.reached ? chip(`reaches ${a.reached}`) : chip('none in the data yet')}</div>`).join('')}</div>` : ''}
-
-<h2>Exercised by</h2>
-${cases.length ? `<div class="chips">${cases.map((c) =>
-    `<a href="#" data-open="${escape(c.file)}:1" title="${escape(c.description || '')}">` +
-    chip(`${c.case.split('/').slice(-3).join(' / ')} · ${c.expect} · ` +
-      (c.passed ? 'passes' : 'FAILS'), c.passed ? 'ok' : 'bad') + '</a>').join('')}</div>`
-    : '<p class="empty">No test case has an entity of this type. Nothing proves its constraints can fire.</p>'}
-
-<h2>In the model</h2>
-${instances.length ? `<ul>${instances.map((i) => `<li><span class="mono">${escape(i.id)}</span>` +
-    (i.type !== page.label ? ` <span class="dim">· ${escape(i.type)}</span>` : '') +
-    (i.violations.length ? ' ' + i.violations.map((v) =>
-      chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ')
-      : ' ' + chip('valid', 'ok')) + '</li>').join('')}</ul>`
-    : '<p class="empty">No entity of this type in the model.</p>'}
-
-${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =>
-    `<a href="#" data-type="${escape(name)}">${chip(name)}</a>`).join('')}</div>` : ''}
+    `${a.reached ? chip(`reaches ${a.reached}`) : chip('none in the data yet')}</div>`).join('')}</details>` : ''}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-refresh],[data-action],[data-bench]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-refresh],[data-action],[data-bench]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -338,6 +394,7 @@ ${subtypes.length ? `<h2>Subtypes</h2><div class="chips">${subtypes.map((name) =
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
+    else if (target.dataset.case) { vscode.postMessage({ command: 'case', file: target.dataset.case }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -443,6 +500,49 @@ class TypePages {
           vscode.commands.executeCommand(command);
         }
       }
+      return;
+    }
+    if (message.command === 'pageMenu') {
+      // What is used now and then, kept off the page: one ⋯.
+      const page = this.page;
+      const items = [{ label: '$(type-hierarchy-sub) New subtype…', message: { command: 'newSubtype', row: -1 } }];
+      if (page.shapeAt) {
+        items.push({ label: '$(go-to-file) Open the shape in .ttl', message: { command: 'open', at: page.shapeAt } });
+      }
+      if (!page.ownShape) {
+        items.push({ label: '$(new-file) Create its shape', description: 'e.g. for a SPARQL rule',
+          message: { command: 'createShape', row: -1 } });
+      }
+      items.push({ label: '$(refresh) Refresh', message: { command: 'refresh' } });
+      const picked = await vscode.window.showQuickPick(items, { title: page.label });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+      return;
+    }
+    if (message.command === 'ruleMenu') {
+      const rule = (this.page.rules || [])[message.row];
+      if (!rule) {
+        return;
+      }
+      const picked = await vscode.window.showQuickPick([
+        { label: '$(beaker) Open in SPARQL workbench', message: { command: 'bench', shape: rule.shape, kind: rule.kind } },
+        { label: '$(symbol-interface) Open its shape page', message: { command: 'shape', name: rule.shape } },
+        { label: '$(go-to-file) Open in .ttl', message: { command: 'open', at: rule.definedAt } }
+      ].filter((item) => item.message.at !== ''), { title: rule.text || rule.shapeName });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+      return;
+    }
+    if (message.command === 'addSparql' && this.page.ownShape) {
+      await vscode.commands.executeCommand('semforge.addSparqlConstraint',
+        { raw: { shape: this.page.ownShape }, packageUri: this.current.packageUri });
+      return;
+    }
+    if (message.command === 'case' && message.file) {
+      await vscode.commands.executeCommand('semforge.openCasePage',
+        { raw: { kind: 'example', file: message.file }, packageUri: this.current.packageUri });
       return;
     }
     if (message.command === 'bench' && message.shape) {

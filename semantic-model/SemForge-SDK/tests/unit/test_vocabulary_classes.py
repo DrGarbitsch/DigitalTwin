@@ -45,8 +45,18 @@ def test_every_value_with_its_label_and_properties(machine_state):
         'state_PREPARING', 'state_PROCESSING']
     on = _row(machine_state, 'state_ON')
     assert on['label'] == 'ON'
-    assert on['properties'] == [{'property': 'base:isValidFor',
-                                 'value': 'iffBaseEntities:Machine', 'link': ''}]
+    assert on['properties'] == [{
+        'property': 'base:isValidFor', 'value': 'iffBaseEntities:Machine',
+        'name': 'valid for', 'shortValue': 'Machine', 'link': '',
+        'type': 'https://industryfusion.github.io/contexts/example/v0/base_entities/Machine'}]
+
+
+def test_a_property_is_said_in_words():
+    from semforge.cooked.vocabulary import _spoken
+    assert _spoken('isValidFor') == 'valid for'
+    assert _spoken('hasUnit') == 'unit'
+    assert _spoken('color') == 'color'
+    assert _spoken('is') == 'is'
 
 
 def test_a_value_says_where_it_is_used(machine_state):

@@ -161,6 +161,14 @@ def _short(graph, term):
 
 # --- the page ----------------------------------------------------------------------
 
+def _spoken(name):
+    """A property's local name as words: isValidFor -> valid for."""
+    words = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', name).lower().split()
+    if len(words) > 1 and words[0] in ('is', 'has'):
+        words = words[1:]
+    return ' '.join(words) or name
+
+
 def build_vocabulary_page(package, cls):
     """The payload the vocabulary page renders. Reads only."""
     graph = package.knowledge
@@ -168,12 +176,19 @@ def build_vocabulary_page(package, cls):
     index = package.index('knowledge')
     values = _values(package, cls)
     vocabularies = set(vocabulary_classes(package))
+    from .choices import classify_classes
+    entities = {str(c) for c in classify_classes(package)[0]}
 
     rows = []
     for value in values:
         label = graph.value(value, RDFS.label)
+        # `name` is what a reader says (base:isValidFor -> valid for); an
+        # entity type as the object opens its type page.
         properties = [{'property': _short(graph, p), 'value': _short(graph, o),
-                       'link': str(o) if str(o) in vocabularies else ''}
+                       'name': _spoken(local(p)), 'shortValue': local(o) if isinstance(o, URIRef)
+                       else str(o),
+                       'link': str(o) if str(o) in vocabularies else '',
+                       'type': str(o) if str(o) in entities else ''}
                       for p, o in sorted(graph.predicate_objects(value), key=str)
                       if p not in (RDF.type, RDFS.label)]
         uses = _uses(package, value)

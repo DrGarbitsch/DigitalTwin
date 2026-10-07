@@ -3,7 +3,18 @@
 
 const assert = require('assert');
 const vscode = require('vscode');
-const { semforge, row, until } = require('./helpers');
+const { semforge, row, until, answering } = require('./helpers');
+
+/** What the page's ⋯ offers, dismissed without choosing. */
+async function menu(api) {
+  const session = answering([{ kind: 'pick' }]);
+  try {
+    await api.pages.type.receive({ command: 'pageMenu', row: -1 });
+  } finally {
+    session.restore();
+  }
+  return session.asked[0].offered;
+}
 
 async function typePage(api, label) {
   return until(() => {
@@ -47,9 +58,12 @@ describe('Types view', () => {
     assert.ok(page.attributes.length, 'CutterShape\'s attributes are listed');
     assert.ok(page.attributes.every((attribute) => attribute.inherited));
     const html = panel.webview.html;
-    assert.ok(html.includes('data-action="addAttribute"'), '+ Attribute, though it has no shape');
-    assert.ok(html.includes('data-action="newSubtype"'));
-    assert.ok(html.includes('data-action="createShape"'));
+    assert.ok(html.includes('class="primary" data-action="addAttribute"'),
+      '+ Attribute, though it has no shape');
+    assert.ok(html.includes('From Cutter'), 'its attributes grouped by where they come from');
+    const offered = await menu(api);
+    assert.ok(offered.includes('$(type-hierarchy-sub) New subtype…'), offered.join(', '));
+    assert.ok(offered.includes('$(new-file) Create its shape'), offered.join(', '));
   });
 
   it('a type with its own shape adds to it', async () => {
@@ -59,6 +73,7 @@ describe('Types view', () => {
     await vscode.commands.executeCommand('semforge.openTypePage', cutter);
     const panel = await typePage(api, 'Cutter');
     assert.ok(api.pages.type.page.ownShape.endsWith('CutterShape'));
-    assert.ok(!panel.webview.html.includes('data-action="createShape"'));
+    assert.ok(panel.webview.html.includes('data-action="addSparql"'), '+ SPARQL constraint');
+    assert.ok(!(await menu(api)).includes('$(new-file) Create its shape'));
   });
 });

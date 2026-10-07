@@ -142,7 +142,7 @@ def _render(tmp_path, payload, nonce='TESTNONCE', focus=None):
 def test_the_page_renders_the_filter_payload(tmp_path, filter_page):
     html = _render(tmp_path, filter_page)
     for text in ('hasStrength', 'number · 0 – 100', '→ FilterCartridge',
-                 'one of MachineState', 'from Machine', 'never fired',
+                 'one of MachineState', 'From Machine', 'never fired',
                  'without-cartridge', 'urn:filter:1', 'Machine</a> ›'):
         assert text in html, text
 
@@ -206,7 +206,7 @@ def test_an_empty_type_says_so_instead_of_rendering_nothing(tmp_path):
                               'attributes': [], 'rules': [], 'exercisedBy': [],
                               'instances': [], 'subtypes': [], 'summary': {}})
     assert 'No shape constrains an attribute of this type.' in html
-    assert 'Nothing proves its constraints can fire.' in html
+    assert 'nothing proves its constraints can fire.' in html
 
 
 # --- the command ------------------------------------------------------------------

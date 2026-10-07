@@ -5,8 +5,9 @@
  * A vocabulary value is used in the data, in SPARQL queries, in the shapes and
  * in the knowledge itself, so the page lists every value with where it is
  * used, and the constraints that draw their values from the class. Managing
- * it happens here, with visible buttons: + Value, Label…, Delete… (which
- * shows the uses first and refuses quietly to break them).
+ * it happens here: + Value, a click on the label, and each value's ⋯ --
+ * Label…, Open in .ttl, Delete… (which shows the uses first and refuses
+ * quietly to break them).
  *
  * `renderVocabularyPage` is a pure function from the payload
  * `semforge/vocabularyPage` returns; everything shown is escaped, and script
@@ -46,21 +47,30 @@ function usedChips(uses) {
     .join(' ');
 }
 
+/** A value's properties as a reader says them: valid for Filter. */
+function propertyText(p) {
+  const value = p.link ? `<a href="#" data-vocab="${escape(p.link)}">${escape(p.shortValue || p.value)}</a>`
+    : p.type ? `<a href="#" data-type="${escape(p.type)}" title="Open the type page">` +
+      `${escape(p.shortValue || p.value)}</a>`
+      : escape(p.shortValue || p.value);
+  return `<div title="${escape(`${p.property} ${p.value}`)}"><span class="dim">` +
+    `${escape(p.name || p.property)}</span> ${value}</div>`;
+}
+
 function valueRows(values, focus) {
-  return values.map((row, index) => {
+  // The values in use first: an unused one is a question, kept for last.
+  const order = values.map((row, index) => ({ row, index }))
+    .sort((x, y) => (x.row.uses.total ? 0 : 1) - (y.row.uses.total ? 0 : 1));
+  return order.map(({ row, index }) => {
     const focused = focus && row.iri === focus;
-    const properties = row.properties.map((p) =>
-      `<div><span class="dim">${escape(p.property)}</span> ` +
-      (p.link ? `<a href="#" data-vocab="${escape(p.link)}">${escape(p.value)}</a>`
-        : escape(p.value)) + '</div>').join('');
     return `<tr${focused ? ' class="focus" id="focus"' : ''}>` +
       `<td>${openable(row.name, row.definedAt, row.iri)}</td>` +
       `<td><a href="#" class="act" data-action="label" data-row="${index}" ` +
       `title="Change the label">${row.label ? escape(row.label) : '<span class="dim">add…</span>'}</a></td>` +
-      `<td>${properties}</td>` +
+      `<td>${row.properties.map(propertyText).join('')}</td>` +
       `<td>${usedChips(row.uses)}</td>` +
-      `<td class="acts"><button data-action="delete" data-row="${index}" ` +
-      `title="Delete this value; its uses are shown first">Delete…</button></td></tr>`;
+      `<td class="acts"><button data-action="rowMenu" data-row="${index}" ` +
+      'title="Label…, Open in .ttl, Delete…">⋯</button></td></tr>';
   }).join('');
 }
 
@@ -74,16 +84,18 @@ function renderVocabularyPage(page, options) {
   const relations = page.relations || [];
   const subclasses = page.subclasses || [];
   const parents = page.parents || [];
-  const chips = [
-    chip(`${summary.values} value(s)`),
-    summary.unused ? chip(`${summary.unused} unused`, 'warn',
-      'Named nowhere: no data, shape, query or knowledge statement uses them.') : '',
-    summary.constraints
-      ? chip(`${summary.constraints} constraint(s) draw from it`, 'ok')
-      : chip('no constraint draws from it', 'warn',
-        'No sh:class or sh:in names this class or its values, so nothing checks ' +
-        'that an attribute holds one of them.')
-  ].join('');
+  const drawer = (d) => `<a href="#" data-shape="${escape(d.shape)}" class="mono">` +
+    `${escape(d.shapeName.split(':').pop())}</a>${d.attribute ? ` › ${escape(d.attribute)}` : ''}` +
+    ` <span class="dim">(${escape(d.how)})</span>`;
+  const status = [
+    `${summary.values} value${summary.values === 1 ? '' : 's'}`,
+    summary.unused ? `<span class="warn-text" title="Named nowhere: no data, shape, query or ` +
+      `knowledge statement uses them.">${summary.unused} unused</span>` : '',
+    drawn.length === 1 ? `drawn from by ${drawer(drawn[0])}`
+      : drawn.length ? `drawn from by ${drawn.length} constraints`
+        : '<span class="warn-text" title="No sh:class or sh:in names this class or its values, so ' +
+          'nothing checks that an attribute holds one of them.">no constraint draws from it</span>'
+  ].filter(Boolean).join(' · ');
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${csp}">
@@ -92,28 +104,34 @@ function renderVocabularyPage(page, options) {
 <style nonce="${nonce}">
   body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size);
          color: var(--vscode-foreground); background: var(--vscode-editor-background);
-         padding: 16px 22px 40px; line-height: 1.45; }
+         padding: 14px 22px 40px; line-height: 1.45; max-width: 1100px; }
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .crumbs, .dim, .empty { color: var(--vscode-descriptionForeground); }
-  .crumbs { font-size: 0.92em; }
-  .empty { font-style: italic; }
-  h1 { font-size: 1.6em; font-weight: 600; margin: 4px 0 2px; }
-  h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-       color: var(--vscode-descriptionForeground); margin: 26px 0 8px; }
+  .crumbs { font-size: 0.9em; }
+  .empty { font-style: italic; margin: 4px 0; }
+  .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .head h1 { font-size: 1.5em; font-weight: 600; margin: 2px 0; flex: 1 1 auto; }
+  .head .acts { display: flex; gap: 6px; }
+  .status { margin: 2px 0 6px; }
+  .comment { margin: 2px 0 6px; color: var(--vscode-descriptionForeground); }
+  .warn-text { color: var(--vscode-editorWarning-foreground, #cca700); }
+  .sechead { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 6px;
+             border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
+             padding-bottom: 4px; }
+  .sechead h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+                color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
   .mono { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips.top { margin-top: 10px; }
-  .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  .chip { font-size: 0.86em; padding: 0 8px; border-radius: 999px; white-space: nowrap;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
   .chip.warn { color: var(--vscode-editorWarning-foreground, #cca700); border-color: currentColor; }
-  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   button { font: inherit; color: var(--vscode-button-secondaryForeground, inherit);
            background: var(--vscode-button-secondaryBackground, transparent);
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
-           padding: 3px 10px; border-radius: 2px; cursor: pointer; }
+           padding: 2px 10px; border-radius: 2px; cursor: pointer; }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
                    border-color: var(--vscode-button-background); }
   .table { overflow-x: auto; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
@@ -121,7 +139,7 @@ function renderVocabularyPage(page, options) {
   th { text-align: left; font-size: 0.78em; letter-spacing: .06em; text-transform: uppercase;
        color: var(--vscode-descriptionForeground); font-weight: 600; padding: 7px 12px;
        background: var(--vscode-sideBar-background, transparent); }
-  td { padding: 6px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
+  td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        vertical-align: top; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.focus td { background: var(--vscode-editor-selectionHighlightBackground, rgba(128,128,128,.2)); }
@@ -129,43 +147,42 @@ function renderVocabularyPage(page, options) {
   td.acts { text-align: right; white-space: nowrap; }
   td.acts button { padding: 0 8px; }
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
-  ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+  details.fold { margin-top: 18px; }
+  details.fold > summary { cursor: pointer; font-size: 0.78em; font-weight: 600; letter-spacing: .08em;
+                           text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+  details.fold ul { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
 </style></head><body>
 <div class="crumbs">Vocabulary${parents.map((p) => ' › ' + (p.page
-    ? `<a href="#" data-vocab="${escape(p.iri)}">${escape(p.label)}</a>` : escape(p.label))).join('')}</div>
-<h1>${escape(page.label)}</h1>
-<div class="dim mono">${escape(page.term)}</div>
-${page.comment ? `<p>${escape(page.comment)}</p>` : ''}
-<div class="chips top">${chips}</div>
-<div class="bar"><button class="primary" data-action="addValue">+ Value</button>
-${page.definedAt ? `<button data-open="${escape(page.definedAt)}">Open in .ttl</button>` : ''}
-<button data-refresh="1">Refresh</button></div>
+    ? `<a href="#" data-vocab="${escape(p.iri)}">${escape(p.label)}</a>` : escape(p.label))).join('')}` +
+  ` › <span class="mono">${escape(page.term)}</span></div>
+<div class="head"><h1>${escape(page.label)}</h1>
+  <div class="acts"><button class="primary" data-action="addValue">+ Value</button>
+  <button data-action="pageMenu" title="Open in .ttl, Refresh">⋯</button></div></div>
+${page.comment && page.comment !== page.label ? `<p class="comment">${escape(page.comment)}</p>` : ''}
+<p class="status">${status}</p>
 
-<h2>Values</h2>
+<div class="sechead"><h2>Values</h2></div>
 ${values.length ? `<div class="table"><table>
 <thead><tr><th>Value</th><th>Label</th><th>Properties</th><th>Used</th><th></th></tr></thead>
 <tbody>${valueRows(values, focus)}</tbody></table></div>`
     : '<p class="empty">No values yet. + Value adds the first.</p>'}
 
-<h2>Drawn from by</h2>
-${drawn.length ? `<ul>${drawn.map((d) => `<li><a href="#" class="mono" data-shape="${escape(d.shape)}">` +
-    `${escape(d.shapeName.split(':').pop())}</a>${d.attribute ? ` · ${escape(d.attribute)}` : ''}` +
-    ` <span class="dim">· ${escape(d.how)}</span></li>`).join('')}</ul>`
-    : '<p class="empty">No constraint draws its values from this class.</p>'}
-
-${relations.length ? `<h2>Relations</h2><ul>${relations.map((r) =>
-    `<li>${openable(r.name, r.definedAt)} <span class="dim">· ${escape(r.domain || '?')} → ` +
-    `${escape(r.range || '?')}</span></li>`).join('')}</ul>` : ''}
-
-${subclasses.length ? `<h2>Subclasses</h2><div class="chips">${subclasses.map((c) => c.page
-    ? `<a href="#" data-vocab="${escape(c.iri)}">${chip(c.label)}</a>` : chip(c.label)).join('')}</div>` : ''}
+${drawn.length > 1 ? `<details class="fold" open><summary>Drawn from by (${drawn.length})</summary>` +
+  `<ul>${drawn.map((d) => `<li>${drawer(d)}</li>`).join('')}</ul></details>` : ''}
+${relations.length ? `<details class="fold"><summary>Properties of its values (${relations.length})</summary>` +
+  `<ul>${relations.map((r) => `<li>${openable(r.name, r.definedAt)} <span class="dim">· ` +
+    `${escape(r.domain || '(no domain declared)')} → ${escape(r.range || '(no range declared)')}` +
+    '</span></li>').join('')}</ul></details>` : ''}
+${subclasses.length ? `<details class="fold"><summary>Subclasses (${subclasses.length})</summary>` +
+  `<div class="chips">${subclasses.map((c) => c.page
+    ? `<a href="#" data-vocab="${escape(c.iri)}">${chip(c.label)}</a>` : chip(c.label)).join('')}</div></details>` : ''}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-vocab],[data-shape],[data-action],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-vocab],[data-type],[data-shape],[data-action],[data-refresh]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -174,6 +191,7 @@ ${subclasses.length ? `<h2>Subclasses</h2><div class="chips">${subclasses.map((c
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
     else if (target.dataset.vocab) { vscode.postMessage({ command: 'vocab', cls: target.dataset.vocab }); }
+    else if (target.dataset.type) { vscode.postMessage({ command: 'type', iri: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
@@ -258,6 +276,31 @@ class VocabularyPages {
     } else if (message.command === 'shape' && message.name) {
       await vscode.commands.executeCommand('semforge.openShapePage',
         { raw: { shape: message.name }, packageUri });
+    } else if (message.command === 'type' && message.iri) {
+      await vscode.commands.executeCommand('semforge.openTypePage',
+        { raw: { kind: 'type', targetClass: message.iri }, packageUri });
+    } else if (message.command === 'pageMenu') {
+      const items = [];
+      if (this.page.definedAt) {
+        items.push({ label: '$(go-to-file) Open in .ttl', message: { command: 'open', at: this.page.definedAt } });
+      }
+      items.push({ label: '$(refresh) Refresh', message: { command: 'refresh' } });
+      const picked = await vscode.window.showQuickPick(items, { title: this.page.label });
+      if (picked) {
+        await this.receive(picked.message);
+      }
+    } else if (message.command === 'rowMenu' && row) {
+      const items = [{ label: '$(edit) Label…', message: { command: 'label', row: message.row } }];
+      if (row.definedAt) {
+        items.push({ label: '$(go-to-file) Open in .ttl', message: { command: 'open', at: row.definedAt } });
+      }
+      items.push({ label: '$(trash) Delete…', description: row.uses.total
+        ? `used in ${row.uses.total} place(s)` : 'unused',
+      message: { command: 'delete', row: message.row } });
+      const picked = await vscode.window.showQuickPick(items, { title: row.name });
+      if (picked) {
+        await this.receive(picked.message);
+      }
     } else if (message.command === 'addValue') {
       await this.changed(await this.addValue());
     } else if (message.command === 'label' && row) {
