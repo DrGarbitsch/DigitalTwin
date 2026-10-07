@@ -233,16 +233,23 @@ def _skipped(words, p, o, term, payload, short):
 
 
 def _variable(words, p, o, term, short, text):
+    """`$this ex:hasFilter ?filter .` -- almost always meant as reading the
+    target, so that is the fix offered first; `[ ]` (only "it is there") is
+    the alternative when the variable is used nowhere else."""
     out = []
+    payload = PAYLOAD_NAME[term.attribute_kind]
+    said = 'target' if term.attribute_kind in ('Relationship', 'ListRelationship') else 'value'
     for i, j in _spots(words, p, lambda t: t.kind == 'var' and t.text[1:] == str(o)):
         obj = words.code[j]
         once = sum(1 for t in words.code if t.kind == 'var' and t.text[1:] == str(o)) == 1
+        data = {'replace': f'[ ngsild:{payload} {obj.text} ]'}
+        if once:
+            data['alternative'] = '[ ]'
         out.append(Structure(
             obj.start, obj.end, 'warning',
-            f'{FLINK.format(p=short(p))}: here {obj.text} names the instance, which Flink '
-            'reads as a plain triple' +
-            (' — `[ ]` tests that the attribute is there' if once else ''),
-            'variable-node', {'replace': '[ ]'} if once else {}))
+            f'{obj.text} names the attribute instance of {short(p)}, which shacl2flink reads '
+            f'as a plain triple — to read its {said}: {short(p)} [ ngsild:{payload} {obj.text} ]',
+            'variable-node', data))
     return out
 
 

@@ -1134,7 +1134,7 @@ says what a form means and what Flink can compile, each with its rewrite:
 | `$this ex:hasPressure ?p . FILTER(?p > 5)` | `?p` is the instance, not the value | `[ ngsild:hasValue ?p ]` |
 | `$this ex:hasState base:state_ON` | the object is always an instance: never matches | `[ ngsild:hasValue base:state_ON ]` |
 | `$this ex:hasPressure ?a . ?a ngsild:hasValue ?p .` | valid, but Flink compiles only `[ … ]` | folded into `[ ngsild:hasValue ?p ]` |
-| `$this ex:hasPressure ?a` (nothing else) | Flink reads it as a plain triple | `[ ]` — the attribute is there |
+| `$this ex:hasFilter ?filter .` | `?filter` names the instance, which Flink reads as a plain triple | `[ ngsild:hasObject ?filter ]` (the payload of its kind, the variable kept); or, when the variable is used nowhere else, `[ ]` — only "it is there" |
 | `ex:hasPressure/ngsild:hasValue ?p` | Flink has no property paths | `ex:hasPressure [ ngsild:hasValue ?p ]` |
 | `ex:hasState [ ngsild:hasObject ?s ]` | the wrong payload for the kind | `ngsild:hasValue` |
 | `?m plainProperty [ ngsild:hasValue ?v ]` | a plain property has no instance | `?v` |

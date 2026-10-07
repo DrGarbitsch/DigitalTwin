@@ -35,7 +35,7 @@ TITLES = {
     'skipped-layer': 'Read the value: {replace}',
     'constant-object': 'Put it inside the instance: {replace}',
     'explicit-node': 'Write the instance as {replace}',
-    'variable-node': 'Test that it is there: {replace}',
+    'variable-node': 'Read the instance: {replace}',
     'path': 'Write it as {replace}',
     'plain-bracket': 'Read it directly: {replace}',
 }
@@ -192,6 +192,10 @@ def code_actions(uri, text, ctx, params):
                 edits.append(types.TextEdit(range=_range(text, start, end), new_text=''))
             edit(TITLES.get(data.get('code'), 'Change to {replace}').format(**data), edits,
                  diagnostic=diagnostic, preferred=True)
+            if data.get('alternative'):
+                edit(f'Only test that it is there: {data["alternative"]}',
+                     [types.TextEdit(range=target, new_text=data['alternative'])],
+                     diagnostic=diagnostic)
 
     cursor = offset_of(text, params.range.start.line, params.range.start.character)
     token = at(text, cursor)

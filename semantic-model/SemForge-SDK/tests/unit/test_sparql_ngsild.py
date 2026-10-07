@@ -93,7 +93,10 @@ CASES = [
      '<urn:filter:1>', '[ ngsild:hasObject <urn:filter:1> ]'),
     ('explicit-node', 'SELECT $this WHERE { $this iffBaseEntities:hasStrength ?a .\n'
      '  ?a ngsild:hasValue ?s .\n  FILTER(?s > 1) }', '?a', '[ ngsild:hasValue ?s ]'),
-    ('variable-node', 'SELECT $this WHERE { $this iffBaseEntities:hasStrength ?a }', '?a', '[ ]'),
+    ('variable-node', 'SELECT $this WHERE { $this iffBaseEntities:hasStrength ?a }', '?a',
+     '[ ngsild:hasValue ?a ]'),
+    ('variable-node', 'SELECT $this WHERE { $this iffBaseEntities:hasFilter ?filter . }',
+     '?filter', '[ ngsild:hasObject ?filter ]'),
     ('path', 'SELECT $this WHERE { $this iffBaseEntities:hasStrength/ngsild:hasValue ?s . '
      'FILTER(?s > 1) }', 'iffBaseEntities:hasStrength/ngsild:hasValue ?s',
      'iffBaseEntities:hasStrength [ ngsild:hasValue ?s ]'),
@@ -319,3 +322,24 @@ def test_a_package_change_rechecks_open_queries(corpus_path):
     with mock.patch.object(server, '_publish_query') as publish:
         server._republish_queries(ls)
     assert publish.call_args_list == [mock.call(ls, uri)]
+
+
+def test_a_lone_instance_variable_is_read_first_and_tested_second(corpus_path):
+    """`$this ex:hasFilter ?filter .` -- read as the target, the variable kept;
+    `[ ]` (only "it is there") is the second fix."""
+    from semforge.editor import server
+    from semforge.editor.sparqldocs import code_actions, context, diagnostics
+
+    uri = _uri(corpus_path)
+    ctx = context(uri, server._package_for, server.package_root, server._uri_to_path)
+    text = HEAD + 'SELECT $this WHERE {\n    $this iffBaseEntities:hasFilter ?filter .\n}\n'
+    found = [d for d in diagnostics(text, ctx) if d.code == 'variable-node']
+    assert 'to read its target: iffBaseEntities:hasFilter [ ngsild:hasObject ?filter ]' in \
+        found[0].message
+    params = types.CodeActionParams(
+        text_document=types.TextDocumentIdentifier(uri=uri), range=found[0].range,
+        context=types.CodeActionContext(diagnostics=found))
+    first, second = [a for a in code_actions(uri, text, ctx, params) if a.diagnostics]
+    assert first.title == 'Read the instance: [ ngsild:hasObject ?filter ]' and first.is_preferred
+    assert second.title == 'Only test that it is there: [ ]' and not second.is_preferred
+    assert 'hasFilter [ ngsild:hasObject ?filter ] .' in _apply(text, first.edit.changes[uri])
