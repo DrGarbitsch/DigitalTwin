@@ -18,7 +18,9 @@ NGSILD = 'https://uri.etsi.org/ngsi-ld/'
 
 # How an attribute's value is reached. pyshacl reports the value path itself;
 # we name the attribute that carries it, so these resolve to the parent.
-VALUE_PATHS = {NGSILD + p for p in ('hasValue', 'hasValueList', 'hasJSON', 'hasObject')}
+from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
+
+VALUE_PATHS = set(PAYLOAD_PATHS)
 
 # Edges carrying no name of their own: they say how a value is stored, not
 # which attribute it belongs to. The climb steps over them, including the

@@ -30,6 +30,17 @@ KINDS = {'class': types.CompletionItemKind.Class,
          'text': types.CompletionItemKind.Text}
 
 
+# Quick fix titles per finding; {replace} is the text it writes.
+TITLES = {
+    'skipped-layer': 'Read the value: {replace}',
+    'constant-object': 'Put it inside the instance: {replace}',
+    'explicit-node': 'Write the instance as {replace}',
+    'variable-node': 'Test that it is there: {replace}',
+    'path': 'Write it as {replace}',
+    'plain-bracket': 'Read it directly: {replace}',
+}
+
+
 def is_query(uri):
     return str(uri).startswith(SCHEME + ':')
 
@@ -159,9 +170,27 @@ def code_actions(uri, text, ctx, params):
                  [types.TextEdit(range=_range(text, spot, spot),
                                  new_text=f'PREFIX {data["prefix"]}: <{data["namespace"]}>\n')],
                  diagnostic=diagnostic, preferred=True)
+        elif data.get('code') == 'not-compiled' and data.get('domain'):
+            title = 'Add a shape so shacl2flink reads it as NGSI-LD'
+            actions.append(types.CodeAction(
+                title=title, kind=types.CodeActionKind.QuickFix, diagnostics=[diagnostic],
+                command=types.Command(title=title, command='semforge.nestForFlink', arguments=[{
+                    'packageUri': reference(uri)['package'], 'attribute': data['attribute'],
+                    'kind': data.get('kind', ''), 'entityType': data['domain']}])))
         elif data.get('replace'):
-            edit(f'Change to {data["replace"]}',
-                 [types.TextEdit(range=diagnostic.range, new_text=data['replace'])],
+            span = data.get('span')
+            target = _range(text, span[0], span[1]) if span else diagnostic.range
+            edits = [types.TextEdit(range=target, new_text=data['replace'])]
+            for start, end in data.get('remove') or []:
+                # The statement and the line it leaves empty.
+                while end < len(text) and text[end] in ' \t':
+                    end += 1
+                if end < len(text) and text[end] == '\n':
+                    end += 1
+                    while start > 0 and text[start - 1] in ' \t':
+                        start -= 1
+                edits.append(types.TextEdit(range=_range(text, start, end), new_text=''))
+            edit(TITLES.get(data.get('code'), 'Change to {replace}').format(**data), edits,
                  diagnostic=diagnostic, preferred=True)
 
     cursor = offset_of(text, params.range.start.line, params.range.start.character)

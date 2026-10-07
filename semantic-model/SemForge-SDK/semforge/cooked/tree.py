@@ -56,8 +56,9 @@ EDITABLE = {
 # Structure, not parameters. Shown so the tree is honest; edited in raw.
 RAW_ONLY = {'sh:or', 'sh:and', 'sh:xone', 'sh:not', 'sh:node', 'sh:in'}
 
-VALUE_PATHS = {'ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList',
-               'ngsild:hasJSON'}
+from ..ngsild.kinds import PAYLOAD_NAMES as _PAYLOADS  # noqa: E402
+
+VALUE_PATHS = {f'ngsild:{name}' for name in _PAYLOADS}
 
 # An NGSI-LD attribute IS a blank node carrying hasValue/hasObject, so
 # `sh:nodeKind sh:BlankNode` on a forward attribute path restates the encoding
@@ -387,7 +388,7 @@ def apply_edit(package, shape, path_chain, parameter, value):
 # value -- a datatype or a range on the attribute node constrains the blank
 # node itself and can never be satisfied.
 ATTRIBUTE_LAYER = {'sh:minCount', 'sh:maxCount'}
-SLOTS = ('ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList', 'ngsild:hasJSON')
+SLOTS = tuple(f'ngsild:{name}' for name in _PAYLOADS)
 
 
 def _term(package, text, value):

@@ -40,6 +40,7 @@ NGSILD = 'https://uri.etsi.org/ngsi-ld/'
 OBSERVED_AT = URIRef(NGSILD + 'observedAt')
 DATASET_ID = URIRef(NGSILD + 'datasetId')
 HAS_VALUE_LIST = URIRef(NGSILD + 'hasValueList')
+LIST_PAYLOADS = (HAS_VALUE_LIST, URIRef(NGSILD + 'hasObjectList'))
 
 
 class DataView(Enum):
@@ -113,12 +114,13 @@ def normalise_empty_lists(graph):
     Returns the number of empty lists rewritten.
     """
     rewritten = 0
-    for subject, obj in list(graph.subject_objects(HAS_VALUE_LIST)):
-        if obj != RDF.nil:
-            continue
-        graph.remove((subject, HAS_VALUE_LIST, obj))
-        graph.add((subject, HAS_VALUE_LIST, BNode()))
-        rewritten += 1
+    for payload in LIST_PAYLOADS:           # a ListRelationship's empty list too
+        for subject, obj in list(graph.subject_objects(payload)):
+            if obj != RDF.nil:
+                continue
+            graph.remove((subject, payload, obj))
+            graph.add((subject, payload, BNode()))
+            rewritten += 1
     return rewritten
 
 

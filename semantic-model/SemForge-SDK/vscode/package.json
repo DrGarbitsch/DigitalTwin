@@ -372,6 +372,10 @@
         "command": "semforge.sparqlInspect",
         "title": "SemForge: Inspect the query (SPARQL workbench)",
         "icon": "$(debug-alt)"
+      },
+      {
+        "command": "semforge.nestForFlink",
+        "title": "SemForge: Add a shape so shacl2flink reads the attribute as NGSI-LD"
       }
     ],
     "viewsContainers": {
@@ -909,6 +913,10 @@
         {
           "command": "semforge.sparqlInspect",
           "when": "resourceScheme == semforge-sparql"
+        },
+        {
+          "command": "semforge.nestForFlink",
+          "when": "false"
         }
       ],
       "editor/title": [

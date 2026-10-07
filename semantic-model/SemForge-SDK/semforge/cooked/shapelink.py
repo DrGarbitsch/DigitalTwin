@@ -28,8 +28,9 @@ from ..rdfio import property_blocks
 from ..validate.normalise import curie, local
 from ..validate.shapes import class_targets, node_shapes
 
-VALUE_PATHS = ('ngsild:hasValue', 'ngsild:hasObject', 'ngsild:hasValueList',
-               'ngsild:hasJSON')
+from ..ngsild.kinds import PAYLOAD_NAMES as _PAYLOADS  # noqa: E402
+
+VALUE_PATHS = tuple(f'ngsild:{name}' for name in _PAYLOADS)
 
 
 def _line_of(text, offset):

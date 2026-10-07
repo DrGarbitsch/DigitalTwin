@@ -4,7 +4,9 @@
 
 const assert = require('assert');
 const vscode = require('vscode');
-const { PACKAGE_URI, semforge, until, read } = require('./helpers');
+const fs = require('fs');
+const path = require('path');
+const { PACKAGE_URI, WORKSPACE, semforge, until, read } = require('./helpers');
 
 const BASE = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/';
 const SHAPE = `${BASE}StateOnFilterShape`;
@@ -170,6 +172,78 @@ describe('the SPARQL editor', () => {
       await until(() => posted.find((m) => m.type === 'saved'), 'the page told');
     } finally {
       api.pages.sparql.post = post;
+    }
+  });
+
+  it('inside an attribute\'s [ ] the payload of its kind comes first', async () => {
+    const api = await semforge();
+    const doc = await openQuery(api);
+    const text = `${HEAD}PREFIX iffBaseEntities: <${ENT}>\n` +
+      'SELECT $this WHERE { $this iffBaseEntities:hasFilter [ ';
+    await setText(doc, text);
+    try {
+      const list = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider',
+        doc.uri, doc.positionAt(text.length));
+      const labels = list.items.map((i) => i.label.label || i.label);
+      assert.ok(labels.includes('ngsild:hasObject ?filter'), labels.slice(0, 8).join(', '));
+      const first = list.items.find((i) => (i.label.label || i.label) === 'ngsild:hasObject ?filter');
+      assert.strictEqual(first.sortText.slice(0, 1), '0', 'ranked first');
+      assert.ok(labels.some((l) => String(l).startsWith('iffBaseEntities:hasTrust [')),
+        'its sub-attribute, as a step');
+    } finally {
+      await revert(doc);
+    }
+  });
+
+  it('a value read without its instance is marked, and fixed in one click', async () => {
+    const api = await semforge();
+    const doc = await openQuery(api);
+    const text = `${HEAD}PREFIX iffBaseEntities: <${ENT}>\n` +
+      'SELECT $this WHERE { $this iffBaseEntities:hasStrength ?s . FILTER(?s > 1) }';
+    await setText(doc, text);
+    try {
+      const found = await until(() => vscode.languages.getDiagnostics(doc.uri)
+        .find((d) => d.code === 'skipped-layer'), 'the skipped-layer warning');
+      assert.match(found.message, /\?s is the attribute instance of iffBaseEntities:hasStrength/);
+      const actions = await vscode.commands.executeCommand('vscode.executeCodeActionProvider',
+        doc.uri, found.range);
+      const fix = actions.find((a) => a.title === 'Read the value: [ ngsild:hasValue ?s ]');
+      assert.ok(fix, actions.map((a) => a.title).join(', '));
+      await vscode.workspace.applyEdit(fix.edit);
+      assert.ok(doc.getText().includes('iffBaseEntities:hasStrength [ ngsild:hasValue ?s ] .'));
+      await until(() => !vscode.languages.getDiagnostics(doc.uri)
+        .some((d) => d.code === 'skipped-layer'), 'the warning to go');
+    } finally {
+      await revert(doc);
+    }
+  });
+
+  it('a new attribute Flink cannot read yet gets its shape, and the warning goes', async () => {
+    const api = await semforge();
+    // Declared in the knowledge, as a Property of Cutter -- with no shape yet.
+    fs.appendFileSync(path.join(WORKSPACE, 'knowledge.ttl'),
+      '\niffBaseEntities:hasHumidity a owl:DatatypeProperty ;\n' +
+      '    rdfs:domain iffBaseEntities:Cutter ;\n' +
+      '    rdfs:range <https://uri.etsi.org/ngsi-ld/Property> .\n');
+    const doc = await openQuery(api);
+    const text = `${HEAD}PREFIX iffBaseEntities: <${ENT}>\n` +
+      'SELECT $this WHERE { $this iffBaseEntities:hasHumidity [ ngsild:hasValue ?h ] }';
+    await setText(doc, text);
+    try {
+      const found = await until(() => vscode.languages.getDiagnostics(doc.uri)
+        .find((d) => d.code === 'not-compiled'), 'the not-compiled warning');
+      const actions = await vscode.commands.executeCommand('vscode.executeCodeActionProvider',
+        doc.uri, found.range);
+      const fix = actions.find((a) => a.command && a.command.command === 'semforge.nestForFlink');
+      assert.ok(fix, actions.map((a) => a.title).join(', '));
+      const made = await vscode.commands.executeCommand(fix.command.command,
+        ...fix.command.arguments);
+      assert.ok(made && made.ok, JSON.stringify(made));
+      assert.match(read('shacl.ttl'), /sh:path iffBaseEntities:hasHumidity[^\]]*ngsild:hasValue/s);
+      await until(() => !vscode.languages.getDiagnostics(doc.uri)
+        .some((d) => d.code === 'not-compiled'), 'the warning to go once the shape is there');
+    } finally {
+      await revert(doc);
     }
   });
 

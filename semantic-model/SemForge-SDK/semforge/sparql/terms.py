@@ -34,6 +34,8 @@ class Term:
     detail: str = ''          # one line: "Property · on Filter", "an individual of MachineState"
     comment: str = ''
     attribute_kind: str = ''  # Property | Relationship | ... for an attribute
+    domain_iri: str = ''      # the entity type that carries an attribute
+    subs: tuple = ()          # the attributes its shapes nest inside it (IRIs)
 
 
 @dataclass
@@ -59,6 +61,9 @@ class Terms:
         return any(str(iri).startswith(ns) for ns in self.owned)
 
     owned: set = field(default_factory=set)
+    # Attributes a shape nests a payload for: the ones shacl2flink can read as
+    # NGSI-LD. Anything else it compiles as a plain triple.
+    compiled: set = field(default_factory=set)
 
 
 _cache = {}
@@ -78,6 +83,45 @@ def _local(iri):
         if cut in text.rstrip(cut):
             text = text.rstrip(cut).rsplit(cut, 1)[-1]
     return text
+
+
+def _nesting(package):
+    """(attributes whose shapes nest a payload, {attribute: sub-attributes})
+    -- read from the shapes, which is where shacl2flink reads them too."""
+    from rdflib.namespace import SH
+
+    from ..ngsild.kinds import PAYLOAD_PATHS
+
+    compiled, subs = set(), {}
+    shapes = package.shapes
+    for prop in set(shapes.subjects(SH.path, None)):
+        outer = shapes.value(prop, SH.path)
+        if not isinstance(outer, URIRef):
+            continue
+        for inner in _inner_shapes(shapes, prop):
+            path = shapes.value(inner, SH.path)
+            if not isinstance(path, URIRef):
+                continue
+            if str(path) in PAYLOAD_PATHS:
+                compiled.add(str(outer))
+            elif not str(path).startswith(NGSILD):
+                subs.setdefault(str(outer), set()).add(str(path))
+    return compiled, subs
+
+
+def _inner_shapes(shapes, prop):
+    """The property shapes under a property shape, through sh:or/and/xone/not
+    as shacl2flink reads them."""
+    from rdflib.collection import Collection
+    from rdflib.namespace import SH
+
+    clauses = [prop]
+    for connective in (SH['or'], SH['and'], SH.xone):
+        for head in shapes.objects(prop, connective):
+            clauses.extend(Collection(shapes, head))
+    clauses.extend(shapes.objects(prop, SH['not']))
+    for clause in clauses:
+        yield from shapes.objects(clause, SH.property)
 
 
 def _build(package):
@@ -115,12 +159,16 @@ def _build(package):
         found.terms[str(cls)] = Term(str(cls), _local(cls), 'class', detail,
                                      str(knowledge.value(cls, RDFS.comment) or
                                          knowledge.value(cls, RDFS.label) or ''))
+    compiled, subs = _nesting(package)
+    found.compiled = compiled
     for attribute in attribute_terms(package):
-        detail = ' · '.join(p for p in (attribute.kind or 'attribute',
+        detail = ' · '.join(p for p in (attribute.kind or 'plain property',
                                         f'on {attribute.domain}' if attribute.domain else '')
                             if p)
         found.terms[attribute.iri] = Term(attribute.iri, attribute.label, 'attribute', detail,
-                                          attribute.comment, attribute.kind)
+                                          attribute.comment, attribute.kind,
+                                          attribute.domain_iri,
+                                          tuple(sorted(subs.get(attribute.iri, ()))))
     for subject, cls in knowledge.subject_objects(RDF.type):
         if isinstance(subject, URIRef) and str(subject) not in found.terms and \
                 cls in classes:

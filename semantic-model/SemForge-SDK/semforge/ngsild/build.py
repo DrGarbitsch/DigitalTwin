@@ -4,11 +4,16 @@ An attribute is not free-form JSON. Its `type` decides which key carries the
 payload, and getting that pairing wrong produces something that parses, looks
 plausible, and means nothing:
 
-    Property      value       a literal, or {"@id": …} for a vocabulary term
-    Relationship  object      an entity IRI, never a literal
-    GeoProperty   value       GeoJSON
-    JsonProperty  json        arbitrary JSON, opaque to the graph
-    ListProperty  valueList   an ordered list
+    Property          value        a literal, or {"@id": …} for a vocabulary term
+    Relationship      object       an entity IRI, never a literal
+    GeoProperty       value        GeoJSON
+    JsonProperty      json         arbitrary JSON, opaque to the graph
+    ListProperty      valueList    an ordered list
+    ListRelationship  objectList   an ordered list of entity IRIs
+    LanguageProperty  languageMap  strings by language
+    VocabProperty     vocab        a vocabulary IRI
+
+(The table lives in semforge.ngsild.kinds.)
 
 The failure this prevents is a real one from this repo's own history: writing
 `{"object": …}` where the model says Property meant a SPARQL rule's join
@@ -23,15 +28,9 @@ from collections import OrderedDict
 
 from ..errors import PackageError
 
-PAYLOAD_KEY = {
-    'Property': 'value',
-    'GeoProperty': 'value',
-    'Relationship': 'object',
-    'JsonProperty': 'json',
-    'ListProperty': 'valueList',
-}
+from .kinds import KINDS_OF_PAYLOAD, METADATA, PAYLOAD_KEY  # noqa: E402,F401 -- re-exported
+
 KINDS = tuple(PAYLOAD_KEY)
-METADATA = ('observedAt', 'unitCode', 'datasetId')
 
 
 def payload_key(kind):
@@ -138,12 +137,7 @@ def kind_for_shape(package, entity_type, attribute_name):
             if group.path.split(':')[-1] != wanted:
                 continue
             for child in group.children:
-                if child.path.endswith('hasObject'):
-                    return 'Relationship'
-                if child.path.endswith('hasValueList'):
-                    return 'ListProperty'
-                if child.path.endswith('hasJSON'):
-                    return 'JsonProperty'
-                if child.path.endswith('hasValue'):
-                    return 'Property'
+                kinds = KINDS_OF_PAYLOAD.get(child.path.split(':')[-1])
+                if kinds:
+                    return kinds[0]              # hasValue: a Property, not a GeoProperty
     return None

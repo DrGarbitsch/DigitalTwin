@@ -19,13 +19,12 @@ import difflib
 import re
 from dataclasses import dataclass, field
 
+from ..ngsild.kinds import PAYLOAD_NAME as LAYER
+from ..ngsild.kinds import PAYLOAD_NAMES, is_relationship
 from .lexer import code_tokens, declared_prefixes
 from .terms import NGSILD
 
 AGGREGATES = {'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'SAMPLE', 'GROUP_CONCAT'}
-LAYER = {'Property': 'hasValue', 'Relationship': 'hasObject',
-         'ListProperty': 'hasValueList', 'ListRelationship': 'hasObjectList',
-         'JsonProperty': 'hasJSON'}
 
 
 @dataclass
@@ -168,6 +167,18 @@ def check(text, terms=None, kind='constraint', view='current', prefix_lines=()):
                                  'history to aggregate over time', 'aggregate-current'))
         previous = token
 
+    if prepared is not None and terms is not None:
+        # How the query reads NGSI-LD attributes: what the data's two steps
+        # need, and what Flink can compile (semforge.sparql.ngsild).
+        from .ngsild import check as structure
+
+        try:
+            for item in structure(text, terms, prepared, declared):
+                found.append(Finding(item.start, item.end, item.severity, item.message,
+                                     item.code, item.data))
+        except Exception:                            # noqa: BLE001 -- never cost the squiggles
+            pass
+
     if kind == 'constraint' and error is None and \
             not any(t.kind == 'var' and t.text[1:] == 'this' for t in code):
         head = next((t for t in code if t.kind == 'name' and t.upper == 'SELECT'), None)
@@ -219,10 +230,10 @@ def _layer(terms, declared, code, index):
     if term is None or term.kind != 'attribute' or term.attribute_kind not in LAYER:
         return []
     wanted = LAYER[term.attribute_kind]
-    if inner_local not in LAYER.values() or inner_local == wanted:
+    if inner_local not in PAYLOAD_NAMES or inner_local == wanted:
         return []
     return [Finding(inner.start, inner.end, 'warning',
                     f'{local} is a {term.attribute_kind}: its '
-                    f'{"target" if "Relationship" in term.attribute_kind else "value"} is under '
+                    f'{"target" if is_relationship(term.attribute_kind) else "value"} is under '
                     f'ngsild:{wanted}, so ngsild:{inner_local} matches nothing',
                     'wrong-layer', {'replace': f'{inner_prefix}:{wanted}'})]

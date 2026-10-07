@@ -11,17 +11,21 @@ Completion reads what is being typed and what comes before it:
     `iffBaseEntities:hasState [ ngsild:hasValue ?state ]` -- hasValue for a
     Property, hasObject for a Relationship;
   * `?` or `$` -- the query's variables, and $this;
+  * inside `[ … ]` after an attribute -- first the payload its kind reads
+    through (ngsild:hasValue for a Property, hasObject for a Relationship, …),
+    then the instance's metadata (observedAt, datasetId, unitCode) and the
+    sub-attributes its shape nests, each as its own step;
   * anything else -- keywords, built-in functions, and the prefixes.
 """
 
 from .lexer import (FUNCTIONS, KEYWORDS, at, code_tokens, declared_prefixes,
                     prologue_end)
+from ..ngsild.kinds import PAYLOAD_NAME as LAYER
+from ..ngsild.kinds import is_relationship
 from .terms import NGSILD
 
 WORD = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.:-?$%')
-LAYER = {'Property': 'hasValue', 'Relationship': 'hasObject',
-         'ListProperty': 'hasValueList', 'ListRelationship': 'hasObjectList',
-         'JsonProperty': 'hasJSON'}
+VALUE_KINDS = ('Property', 'GeoProperty')     # the kinds with a unitCode
 KIND = {'class': 'class', 'attribute': 'property', 'individual': 'enum', 'ngsild': 'keyword',
         'property': 'property'}
 
@@ -62,6 +66,83 @@ def _predicate_position(code, start):
     return False
 
 
+def _variable_for(local):
+    """hasCartridge -> cartridge: the name a value is usually given."""
+    if local.startswith('has') and len(local) > 3:
+        return local[3:4].lower() + local[4:]
+    return local
+
+
+def _owner(code, start, declared, terms):
+    """The attribute whose `[ … ]` the cursor is in, when it is at a
+    predicate position there: (term, its written prefix:local), else None."""
+    before = [t for t in code if t.end <= start]
+    depth = 0
+    for index in range(len(before) - 1, -1, -1):
+        token = before[index]
+        if token.text == ']':
+            depth += 1
+        elif token.text == '[':
+            if depth:
+                depth -= 1
+                continue
+            if index == 0 or before[-1].text not in ('[', ';'):
+                return None
+            owner = before[index - 1]
+            if owner.kind != 'pname':
+                return None
+            prefix, _, local = owner.text.partition(':')
+            namespace = declared.get(prefix) or terms.namespaces.get(prefix)
+            term = terms.terms.get((namespace or '') + local)
+            if term is None or term.kind != 'attribute' or term.attribute_kind not in LAYER:
+                return None
+            return term, owner.text
+        elif token.text in ('{', '}') and not depth:
+            return None
+    return None
+
+
+def _inside(text, start, offset, word, term, declared, terms):
+    """What goes inside an attribute's `[ … ]`."""
+    edits = []
+    ngsild = next((p for p, n in declared.items() if n == NGSILD), None)
+    if ngsild is None:
+        ngsild = 'ngsild'
+        edits.append(_declare(text, 'ngsild', NGSILD))
+    variable = _variable_for(term.local)
+    payload = LAYER[term.attribute_kind]
+    said = 'target' if is_relationship(term.attribute_kind) else 'value'
+    items = [_item(f'{ngsild}:{payload} ?{variable}', f'{ngsild}:{payload} ${{1:?{variable}}}',
+                   start, offset, 'snippet', f'the {said} of this {term.attribute_kind}',
+                   sort='0', snippet=True, edits=edits, filter_text=f'{ngsild}:{payload}')]
+    metadata = [('observedAt', '?observedAt', 'when this instance was observed'),
+                ('datasetId', '?datasetId', 'which instance, when there are several')]
+    if term.attribute_kind in VALUE_KINDS:
+        metadata.append(('unitCode', '?unit', 'the unit of the value'))
+    for name, var, doc in metadata:
+        items.append(_item(f'{ngsild}:{name} {var}', f'{ngsild}:{name} ${{1:{var}}}', start,
+                           offset, 'snippet', doc, sort='1', snippet=True, edits=edits,
+                           filter_text=f'{ngsild}:{name}'))
+    for sub_iri in term.subs:
+        sub = terms.terms.get(sub_iri)
+        known = terms.prefix_for(sub_iri)
+        if sub is None or known is None or sub.attribute_kind not in LAYER:
+            continue
+        prefix = next((p for p, n in declared.items() if n == known[1]), known[0])
+        sub_edits = list(edits)
+        if prefix not in declared:
+            sub_edits.append(_declare(text, prefix, known[1]))
+        name = f'{prefix}:{sub.local}'
+        sub_var = _variable_for(sub.local)
+        sub_payload = LAYER[sub.attribute_kind]
+        items.append(_item(
+            f'{name} [ {ngsild}:{sub_payload} ?{sub_var} ]',
+            f'{name} [ {ngsild}:{sub_payload} ${{1:?{sub_var}}} ]', start, offset, 'snippet',
+            f'a sub-attribute of {term.local} ({sub.attribute_kind})', sort='2', snippet=True,
+            edits=sub_edits, filter_text=name))
+    return items
+
+
 def complete(text, offset, terms):
     """[item] for the cursor at `offset`; each item says what it replaces."""
     start, word = _word(text, offset)
@@ -69,6 +150,12 @@ def complete(text, offset, terms):
     before = [t for t in code if t.end <= start]
     declared = declared_prefixes(text)
     items = []
+
+    owner = _owner(code, start, declared, terms)
+    if owner is not None and not word.startswith(('?', '$')):
+        items.extend(_inside(text, start, offset, word, owner[0], declared, terms))
+        if ':' not in word:
+            return items
 
     if before and before[-1].kind == 'name' and before[-1].upper == 'PREFIX':
         for prefix, namespace in sorted(terms.namespaces.items()):
@@ -106,14 +193,13 @@ def complete(text, offset, terms):
                 if ngsild is None:
                     ngsild = 'ngsild'
                     step_edits.append(_declare(text, 'ngsild', NGSILD))
-                variable = term.local[3:4].lower() + term.local[4:] \
-                    if term.local.startswith('has') and len(term.local) > 3 else term.local
+                variable = _variable_for(term.local)
                 layer = LAYER[term.attribute_kind]
                 items.append(_item(
                     f'{name} [ {ngsild}:{layer} ?{variable} ]',
                     f'{name} [ {ngsild}:{layer} ${{1:?{variable}}} ]', start, offset,
                     'snippet', f'{term.attribute_kind}: its '
-                    f'{"target" if "Relationship" in term.attribute_kind else "value"}',
+                    f'{"target" if is_relationship(term.attribute_kind) else "value"}',
                     doc, sort=rank, snippet=True, edits=step_edits, filter_text=name))
         return items
 
@@ -163,6 +249,16 @@ def hover(text, offset, terms):
     if term.comment:
         lines.append(term.comment)
     if term.kind == 'attribute' and term.attribute_kind in LAYER:
-        lines.append(f'Read its {"target" if "Relationship" in term.attribute_kind else "value"}'
-                     f' as `[ ngsild:{LAYER[term.attribute_kind]} ?x ]`')
+        said = 'target' if is_relationship(term.attribute_kind) else 'value'
+        lines.append(f'Read its {said} as `{term.local} [ ngsild:{LAYER[term.attribute_kind]} '
+                     f'?{_variable_for(term.local)} ]` — the object is an attribute instance')
+        if term.subs:
+            lines.append('Sub-attributes: ' + ', '.join(
+                f'`{s.rsplit("/", 1)[-1].rsplit("#", 1)[-1]}`' for s in term.subs))
+        if iri not in terms.compiled:
+            lines.append('⚠ No shape nests its payload: shacl2flink would read it as a plain '
+                         'triple')
+    elif term.kind in ('attribute', 'property'):
+        lines.append(f'A plain property, not an NGSI-LD attribute: its value is the object '
+                     f'itself — `?x {term.local} ?value`')
     return '\n\n'.join(lines)

@@ -25,12 +25,9 @@ from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from .normalise import inverse_predicate, local
 
-NGSILD_VALUE_PATHS = {
-    'https://uri.etsi.org/ngsi-ld/hasValue',
-    'https://uri.etsi.org/ngsi-ld/hasObject',
-    'https://uri.etsi.org/ngsi-ld/hasValueList',
-    'https://uri.etsi.org/ngsi-ld/hasJSON',
-}
+from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
+
+NGSILD_VALUE_PATHS = set(PAYLOAD_PATHS)
 
 # SHACL parameter -> the constraint component pyshacl names in its report.
 # Only parameters that actually produce a result belong here: sh:path and

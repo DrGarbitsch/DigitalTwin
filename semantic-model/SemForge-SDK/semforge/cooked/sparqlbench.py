@@ -297,10 +297,28 @@ def _term(graph, node):
         except Exception:                            # noqa: BLE001
             return str(node)
     if isinstance(node, BNode):
-        return f'_:{str(node)[:8]}'
+        return _instance(graph, node) or f'_:{str(node)[:8]}'
     if isinstance(node, Literal):
         return str(node)
     return '' if node is None else str(node)
+
+
+def _instance(graph, node):
+    """An NGSI-LD attribute instance by what it holds -- `[hasValue 21.5 ·
+    observedAt …]` -- rather than its meaningless blank node id."""
+    from ..ngsild.kinds import NGSILD, PAYLOAD_PATHS
+
+    shown = []
+    for predicate, value in sorted(graph.predicate_objects(node), key=lambda pv: str(pv[0])):
+        name = str(predicate)
+        if name in PAYLOAD_PATHS or name in (NGSILD + 'observedAt', NGSILD + 'datasetId'):
+            text = _term(graph, value) if not isinstance(value, BNode) else '[…]'
+            shown.append(f'{name[len(NGSILD):]} {text}')
+    if not shown:
+        return ''
+    # The payload first, then its metadata.
+    shown.sort(key=lambda part: not part.startswith('has'))
+    return '[' + ' · '.join(shown) + ']'
 
 
 def _message(template, row, focus):

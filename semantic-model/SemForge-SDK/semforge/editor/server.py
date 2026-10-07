@@ -135,6 +135,22 @@ def _publish(ls, uri):
         ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(
             uri=stale, diagnostics=[]))
     _published[root] = now
+    _republish_queries(ls)
+
+
+def _republish_queries(ls):
+    """Open SPARQL query documents are checked against the package's terms
+    and shapes: when the package changed, so may their squiggles -- a quick
+    fix that adds a shape must take the warning it fixed away."""
+    from .sparqldocs import is_query
+
+    try:
+        open_uris = list(ls.workspace.text_documents)
+    except Exception:                              # noqa: BLE001
+        return
+    for uri in open_uris:
+        if is_query(uri):
+            _publish_query(ls, uri)
 
 
 # --- the SPARQL workbench's query documents (semforge-sparql:) ----------------------

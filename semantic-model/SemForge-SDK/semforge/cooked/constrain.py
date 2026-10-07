@@ -43,18 +43,11 @@ from rdflib.namespace import SH, XSD
 from ..errors import PackageError
 from ..rdfio import property_blocks
 from ..validate.normalise import curie, local
-from .choices import (NGSILD, _ancestor_chain, attribute_terms,
-                      classify_classes)
+from .choices import _ancestor_chain, attribute_terms, classify_classes
 
 # The kind decides where the payload hangs, exactly as ngsild.build's
 # PAYLOAD_KEY decides the JSON key.
-PAYLOAD_PATH = {
-    'Property': NGSILD + 'hasValue',
-    'GeoProperty': NGSILD + 'hasValue',
-    'Relationship': NGSILD + 'hasObject',
-    'JsonProperty': NGSILD + 'hasJSON',
-    'ListProperty': NGSILD + 'hasValueList',
-}
+from ..ngsild.kinds import PAYLOAD_PATH  # noqa: E402
 
 
 def _attribute(package, attribute):

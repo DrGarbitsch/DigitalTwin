@@ -1108,6 +1108,46 @@ Relationship — through the SemForge language server:
 - **Write out / Shorten** (the light bulb on a name): `iffBaseEntities:hasState`
   ⇄ `<https://…/base_entities/hasState>`, declaring the prefix when shortening.
 
+**NGSI-LD in a query.** An attribute is two steps in RDF: the entity points at
+an attribute *instance* (a blank node), and the instance holds the payload —
+`$this iffBaseEntities:hasPressure [ ngsild:hasValue ?pressure ]`. The payload
+predicate follows the attribute's kind, declared once, in the knowledge, as
+`rdfs:range ngsild:<Kind>`:
+
+| Kind | payload | Kind | payload |
+|---|---|---|---|
+| Property, GeoProperty | `ngsild:hasValue` | ListProperty | `ngsild:hasValueList` |
+| Relationship | `ngsild:hasObject` | ListRelationship | `ngsild:hasObjectList` |
+| JsonProperty | `ngsild:hasJSON` | LanguageProperty | `ngsild:hasLanguageMap` |
+| VocabProperty | `ngsild:hasVocab` | | |
+
+A property without an NGSI-LD range is a plain property of the knowledge, read
+directly: `?material iffFilterKnowledge:hasWasteclass ?class`.
+
+Every SPARQL constraint must also compile with shacl2flink, and shacl2flink
+reads an attribute only as `attr [ … ]`, and only an attribute a shape nests a
+payload for. Validation reads any form. So the editor refuses nothing; it
+says what a form means and what Flink can compile, each with its rewrite:
+
+| Written | What is wrong | Quick fix |
+|---|---|---|
+| `$this ex:hasPressure ?p . FILTER(?p > 5)` | `?p` is the instance, not the value | `[ ngsild:hasValue ?p ]` |
+| `$this ex:hasState base:state_ON` | the object is always an instance: never matches | `[ ngsild:hasValue base:state_ON ]` |
+| `$this ex:hasPressure ?a . ?a ngsild:hasValue ?p .` | valid, but Flink compiles only `[ … ]` | folded into `[ ngsild:hasValue ?p ]` |
+| `$this ex:hasPressure ?a` (nothing else) | Flink reads it as a plain triple | `[ ]` — the attribute is there |
+| `ex:hasPressure/ngsild:hasValue ?p` | Flink has no property paths | `ex:hasPressure [ ngsild:hasValue ?p ]` |
+| `ex:hasState [ ngsild:hasObject ?s ]` | the wrong payload for the kind | `ngsild:hasValue` |
+| `?m plainProperty [ ngsild:hasValue ?v ]` | a plain property has no instance | `?v` |
+| an attribute no shape nests a payload for | Flink would compile it as a plain triple | **Add a shape so shacl2flink reads it as NGSI-LD** — an optional property shape on the type that carries it (the type's shape is written first when it has none) |
+
+A rule's CONSTRUCT template is checked the same way. Inside an attribute's
+`[ … ]`, completion offers its payload first (`ngsild:hasObject ?filter` for a
+Relationship), then `observedAt`, `datasetId`, `unitCode` (a Property's), and
+the sub-attributes its shape nests, each as its own step. Hover says the form
+an attribute needs, its sub-attributes, and whether Flink knows it. Inspect
+and Apply show an attribute instance by what it holds — `[hasValue 21.5 ·
+observedAt 2024-…]` — instead of a blank node id.
+
 **Remove…** (in the workbench, or next to each query on the shape page)
 takes one SPARQL constraint or rule out of its shape: its whole `[ … ]` and
 the `;` joining it, nothing else — checked by parsing, and refused if the file

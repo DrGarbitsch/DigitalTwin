@@ -291,8 +291,7 @@ ATTRIBUTE_TYPES = (OWL.ObjectProperty, OWL.DatatypeProperty, RDF.Property,
 # The encoding's own predicates. A nested sh:property on one of these is the
 # VALUE of the attribute; a nested sh:property on anything else is a
 # sub-attribute of it.
-PAYLOAD_PATHS = {NGSILD + name for name in
-                 ('hasValue', 'hasObject', 'hasJSON', 'hasValueList')}
+from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
 
 
 def sub_attribute_domains():
