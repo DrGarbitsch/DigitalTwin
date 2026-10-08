@@ -1853,7 +1853,7 @@ def rename_shape_plan_feature(ls, params):
         return {'ok': False, 'error': str(exc)}
 
 
-def _rename_write(ls, params, write):
+def _package_write(ls, params, write):
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'ok': False, 'error': 'not a SemForge package'}
@@ -1872,7 +1872,7 @@ def rename_shape_feature(ls, params):
     """Rename a shape everywhere it is named: .ttl, asserts, residues, suite."""
     from ..cooked.rename import rename_shape
 
-    return _rename_write(ls, params, lambda package: rename_shape(
+    return _package_write(ls, params, lambda package: rename_shape(
         package, _field(params, 'shape', ''), _field(params, 'name', ''),
         suite=bool(_field(params, 'suite', False))))
 
@@ -1882,8 +1882,33 @@ def rename_case_feature(ls, params):
     """Rename a test case's file, and the entries that name it."""
     from ..cooked.rename import rename_case
 
-    return _rename_write(ls, params, lambda package: rename_case(
+    return _package_write(ls, params, lambda package: rename_case(
         package, _field(params, 'case', ''), _field(params, 'name', '')))
+
+
+@server.feature('semforge/deleteShapePlan')
+def delete_shape_plan_feature(ls, params):
+    """What deleting a shape would remove, or why it cannot be deleted."""
+    from ..cooked.shapedelete import delete_plan
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return dict(delete_plan(_package_for(root), _field(params, 'shape', '')), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/deleteShape')
+def delete_shape_feature(ls, params):
+    """Delete a shape; with `asserts`, the asserts naming it; with `cases`,
+    the cases that assert nothing else."""
+    from ..cooked.shapedelete import delete_shape
+
+    return _package_write(ls, params, lambda package: delete_shape(
+        package, _field(params, 'shape', ''), asserts=bool(_field(params, 'asserts', False)),
+        cases=bool(_field(params, 'cases', False))))
 
 
 @server.feature('semforge/renameSuite')
@@ -1891,7 +1916,7 @@ def rename_suite_feature(ls, params):
     """Rename a suite folder, and the includes that reach into it."""
     from ..cooked.rename import rename_suite
 
-    return _rename_write(ls, params, lambda package: rename_suite(
+    return _package_write(ls, params, lambda package: rename_suite(
         package, _field(params, 'suite', ''), _field(params, 'name', '')))
 
 

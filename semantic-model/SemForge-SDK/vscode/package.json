@@ -369,6 +369,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "semforge.deleteShape",
+        "title": "SemForge: Delete…",
+        "icon": "$(trash)"
+      },
+      {
         "command": "semforge.renameTestCase",
         "title": "SemForge: Rename…",
         "icon": "$(edit)"
@@ -851,6 +856,16 @@
           "group": "2_edit@0"
         },
         {
+          "command": "semforge.deleteShape",
+          "when": "view == semforgeShapes && viewItem =~ /^(shape|rule)$/",
+          "group": "2_edit@9"
+        },
+        {
+          "command": "semforge.deleteShape",
+          "when": "view == semforgeConstraints && viewItem =~ /^(shape|rule)$/",
+          "group": "2_edit@9"
+        },
+        {
           "command": "semforge.renameSuite",
           "when": "view == semforgeModel && viewItem == suite",
           "group": "2_edit@0"
@@ -943,6 +958,10 @@
         },
         {
           "command": "semforge.renameShape",
+          "when": "false"
+        },
+        {
+          "command": "semforge.deleteShape",
           "when": "false"
         },
         {

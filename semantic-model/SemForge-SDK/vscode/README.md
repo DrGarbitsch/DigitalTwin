@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Delete… of a shape with its asserts and cases, Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -1418,6 +1418,28 @@ follow; its asserts and residue do not change, since a case's name is not in
 any digest. A **suite** (right-click it) is its folder: nothing inside changes,
 and an `include` elsewhere reaching into it follows. Open editors of moved
 files are reopened where the files went.
+
+**Delete….** A shape is more than its statement: asserts name its
+constraints, a bad case may exist only to make it fire, and residues pinned
+on it name it. **Delete…** (right-click a shape in Shapes or Types, or the
+shape page's `⋯`) says what goes with it and lets you choose:
+
+- **Delete it, its asserts and the cases** — the asserts naming its
+  constraints go, and so do the cases that assert nothing else (with those
+  asserts gone they test nothing); a case file another case `include`s is
+  kept. Its `test_<Shape>` suite goes too when that leaves it without a case.
+- **Delete it and its asserts** — the cases stay, minus those asserts.
+- **Delete it only** — the asserts stay and those cases fail, which is how
+  you find them.
+
+Only the shape's statement leaves the file: it is written only if the shapes
+graph after is the graph before without the shape's own statements (its
+inline property shapes included), exactly. Pinned residues it was part of are
+pinned again where they held. Refused, with the reason: a shape another
+shape reaches through `sh:node` (that reference would point at nothing —
+change it first), and a shape that is also a class. Its page and its
+workbench close. Deployed, its open alerts close for good after the next
+redeploy — the dialog says so.
 
 **Merge into….** Two shapes selecting the same nodes can become one: the shape
 page's **Merge into…** button, `⋯ → Merge … into…` on a row, or right-click a

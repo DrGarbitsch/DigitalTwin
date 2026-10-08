@@ -382,3 +382,17 @@ def test_renames_on_the_wire(wire):
                                      'suite': True})
     assert 'iffBaseShacl:StateOnCutterShape' in wire.read('shacl.ttl')
     assert os.path.isdir(os.path.join(examples, 'test_StateOnCutterShape'))
+
+
+def test_delete_on_the_wire(wire):
+    """Delete… as the extension sends it, on the shape this sweep made --
+    last, since nothing after it may need that shape."""
+    sweep = wire.ok('semforge/shapes', {'detail': 'full'})
+    shape = next(r['shape'] for r in sweep['roots'] if r['label'].endswith('SweepShape'))
+    plan = wire.ok('semforge/deleteShapePlan', {'shape': shape})
+    assert plan['cases'] == []
+    done = wire.ok('semforge/deleteShape', {'shape': shape, 'asserts': True, 'cases': True})
+    assert done['casesRemoved'] == []
+    assert 'SweepShape a sh:NodeShape' not in wire.read('shacl.ttl')
+    again = wire.ask('semforge/deleteShapePlan', {'shape': shape})
+    assert not again['ok'] and 'not a node shape' in again['error']

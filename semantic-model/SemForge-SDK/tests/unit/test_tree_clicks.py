@@ -409,7 +409,7 @@ def test_the_shape_page_menu_keeps_the_rare_actions(tmp_path):
     assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
         '$(go-to-file) Open in .ttl', '$(symbol-class) Open the Pump type page',
         '$(add) + Target', '$(edit) Rename…', '$(git-merge) Merge into…',
-        '$(refresh) Refresh']
+        '$(trash) Delete…', '$(refresh) Refresh']
     assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == 'https://x/Pump'
 
 

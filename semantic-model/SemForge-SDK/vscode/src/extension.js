@@ -34,6 +34,7 @@ const healthPage = require('./healthpage');
 const shapesTree = require('./shapes');
 const shapePages = require('./shapepage');
 const rename = require('./rename');
+const shapeDelete = require('./shapedelete');
 const { showLocation } = require('./reveal');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
@@ -292,6 +293,8 @@ function activate(context) {
   const healthView = healthPage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.
   const shapeViews = shapePages.register(context, clientHolder, session);
+  shapeDelete.register(context, clientHolder, session,
+    { bench: sparqlBench, shape: shapeViews });
 
   // Summary or full trees: switching re-asks every tree at once.
   context.subscriptions.push(

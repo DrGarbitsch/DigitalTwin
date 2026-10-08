@@ -1825,7 +1825,8 @@ def test_remove_this_use_is_not_in_the_palette():
     assert hidden == {'semforge.removeUse', 'semforge.openSource', 'semforge.newAttributeTest',
                       'semforge.mergeShape', 'semforge.removeSparqlQuery',
                       'semforge.nestForFlink', 'semforge.renameShape',
-                      'semforge.renameTestCase', 'semforge.renameSuite'}
+                      'semforge.renameTestCase', 'semforge.renameSuite',
+                      'semforge.deleteShape'}
 
 
 # --- sub-attributes ---------------------------------------------------------------
