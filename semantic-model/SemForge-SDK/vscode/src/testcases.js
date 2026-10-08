@@ -9,6 +9,7 @@
  * opens, where a bad case's firings become asserts with "Assert it".
  */
 
+const path = require('path');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
@@ -189,6 +190,11 @@ async function newTestCase(clientHolder, session, node, newSuite) {
     vscode.window.showErrorMessage(`SemForge: ${made.error}`);
     return false;
   }
+  return announce(made, packageUri);
+}
+
+/** A case just written: shown on its page, and said whether it passes yet. */
+async function announce(made, packageUri) {
   vscode.commands.executeCommand('semforge.refreshModel');
   await vscode.commands.executeCommand('semforge.openCasePage',
     { raw: { kind: 'example', file: made.file }, packageUri });
@@ -197,7 +203,10 @@ async function newTestCase(clientHolder, session, node, newSuite) {
     : made.expect === 'invalid' && made.violations === 0
       ? `SemForge: ${made.case} written. Nothing fires yet: edit its data until it ` +
         'violates, then assert what fires on its case page.'
-      : `SemForge: ${made.case} written; it does not pass yet: ${made.failures.join('; ')}`;
+      : made.expect === 'valid' && made.sourceExpect === 'invalid'
+        ? `SemForge: ${made.case} written. It still violates, as the case it was cloned ` +
+          'from does: edit its data until it conforms.'
+        : `SemForge: ${made.case} written; it does not pass yet: ${made.failures.join('; ')}`;
   const open = await (made.passes ? vscode.window.showInformationMessage(said, 'Open .jsonld')
     : vscode.window.showWarningMessage(said, 'Open .jsonld'));
   if (open) {
@@ -206,13 +215,74 @@ async function newTestCase(clientHolder, session, node, newSuite) {
   return made;
 }
 
+/** What a case expects, from the folder it is in: good/ conforms, bad/ violates. */
+function expectOf(file) {
+  const parts = String(file).split(/[\\/]/);
+  return parts.includes('bad') ? 'invalid' : parts.includes('good') ? 'valid' : '';
+}
+
+/**
+ * Clone… a case: its data, in its suite, expecting the opposite -- a valid
+ * case's invalid twin, to be broken on purpose, or the other way round -- or
+ * the same. The data is copied with its includes written in, so nothing
+ * shared is touched; an opposite clone fails until its data is edited, which
+ * is the point.
+ */
+async function cloneTestCase(clientHolder, session, node) {
+  const client = clientHolder.client;
+  const packageUri = (node && node.packageUri) || session.uri;
+  const file = node && node.raw && node.raw.file;
+  if (!client || !packageUri || !file) {
+    vscode.window.showWarningMessage('SemForge: Clone… works on a test case.');
+    return undefined;
+  }
+  const from = (node.raw.expect || expectOf(file));
+  const stem = path.basename(file).replace(/\.jsonld$/, '');
+  const opposite = from === 'valid' ? 'invalid' : from === 'invalid' ? 'valid' : '';
+  const said = { valid: 'conforms, in good/', invalid: 'violates, in bad/' };
+  const picked = await vscode.window.showQuickPick([
+    { label: '$(arrow-swap) Expect the opposite', expect: 'opposite',
+      description: opposite ? said[opposite] : 'valid ↔ invalid',
+      detail: opposite === 'invalid'
+        ? 'A twin to break on purpose: it fails until its data violates, and you assert what fires.'
+        : opposite === 'valid' ? 'A twin to repair: it fails until its data conforms; its asserts are not copied.'
+          : '' },
+    { label: '$(copy) Expect the same', expect: 'same',
+      description: from ? said[from] : 'the same folder',
+      detail: 'A copy to vary: its asserts and description come along, and it passes as the original does.' }
+  ], { title: `Clone ${stem}` });
+  if (!picked) {
+    return undefined;
+  }
+  const target = picked.expect === 'same' ? from : opposite;
+  const suggested = picked.expect === 'same' || !target ? `${stem}-copy`
+    : `${stem}-${target === 'invalid' ? 'violates' : 'conforms'}`;
+  const name = await vscode.window.showInputBox({
+    title: `Clone ${stem}`, prompt: 'A name for the new file (letters, digits, dashes)',
+    value: suggested, valueSelection: [0, suggested.length],
+    validateInput: (text) => (/[A-Za-z0-9]/.test(text) ? undefined : 'a name is required')
+  });
+  if (!name) {
+    return undefined;
+  }
+  const made = await client.sendRequest('semforge/cloneCase',
+    { uri: packageUri, case: file, expect: picked.expect, name });
+  if (!made.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${made.error}`);
+    return undefined;
+  }
+  return announce(made, packageUri);
+}
+
 function register(context, clientHolder, session) {
   context.subscriptions.push(
     vscode.commands.registerCommand('semforge.newTestCase',
       (node) => newTestCase(clientHolder, session, node)),
     // A suite is a folder with cases in it, so it is made with its first one.
     vscode.commands.registerCommand('semforge.newSuite',
-      (node) => newTestCase(clientHolder, session, node, true)));
+      (node) => newTestCase(clientHolder, session, node, true)),
+    vscode.commands.registerCommand('semforge.cloneTestCase',
+      (node) => cloneTestCase(clientHolder, session, node)));
 }
 
-module.exports = { register, newTestCase, suiteName };
+module.exports = { register, newTestCase, suiteName, cloneTestCase, expectOf };

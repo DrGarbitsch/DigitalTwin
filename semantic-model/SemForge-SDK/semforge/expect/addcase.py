@@ -192,3 +192,81 @@ def add_test_case(package, suite, expect, start, source='', name='', description
     return {'file': path, 'case': case, 'expect': expect,
             'violations': len(report.violations), 'passes': outcome.passed,
             'failures': list(outcome.failures)}
+
+
+OPPOSITE = {'valid': 'invalid', 'invalid': 'valid'}
+
+
+def clone_case(package, case, expect='opposite', name=''):
+    """A copy of a declared case, in the same suite, expecting `expect`:
+    'opposite' (a valid case's invalid twin, or the other way round), 'same',
+    or 'valid' / 'invalid' outright.
+
+    The data is copied as "A copy of a case" copies it -- includes written in,
+    so nothing shared is touched. An opposite clone starts from data that does
+    the opposite of what it now claims: it fails until its data is edited, and
+    says so in its description. Its asserts are not copied (a valid case has
+    none; an invalid one's would be wrong for a valid twin). A same clone
+    keeps the asserts and the description and passes as the original does.
+    """
+    root = examples_root(package.path)
+    case = str(case or '')
+    if os.path.isabs(case):                        # a tree row knows its file
+        case = os.path.relpath(case, root)
+    case = case.replace('\\', '/')
+    example = next((e for e in load_expectations(package.path).examples if e.path == case), None)
+    if example is None:
+        raise PackageError(f'{case} is not a declared test case')
+    if not example.suite:
+        raise PackageError(f'{case} is in no suite (a folder holding good/ and bad/), so there '
+                           'is nowhere for its clone to go')
+    target = OPPOSITE[example.expect] if expect == 'opposite' else \
+        example.expect if expect == 'same' else expect
+    if target not in OPPOSITE:
+        raise PackageError(f'a clone either conforms or violates, not {expect!r}')
+    stem = os.path.basename(case)[:-len('.jsonld')] if case.endswith('.jsonld') \
+        else os.path.basename(case)
+    name = name or (f'{stem}-copy' if target == example.expect else
+                    f'{stem}-{"violates" if target == "invalid" else "conforms"}')
+    if target == example.expect:
+        description = example.description or f'A copy of {case}.'
+    elif target == 'invalid':
+        description = (f'Cloned from {case}, which conforms. It fails until its data is '
+                       'edited to break what it should show, and that is asserted.')
+    else:
+        description = (f'Cloned from {case}, which violates. It fails until its data is '
+                       'edited so it conforms.')
+    made = add_test_case(package, example.suite, target, 'copy', source=case, name=name,
+                         description=description)
+
+    copied = 0
+    if target == example.expect and example.asserts:
+        directory = os.path.dirname(made['file'])
+        source = os.path.join(directory, EXPECTATIONS)
+        with open(source, encoding='utf-8') as handle:
+            raw = _yaml().load(handle) or {}
+        entry = next(e for e in raw.get('examples') or []
+                     if os.path.normpath(os.path.join(directory, e.get('path', ''))) ==
+                     os.path.normpath(made['file']))
+        entry['asserts'] = [dict(a) for a in example.asserts]
+        copied = len(example.asserts)
+        with open(source, 'w', encoding='utf-8') as handle:
+            _yaml().dump(raw, handle)
+        made = dict(made, **_outcome(package, made['case']))
+    return dict(made, source=case, sourceExpect=example.expect, asserts=copied)
+
+
+def _outcome(package, case):
+    """Whether a declared case passes now, as `semforge test` says."""
+    from ..package import load
+    from ..sanity import known_constraints
+    from ..validate.orchestrator import validate_graphs
+    from .runner import run_tests
+
+    fresh = load(package.path)
+    example = next(e for e in load_expectations(fresh.path).examples if e.path == case)
+    report = validate_graphs(compose(fresh, example), fresh.shapes, fresh.knowledge,
+                             strict=False)
+    outcome = run_tests([(example, report)], known_constraints(fresh))[0]
+    return {'violations': len(report.violations), 'passes': outcome.passed,
+            'failures': list(outcome.failures)}

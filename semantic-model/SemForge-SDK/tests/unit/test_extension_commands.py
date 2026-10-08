@@ -1895,7 +1895,7 @@ def test_remove_this_use_is_not_in_the_palette():
                       'semforge.mergeShape', 'semforge.removeSparqlQuery',
                       'semforge.nestForFlink', 'semforge.renameShape',
                       'semforge.renameTestCase', 'semforge.renameSuite',
-                      'semforge.deleteShape'}
+                      'semforge.deleteShape', 'semforge.cloneTestCase'}
 
 
 # --- sub-attributes ---------------------------------------------------------------

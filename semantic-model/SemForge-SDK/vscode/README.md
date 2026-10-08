@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Clone… of a case into its twin, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -966,6 +966,25 @@ nothing fires the message says so. A `.jsonld` already under `examples/` that
 no expectations file declares — a file nobody runs — is offered too
 (**Declare a file under examples/ that nothing runs**) and is declared where
 it is.
+
+**Clone… — a case's twin.** The usual way to a bad case is the same scene
+with one thing broken; the usual way to a good one, a bad case repaired.
+Right-click a case in Instances (or the case page's `⋯`) → **Clone…** asks one
+thing — **Expect the opposite** (a `good/` case's twin goes to `bad/`, a `bad/`
+case's to `good/`) or **Expect the same** — and a name (`filter-on-violates`,
+`filter-off-conforms`, `…-copy`). The clone stays in the case's suite, its data
+copied with its includes written in (editing it never changes a shared
+subobject), and its case page opens.
+
+- **valid → invalid**: identical data violates nothing yet, so the twin
+  fails — *"Nothing fires yet: edit its data until it violates, then assert
+  what fires on its case page."* Break it, and **Assert it** on what fires.
+- **invalid → valid**: the asserts are not copied (they would be wrong); the
+  twin fails until its data conforms.
+- **the same**: asserts and description come along, and it passes as the
+  original does — a copy to vary.
+
+Its description says where it came from and what it is waiting for.
 
 **New test… for an attribute.** A new attribute needs cases that prove its
 constraints work. Right-click it in the Types view (**SemForge: New test for

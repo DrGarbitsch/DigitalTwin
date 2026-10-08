@@ -1684,6 +1684,25 @@ def add_test_case_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/cloneCase')
+def clone_case_feature(ls, params):
+    """A copy of a case in its suite -- expecting the opposite, or the same --
+    then run once."""
+    from ..expect.addcase import clone_case
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = clone_case(_package_for(root), _field(params, 'case', ''),
+                          _field(params, 'expect', 'opposite'),
+                          str(_field(params, 'name', '') or ''))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    return dict(made, ok=True)
+
+
 @server.feature('semforge/modelPage')
 def model_page_feature(ls, params):
     """The model data as cards, each entity with its violations; edited like

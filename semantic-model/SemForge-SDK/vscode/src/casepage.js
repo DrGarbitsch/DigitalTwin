@@ -207,7 +207,7 @@ ${(page.failures || []).length
 <div class="bar">
   ${model ? `<button data-open="${escape(page.file)}:1">Open the model file</button>
   <button data-refresh="1">Refresh</button>`
-    : '<button data-pagemenu="1" title="Open the case file, its expectations, Rename…, Refresh">⋯</button>'}
+    : '<button data-pagemenu="1" title="Open the case file, its expectations, Clone…, Rename…, Refresh">⋯</button>'}
 </div>
 
 ${model ? '' : `<h2>Claims</h2>
@@ -366,12 +366,19 @@ class CasePages {
         items.push({ label: '$(list-unordered) Open its expectations',
           message: { command: 'open', at: `${page.expectations}:1` } });
       }
-      items.push({ label: '$(edit) Rename…', message: { command: 'rename' } },
+      items.push({ label: '$(copy) Clone…', description: 'valid ↔ invalid, or the same',
+        message: { command: 'clone' } },
+      { label: '$(edit) Rename…', message: { command: 'rename' } },
         { label: '$(refresh) Refresh', message: { command: 'refresh' } });
       const picked = await vscode.window.showQuickPick(items, { title: page.name });
       if (picked) {
         await this.receive(picked.message);
       }
+    } else if (message.command === 'clone' && this.page) {
+      // On success the clone's page replaces this one.
+      await vscode.commands.executeCommand('semforge.cloneTestCase',
+        { raw: { kind: 'example', file: this.page.file, expect: this.page.expect },
+          packageUri: this.current.packageUri });
     } else if (message.command === 'rename' && this.page) {
       // On success the case page reopens on the renamed file.
       await vscode.commands.executeCommand('semforge.renameTestCase',

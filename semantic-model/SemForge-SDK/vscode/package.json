@@ -379,6 +379,11 @@
         "icon": "$(edit)"
       },
       {
+        "command": "semforge.cloneTestCase",
+        "title": "SemForge: Clone…",
+        "icon": "$(copy)"
+      },
+      {
         "command": "semforge.renameSuite",
         "title": "SemForge: Rename…",
         "icon": "$(edit)"
@@ -874,6 +879,11 @@
           "command": "semforge.renameTestCase",
           "when": "view == semforgeModel && viewItem == example",
           "group": "2_edit@0"
+        },
+        {
+          "command": "semforge.cloneTestCase",
+          "when": "view == semforgeModel && viewItem == example",
+          "group": "1_add@0"
         }
       ],
       "semforge.project": [
@@ -966,6 +976,10 @@
         },
         {
           "command": "semforge.renameTestCase",
+          "when": "false"
+        },
+        {
+          "command": "semforge.cloneTestCase",
           "when": "false"
         },
         {
