@@ -1684,6 +1684,27 @@ def add_test_case_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/removeCaseValue')
+def remove_case_value_feature(ls, params):
+    """Remove an attribute -- or one instance, observation or metadata key of
+    it -- from an entity in a case or the model."""
+    from ..cooked.examples import remove_value
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        done = remove_value(_package_for(root), _field(params, 'entity', ''),
+                            list(_field(params, 'path', []) or []),
+                            _field(params, 'file', '') or None,
+                            _field(params, 'dataset', None))
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+    _packages.pop(root, None)
+    _publish(ls, _path_to_uri(done['file']))
+    return dict(done, ok=True)
+
+
 @server.feature('semforge/deleteCasePlan')
 def delete_case_plan_feature(ls, params):
     """What deleting a case (or a whole suite) removes, and the evidence it costs."""

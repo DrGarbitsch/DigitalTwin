@@ -394,6 +394,32 @@ class ModelTreeProvider {
  * reach: "a cutter running with its filter off" and "with it on" share the same
  * workpiece, so changing the workpiece changes both verdicts.
  */
+/**
+ * What Remove… on a row takes out, as the server's address: the whole
+ * attribute (an attribute row), the instances of one datasetId (a dataset
+ * row), one observation (an instance row in a series), or one metadata key.
+ */
+function removalOf(raw) {
+  const name = (steps) => String([...steps].reverse().find((s) => typeof s === 'string') || '')
+    .split(/[/#:]/).pop();
+  const attributePath = raw.attributePath || [];
+  if (raw.kind === 'attribute' && attributePath.length) {
+    return { path: attributePath, what: name(attributePath) };
+  }
+  if (raw.kind === 'dataset' && attributePath.length) {
+    return { path: attributePath, dataset: raw.datasetId,
+      what: `${name(attributePath)} (${raw.datasetId})` };
+  }
+  const path = raw.path || [];
+  if (raw.kind === 'instance' && path.length >= 3) {
+    return { path, what: `this observation of ${name(path.slice(0, -2))}` };
+  }
+  if (raw.kind === 'meta' && path.length) {
+    return { path, what: `${raw.label} of ${name(path.slice(0, -2))}` };
+  }
+  return undefined;
+}
+
 async function confirmShared(raw, what) {
   const cases = raw.sharedBy || [];
   if (cases.length < 2) {
@@ -985,6 +1011,41 @@ function register(context, clientHolder, session, onChanged) {
       }
     }),
 
+    vscode.commands.registerCommand('semforge.removeCaseValue', async (node) => {
+      const raw = node && node.raw;
+      const target = raw && removalOf(raw);
+      if (!target || !clientHolder.client) {
+        vscode.window.showWarningMessage('SemForge: Remove… works on an attribute of an entity.');
+        return undefined;
+      }
+      const cases = raw.sharedBy || [];
+      const answer = await vscode.window.showWarningMessage(
+        `Remove ${target.what} from ${raw.entity}?`,
+        { modal: true, detail: [
+          cases.length > 1 ? `This file is included by ${cases.length} cases — all of them ` +
+            `change:\n${cases.join('\n')}` : '',
+          'A shape that requires it reports it missing — in a bad case, that can be the point.'
+        ].filter(Boolean).join('\n\n') },
+        'Remove');
+      if (answer !== 'Remove') {
+        return undefined;
+      }
+      const result = await clientHolder.client.sendRequest('semforge/removeCaseValue', {
+        uri: node.packageUri, entity: raw.entity, path: target.path, file: raw.file,
+        dataset: target.dataset });
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return undefined;
+      }
+      vscode.window.setStatusBarMessage(`SemForge: ${result.removed} removed from ${raw.entity}`,
+        5000);
+      provider.refresh();
+      if (onChanged) {
+        onChanged();
+      }
+      return result;
+    }),
+
     vscode.commands.registerCommand('semforge.goToShape', async (node) => {
       const raw = node && node.raw;
       const attribute = raw && attributeOf(raw);
@@ -1241,4 +1302,4 @@ function register(context, clientHolder, session, onChanged) {
   return provider;
 }
 
-module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND, declareAttribute };
+module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND, declareAttribute, removalOf };

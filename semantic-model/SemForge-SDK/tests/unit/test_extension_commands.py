@@ -1896,7 +1896,8 @@ def test_remove_this_use_is_not_in_the_palette():
                       'semforge.nestForFlink', 'semforge.renameShape',
                       'semforge.renameTestCase', 'semforge.renameSuite',
                       'semforge.deleteShape', 'semforge.cloneTestCase',
-                      'semforge.deleteTestCase', 'semforge.deleteSuite'}
+                      'semforge.deleteTestCase', 'semforge.deleteSuite',
+                      'semforge.removeCaseValue'}
 
 
 # --- sub-attributes ---------------------------------------------------------------

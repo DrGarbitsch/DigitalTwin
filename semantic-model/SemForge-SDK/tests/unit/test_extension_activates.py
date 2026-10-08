@@ -41,7 +41,7 @@ EXPECTED = {
     'semforge.newShape', 'semforge.newTestCase', 'semforge.mergeShape',
     'semforge.renameShape', 'semforge.renameTestCase', 'semforge.renameSuite',
     'semforge.deleteShape', 'semforge.cloneTestCase', 'semforge.deleteTestCase',
-    'semforge.deleteSuite',
+    'semforge.deleteSuite', 'semforge.removeCaseValue',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',

@@ -760,6 +760,74 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     return source, len(cursor[key])
 
 
+def remove_value(package, entity_id, path, file=None, dataset=None):
+    """Remove what a row of a case stands for, from the file it was read from.
+
+    `path` is the row's address. An attribute's own path (`[hasState]`, or
+    `[hasFilter, 0, hasTrust]` for a sub-attribute) removes the whole
+    attribute; with `dataset`, only its instances with that datasetId; a
+    path ending in the value key (`[hasState, 2, value]`) removes that one
+    observation; one ending in a metadata key (`observedAt`, `unitCode`, ...)
+    removes that key. An attribute left with no instance goes entirely.
+
+    Returns {'file', 'removed'}: where, and what in words.
+    """
+    source = _target_file(package, file)
+    with open(source, encoding='utf-8') as handle:
+        text = handle.read()
+    document = json.loads(text, object_pairs_hook=OrderedDict)
+    if not isinstance(document, list):
+        document = [document]
+    path = list(path)
+    if not path:
+        raise PackageError('nothing to remove: the row has no address')
+
+    def short(key):
+        return str(key).rsplit('/', 1)[-1].rsplit('#', 1)[-1].split(':')[-1]
+
+    if path[-1] in VALUE_KEYS and len(path) >= 3 and isinstance(path[-2], int):
+        # One observation of a series: its instance goes from the array.
+        holder, key = _locate(document, entity_id, path[:-2])
+        instances = holder.get(key) if isinstance(holder, dict) else None
+        if instances is None:
+            raise PackageError(f'{entity_id} has no {short(key)} any more')
+        index = path[-2]
+        if isinstance(instances, list):
+            if not 0 <= index < len(instances):
+                raise PackageError(f'{entity_id}: {short(key)} has no observation {index}')
+            del instances[index]
+            if len(instances) == 0:
+                del holder[key]
+        else:
+            del holder[key]
+        removed = f'an observation of {short(key)}'
+    elif dataset is not None:
+        holder, key = _locate(document, entity_id, path)
+        if key not in holder:
+            raise PackageError(f'{entity_id} has no {short(key)} any more')
+        value = holder[key]
+        instances = value if isinstance(value, list) else [value]
+        keep = [i for i in instances if _dataset_of(i) != str(dataset)]
+        if len(keep) == len(instances):
+            raise PackageError(f'{entity_id}: {short(key)} has no instance with datasetId {dataset}')
+        if keep:
+            holder[key] = keep if len(keep) > 1 or isinstance(value, list) else keep[0]
+        else:
+            del holder[key]
+        removed = f'{short(key)} ({dataset})'
+    else:
+        holder, key = _locate(document, entity_id, path)
+        if not isinstance(holder, dict) or key not in holder:
+            raise PackageError(f'{entity_id} has no {short(key)} any more')
+        if key in RESERVED and key not in META_KEYS:
+            raise PackageError(f'{key} is what makes it an entity or an attribute; it is '
+                               'not removed on its own')
+        del holder[key]
+        removed = short(key)
+    _write(source, document, text)
+    return {'file': source, 'removed': removed}
+
+
 def _write(source, document, text):
     rendered = json.dumps(document, indent=2, ensure_ascii=False)
     if text.endswith('\n'):

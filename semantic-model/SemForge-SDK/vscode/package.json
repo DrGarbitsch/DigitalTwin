@@ -394,6 +394,11 @@
         "icon": "$(trash)"
       },
       {
+        "command": "semforge.removeCaseValue",
+        "title": "SemForge: Remove…",
+        "icon": "$(trash)"
+      },
+      {
         "command": "semforge.renameSuite",
         "title": "SemForge: Rename…",
         "icon": "$(edit)"
@@ -904,6 +909,11 @@
           "command": "semforge.deleteSuite",
           "when": "view == semforgeModel && viewItem == suite",
           "group": "2_edit@9"
+        },
+        {
+          "command": "semforge.removeCaseValue",
+          "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/",
+          "group": "2_edit@9"
         }
       ],
       "semforge.project": [
@@ -1008,6 +1018,10 @@
         },
         {
           "command": "semforge.deleteSuite",
+          "when": "false"
+        },
+        {
+          "command": "semforge.removeCaseValue",
           "when": "false"
         },
         {

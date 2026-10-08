@@ -441,6 +441,18 @@ class CasePages {
       }
       items.push({ label: '$(go-to-file) Open in .jsonld',
         run: () => showLocation(`${card ? card.file : file.path}:${row.line || 1}`, true) });
+      // Taking it out: the whole attribute, or -- when the row is one of
+      // several datasetIds -- just that instance.
+      if (row.node && row.node.kind === 'dataset') {
+        items.push({ label: '$(trash) Remove this instance',
+          description: row.node.datasetId,
+          run: () => run('semforge.removeCaseValue', row.node) });
+      }
+      if (row.attributeNode) {
+        items.push({ label: `$(trash) Remove ${row.name}…`,
+          description: 'from this entity',
+          run: () => run('semforge.removeCaseValue', row.attributeNode) });
+      }
       const picked = await vscode.window.showQuickPick(items,
         { title: `${row.name} on ${card ? card.id : ''}` });
       if (!picked) {
