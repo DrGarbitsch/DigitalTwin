@@ -384,6 +384,16 @@
         "icon": "$(copy)"
       },
       {
+        "command": "semforge.deleteTestCase",
+        "title": "SemForge: Delete…",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "semforge.deleteSuite",
+        "title": "SemForge: Delete…",
+        "icon": "$(trash)"
+      },
+      {
         "command": "semforge.renameSuite",
         "title": "SemForge: Rename…",
         "icon": "$(edit)"
@@ -884,6 +894,16 @@
           "command": "semforge.cloneTestCase",
           "when": "view == semforgeModel && viewItem == example",
           "group": "1_add@0"
+        },
+        {
+          "command": "semforge.deleteTestCase",
+          "when": "view == semforgeModel && viewItem == example",
+          "group": "2_edit@9"
+        },
+        {
+          "command": "semforge.deleteSuite",
+          "when": "view == semforgeModel && viewItem == suite",
+          "group": "2_edit@9"
         }
       ],
       "semforge.project": [
@@ -980,6 +1000,14 @@
         },
         {
           "command": "semforge.cloneTestCase",
+          "when": "false"
+        },
+        {
+          "command": "semforge.deleteTestCase",
+          "when": "false"
+        },
+        {
+          "command": "semforge.deleteSuite",
           "when": "false"
         },
         {

@@ -207,7 +207,7 @@ ${(page.failures || []).length
 <div class="bar">
   ${model ? `<button data-open="${escape(page.file)}:1">Open the model file</button>
   <button data-refresh="1">Refresh</button>`
-    : '<button data-pagemenu="1" title="Open the case file, its expectations, Clone…, Rename…, Refresh">⋯</button>'}
+    : '<button data-pagemenu="1" title="Open the case file, its expectations, Clone…, Rename…, Delete…, Refresh">⋯</button>'}
 </div>
 
 ${model ? '' : `<h2>Claims</h2>
@@ -369,11 +369,16 @@ class CasePages {
       items.push({ label: '$(copy) Clone…', description: 'valid ↔ invalid, or the same',
         message: { command: 'clone' } },
       { label: '$(edit) Rename…', message: { command: 'rename' } },
+      { label: '$(trash) Delete…', message: { command: 'delete' } },
         { label: '$(refresh) Refresh', message: { command: 'refresh' } });
       const picked = await vscode.window.showQuickPick(items, { title: page.name });
       if (picked) {
         await this.receive(picked.message);
       }
+    } else if (message.command === 'delete' && this.page) {
+      // On success this page closes: its case is gone.
+      await vscode.commands.executeCommand('semforge.deleteTestCase',
+        { raw: { kind: 'example', file: this.page.file }, packageUri: this.current.packageUri });
     } else if (message.command === 'clone' && this.page) {
       // On success the clone's page replaces this one.
       await vscode.commands.executeCommand('semforge.cloneTestCase',

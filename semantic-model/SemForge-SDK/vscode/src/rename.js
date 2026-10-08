@@ -299,4 +299,4 @@ function register(context, clientHolder, session, bench) {
 }
 
 module.exports = { register, renameShape, renameCase, renameSuite, validName, offerFollow,
-  RENAME_PROVIDER };
+  RENAME_PROVIDER, closeTabs, refreshViews };

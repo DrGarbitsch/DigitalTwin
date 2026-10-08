@@ -1684,6 +1684,30 @@ def add_test_case_feature(ls, params):
     return dict(made, ok=True)
 
 
+@server.feature('semforge/deleteCasePlan')
+def delete_case_plan_feature(ls, params):
+    """What deleting a case (or a whole suite) removes, and the evidence it costs."""
+    from ..expect.deletecase import delete_plan
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        return dict(delete_plan(_package_for(root), _field(params, 'case', ''),
+                                _field(params, 'suite', '')), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/deleteCase')
+def delete_case_feature(ls, params):
+    """Delete a case (its file and its entry), or a whole suite."""
+    from ..expect.deletecase import delete_cases
+
+    return _package_write(ls, params, lambda package: delete_cases(
+        package, _field(params, 'case', ''), _field(params, 'suite', '')))
+
+
 @server.feature('semforge/cloneCase')
 def clone_case_feature(ls, params):
     """A copy of a case in its suite -- expecting the opposite, or the same --

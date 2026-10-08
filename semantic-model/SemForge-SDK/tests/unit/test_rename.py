@@ -401,7 +401,7 @@ def test_the_case_page_menu_offers_rename(tmp_path):
     assert 'data-pagemenu="1"' in html and 'Open the case file</button>' not in html
     assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
         '$(go-to-file) Open the case file', '$(list-unordered) Open its expectations',
-        '$(copy) Clone…', '$(edit) Rename…', '$(refresh) Refresh']
+        '$(copy) Clone…', '$(edit) Rename…', '$(trash) Delete…', '$(refresh) Refresh']
     asked = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.renameTestCase']
     assert asked[0][0]['raw']['file'] == page['file']
 
