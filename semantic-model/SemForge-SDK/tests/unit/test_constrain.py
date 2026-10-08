@@ -63,12 +63,19 @@ def test_options_say_why_an_attribute_cannot_be_added(kms):
     assert options['hasState']['by'].endswith('MachineShape')
 
 
-def test_options_hold_only_what_the_knowledge_gives_the_type(kms):
-    labels = {o['label'] for o in attribute_options(kms, WORKPIECE)}
-    assert 'hasHeight' in labels
-    assert 'hasStrength' not in labels, 'a Filter attribute offered on Workpiece'
-    assert 'hasTrust' not in labels, 'a sub-attribute offered on an entity'
-    assert 'bindsFirmware' not in labels, 'an ontology relation offered'
+def test_options_say_which_attributes_belong_to_other_types(kms):
+    """An attribute the knowledge gives another type is offered, marked: adding
+    it gives it to this type too. Sub-attributes and ontology relations are
+    never attributes of an entity."""
+    options = {o['label']: o for o in attribute_options(kms, WORKPIECE)}
+    assert options['hasStrength']['status'] == 'elsewhere'
+    assert options['hasStrength']['by'] == 'Filter'
+    assert 'hasTrust' not in options, 'a sub-attribute offered on an entity'
+    assert 'bindsFirmware' not in options, 'an ontology relation offered'
+    # Free first, then the other types' (adding one asks), then the rest.
+    rank = {'free': 0, 'elsewhere': 1}
+    order = [rank.get(o['status'], 2) for o in attribute_options(kms, WORKPIECE)]
+    assert order == sorted(order)
 
 
 def test_free_options_come_first(kms):

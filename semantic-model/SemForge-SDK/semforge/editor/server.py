@@ -1392,9 +1392,13 @@ def add_attribute_constraint_feature(ls, params):
             package, shape, _field(params, 'attribute'),
             required=bool(_field(params, 'required', False)),
             datatype=_field(params, 'datatype') or None,
-            value_class=_field(params, 'valueClass') or None)
+            value_class=_field(params, 'valueClass') or None,
+            extend_domain=bool(_field(params, 'extendDomain', False)))
         _packages.pop(root, None)                  # the file changed underneath
         _publish(ls, _path_to_uri(made['file']))
+        if made.get('domainAdded'):
+            for path in _package_for(root).files('knowledge'):
+                _publish(ls, _path_to_uri(path))
         return dict(made, ok=True, uri=_path_to_uri(made['file']))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}

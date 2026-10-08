@@ -660,8 +660,10 @@ def _attributes_group(package, context):
             continue                        # shown under its parent
         if not entry.ngsild:
             relations.append(entry)
-        elif entry.domain and not entry.carrier_kind:
-            carriers.setdefault(entry.domain, []).append(entry)
+        elif entry.domains and not entry.carrier_kind:
+            # Shared by several types (an owl:unionOf): listed under each.
+            for domain in entry.domains:
+                carriers.setdefault(domain, []).append(entry)
         elif entry.carrier_kind:
             carriers.setdefault(f'any {entry.carrier_kind}', []).append(entry)
         else:
@@ -1009,8 +1011,15 @@ def add_attribute_term(package, name, kind, domain, label='', namespace=None):
     space = _resolve_namespace(package, namespace) if namespace \
         else _namespace_of(home)
     iri = URIRef(space + local_name)
-    if any(entry.iri == str(iri) for entry in attribute_terms(package)):
-        raise PackageError(f'{local_name} is already declared')
+    existing = next((entry for entry in attribute_terms(package)
+                     if entry.iri == str(iri)), None)
+    if existing is not None:
+        raise PackageError(
+            f'{local_name} is already declared' +
+            (f', for {" or ".join(local(d) for d in existing.domain_iris)}. To give it '
+             f'to another type, pick it in + Attribute under "Declared for other types": '
+             f'its domain is extended to include that type'
+             if existing.domain_iris else ''))
 
     index = package.index('knowledge')
     path = index.file_for(URIRef(home)) or package.sources['knowledge']
@@ -1040,3 +1049,150 @@ def add_attribute_term(package, name, kind, domain, label='', namespace=None):
             'domain': carrier.term if carrier is not None else
                       (parent.term if parent is not None else ''),
             'file': path, 'line': len(text.splitlines()) + 2}
+
+
+# --- sharing an attribute with another type ------------------------------------------
+
+def _entry_end(text, i):
+    """Where the predicate-object entry starting at `i` ends: the index of
+    the ';' or '.' that closes it, outside strings, comments and brackets."""
+    from ..rdfio.turtle_index import _skip_string
+
+    depth = 0
+    while i < len(text):
+        char = text[i]
+        if char in '"\'':
+            i = _skip_string(text, i)
+            continue
+        if char == '#':
+            while i < len(text) and text[i] != '\n':
+                i += 1
+            continue
+        if char == '<' and depth >= 0 and re.match(r'<[^>\s]*>', text[i:]):
+            i += len(re.match(r'<[^>\s]*>', text[i:]).group(0))
+            continue
+        if char in '[(':
+            depth += 1
+        elif char in '])':
+            depth -= 1
+        elif depth == 0 and char == ';':
+            return i
+        elif depth == 0 and char == '.' and not re.match(r'\.[0-9]', text[i:]) and \
+                (i + 1 >= len(text) or text[i + 1] in ' \t\r\n#'):
+            return i
+        i += 1
+    return len(text)
+
+
+def _domain_entry(text, classes):
+    names = [_turtle_name(text, URIRef(c)) for c in classes]
+    if len(names) == 1:
+        return f'{_turtle_name(text, RDFS.domain)} {names[0]}'
+    return (f'{_turtle_name(text, RDFS.domain)} [ a {_turtle_name(text, OWL.Class)} ;\n'
+            f'        {_turtle_name(text, OWL.unionOf)} ( {" ".join(names)} ) ]')
+
+
+def extend_domain(package, attribute, classes):
+    """Give `attribute` to `classes` too: its rdfs:domain becomes the union.
+
+    `rdfs:domain A , B` would say every carrier is an A AND a B -- a reasoner
+    infers both, and with A and B disjoint the knowledge is inconsistent. The
+    union says what is meant: an A or a B. Whatever form the domain had (one
+    class, several triples, a union already), it is rewritten as one entry in
+    the attribute's own statement; nothing else in the file moves, and it is
+    written only if the file's graph after is the graph before with exactly
+    that domain replaced.
+
+    Returns {'file', 'domains': [IRIs], 'added': [IRIs]} -- `added` empty when
+    every class already had it.
+    """
+    from rdflib import BNode, Graph
+    from rdflib.collection import Collection
+    from rdflib.compare import isomorphic
+
+    from ..rdfio.turtle_index import TurtleIndex, terms
+    from .choices import domains_of
+
+    iri = URIRef(attribute)
+    current = domains_of(package.knowledge, iri)
+    added = [URIRef(c) for c in classes if URIRef(c) not in current]
+    path = package.index('knowledge').file_for(iri)
+    if path is None:
+        raise PackageError(f'{local(iri)} is not declared in any knowledge file')
+    if not added:
+        return {'file': path, 'domains': [str(d) for d in current], 'added': []}
+    wanted = current + added
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    block = TurtleIndex(text).block_for(str(iri))
+    if block is None:
+        raise PackageError(f'{local(iri)} is not a statement of its own in {path}')
+
+    # The rdfs:domain entries of this statement, as (start, end-of-entry).
+    spans = []
+    for term in terms(text):
+        if term.quoted or not (block.start <= term.start < block.end) or \
+                term.iri != str(RDFS.domain):
+            continue
+        spans.append((term.start, _entry_end(text, term.start)))
+    entry = _domain_entry(text, wanted)
+    if spans:
+        out, at = [], 0
+        for number, (start, end) in enumerate(spans):
+            if number == 0:
+                out.append(text[at:start])
+                out.append(entry)
+                at = end
+                while at > start and text[at - 1] in ' \t\r\n':
+                    at -= 1                        # the space before ';' stays
+                continue
+            if text[end] == ';':                   # drop the entry and its ';'
+                cut = end + 1
+                while cut < len(text) and text[cut] in ' \t\r\n':
+                    cut += 1
+                out.append(text[at:start])
+                at = cut
+            else:                                  # the last one: drop the ';' before it
+                before = text.rfind(';', at, start)
+                out.append(text[at:before])
+                at = end
+        out.append(text[at:])
+        updated = ''.join(out)
+    else:
+        close = _entry_end(text, block.start)
+        while text[close] == ';':
+            close = _entry_end(text, close + 1)
+        updated = text[:close].rstrip() + f' ;\n    {entry} ' + text[close:]
+
+    # The file's graph after is the one before, its domain replaced -- nothing more.
+    before, after = Graph(), Graph()
+    before.parse(data=text, format='turtle')
+    after.parse(data=updated, format='turtle')
+    expected = Graph()
+    old = set()
+    todo = [d for d in before.objects(iri, RDFS.domain) if isinstance(d, BNode)]
+    while todo:
+        node = todo.pop()
+        if node in old:
+            continue
+        old.add(node)
+        todo.extend(o for o in before.objects(node, None) if isinstance(o, BNode))
+    for triple in before:
+        if (triple[0] == iri and triple[1] == RDFS.domain) or triple[0] in old:
+            continue
+        expected.add(triple)
+    if len(wanted) == 1:
+        expected.add((iri, RDFS.domain, wanted[0]))
+    else:
+        union, members = BNode(), BNode()
+        expected.add((iri, RDFS.domain, union))
+        expected.add((union, RDF.type, OWL.Class))
+        expected.add((union, OWL.unionOf, members))
+        Collection(expected, members, list(wanted))
+    if not isomorphic(expected, after):
+        raise PackageError(f'giving {local(iri)} to {", ".join(local(c) for c in added)} '
+                           'would change more than its domain; nothing written')
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(updated)
+    return {'file': path, 'domains': [str(d) for d in wanted],
+            'added': [str(c) for c in added]}

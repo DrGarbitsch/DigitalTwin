@@ -200,12 +200,14 @@ def build_vocabulary_page(package, cls):
 
     constrained = _constrained_by(package, cls, values)
     relations = []
-    for prop in sorted(set(graph.subjects(RDFS.domain, cls)) |
-                       set(graph.subjects(RDFS.range, cls)), key=str):
-        domain = graph.value(prop, RDFS.domain)
+    from .choices import domains_of
+
+    shared = {s for s in graph.subjects(RDFS.domain, None) if cls in domains_of(graph, s)}
+    for prop in sorted(shared | set(graph.subjects(RDFS.range, cls)), key=str):
+        named = domains_of(graph, prop)
         target = graph.value(prop, RDFS.range)
         relations.append({'name': curie(graph, prop), 'iri': str(prop),
-                          'domain': _short(graph, domain) if domain is not None else '',
+                          'domain': ' or '.join(_short(graph, d) for d in named),
                           'range': _short(graph, target) if target is not None else '',
                           'definedAt': index.locator(prop) or ''})
     parents = [str(p) for p in graph.objects(cls, RDFS.subClassOf) if isinstance(p, URIRef)]

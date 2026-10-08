@@ -105,14 +105,17 @@ async function constrainAttribute(client, packageUri, option, target, optional) 
     attribute: option.iri || option.term,
     required: presence.required,
     datatype: value.datatype || null,
-    valueClass: value.valueClass || null
+    valueClass: value.valueClass || null,
+    extendDomain: !!option.extendDomain
   });
   if (!result.ok) {
     vscode.window.showErrorMessage(`SemForge: ${result.error}`);
     return undefined;
   }
   vscode.window.setStatusBarMessage(
-    `SemForge: ${option.label} added to ${target.label}`, 5000);
+    `SemForge: ${option.label} added to ${target.label}` +
+      ((result.domainAdded || []).length
+        ? ` — its domain now includes ${result.domainAdded.join(', ')}` : ''), 5000);
   if (result.line) {
     await showLocation(`${result.file}:${result.line}`, false);
   }

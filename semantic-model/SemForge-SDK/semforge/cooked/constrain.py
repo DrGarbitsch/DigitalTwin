@@ -135,6 +135,9 @@ def attribute_options(package, shape):
     have said). Each says whether it can be added:
 
       * free       -- not constrained here or above
+      * elsewhere  -- the knowledge gives it to other types only; adding it
+                      here gives it to this type too (its domain becomes the
+                      union), so the picker asks first
       * here       -- this shape already constrains it; edit it instead
       * inherited  -- a supertype's shape does; override it instead
     """
@@ -150,9 +153,10 @@ def attribute_options(package, shape):
     for entry in attribute_terms(package):
         if not entry.ngsild or entry.parents or entry.carrier_kind:
             continue
-        if family is not None and entry.domain_iri and entry.domain_iri not in family:
-            continue
         status, by = 'free', ''
+        if family is not None and entry.domain_iris and \
+                not set(entry.domain_iris) & family:
+            status, by = 'elsewhere', ', '.join(local(d) for d in entry.domain_iris)
         if entry.iri in here:
             status = 'here'
         elif entry.iri in above:
@@ -160,9 +164,10 @@ def attribute_options(package, shape):
         out.append({'iri': entry.iri, 'term': entry.term,
                     'label': entry.label, 'kind': entry.kind or 'Property',
                     'comment': entry.comment, 'domain': entry.domain,
-                    'scoped': bool(entry.domain_iri), 'status': status,
+                    'scoped': bool(entry.domain_iris), 'status': status,
                     'by': by})
-    out.sort(key=lambda o: (o['status'] != 'free', not o['scoped'],
+    order = {'free': 0, 'elsewhere': 1}
+    out.sort(key=lambda o: (order.get(o['status'], 2), not o['scoped'],
                             o['label'].lower()))
     return out
 
@@ -230,16 +235,19 @@ def _value_layer(package, kind, datatype, value_class, name):
 
 
 def add_attribute_constraint(package, shape, attribute, required=False,
-                             datatype=None, value_class=None):
+                             datatype=None, value_class=None, extend_domain=False):
     """Add `attribute` to `shape` as a complete two-layer property shape.
 
-    Returns {'file', 'line', 'shape', 'attribute', 'kind'}. The write is a text
-    insertion into the shape's own statement, verified to parse before the
-    file is replaced, so every comment around and inside the shape survives.
+    Returns {'file', 'line', 'shape', 'attribute', 'kind', 'domainAdded'}. The
+    write is a text insertion into the shape's own statement, verified to
+    parse before the file is replaced, so every comment around and inside the
+    shape survives.
+
+    An attribute the knowledge gives only to other types is refused -- unless
+    `extend_domain`, which first gives it to the shape's target types too
+    (knowledge.extend_domain: its rdfs:domain becomes the union). If the
+    shape cannot then take it, the knowledge is put back as it was.
     """
-    from .knowledge import _turtle_name
-    from .tree import _write_verified
-    from ..rdfio import add_property_constraint
 
     shape = str(shape)
     index = package.index('shapes')
@@ -256,11 +264,14 @@ def add_attribute_constraint(package, shape, attribute, required=False,
             f'it rather than on the shape')
     targets = _shape_targets(package, shape)
     # Only a class-targeted shape has a type for the domain to disagree with.
-    if targets and entry.domain_iri and entry.domain_iri not in _family(package, targets):
+    elsewhere = bool(targets and entry.domain_iris and
+                     not set(entry.domain_iris) & _family(package, targets))
+    if elsewhere and not extend_domain:
         raise PackageError(
-            f'the knowledge gives {name} to {local(entry.domain_iri)}, not to '
-            f'{", ".join(local(t) for t in targets) or "this shape"}. Required '
-            f'here it would be demanded of entities that never carry it.')
+            f'the knowledge gives {name} to '
+            f'{" or ".join(local(d) for d in entry.domain_iris)}, not to '
+            f'{", ".join(local(t) for t in targets)}. Add it with its domain extended '
+            f'to give it to {", ".join(local(t) for t in targets)} as well.')
     if entry.iri in _constrained_paths(package, shape):
         raise PackageError(f'{curie(package.shapes, shape)} already constrains '
                            f'{name}; edit that constraint instead')
@@ -274,6 +285,29 @@ def add_attribute_constraint(package, shape, attribute, required=False,
 
     kind = entry.kind or 'Property'
     inner = _value_layer(package, kind, datatype, value_class, name)
+
+    # The knowledge first: it may be the very file the shape is in.
+    added, restore = [], None
+    if elsewhere:
+        from .knowledge import extend_domain
+        kpath = package.index('knowledge').file_for(URIRef(entry.iri))
+        with open(kpath, encoding='utf-8') as handle:
+            restore = (kpath, handle.read())
+        added = extend_domain(package, entry.iri, targets)['added']
+    try:
+        return _add_to_shape(package, holder, shape, entry, kind, inner, required,
+                             added)
+    except Exception:
+        if restore is not None:
+            with open(restore[0], 'w', encoding='utf-8') as handle:
+                handle.write(restore[1])
+        raise
+
+
+def _add_to_shape(package, holder, shape, entry, kind, inner, required, added):
+    from .knowledge import _turtle_name
+    from .tree import _write_verified
+    from ..rdfio import add_property_constraint
 
     with open(holder, encoding='utf-8') as handle:
         text = handle.read()
@@ -300,7 +334,8 @@ def add_attribute_constraint(package, shape, attribute, required=False,
         if group.path in (term(URIRef(entry.iri)), f'<{entry.iri}>'):
             line = updated.count('\n', 0, group.start) + 1
     return {'file': holder, 'line': line, 'shape': shape,
-            'attribute': entry.iri, 'kind': kind}
+            'attribute': entry.iri, 'kind': kind,
+            'domainAdded': [curie(package.knowledge, URIRef(c)) for c in added]}
 
 
 def shape_targets(package, shape):

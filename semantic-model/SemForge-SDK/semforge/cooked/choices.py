@@ -23,6 +23,7 @@ import os
 from dataclasses import dataclass
 
 from rdflib import OWL, RDF, RDFS, URIRef
+from rdflib.collection import Collection
 
 from ..validate.normalise import local
 
@@ -247,6 +248,28 @@ def entity_types(package):
     return found, str(root)
 
 
+def domains_of(graph, attribute):
+    """The classes an attribute's rdfs:domain names, as a list of IRIs.
+
+    Two triples (`rdfs:domain A , B`) and a union (`rdfs:domain [ owl:unionOf
+    ( A B ) ]`) are both read as "carried by an A or a B". Formally the first
+    is the intersection -- every carrier would be inferred to be both -- but
+    generated packages (the OPC UA mapping writes one triple per type) mean
+    the union by it, so reading it as one keeps them working. What SemForge
+    WRITES is the union (`extend_domain`).
+    """
+    out = []
+    for domain in graph.objects(URIRef(attribute), RDFS.domain):
+        if isinstance(domain, URIRef):
+            members = [domain]
+        else:
+            union = graph.value(domain, OWL.unionOf)
+            members = [m for m in Collection(graph, union) if isinstance(m, URIRef)] \
+                if union is not None else []
+        out.extend(m for m in members if m not in out)
+    return out
+
+
 @dataclass(frozen=True)
 class AttributeTerm:
     """An attribute the knowledge declares, and what it says about it."""
@@ -256,6 +279,10 @@ class AttributeTerm:
     kind: str = ''            # the NGSI-LD kind, from rdfs:range
     domain: str = ''          # the entity type that carries it, '' when none
     domain_iri: str = ''
+    # Every type it is given to: one, or the members of an owl:unionOf.
+    # `domain` and `domain_iri` are the first, for one-line displays.
+    domains: tuple = ()
+    domain_iris: tuple = ()
     comment: str = ''         # rdfs:label, which is where the kms puts the gloss
     constrained: bool = False  # a shape has sh:path on it
     defined_at: str = ''      # knowledge.ttl:line
@@ -379,8 +406,7 @@ def attribute_terms(package):
                        if o in ATTRIBUTE_TYPES and isinstance(s, URIRef)},
                       key=str):
         ranges = [str(r) for r in package.knowledge.objects(iri, RDFS.range)]
-        domains = [d for d in package.knowledge.objects(iri, RDFS.domain)
-                   if isinstance(d, URIRef)]
+        domains = domains_of(package.knowledge, iri)
         kind = next((RANGE_KIND[r] for r in ranges if r in RANGE_KIND), '')
         # An explicit ngsild range settles it; otherwise a shape naming it is
         # what makes it an attribute of the data rather than of the ontology.
@@ -401,6 +427,8 @@ def attribute_terms(package):
             kind=kind, carrier_kind=carrier_kind, ngsild=is_ngsild,
             domain=model_term(package, domains[0]) if domains else '',
             domain_iri=str(domains[0]) if domains else '',
+            domains=tuple(model_term(package, d) for d in domains),
+            domain_iris=tuple(str(d) for d in domains),
             comment=comment,
             constrained=str(iri) in constrained,
             defined_at=index.locator(iri),
@@ -434,9 +462,9 @@ def attributes_for(package, entity_type):
             # ever say so. Either half is enough to know -- the declaration
             # (rdfs:domain ngsild:Relationship) or the shapes' nesting.
             continue
-        if not attribute.domain_iri:
+        if not attribute.domain_iris:
             open_ended.append(attribute)
-        elif attribute.domain_iri in family:
+        elif set(attribute.domain_iris) & family:
             mine.append(attribute)
     return mine, open_ended
 

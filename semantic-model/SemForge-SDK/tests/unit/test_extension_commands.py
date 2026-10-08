@@ -1469,6 +1469,75 @@ def test_picking_an_attribute_already_constrained_explains_and_writes_nothing(tm
                 if r['method'] == 'semforge/addAttributeConstraint']
 
 
+SHARED_OPTIONS = {'targets': ['iffBaseEntities:FilterCartridge'], 'options': [
+    dict(ATTRIBUTE_OPTIONS['options'][0]),
+    {'iri': 'http://example.com/hasPressure', 'term': 'iffBaseEntities:hasPressure',
+     'label': 'hasPressure', 'kind': 'Property', 'comment': '',
+     'domain': 'iffBaseEntities:Machine', 'scoped': True, 'status': 'elsewhere',
+     'by': 'Machine'},
+]}
+
+
+def _share(tmp_path, answer):
+    return _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['hasPressure', 'Optional', 'xsd:double'], 'answer': answer,
+        'replies': {
+            'semforge/attributeOptions': SHARED_OPTIONS,
+            'semforge/choices': [
+                {'choices': [{'value': 'xsd:double', 'label': 'xsd:double', 'detail': ''}]},
+                {'choices': []}],
+            'semforge/addAttributeConstraint': {
+                'ok': True, 'file': '/pkg/shacl.ttl', 'line': 45,
+                'domainAdded': ['iffBaseEntities:FilterCartridge']}}})
+
+
+def test_another_type_s_attribute_is_offered_in_its_own_section(tmp_path):
+    seen = _share(tmp_path, None)
+    items = seen['quickPicks'][0]['items']
+    labels = [i['label'] for i in items]
+    section = 'Declared for other types — adding one gives it to this type too'
+    assert labels.index(section) < labels.index('hasPressure')
+    detail = next(i['detail'] for i in items if i['label'] == 'hasPressure')
+    assert detail == 'declared for Machine; adding it extends its domain to FilterCartridge too'
+
+
+def test_giving_it_to_this_type_asks_first_and_says_the_union(tmp_path):
+    seen = _share(tmp_path, None)
+    said = seen['warnings'][0]
+    assert said.startswith('Give hasPressure to FilterCartridge too?')
+    assert '"Machine or FilterCartridge"' in said and 'owl:unionOf' in said
+    assert not [r for r in seen['requests'] if r['method'] == 'semforge/addAttributeConstraint'], \
+        'declined: nothing written'
+
+
+def test_confirmed_it_is_added_with_the_domain_extended(tmp_path):
+    seen = _share(tmp_path, 'Give it to this type too')
+    written = [r['params'] for r in seen['requests']
+               if r['method'] == 'semforge/addAttributeConstraint']
+    assert len(written) == 1 and written[0]['extendDomain'] is True
+    assert written[0]['attribute'] == 'http://example.com/hasPressure'
+    assert any('its domain now includes iffBaseEntities:FilterCartridge' in m
+               for m in seen['messages'])
+
+
+def test_an_attribute_of_this_type_is_added_without_extending(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.addAttributeConstraint', 'node': _shape_row(),
+        'picks': ['hasWasteclass', 'Required', 'Wasteclass'],
+        'replies': {
+            'semforge/attributeOptions': ATTRIBUTE_OPTIONS,
+            'semforge/choices': [
+                {'choices': []},
+                {'choices': [{'value': 'iffFilterKnowledge:Wasteclass',
+                              'label': 'Wasteclass', 'detail': 'vocabulary class'}]}],
+            'semforge/addAttributeConstraint': {'ok': True, 'file': '/pkg/shacl.ttl'}}})
+    written = [r['params'] for r in seen['requests']
+               if r['method'] == 'semforge/addAttributeConstraint']
+    assert written[0]['extendDomain'] is False
+    assert seen['warnings'] == [], 'nothing to ask'
+
+
 def test_an_inherited_shape_takes_no_attribute(tmp_path):
     """Adding to an inherited shape would write into the SUPERTYPE's shape."""
     seen = _drive(tmp_path, {

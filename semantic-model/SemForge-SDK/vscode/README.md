@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Delete… of a shape with its asserts and cases, Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -767,10 +767,37 @@ missing:
 Add an attribute to iffBaseShacl:CartridgeShape
 ── Declared for this type ─────────────────────────────
   hasWasteclass   Property · iffFilterEntities:hasWasteclass
+── Declared for other types — adding one gives it to this type too ──
+  hasPressure     declared for Machine; adding it extends its domain to FilterCartridge too
 ── Already constrained ────────────────────────────────
   isUsedFrom      already constrained by this shape — edit it there
   hasState        already constrained by iffBaseShacl:MachineShape
 ```
+
+**An attribute of another type** — `hasPressure`, declared for Machine, wanted
+on an unrelated FilterCartridge — is offered too, in its own section. Picking
+it asks first, because it changes the knowledge and not only this shape: its
+`rdfs:domain` becomes the union, and then it is added here like any other.
+
+```turtle
+iffBaseEntities:hasPressure a owl:DatatypeProperty ;
+    rdfs:domain [ a owl:Class ;
+        owl:unionOf ( iffBaseEntities:Machine iffBaseEntities:FilterCartridge ) ] ;
+    rdfs:range ngsild:Property .
+```
+
+A union, not a second `rdfs:domain` triple: two triples mean *both* — a
+reasoner would infer that every entity with a pressure is a Machine **and** a
+FilterCartridge, and with the two declared disjoint the knowledge becomes
+inconsistent. The union says *a Machine or a FilterCartridge*. A union already
+there grows by one member; several plain triples (the form the OPC UA mapping
+generates) are rewritten as one union. Only the domain moves — the rest of the
+statement is untouched, and it is written only if the file's graph after is
+the one before with exactly that domain replaced. SemForge **reads** both
+forms as "any of these types" everywhere: the pickers, the type pages, the
+Knowledge view (which lists a shared attribute under each type), SPARQL
+completion. Its value is still constrained per shape, so the value it must
+have on one type is not the value it must have on the other.
 
 Then it asks two things: **Optional** (`sh:minCount 0`) or **Required**
 (`sh:minCount 1`), and what the **value** must be — for a Relationship, which

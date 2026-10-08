@@ -142,7 +142,7 @@ def test_a_new_subtype_s_own_shape_takes_attributes_at_once(package):
     shape = add_shape(load(package.path), 'WatercutterShape', 'class', made['iri'])
     options = attribute_options(load(package.path), shape['iri'])
     assert options
-    assert {o['status'] for o in options} <= {'free', 'inherited'}
+    assert {o['status'] for o in options} <= {'free', 'inherited', 'elsewhere'}
     assert any(o['status'] == 'inherited' and o['by'].endswith('CutterShape')
                for o in options)
 

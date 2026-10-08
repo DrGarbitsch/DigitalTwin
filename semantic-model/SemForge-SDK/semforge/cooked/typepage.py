@@ -427,8 +427,9 @@ def _applies(package, shape, family, declared):
         if target['kind'] == 'implicit' and target['value'] in lineage:
             return ''                      # it IS a class over this type
         if target['kind'] == 'subjectsOf':
-            domains = {str(d) for d in package.knowledge.objects(
-                URIRef(target['value']), RDFS.domain)}
+            from .choices import domains_of
+            domains = {str(d) for d in domains_of(package.knowledge,
+                                                  URIRef(target['value']))}
             if domains & lineage:
                 return f'only when it has {_short(target["value"])}'
         if target['kind'] == 'objectsOf' and \

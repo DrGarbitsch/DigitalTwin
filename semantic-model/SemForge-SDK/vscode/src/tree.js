@@ -385,8 +385,11 @@ async function pickAttribute(client, node) {
   const options = result.options || [];
   const items = [];
   let section;
+  const targets = (result.targets || []).map((t) => t.split(/[/#:]/).pop());
   for (const option of options) {
-    const heading = option.status !== 'free'
+    const heading = option.status === 'elsewhere'
+      ? 'Declared for other types — adding one gives it to this type too'
+      : option.status !== 'free'
       ? 'Already constrained'
       : parentPath
         ? (option.scoped ? 'Already placed inside it elsewhere'
@@ -401,6 +404,9 @@ async function pickAttribute(client, node) {
       description: `${option.kind} · ${option.term}`,
       detail: option.status === 'free'
         ? option.comment || ''
+        : option.status === 'elsewhere'
+        ? `declared for ${option.by}${targets.length ? `; adding it extends its domain to ` +
+          `${targets.join(', ')} too` : ''}`
         : `${STATUS_NOTE[option.status]}${option.by ? ' ' + option.by : ''}`,
       option
     });
@@ -430,6 +436,20 @@ async function pickAttribute(client, node) {
   }
   if (picked.create) {
     return { create: true, targets: picked.targets };
+  }
+  if (picked.option.status === 'elsewhere') {
+    // Giving it to this type is a change to the knowledge, not just to this
+    // shape: said first, written as the union (a second rdfs:domain triple
+    // would make every carrier a member of both types).
+    const owner = picked.option.by;
+    const answer = await vscode.window.showWarningMessage(
+      `Give ${picked.option.label} to ${targets.join(', ')} too?`,
+      { modal: true,
+        detail: `The knowledge declares ${picked.option.label} for ${owner}. Adding it here ` +
+          `extends its rdfs:domain to "${owner} or ${targets.join(' or ')}" — written as ` +
+          'owl:unionOf in its declaration — and then adds it to this shape.' },
+      'Give it to this type too');
+    return answer ? { ...picked.option, extendDomain: true } : undefined;
   }
   if (picked.option.status !== 'free') {
     vscode.window.showInformationMessage(

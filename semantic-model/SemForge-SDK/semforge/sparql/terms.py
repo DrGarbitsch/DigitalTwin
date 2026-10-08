@@ -163,7 +163,8 @@ def _build(package):
     found.compiled = compiled
     for attribute in attribute_terms(package):
         detail = ' · '.join(p for p in (attribute.kind or 'plain property',
-                                        f'on {attribute.domain}' if attribute.domain else '')
+                                        f'on {" or ".join(attribute.domains)}'
+                                        if attribute.domains else '')
                             if p)
         found.terms[attribute.iri] = Term(attribute.iri, attribute.label, 'attribute', detail,
                                           attribute.comment, attribute.kind,
