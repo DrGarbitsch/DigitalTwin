@@ -345,3 +345,128 @@ def rename_suite(package, suite, new_name):
         _dump(moved, raw)
     return {'folder': target, 'source': source, 'suite': new_prefix[:-1],
             'from': old_prefix[:-1], 'includes': included}
+
+
+# --- a rename typed into the .ttl ------------------------------------------------------
+
+THIS = URIRef('urn:semforge:this-shape')
+
+
+def shape_prints(package):
+    """{shape IRI: fingerprint of what it says}, its own name left out.
+
+    Two shapes with the same print say the same thing under different
+    names -- so one vanishing as the other appears, between two reads of
+    the package, is a rename typed into the file.
+    """
+    import hashlib
+
+    from rdflib import BNode
+    from rdflib.compare import to_canonical_graph
+
+    graph = package.shapes
+    out = {}
+    for shape in set(graph.subjects(RDF.type, SH.NodeShape)):
+        if not isinstance(shape, URIRef):
+            continue
+        own = Graph()
+        seen, todo = {shape}, [shape]
+        while todo:
+            node = todo.pop()
+            for predicate, obj in graph.predicate_objects(node):
+                own.add((THIS if node == shape else node, predicate,
+                         THIS if obj == shape else obj))
+                if isinstance(obj, BNode) and obj not in seen:
+                    seen.add(obj)
+                    todo.append(obj)
+        text = '\n'.join(sorted(to_canonical_graph(own).serialize(format='nt').splitlines()))
+        out[str(shape)] = hashlib.sha256(text.encode('utf-8')).hexdigest()
+    return out
+
+
+def renamed_pairs(before, after):
+    """[(old IRI, new IRI)] for each shape that vanished as one saying exactly
+    the same appeared -- and only where that pairing is unambiguous."""
+    gone = {iri: p for iri, p in before.items() if iri not in after}
+    came = {iri: p for iri, p in after.items() if iri not in before}
+    pairs = []
+    for old, print_ in gone.items():
+        matches = [new for new, p in came.items() if p == print_]
+        twins = [o for o, p in gone.items() if p == print_]
+        if len(matches) == 1 and len(twins) == 1:
+            pairs.append((old, matches[0]))
+    return sorted(pairs)
+
+
+def _names(package, old, new):
+    old_name, new_name = local(URIRef(old)), local(URIRef(new))
+    return (curie(package.shapes, URIRef(old)), curie(package.shapes, URIRef(new)),
+            old_name, new_name)
+
+
+def follow_plan(package, old, new):
+    """What still names `old` after it was renamed to `new` in the file, or
+    None when nothing does."""
+    from ..expect.store import load_expectations
+
+    old_curie, new_curie, old_name, new_name = _names(package, old, new)
+    asserts = sum(1 for example in load_expectations(package.path).examples
+                  for item in example.asserts
+                  if str(item.get('constraint', '')).startswith(old_curie + '/'))
+    folder, target = _suite_folder(package, old_name), _suite_folder(package, new_name)
+    suite = {'from': os.path.basename(folder), 'to': os.path.basename(target),
+             'free': not os.path.exists(target)} if os.path.isdir(folder) else None
+    if not asserts and suite is None:
+        return None
+    return {'shape': str(old), 'newIri': str(new), 'name': old_curie, 'newCurie': new_curie,
+            'oldName': old_name, 'newName': new_name, 'asserts': asserts, 'suite': suite}
+
+
+def follow_rename(package, old, new, suite=False):
+    """Carry along what a rename typed into the file left behind: the asserts
+    naming the old shape, the residues pinned while it had its old name, and
+    -- if asked -- its test_<Shape> suite.
+
+    A residue is pinned again only when it is exactly what was pinned with the
+    old name swapped back in: proof the rename is all that changed it.
+    """
+    from dataclasses import replace
+
+    from ..expect.digest import residue_digest
+    from ..expect.runner import constraint_ref
+    from ..expect.store import compose, load_expectations, save_expectations
+    from ..package import load
+    from ..validate.orchestrator import validate_graphs
+    from .merge import _rename_asserts
+
+    plan = follow_plan(package, old, new) or {'name': curie(package.shapes, URIRef(old)),
+                                              'suite': None}
+    old_curie, new_curie, old_name, new_name = _names(package, old, new)
+    renamed, _ = _rename_asserts(package, old_curie, new_curie)
+    moved = ''
+    if suite and plan['suite'] and plan['suite']['free']:
+        os.rename(_suite_folder(package, old_name), _suite_folder(package, new_name))
+        moved = plan['suite']['to']
+
+    fresh = load(package.path)
+    expectations = load_expectations(fresh.path)
+    repinned = []
+    for example in expectations.examples:
+        if not example.residue:
+            continue
+        report = validate_graphs(compose(fresh, example), fresh.shapes, fresh.knowledge,
+                                 strict=False)
+        asserted = example.asserted_keys()
+        residue = [r for r in report.results
+                   if (r.resource, constraint_ref(r)) not in asserted]
+        now = residue_digest(residue)
+        if now == example.residue:
+            continue
+        before = [replace(r, shape=str(old)) if r.shape == str(new) else r for r in residue]
+        if residue_digest(before) == example.residue:
+            example.residue = now
+            repinned.append(example.path)
+    if repinned:
+        save_expectations(expectations)
+    return {'asserts': renamed, 'repinned': sorted(repinned), 'suiteMoved': moved,
+            'name': old_curie, 'newCurie': new_curie}

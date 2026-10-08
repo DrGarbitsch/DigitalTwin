@@ -218,6 +218,7 @@ def _assert_lines(source):
 
 
 def _expectation_checks(package):
+    from .expect.stale import suggestion
     from .expect.store import expectation_files
 
     known = known_constraints(package)
@@ -228,9 +229,12 @@ def _expectation_checks(package):
                 continue
             shape = constraint.split('/')[0]
             near = sorted(k for k in known if k.startswith(shape + '/'))
+            meant = suggestion(constraint, known)
             hint = (f' {shape} declares: {", ".join(near[:4])}'
                     + (' …' if len(near) > 4 else '')) if near else \
                 f' No shape is called {shape}.'
+            if meant:
+                hint += f' Renamed? {meant} declares the same constraint.'
             out.append(SanityFinding(
                 file=os.path.abspath(source), line=line, severity='error',
                 code='stale-assert', subject=constraint,
@@ -238,7 +242,7 @@ def _expectation_checks(package):
                         f'declares -- it can never fire, so this case fails for '
                         f'a reason that has nothing to do with its data.' + hint,
                 fix={'remove': 'assert', 'file': os.path.abspath(source),
-                     'case': path, 'index': position}))
+                     'case': path, 'index': position, 'suggest': meant}))
     return out
 
 

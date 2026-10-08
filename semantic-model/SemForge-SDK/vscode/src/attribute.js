@@ -472,7 +472,8 @@ function register(context, clientHolder, session, refresh) {
         vscode.window.showErrorMessage(`SemForge: ${result.error}`);
         return;
       }
-      vscode.window.setStatusBarMessage(`SemForge: removed ${fix.label || 'it'}`, 5000);
+      vscode.window.setStatusBarMessage(
+        `SemForge: ${fix.said || `removed ${fix.label || 'it'}`}`, 5000);
       if (result.note) {
         vscode.window.showWarningMessage(`SemForge: ${result.note}`);
       }

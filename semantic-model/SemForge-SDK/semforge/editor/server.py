@@ -82,6 +82,7 @@ def _findings(root):
         stamp = fingerprint(root)
         findings, package = analyse(root)
         _packages[root], _stamps[root] = package, stamp
+        _watch_renames(root, package)              # a reload like any other
         return {path: [asdict(f) for f in items] for path, items in findings.items()}
 
     stored, _ = cached(root, 'diagnostics', compute)
@@ -186,6 +187,8 @@ def did_change(ls, params):
     from .sparqldocs import is_query
     if is_query(params.text_document.uri):
         _publish_query(ls, params.text_document.uri)
+        return
+    _rename_baseline(params.text_document.uri)
 
 
 @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
@@ -250,6 +253,7 @@ def did_open(ls, params):
     if is_query(params.text_document.uri):
         _publish_query(ls, params.text_document.uri)
         return
+    _rename_baseline(params.text_document.uri)
     _publish(ls, params.text_document.uri)
 
 
@@ -259,6 +263,9 @@ def did_save(ls, params):
     if is_query(params.text_document.uri):
         return
     _publish(ls, params.text_document.uri)
+    root = package_root(_uri_to_path(params.text_document.uri))
+    if root is not None:
+        _offer_renames(ls, root)
 
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
@@ -359,10 +366,18 @@ def _fixes_for(diagnostic, uri):
                 'line': diagnostic.range.start.line + 1, 'iri': subject,
                 'label': _local(subject)})
     elif code == 'stale-assert':
+        # Left behind by a rename typed into the .ttl: the constraint it
+        # meant first, when exactly one shape declares the same one.
+        if data.get('suggest'):
+            action(f'Rename the assert to {data["suggest"]}', 'semforge.removeUse',
+                   {'uri': uri, 'kind': 'retarget', 'file': data.get('file'),
+                    'case': data.get('case'), 'index': data.get('index'),
+                    'constraint': data['suggest'], 'label': subject,
+                    'said': f'the assert now names {data["suggest"]}'}, preferred=True)
         action('Remove this assert', 'semforge.removeUse',
                {'uri': uri, 'kind': 'assert', 'file': data.get('file'),
                 'case': data.get('case'), 'index': data.get('index'),
-                'label': subject}, preferred=True)
+                'label': subject}, preferred=not data.get('suggest'))
     elif code == 'unused-attribute':
         action(f'Delete {_local(subject)}…', 'semforge.deleteAttribute',
                {'packageUri': uri, 'raw': {'iri': subject}}, preferred=True)
@@ -405,6 +420,10 @@ def remove_use_feature(ls, params):
         elif kind == 'assert':
             note = remove_assert(target, _field(params, 'case'),
                                  int(_field(params, 'index')))
+        elif kind == 'retarget':
+            from ..expect.stale import retarget_assert
+            note = retarget_assert(target, _field(params, 'case'),
+                                   int(_field(params, 'index')), _field(params, 'constraint'))
         else:
             return {'ok': False, 'error': f'nothing knows how to remove a {kind}'}
         _packages.pop(root, None)
@@ -518,7 +537,66 @@ def _package_for(root):
     if _stamps.get(root) != stamp or root not in _packages:
         _packages[root] = load(root)
         _stamps[root] = stamp
+        _watch_renames(root, _packages[root])
     return _packages[root]
+
+
+# A shape renamed by typing in the .ttl leaves its asserts behind. Between two
+# reads of a package, a shape vanishing as one saying exactly the same appears
+# is that rename; it is kept until the next save offers to carry them along.
+_shape_prints = {}
+_pending_renames = {}
+
+
+def _rename_baseline(uri):
+    """The shapes as they are on disk now, before the editor's change is saved.
+
+    Views are served from the disk cache, so the package may never be loaded
+    before the first save -- and a rename needs a "before" to be seen. Opening
+    or first changing a file of the package is the last moment the disk still
+    holds it.
+    """
+    root = package_root(_uri_to_path(uri))
+    if root is None or root in _shape_prints:
+        return
+    try:
+        from ..cooked.rename import shape_prints
+        package = _package_for(root)
+        _shape_prints.setdefault(root, shape_prints(package))
+    except Exception:                              # noqa: BLE001 -- a hint, never a failure
+        pass
+
+
+def _watch_renames(root, package):
+    from ..cooked.rename import renamed_pairs, shape_prints
+
+    try:
+        now = shape_prints(package)
+    except Exception:                              # noqa: BLE001 -- a hint, never a failure
+        return
+    before = _shape_prints.get(root)
+    _shape_prints[root] = now
+    if before is not None:
+        for pair in renamed_pairs(before, now):
+            if pair not in _pending_renames.setdefault(root, []):
+                _pending_renames[root].append(pair)
+
+
+def _offer_renames(ls, root):
+    """After a save: for each rename typed into the file, what still names
+    the old shape, sent to the client to offer carrying it along."""
+    from ..cooked.rename import follow_plan
+
+    package = _package_for(root)
+    for old, new in _pending_renames.pop(root, []):
+        try:
+            plan = follow_plan(package, old, new)
+        except Exception:                          # noqa: BLE001
+            continue
+        if plan:
+            shapes = package.files('shapes')
+            ls.protocol.notify('semforge/shapeRenamed', dict(
+                plan, uri=_path_to_uri(shapes[0] if shapes else os.path.join(root, 'shacl.ttl'))))
 
 
 def _type_hierarchy(package):
@@ -1866,9 +1944,63 @@ def _package_write(ls, params, write):
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
     _packages.pop(root, None)
+    # SemForge's own rename carried everything along, as asked: the shapes
+    # it changed are the new baseline, not a rename to offer again.
+    _shape_prints.pop(root, None)
+    _pending_renames.pop(root, None)
     for path in _package_for(root).files('shapes'):
         _publish(ls, _path_to_uri(path))
     return dict(done, ok=True)
+
+
+@server.feature('semforge/shapeAt')
+def shape_at_feature(ls, params):
+    """The node shape whose name is under the cursor -- what F2 renames.
+
+    The range is the name's local part (`StateOnCutterShape` of
+    `iffBaseShacl:StateOnCutterShape`, the whole `<IRI>` when written out),
+    so the rename box shows what is being renamed. A term inside a string --
+    a SPARQL body -- is not offered: the rename carries those along anyway.
+    """
+    from rdflib import URIRef
+    from rdflib.namespace import RDF, SH
+
+    from ..rdfio.turtle_index import terms
+
+    uri = _field(params, 'uri', '')
+    root = package_root(_uri_to_path(uri))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        document = ls.workspace.get_text_document(uri)
+        text = document.source
+    except Exception:                              # noqa: BLE001 -- not open: read it
+        with open(_uri_to_path(uri), encoding='utf-8') as handle:
+            text = handle.read()
+    line, character = int(_field(params, 'line', 0)), int(_field(params, 'character', 0))
+    package = _package_for(root)
+    for term in terms(text):
+        if term.quoted or term.line - 1 != line or \
+                not term.column <= character <= term.column + len(term.raw):
+            continue
+        if (URIRef(term.iri), RDF.type, SH.NodeShape) not in package.shapes:
+            break
+        start = term.column + (term.raw.index(':') + 1 if not term.raw.startswith('<') else 0)
+        return {'ok': True, 'shape': term.iri, 'placeholder': _local(term.iri),
+                'range': {'start': {'line': line, 'character': start},
+                          'end': {'line': line, 'character': term.column + len(term.raw)}}}
+    return {'ok': False, 'error': 'F2 renames a shape: put the cursor on its name'}
+
+
+@server.feature('semforge/followRename')
+def follow_rename_feature(ls, params):
+    """Carry along what a shape renamed in the .ttl left behind: its asserts,
+    residues pinned under the old name, and (asked) its suite folder."""
+    from ..cooked.rename import follow_rename
+
+    return _package_write(ls, params, lambda package: follow_rename(
+        package, _field(params, 'shape', ''), _field(params, 'newIri', ''),
+        suite=bool(_field(params, 'suite', False))))
 
 
 @server.feature('semforge/renameShape')

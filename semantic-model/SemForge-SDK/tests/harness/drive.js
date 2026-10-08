@@ -408,6 +408,8 @@ const stub = {
 // The server, canned: method -> result. Anything not listed rejects, which is
 // itself a case worth driving.
 const pending = new Map();
+// The client the extension started: its notification handlers live here.
+let activeClient = null;
 const client = {
   sendRequest: (method, params) => {
     seen.requests.push({ method, params });
@@ -431,7 +433,11 @@ const client = {
     return Promise.resolve(reply);
   },
   start: noop,
-  stop: () => Promise.resolve()
+  stop: () => Promise.resolve(),
+  // The server's own notifications: the scenario's `notify` delivers them,
+  // after activation and before the command, as the real client would.
+  handlers: {},
+  onNotification(method, handler) { this.handlers[method] = handler; }
 };
 
 Module._load = function (request, parent, isMain) {
@@ -439,7 +445,11 @@ Module._load = function (request, parent, isMain) {
   if (request === 'vscode-languageclient/node') {
     return {
       LanguageClient: class {
-        constructor() { Object.assign(this, client); }
+        constructor() {
+          Object.assign(this, client);
+          this.handlers = {};
+          activeClient = this;
+        }
       },
       TransportKind: { stdio: 0 }
     };
@@ -450,6 +460,17 @@ Module._load = function (request, parent, isMain) {
 async function runCommand() {
   const extension = require(path.resolve(process.argv[3]));
   extension.activate({ subscriptions: [] });
+  for (const { method, params } of scenario.notify || []) {
+    const target = activeClient && activeClient.handlers[method];
+    if (target) {
+      await target(params);
+    } else {
+      seen.errors.push(`nothing listens for ${method}`);
+    }
+  }
+  if (!scenario.command) {
+    return;
+  }
   const handler = registry.get(scenario.command);
   if (!handler) {
     seen.errors.push(`command ${scenario.command} is not registered`);

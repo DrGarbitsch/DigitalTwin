@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape, a case and a suite, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -1438,6 +1438,31 @@ A shape that is also a class is refused (that would rename an entity type), as
 is a name already taken or one that is not a name. The workbench of the shape
 closes, since its query document is named by the shape; the shape page opens
 on the new name.
+
+**F2** on a shape's name in a `.ttl` is the same Rename…: the box shows the
+name's local part, and the plan, the question and the write are the menu's —
+not a text replace, which would leave the asserts behind.
+
+**A rename typed into the file anyway** — the name replaced in `shacl.ttl` by
+hand — is noticed when the file is saved: a shape vanishing as one saying
+exactly the same appears (compared by what it says, its own name left out) is
+that rename. If asserts, a pinned residue or a `test_<Shape>` suite still name
+the old shape, a notification says so — *"FilterShape is gone and
+FilterCheckShape says exactly what it said. Renamed? 1 assert(s) still name
+iffBaseShacl:FilterShape"* — with **Update them** (and **… and rename
+test_FilterShape**). A residue is pinned again only when it is exactly the old
+one with the old name swapped back in: proof the rename is all that changed
+it.
+
+**An assert left behind** — the offer declined, or the rename made before any
+of this — says what it most likely meant. When exactly one shape declares the
+same attribute and component (`…/hasCartridge/MinCountConstraintComponent`),
+the error in `expectations.yaml` and in the Problems panel offers **Rename the
+assert to iffBaseShacl:FilterCheckShape/…** first and **Remove this assert**
+second; the case page shows the assert as *names no shape* with **Rename to
+FilterCheckShape** and **Remove**. Where several shapes declare it (four kms
+shapes have a SPARQL constraint), the case page decides by what fires on the
+asserted entity; nothing less certain is guessed.
 
 A **test case** (right-click it in Instances, or the case page's `⋯`) is its
 file: Rename… moves it, and its expectations entry and any `include` naming it

@@ -264,22 +264,35 @@ def build_case_page(package, case):
     example = _find_case(package, case)
     report = validate_graphs(compose(package, example), package.shapes,
                              package.knowledge, strict=False)
-    outcome = evaluate(example, report, known_constraints(package))
+    known = known_constraints(package)
+    outcome = evaluate(example, report, known)
 
     fired = {}
     for result in report.violations:
         fired.setdefault((str(result.resource), constraint_ref(result)), result)
 
+    from ..expect.stale import suggestion
+
     claims = []
     asserted = set()
-    for item in example.asserts:
+    # Where each assert is written: its entry's own `path` and its position.
+    entry_path = os.path.relpath(os.path.join(package.examples_dir, example.path),
+                                 os.path.dirname(example.source)) if example.source else ''
+    for position, item in enumerate(example.asserts):
         key = (str(item.get('resource', '')), str(item.get('constraint', '')))
         asserted.add(key)
         hit = fired.get(key) if key[0] else next(
             (r for (resource, ref), r in fired.items() if ref == key[1]), None)
-        claims.append({'constraint': key[1], 'resource': key[0],
-                       'holds': hit is not None,
-                       'explained': _explain(hit) if hit else None})
+        claim = {'constraint': key[1], 'resource': key[0],
+                 'holds': hit is not None,
+                 'explained': _explain(hit) if hit else None}
+        if key[1] not in known:
+            # Named a shape that is gone -- most often a rename typed into
+            # the .ttl. What fires on the same resource narrows the guess.
+            firing = [ref for (resource, ref) in fired if not key[0] or resource == key[0]]
+            claim.update(stale=True, suggest=suggestion(key[1], known, firing),
+                         entry=entry_path, index=position)
+        claims.append(claim)
     unasserted = [{'constraint': ref, 'resource': resource,
                    'explained': _explain(result)}
                   for (resource, ref), result in sorted(fired.items())

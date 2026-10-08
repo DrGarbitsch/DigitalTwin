@@ -186,6 +186,10 @@ function startClient(context) {
       { scheme: 'file', language: 'turtle' },
       { scheme: 'file', pattern: '**/*.ttl' },
       { scheme: 'file', pattern: '**/*.jsonld' },
+      // A test case's claims: a stale assert is reported there, and its
+      // quick fixes (rename it to what it meant, remove it) are only asked
+      // of the server for documents this selector names.
+      { scheme: 'file', pattern: '**/expectations.yaml' },
       // The SPARQL workbench's query documents: completion, diagnostics,
       // hover, formatting and quick fixes, from the package's own terms.
       { scheme: 'semforge-sparql', language: 'sparql' }
@@ -204,6 +208,12 @@ function startClient(context) {
     serverOptions,
     clientOptions
   );
+  // A shape renamed by typing in the .ttl: the server noticed on save, and
+  // what still names the old shape is offered to be carried along.
+  if (typeof client.onNotification === 'function') {
+    client.onNotification('semforge/shapeRenamed',
+      (notice) => rename.offerFollow(clientHolder, notice));
+  }
   client.start();
   clientHolder.client = client;
   context.subscriptions.push(client);

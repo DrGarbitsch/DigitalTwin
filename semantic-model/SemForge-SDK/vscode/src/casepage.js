@@ -89,12 +89,20 @@ function claimRow(claim, unasserted, index, at) {
   const status = unasserted ? chip('also fired', 'warn',
     'Not asserted. Either a second problem this case found, or a sign the data ' +
     'is not what the case means it to be.')
+    : claim.stale ? chip('names no shape', 'bad', 'No shape declares this constraint: the ' +
+      'shape was renamed or removed. It can never fire.')
     : claim.holds ? chip('holds', 'ok') : chip('does not hold', 'bad');
   const parts = claim.constraint.split('/');
   const actions = unasserted
     ? `<span class="acts"><button data-assert="${index}" title="${escape(ASSERT_TIP)}">` +
       'Assert it</button>' +
       (at ? `<button data-open="${escape(at)}">Open in .jsonld</button>` : '') + '</span>'
+    : claim.stale
+    ? '<span class="acts">' + (claim.suggest
+      ? `<button class="primary" data-retarget="${index}" title="Renamed? ${escape(claim.suggest)} ` +
+        `declares the same constraint and fires here">Rename to ` +
+        `${escape(claim.suggest.split('/')[0].split(':').pop())}</button>` : '') +
+      `<button data-dropassert="${index}" title="Remove this assert from the case">Remove</button></span>`
     : '';
   return `<div class="claim${unasserted ? ' extra' : ''}">${status}<span class="what">` +
     `${escape(explained.text || parts.slice(1).join(' · ').replace('ConstraintComponent', ''))}` +
@@ -204,7 +212,7 @@ ${(page.failures || []).length
 
 ${model ? '' : `<h2>Claims</h2>
 ${claims.length || unasserted.length
-    ? `<div class="claims">${claims.map((c) => claimRow(c, false)).join('')}` +
+    ? `<div class="claims">${claims.map((c, i) => claimRow(c, false, i)).join('')}` +
       `${unasserted.map((c, i) => claimRow(c, true, i, located[c.resource])).join('')}</div>`
     : `<p class="dim">This case asserts nothing${page.expect === 'valid'
       ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}`}
@@ -225,11 +233,14 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert],' +
-      '[data-edit],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu]');
+      '[data-edit],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu],' +
+      '[data-retarget],[data-dropassert]');
     if (!target) { return; }
     event.preventDefault();
     const d = target.dataset;
     if (d.pagemenu) { vscode.postMessage({ command: 'pageMenu' }); }
+    else if (d.retarget !== undefined) { vscode.postMessage({ command: 'retargetAssert', index: Number(d.retarget) }); }
+    else if (d.dropassert !== undefined) { vscode.postMessage({ command: 'removeAssert', index: Number(d.dropassert) }); }
     else if (d.edit) { vscode.postMessage({ command: 'edit', at: d.edit }); }
     else if (d.rowmenu) { vscode.postMessage({ command: 'rowMenu', at: d.rowmenu }); }
     else if (d.addattr) { vscode.postMessage({ command: 'addAttribute', at: d.addattr }); }
@@ -327,6 +338,27 @@ class CasePages {
         { raw: { targetClass: message.name }, packageUri: this.current.packageUri });
     } else if (message.command === 'refresh') {
       await this.render();
+    } else if (['retargetAssert', 'removeAssert'].includes(message.command) && this.page) {
+      // An assert naming a shape that is gone: point it at the one it meant,
+      // or take it out.
+      const claim = (this.page.claims || [])[message.index];
+      if (!claim || !claim.stale) {
+        return;
+      }
+      const retarget = message.command === 'retargetAssert';
+      const result = await this.clientHolder.client.sendRequest('semforge/removeUse', {
+        uri: this.current.packageUri, kind: retarget ? 'retarget' : 'assert',
+        file: this.page.expectations, case: claim.entry, index: claim.index,
+        constraint: claim.suggest });
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return;
+      }
+      if (result.note) {
+        vscode.window.showWarningMessage(`SemForge: ${result.note}`);
+      }
+      await this.render();
+      vscode.commands.executeCommand('semforge.refreshModel');
     } else if (message.command === 'pageMenu' && this.page) {
       const page = this.page;
       const items = [{ label: '$(go-to-file) Open the case file', message: { command: 'open', at: `${page.file}:1` } }];
