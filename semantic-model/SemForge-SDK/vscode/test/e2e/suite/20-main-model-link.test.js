@@ -1,4 +1,4 @@
-// The entity type page names the main model's entities of its type; a click on
+// The entity type page names the main-model's entities of its type; a click on
 // one opens the Main page at it -- as a test case opens its case page.
 
 const assert = require('assert');
@@ -7,7 +7,7 @@ const { PACKAGE_URI, semforge, until } = require('./helpers');
 
 const ENT = 'https://industryfusion.github.io/contexts/example/v0/base_entities/';
 
-describe('The main model from an entity type page', () => {
+describe('The main-model from an entity type page', () => {
   it('a main-model entity opens the Main page at it', async () => {
     const api = await semforge();
     await vscode.commands.executeCommand('semforge.openTypePage',
@@ -16,7 +16,7 @@ describe('The main model from an entity type page', () => {
     const page = await until(() => api.pages.type.page && api.pages.type.page.label === 'Filter' &&
       api.pages.type.page, 'the Filter page');
     const entity = (page.instances || [])[0];
-    assert.ok(entity, 'a Filter in the main model');
+    assert.ok(entity, 'a Filter in the main-model');
     assert.ok(api.pages.type.panel.webview.html.includes(`data-model="${entity.id}"`));
     await api.pages.type.receive({ command: 'model', entity: entity.id });
     const main = await until(() => api.pages.case.page && api.pages.case.page.kind === 'model' &&

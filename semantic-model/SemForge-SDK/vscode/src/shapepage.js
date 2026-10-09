@@ -123,8 +123,8 @@ function appliesTo(page) {
     `${escape(t.label)}</a>`).join(', ');
   return `<p class="line" title="The node selector: which nodes the checks run on">${said}` +
     `${types ? ` <span class="dim">· type</span> ${types}` : ''}</p>` +
-    (nodes ? `<div class="nodes" title="In the main model">${nodes}</div>`
-      : '<p class="empty">Nothing in the main model is one of them.</p>') +
+    (nodes ? `<div class="nodes" title="In the main-model">${nodes}</div>`
+      : '<p class="empty">Nothing in the main-model is one of them.</p>') +
     `<details class="fold"><summary>Edit targets</summary>${editable}` +
     '<div class="bar"><button data-action="addTarget">+ Target</button></div></details>';
 }
@@ -152,9 +152,9 @@ function renderShapePage(page, options) {
   const cases = page.exercisedBy || [];
   const status = [
     summary.violations
-      ? `<span class="bad-text">${summary.violations} violation(s) in the main model</span>`
-      : summary.reached ? `<span class="ok-text">${summary.reached} in the main model, all valid</span>`
-        : '<span class="dim">reaches nothing in the main model</span>',
+      ? `<span class="bad-text">${summary.violations} violation(s) in the main-model</span>`
+      : summary.reached ? `<span class="ok-text">${summary.reached} in the main-model, all valid</span>`
+        : '<span class="dim">reaches nothing in the main-model</span>',
     summary.cases
       ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ` +
         `${summary.cases} case(s) failing</span>` : `${summary.cases} case(s), all pass`)

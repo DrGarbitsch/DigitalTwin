@@ -151,7 +151,7 @@ function attributeRows(attributes, focused, options) {
     return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
       `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}` +
       `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
-        `Violated in the main model by:\n${row.violations.join('\n')}\n\nClick: open the main model`)}">✗ ${row.violations.length}</a>`
+        `Violated in the main-model by:\n${row.violations.join('\n')}\n\nClick: open the main-model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
@@ -248,8 +248,8 @@ function ruleRows(rules) {
 function instanceRows(page) {
   const model = (page.instances || []).map((i) => `<div class="inst">` +
     `<span class="${i.violations.length ? 'bad-text' : 'ok-text'}">${i.violations.length ? '✗' : '✓'}</span>` +
-    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main model">${escape(i.id)}</a>` +
-    `<span class="dim">main model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
+    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
+    `<span class="dim">main-model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
     `<span>${i.violations.length ? `<a href="#" data-model="${escape(i.id)}">` + i.violations.map((v) =>
       chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ') +
       '</a>' : '<span class="dim">valid</span>'}</span></div>`).join('');
@@ -259,7 +259,7 @@ function instanceRows(page) {
     `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
     `<span class="dim">${escape(c.expect)}</span>` +
     `<span>${c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')}</span></div>`).join('');
-  return (model || '<p class="empty">No entity of this type in the main model.</p>') +
+  return (model || '<p class="empty">No entity of this type in the main-model.</p>') +
     (cases || '<p class="empty">No test case has an entity of this type: nothing proves ' +
       'its constraints can fire.</p>');
 }
@@ -277,9 +277,9 @@ function renderTypePage(page, options) {
   const status = [
     summary.instances
       ? (summary.instancesViolating
-        ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the main model violate</span>`
-        : `<span class="ok-text">${summary.instances} in the main model, all valid</span>`)
-      : '<span class="dim">none in the main model</span>',
+        ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the main-model violate</span>`
+        : `<span class="ok-text">${summary.instances} in the main-model, all valid</span>`)
+      : '<span class="dim">none in the main-model</span>',
     summary.cases
       ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ${summary.cases} ` +
         'case(s) failing</span>' : `${summary.cases} case(s), all pass`)

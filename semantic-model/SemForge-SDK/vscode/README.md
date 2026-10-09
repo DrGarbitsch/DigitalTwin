@@ -1478,11 +1478,11 @@ editor area — its tab reads `Filter · type` — with all of it:
 - **Tested**: whether any test case makes the attribute's constraints fire
   (*both ways* / *fires only* / *never fired* — a constraint that cannot fire
   looks exactly like one that is satisfied);
-- **Main model**: how many entities in the main model violate it — the `✗ N`
+- **Main-model**: how many entities in the main-model violate it — the `✗ N`
   beside the attribute's name, a click opening the Main page;
 - **its rules** (SPARQL), with their message and whether they ever fired;
 - **the cases that exercise it** and whether they pass, and **its instances in
-  the main model** with what is wrong with each. A case opens its case page; a
+  the main-model** with what is wrong with each. A case opens its case page; a
   main-model entity — its id or its violations — opens the Main page scrolled
   to it.
 
