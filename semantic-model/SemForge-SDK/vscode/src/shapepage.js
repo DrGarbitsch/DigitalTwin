@@ -48,9 +48,16 @@ function severityText(severity) {
   return local.replace(/^severity/i, '').toLowerCase() || '';
 }
 
-function severityTone(text) {
-  return ['warning', 'warn'].includes(text) ? 'warn' : ['info', 'information'].includes(text)
-    ? '' : 'bad';
+const SEVERITY_TIP = 'SHACL severity: how serious a result of this constraint is WHEN it ' +
+  'fires -- violation (the data does not conform; the default), warning (reported, the data ' +
+  'still conforms) or info. It does not say whether it fires.';
+
+/** The severity as a label, not a verdict: neutral, and "(default)" when the
+ *  shape never said -- a red "violation" chip read as something failing. */
+function severityLabel(severity, declared) {
+  const text = severityText(severity) || 'violation';
+  return `<span class="severity" title="${escape(SEVERITY_TIP)}">severity: ${escape(text)}` +
+    `${declared ? '' : ' <span class="dim">(default)</span>'}</span>`;
 }
 
 /** How well the cases prove this shape: both ways, only one, or not at all. */
@@ -76,8 +83,8 @@ function checkRows(checks, cases) {
       ? 'rule' : 'SPARQL'}</span>` +
     `<span class="what">${escape(c.message || (c.kind === 'rule'
       ? 'Derives data' : '(no sh:message)'))}</span>` +
-    `<span class="tags">${c.severity ? chip(severityText(c.severity),
-      severityTone(severityText(c.severity)), `sh:severity ${c.severity}`) : ''}` +
+    `<span class="tags">${c.kind === 'constraint'
+      ? severityLabel(c.severity, c.severityDeclared !== false) : ''}` +
     `${c.kind === 'constraint' ? provenChip(cases) : ''}</span>` +
     `<span class="acts">${c.query ? `<button data-action="bench" data-row="${i}" ` +
       'title="Edit and run it in the SPARQL workbench">Open</button>' : ''}` +
@@ -174,6 +181,7 @@ function renderShapePage(page, options) {
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .crumbs, .dim, .empty { color: var(--vscode-descriptionForeground); }
+  .severity { font-size: 0.86em; color: var(--vscode-descriptionForeground); white-space: nowrap; }
   .crumbs { font-size: 0.9em; }
   .empty { font-style: italic; margin: 4px 0; }
   .head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

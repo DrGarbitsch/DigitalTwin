@@ -39,6 +39,18 @@ function severityText(severity) {
   return local.replace(/^severity/i, '').toLowerCase();
 }
 
+const SEVERITY_TIP = 'SHACL severity: how serious a result of this constraint is WHEN it ' +
+  'fires -- violation (the data does not conform; the default), warning (reported, the data ' +
+  'still conforms) or info. It does not say whether it fires.';
+
+/** The severity as a label, not a verdict: neutral, and "(default)" when the
+ *  shape never said -- a red "violation" chip read as something failing. */
+function severityLabel(severity, declared) {
+  const text = severityText(severity) || 'violation';
+  return `<span class="severity" title="${escape(SEVERITY_TIP)}">severity: ${escape(text)}` +
+    `${declared ? '' : ' <span class="dim">(default)</span>'}</span>`;
+}
+
 function renderSparqlBench(page, options) {
   const nonce = (options && options.nonce) || '';
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
@@ -71,6 +83,7 @@ function renderSparqlBench(page, options) {
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .dim { color: var(--vscode-descriptionForeground); }
+  .severity { font-size: 0.86em; color: var(--vscode-descriptionForeground); white-space: nowrap; }
   .crumbs { font-size: 0.9em; }
   .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   h1 { font-size: 1.4em; font-weight: 600; margin: 2px 0; }
@@ -132,8 +145,7 @@ function renderSparqlBench(page, options) {
 <div class="head">
   <h1>${escape(page.label)}</h1>
   <span class="dim">${escape(holder.kind)}</span>
-  ${severity ? chip(severity, ['warning', 'info', 'information'].includes(severity) ? 'warn' : 'bad',
-    `sh:severity ${holder.severity}`) : ''}
+  ${rule ? '' : severityLabel(holder.severity, !!severity)}
   <span class="right"><span class="chip warn" id="dirty"${state.dirty ? '' : ' hidden'}
     title="The editor holds changes not in shacl.ttl">● unsaved</span></span>
 </div>

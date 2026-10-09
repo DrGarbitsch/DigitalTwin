@@ -76,10 +76,12 @@ def test_it_shows_its_editor_the_data_and_the_buttons(tmp_path, page):
     for text in ('data-editor="1"', 'StateOnCutterShape.rq', '<kbd>Ctrl+Space</kbd> completes',
                  '<kbd>Shift+Alt+F</kbd> formats', 'id="apply"', 'id="inspect"', 'id="cancel"',
                  'id="save"', 'id="more"', 'id="source"', 'Cutter running without running filter',
-                 '>critical</span>', 'Instance data (Turtle)',
+                 'severity: critical</span>', 'Instance data (Turtle)',
                  'urn:plasmacutter:1', '2 focus nodes'):
         assert text in html, text
     assert 'severity: base:severityCritical' not in html, 'said as a reader says it'
+    assert '<span class="severity"' in html and 'chip bad">critical' not in html, \
+        'a label, not a verdict'
     assert 'id="remove"' not in html, 'Remove waits behind the ⋯'
     assert '<textarea' not in html, 'the query is edited in its own editor'
     state = json.loads(html.split('const state = ', 1)[1].split(';\n', 1)[0])
@@ -106,6 +108,14 @@ def test_the_page_script_parses(tmp_path, page):
     node = shutil.which('node')
     checked = subprocess.run([node, '--check', str(path)], capture_output=True, text=True)
     assert checked.returncode == 0, checked.stderr[-800:]
+
+
+def test_an_undeclared_severity_is_said_to_be_the_default(tmp_path, page):
+    bare = json.loads(json.dumps(page))
+    bare['holder']['severity'] = ''
+    html = _render(tmp_path, bare)
+    assert 'severity: violation <span class="dim">(default)</span>' in html
+    assert 'It does not say whether it fires.' in html
 
 
 def test_unsaved_changes_in_the_editor_are_said_on_the_page(tmp_path, page):

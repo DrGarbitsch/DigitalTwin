@@ -96,8 +96,13 @@ def _checks(package, shape):
     out = []
     for holder in graph.objects(shape, SH.sparql):
         message = graph.value(holder, SH.message)
+        # Whether anyone SAID how severe: SHACL's default is sh:Violation, and
+        # a default shown like a declared value reads as a verdict.
+        declared = graph.value(holder, SH.severity) is not None or \
+            graph.value(shape, SH.severity) is not None
         out.append({'kind': 'constraint', 'message': str(message or ''),
                     'severity': _severity(graph.value(holder, SH.severity), severity),
+                    'severityDeclared': declared,
                     'query': _query(package, holder, SH.select)})
     for holder in graph.objects(shape, SH.rule):
         comment = next((str(c) for c in graph.objects(holder, RDFS.comment)), '')

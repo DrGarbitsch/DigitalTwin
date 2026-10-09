@@ -1350,9 +1350,17 @@ kept. Its page opens; attributes and constraints are added there. A type with
 no shape of its own offers **Create its shape** in its page's `⋯` (and
 **+ Attribute** creates one first anyway).
 
+**Severity is a label, not a result.** `sh:severity` says how serious a
+result is *when* the constraint fires — violation (the data does not
+conform), warning (reported, the data still conforms) or info — not that it
+fires. The shape page and the workbench show it as plain grey text,
+*severity: critical*; when the shape declares none, SHACL's default stands in
+and it reads *severity: violation (default)*. Red and green mean only what
+fires and what holds.
+
 **A rule's evidence, and + New case.** For a shape with a SPARQL constraint
-or rule the page says **what it checks** (its `sh:message` and severity — the
-kms's own `base:severityWarning` reads as *warning*), how well the cases prove
+or rule the page says **what it checks** (its `sh:message`, and *severity:
+warning* — the kms's own `base:severityWarning` read as a word), how well the cases prove
 it (*tested both ways*, *fires in 1*, *never fired*), the cases under
 **Tested by**, and **the query**, folded, with its prefixes. A shape that
 fires in no case gets **+ New case**: it writes

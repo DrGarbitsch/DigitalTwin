@@ -448,7 +448,7 @@ def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
         'replies': {'semforge/shapePage': RULE_PAGE}})
     html = seen['webviews'][0]['html'][-1]
     for text in ('<h2>Checks</h2>', '<h2>Applies to</h2>', '<h2>Tested by</h2>',
-                 'Filter running without running assigned machine', '>warning</span>',
+                 'Filter running without running assigned machine', 'severity: warning</span>',
                  '>never fired</span>', '>holds</span>', 'data-newcase="1"', '+ New case',
                  'Open in workbench', 'data-action="bench"', 'data-action="addCheck"',
                  'data-action="checkMenu"', 'FILTER(?v != &lt;on&gt;)', 'data-action="pageMenu"',
