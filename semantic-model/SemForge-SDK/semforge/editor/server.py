@@ -1599,7 +1599,23 @@ def add_vocabulary_value_feature(ls, params):
 
     return _vocabulary_write(params, lambda package: add_value(
         package, _field(params, 'cls', ''), _field(params, 'name', ''),
-        _field(params, 'label', '') or ''))
+        _field(params, 'label', '') or '', _field(params, 'namespace', None) or None))
+
+
+@server.feature('semforge/vocabularyNamespaces')
+def vocabulary_namespaces_feature(ls, params):
+    """Where a new vocabulary term may live; the usual place first. `near` is
+    the class it belongs to or derives from, if any."""
+    from ..cooked.vocabulary import vocabulary_namespaces
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'namespaces': [], 'error': 'not a SemForge package'}
+    try:
+        return {'namespaces': vocabulary_namespaces(
+            _package_for(root), _field(params, 'near', '') or None)}
+    except Exception as exc:                       # noqa: BLE001
+        return {'namespaces': [], 'error': str(exc)}
 
 
 @server.feature('semforge/setValueLabel')
@@ -1733,7 +1749,7 @@ def add_severity_level_feature(ls, params):
 
     return _package_write(ls, params, lambda package: add_level(
         package, _field(params, 'cls', ''), _field(params, 'name', ''),
-        _field(params, 'label', '')))
+        _field(params, 'label', ''), _field(params, 'namespace', None) or None))
 
 
 @server.feature('semforge/addSeverityClass')
@@ -1742,7 +1758,8 @@ def add_severity_class_feature(ls, params):
     from ..cooked.severity import add_class
 
     return _package_write(ls, params, lambda package: add_class(
-        package, _field(params, 'name', ''), _field(params, 'parent', '') or None))
+        package, _field(params, 'name', ''), _field(params, 'parent', '') or None,
+        _field(params, 'namespace', None) or None))
 
 
 @server.feature('semforge/linkSeverityClass')

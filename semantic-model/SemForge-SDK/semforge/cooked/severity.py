@@ -219,6 +219,12 @@ def _namespace(package, near=None):
 NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_-]*')
 
 
+def _space(package, namespace, near):
+    from .knowledge import minting_namespace
+
+    return minting_namespace(package, namespace) if namespace else _namespace(package, near)
+
+
 def _append(package, path, lines):
     from .tree import _write_verified
 
@@ -227,10 +233,14 @@ def _append(package, path, lines):
     _write_verified(path, text.rstrip('\n') + '\n\n' + lines + '\n')
 
 
-def add_level(package, cls, name, label=''):
+def add_level(package, cls, name, label='', namespace=None):
     """A new severity level: `name` an individual of `cls` (sh:Severity or a
-    class derived from it), labelled `label`. Returns {'iri', 'term'}."""
-    from .knowledge import _turtle_name
+    class derived from it), labelled `label`. `namespace` (a prefix or an IRI),
+    or a prefix written into `name`, chooses where it goes -- never a standard
+    vocabulary's. Returns {'iri', 'term'}."""
+    from .knowledge import _turtle_name, bind_namespace, split_name
+
+    name, namespace = split_name(name, namespace)
 
     classes = {c['iri']: c for c in severity_classes(package)}
     wanted = next((c for c in classes.values() if cls in (c['iri'], c['term'])), None)
@@ -240,10 +250,11 @@ def add_level(package, cls, name, label=''):
         raise PackageError(f'{name!r} is not a name: a letter first, then letters, digits, '
                            '"_" and "-"')
     near = None if wanted['iri'] == str(SH.Severity) else wanted['iri']
-    iri = URIRef(_namespace(package, near) + name)
+    iri = URIRef(_space(package, namespace, near) + name)
     if any((iri, None, None) in g for g in _graphs(package)):
         raise PackageError(f'{name} is already declared')
     path = _knowledge_file(package, near)
+    bind_namespace(package, path, iri)
     with open(path, encoding='utf-8') as handle:
         text = handle.read()
     parts = [f'{_turtle_name(text, iri)} a {_turtle_name(text, OWL.NamedIndividual)}, '
@@ -254,10 +265,13 @@ def add_level(package, cls, name, label=''):
     return {'iri': str(iri), 'term': curie(package.knowledge, iri)}
 
 
-def add_class(package, name, parent=None):
+def add_class(package, name, parent=None, namespace=None):
     """A new severity class derived from `parent` (sh:Severity by default, or
-    one already derived from it). Returns {'iri', 'term'}."""
-    from .knowledge import _turtle_name
+    one already derived from it), in `namespace` if given. Returns
+    {'iri', 'term'}."""
+    from .knowledge import _turtle_name, bind_namespace, split_name
+
+    name, namespace = split_name(name, namespace)
 
     parent = parent or str(SH.Severity)
     classes = {c['iri']: c for c in severity_classes(package) if c['linked']}
@@ -268,10 +282,11 @@ def add_class(package, name, parent=None):
         raise PackageError(f'{name!r} is not a class name: a capital first, then letters, '
                            'digits, "_" and "-"')
     near = None if wanted['iri'] == str(SH.Severity) else wanted['iri']
-    iri = URIRef(_namespace(package, near) + name)
+    iri = URIRef(_space(package, namespace, near) + name)
     if any((iri, None, None) in g for g in _graphs(package)):
         raise PackageError(f'{name} is already declared')
     path = _knowledge_file(package, near)
+    bind_namespace(package, path, iri)
     with open(path, encoding='utf-8') as handle:
         text = handle.read()
     _append(package, path, f'{_turtle_name(text, iri)} a {_turtle_name(text, OWL.Class)} ;\n'

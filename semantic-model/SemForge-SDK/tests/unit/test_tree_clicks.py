@@ -644,7 +644,7 @@ def test_plus_value_asks_name_and_label_and_writes(tmp_path):
     asked = [r['params'] for r in seen['requests']
              if r['method'] == 'semforge/addVocabularyValue']
     assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'cls': 'https://x/MachineState',
-                      'name': 'state_IDLE', 'label': 'IDLE'}]
+                      'name': 'state_IDLE', 'label': 'IDLE', 'namespace': None}]
     assert 'semforge.refreshKnowledge' in [e['command'] for e in seen['executed']]
 
 

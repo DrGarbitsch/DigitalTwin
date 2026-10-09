@@ -286,35 +286,10 @@ function register(context, clientHolder, session, onChanged) {
     vscode.commands.registerCommand('semforge.addNamespace', async (node) => {
       // Prefixes are a package-wide table, agreed once. There was no way to
       // add to it from the editor at all -- you found semforge.yaml and typed.
-      const prefix = await vscode.window.showInputBox({
-        title: 'New namespace prefix',
-        prompt: 'The name this package uses for it, e.g. plant',
-        validateInput: (text) =>
-          /^[A-Za-z_][\w.-]*$/.test((text || '').replace(/:$/, ''))
-            ? undefined
-            : 'A letter or underscore, then letters, digits, dots, ' +
-              'underscores or hyphens.'
-      });
-      if (!prefix) {
-        return;
-      }
-      const namespace = await vscode.window.showInputBox({
-        title: `What does ${prefix}: mean?`,
-        prompt: 'The namespace IRI. It has to end in "/", "#" or ":", or a ' +
-          'term appended to it runs into the last segment.',
-        value: 'https://'
-      });
-      if (!namespace) {
-        return;
-      }
-      const made = await clientHolder.client.sendRequest(
-        'semforge/addNamespace',
-        { uri: (node && node.packageUri) || provider.uri, prefix, namespace }
-      );
-      if (!made || !made.ok) {
-        vscode.window.showErrorMessage(
-          `SemForge: ${(made && made.error) || 'the prefix was not defined'}`
-        );
+      // The same prompts as "New namespace…" in a vocabulary dialog.
+      const made = await require('./namespacepick').defineNamespace(
+        clientHolder.client, (node && node.packageUri) || provider.uri);
+      if (!made) {
         return;
       }
       provider.refresh();

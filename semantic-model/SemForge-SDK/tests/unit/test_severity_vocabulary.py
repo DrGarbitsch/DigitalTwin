@@ -127,4 +127,4 @@ def test_deriving_a_class_from_the_page(tmp_path, kms):
                  inputs=['AlarmLevel'])
     asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addSeverityClass']
     assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'name': 'AlarmLevel',
-                      'parent': 'sh:Severity'}]
+                      'parent': 'sh:Severity', 'namespace': None}]

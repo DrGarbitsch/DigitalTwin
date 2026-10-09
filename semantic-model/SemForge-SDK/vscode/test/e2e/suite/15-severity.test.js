@@ -46,7 +46,10 @@ describe('Severity… on a constraint', () => {
     row = page.attributes.findIndex((a) => a.label === 'hasHeight');
     session = answering([{ kind: 'pick', label: '$(warning) Severity…' },
       { kind: 'pick', label: '$(add) New severity level…' },
-      { kind: 'input', value: 'severityMajor' }, { kind: 'input', value: 'major' }]);
+      { kind: 'input', value: 'severityMajor' },
+      // The namespace: Enter keeps the usual place, the first entry.
+      { kind: 'pick', choose: (items) => items[0] },
+      { kind: 'input', value: 'major' }]);
     try {
       await api.pages.type.receive({ command: 'menu', row });
     } finally {

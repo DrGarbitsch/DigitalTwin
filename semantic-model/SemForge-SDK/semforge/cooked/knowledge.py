@@ -912,6 +912,69 @@ def _resolve_namespace(package, namespace):
     return known[text]
 
 
+def minting_namespace(package, namespace):
+    """`namespace` (a prefix or an IRI) as an IRI a NEW term may be minted in.
+
+    A standard vocabulary (sh, owl, rdf, ngsild, ...) is refused: a term minted
+    there would claim to be part of a standard it is not -- a severity level
+    named sh:Major is not SHACL's.
+    """
+    from ..package.prefixes import STANDARD
+
+    space = _resolve_namespace(package, namespace)
+    owner = next((name for name, iri in STANDARD.items() if iri == space), None)
+    if owner is not None:
+        raise PackageError(f'{owner}: is a standard vocabulary; a term minted in it '
+                           f'would claim to be part of that standard. Pick one of '
+                           f'this package\'s namespaces, or define a new one')
+    return space
+
+
+def split_name(name, namespace=None):
+    """`prefix:Name` typed into a name box: (Name, prefix). A namespace given
+    explicitly wins over one written into the name."""
+    text = str(name or '').strip()
+    prefix, colon, rest = text.rpartition(':')
+    if colon and prefix and '/' not in prefix:
+        return rest, namespace or prefix
+    return text, namespace
+
+
+def bind_namespace(package, path, iri):
+    """Give the file at `path` an `@prefix` line for `iri`'s namespace when it
+    has none and the package names that namespace -- so a term in a namespace
+    just defined reads `plant:Leak`, not `<https://…/Leak>`.
+
+    Nothing is written when the file already speaks the namespace, when the
+    package has no name for it, or when the file uses that name for something
+    else (the term then stays a full IRI, which always parses).
+    """
+    from ..package.prefixes import PREFIX_LINE, names_by_namespace
+
+    space = _namespace_of(iri)
+    if not re.match(r'^[\w-]+$', str(iri)[len(space):]):
+        return
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    if not _turtle_name(text, iri).startswith('<'):
+        return
+    prefix = names_by_namespace(package.path).get(space)
+    if not prefix:
+        return
+    lines = list(PREFIX_LINE.finditer(text))
+    if any((m.group(2) or '') == prefix for m in lines):
+        return
+    line = f'@prefix {prefix}: <{space}> .\n'
+    if lines:
+        at = lines[-1].end()
+        at = at + 1 if text[at:at + 1] == '\n' else at
+        text = text[:at] + ('' if text[at - 1:at] in ('', '\n') else '\n') + line + text[at:]
+    else:
+        text = line + ('\n' if text.strip() else '') + text
+    with open(path, 'w', encoding='utf-8') as handle:
+        handle.write(text)
+
+
 def attribute_namespaces(package, domain=''):
     """Where a new attribute may live, the likeliest first.
 

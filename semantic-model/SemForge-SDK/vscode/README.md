@@ -1434,7 +1434,7 @@ label, each value's `⋯` (Label…, Open in .ttl, Delete…), and the page's `�
 
 - **+ Value** asks a name and an optional label and appends
   `ns:name a owl:NamedIndividual, ns:Class ; rdfs:label "…"` in the class's
-  namespace and file.
+  file — and its namespace, unless you pick another (below).
 - **Label…** (click the label) changes it in place, adds one, or removes it
   when emptied — the rest of the statement untouched.
 - **Delete…** removes exactly the value's statement. A value in use shows
@@ -1445,6 +1445,21 @@ label, each value's `⋯` (Label…, Open in .ttl, Delete…), and the page's `�
   attribute), on the *Vocabulary classes* row, in the status bar menu —
   declares `ns:Name a owl:Class`, on its own or under another vocabulary class,
   and opens its page.
+
+**Which namespace a new vocabulary term gets.** Every vocabulary "New …" —
+class, value, severity level, severity class — asks after the name. The usual
+place comes first, so Enter keeps it: beside the class the term belongs to or
+derives from, a level of `sh:Severity` in the package's own vocabulary
+namespace, a class on its own where most of the vocabulary lives. Each entry
+shows the full name it would write (`alerts:Leak`). Then come the namespaces
+that already hold vocabulary, then the package's others. Last is
+**New namespace…**, which defines a prefix and its IRI for the whole package
+right there (as the ➕ on the Package view's namespaces row does) and goes on
+with it. Typing `prefix:Name` as the name chooses directly and skips the
+question. A term in a namespace its file does not speak yet gets the file's
+`@prefix` line with it, so it reads `alerts:Leak`, not `<https://…/Leak>`.
+Standard vocabularies (sh, owl, rdf, rdfs, xsd, ngsild) are never offered and
+are refused when typed: a level named `sh:Major` would claim to be SHACL's.
 
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click

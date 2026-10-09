@@ -321,25 +321,79 @@ def _append(path, lines, iri):
     return len(updated[:len(updated) - len(statement)].splitlines()) + 1
 
 
+def default_namespace(package, near=None):
+    """Where a new vocabulary term goes unless told otherwise.
+
+    Beside `near` (the class it belongs to or derives from); a level of
+    sh:Severity in the package's own vocabulary namespace, never SHACL's;
+    with nothing near, the namespace most of the package's vocabulary uses.
+    """
+    if near:
+        cls = _resolve_class(package, near)
+        if cls != SH.Severity:
+            return _namespace(cls)
+        from .severity import _namespace as severity_namespace
+        return severity_namespace(package)
+    spaces = [_namespace(c) for c in vocabulary_classes(package)
+              if not c.startswith(str(SH))]
+    if not spaces:
+        raise PackageError('name a namespace: this package has no vocabulary '
+                           'class to take one from')
+    return max(set(spaces), key=spaces.count)
+
+
+def vocabulary_namespaces(package, near=None):
+    """Where a new vocabulary term may live, the likeliest first: the default
+    (see `default_namespace`), then the namespaces that already hold
+    vocabulary, then the package's others. Standard vocabularies and the
+    shapes' own namespace are never offered."""
+    from ..package.prefixes import STANDARD, names_by_namespace
+    from .knowledge import node_shapes
+
+    try:
+        default = default_namespace(package, near)
+    except PackageError:
+        default = ''
+    held = {}
+    terms = set(vocabulary_classes(package)) | {
+        str(s) for s in package.knowledge.subjects(RDF.type, OWL.NamedIndividual)
+        if isinstance(s, URIRef)}
+    for term in terms:
+        held[_namespace(term)] = held.get(_namespace(term), 0) + 1
+    standard = set(STANDARD.values())
+    shapes_only = {_namespace(shape) for shape in node_shapes(package.shapes)} - set(held)
+    out = []
+    names = names_by_namespace(package.path)
+    for space, prefix in names.items():
+        if space in standard or not prefix or (space in shapes_only and space != default):
+            continue
+        out.append({'prefix': prefix, 'namespace': space, 'terms': held.get(space, 0),
+                    'default': space == default})
+    if default and default not in names:
+        out.append({'prefix': '', 'namespace': default, 'terms': held.get(default, 0),
+                    'default': True})
+    out.sort(key=lambda e: (not e['default'], -e['terms'], e['prefix']))
+    return out
+
+
+def _space_for(package, namespace, near=None):
+    from .knowledge import minting_namespace
+
+    return minting_namespace(package, namespace) if namespace \
+        else default_namespace(package, near)
+
+
 def add_vocabulary_class(package, name, namespace=None, parent=None, label=''):
     """Declare a new vocabulary class: `ns:Name a owl:Class`, optionally
-    under another vocabulary class and with a label."""
-    from .knowledge import _resolve_namespace, _turtle_name
+    under another vocabulary class and with a label. `namespace` (a prefix or
+    an IRI), or a prefix written into `name`, chooses where it goes."""
+    from .knowledge import _turtle_name, bind_namespace, split_name
 
+    name, namespace = split_name(name, namespace)
     name = _check_name(name)
     if parent:
         parent = _resolve_class(package, parent)
-    if namespace:
-        space = _resolve_namespace(package, namespace)
-    elif parent is not None:
-        space = _namespace(parent)
-    else:
-        known = vocabulary_classes(package)
-        if not known:
-            raise PackageError('name a namespace: this package has no vocabulary '
-                               'class to take one from')
-        spaces = [_namespace(c) for c in known]
-        space = max(set(spaces), key=spaces.count)
+    space = _space_for(package, namespace, parent)
     iri = URIRef(space + name)
     if (iri, None, None) in package.knowledge:
         raise PackageError(f'{curie(package.knowledge, iri)} is already declared')
@@ -347,6 +401,7 @@ def add_vocabulary_class(package, name, namespace=None, parent=None, label=''):
     index = package.index('knowledge')
     path = (index.file_for(parent) if parent is not None else None) or \
         package.sources['knowledge']
+    bind_namespace(package, path, iri)
     with open(path, encoding='utf-8') as handle:
         text = handle.read()
     lines = [f'{_turtle_name(text, iri)} a {_turtle_name(text, OWL.Class)}']
@@ -359,25 +414,28 @@ def add_vocabulary_class(package, name, namespace=None, parent=None, label=''):
             'file': path, 'line': line}
 
 
-def add_value(package, cls, name, label=''):
+def add_value(package, cls, name, label='', namespace=None):
     """Add a value to a vocabulary: `ns:name a owl:NamedIndividual, Class`,
-    in the class's namespace and file, as the kms writes its values."""
-    from .knowledge import _turtle_name
+    in the class's file -- and its namespace, as the kms writes its values,
+    unless `namespace` (or a prefix written into `name`) says otherwise."""
+    from .knowledge import _turtle_name, bind_namespace, split_name
 
     cls = _resolve_class(package, cls)
+    name, namespace = split_name(name, namespace)
     name = _check_name(name)
     if cls == SH.Severity:
         # A level of SHACL's class goes in the package's namespace, not SHACL's.
         from .severity import add_level
-        made = add_level(package, 'sh:Severity', name, label)
+        made = add_level(package, 'sh:Severity', name, label, namespace)
         path = package.index('knowledge').file_for(URIRef(made['iri'])) or \
             package.sources['knowledge']
         return dict(made, file=path, line=1)
-    iri = URIRef(_namespace(cls) + name)
+    iri = URIRef(_space_for(package, namespace, cls) + name)
     if (iri, None, None) in package.knowledge:
         raise PackageError(f'{curie(package.knowledge, iri)} is already declared')
     index = package.index('knowledge')
     path = index.file_for(cls) or package.sources['knowledge']
+    bind_namespace(package, path, iri)
     with open(path, encoding='utf-8') as handle:
         text = handle.read()
     lines = [f'{_turtle_name(text, iri)} a {_turtle_name(text, OWL.NamedIndividual)},'

@@ -11,8 +11,10 @@
 const vscode = require('vscode');
 
 const SEPARATOR = vscode.QuickPickItemKind ? vscode.QuickPickItemKind.Separator : -1;
-const NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/;
-const CLASS_NAME = /^[A-Z][A-Za-z0-9_-]*$/;
+const { pickVocabularyNamespace } = require('./namespacepick');
+
+const NAME = /^(?:[A-Za-z_][\w.-]*:)?[A-Za-z_][A-Za-z0-9_-]*$/;
+const CLASS_NAME = /^(?:[A-Za-z_][\w.-]*:)?[A-Z][A-Za-z0-9_-]*$/;
 const REFRESH = ['semforge.refreshShapes', 'semforge.refreshTree', 'semforge.refreshKnowledge'];
 
 async function ask(client, method, params) {
@@ -41,14 +43,19 @@ async function newClass(client, packageUri, classes) {
   }
   const name = await vscode.window.showInputBox({
     title: `New severity class, a kind of ${parent.term}`,
-    prompt: 'Its name, e.g. AlarmLevel', validateInput: (text) => (CLASS_NAME.test(text.trim())
+    prompt: 'Its name, e.g. AlarmLevel — or prefix:AlarmLevel to choose its namespace',
+    validateInput: (text) => (CLASS_NAME.test(text.trim())
       ? undefined : 'a capital first, then letters, digits, "_" and "-"')
   });
   if (!name) {
     return undefined;
   }
+  const namespace = await pickVocabularyNamespace(client, packageUri, name.trim(), parent.iri);
+  if (namespace === undefined) {
+    return undefined;
+  }
   return ask(client, 'semforge/addSeverityClass',
-    { uri: packageUri, name: name.trim(), parent: parent.term });
+    { uri: packageUri, name: name.trim(), parent: parent.term, namespace: namespace || null });
 }
 
 /** A new level: an individual of sh:Severity or of a class derived from it. */
@@ -61,23 +68,30 @@ async function newLevel(client, packageUri, classes, cls) {
     return undefined;
   }
   const name = await vscode.window.showInputBox({
-    title: `New severity level of ${owner.term}`, prompt: 'Its name, e.g. severityMajor',
+    title: `New severity level of ${owner.term}`,
+    prompt: 'Its name, e.g. severityMajor — or prefix:severityMajor to choose its namespace',
     validateInput: (text) => (NAME.test(text.trim()) ? undefined
       : 'a letter first, then letters, digits, "_" and "-"')
   });
   if (!name) {
     return undefined;
   }
+  const namespace = await pickVocabularyNamespace(client, packageUri, name.trim(), owner.iri);
+  if (namespace === undefined) {
+    return undefined;
+  }
   const label = await vscode.window.showInputBox({
     title: `${name.trim()}: its label`,
-    prompt: 'The word it is said by, e.g. "major"', value: name.trim().replace(/^severity/i, '')
+    prompt: 'The word it is said by, e.g. "major"', value: name.trim().split(':').pop()
+      .replace(/^severity/i, '')
       .replace(/^./, (c) => c.toLowerCase())
   });
   if (label === undefined) {
     return undefined;
   }
   return ask(client, 'semforge/addSeverityLevel',
-    { uri: packageUri, cls: owner.term, name: name.trim(), label: label.trim() });
+    { uri: packageUri, cls: owner.term, name: name.trim(), label: label.trim(),
+      namespace: namespace || null });
 }
 
 /**

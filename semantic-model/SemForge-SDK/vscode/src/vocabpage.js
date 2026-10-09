@@ -16,6 +16,7 @@
 
 const crypto = require('crypto');
 const vscode = require('vscode');
+const { pickVocabularyNamespace, NAME, CLASS_NAME } = require('./namespacepick');
 
 const { showLocation } = require('./reveal');
 const { escape } = require('./typepage');
@@ -309,15 +310,20 @@ class VocabularyPages {
     } else if (message.command === 'deriveSeverity' && this.page.severity) {
       const name = await vscode.window.showInputBox({
         title: `New severity class, derived from ${this.page.term}`,
-        prompt: 'Its name, e.g. AlarmLevel — a capital first',
-        validateInput: (text) => (/^[A-Z][A-Za-z0-9_-]*$/.test(text.trim()) ? undefined
+        prompt: 'Its name, e.g. AlarmLevel — a capital first; prefix:AlarmLevel chooses its namespace',
+        validateInput: (text) => (CLASS_NAME.test(text.trim()) ? undefined
           : 'a capital first, then letters, digits, "_" and "-"')
       });
       if (!name) {
         return;
       }
+      const namespace = await pickVocabularyNamespace(this.clientHolder.client, packageUri,
+        name.trim(), this.page.iri);
+      if (namespace === undefined) {
+        return;
+      }
       const made = await this.clientHolder.client.sendRequest('semforge/addSeverityClass',
-        { uri: packageUri, name: name.trim(), parent: this.page.term });
+        { uri: packageUri, name: name.trim(), parent: this.page.term, namespace: namespace || null });
       if (!made.ok) {
         vscode.window.showErrorMessage(`SemForge: ${made.error}`);
         return;
@@ -370,11 +376,16 @@ class VocabularyPages {
     const page = this.page;
     const name = await vscode.window.showInputBox({
       title: `New value of ${page.label}`,
-      prompt: `The value's name, in ${page.namespace}`,
-      validateInput: (text) => /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(text.trim())
+      prompt: 'Its name — or prefix:name to choose its namespace',
+      validateInput: (text) => NAME.test(text.trim())
         ? undefined : 'letters, digits, "_", "-" and ".", starting with a letter'
     });
     if (!name) {
+      return undefined;
+    }
+    const namespace = await pickVocabularyNamespace(this.clientHolder.client,
+      this.current.packageUri, name.trim(), page.iri);
+    if (namespace === undefined) {
       return undefined;
     }
     const label = await vscode.window.showInputBox({
@@ -385,7 +396,8 @@ class VocabularyPages {
       return undefined;
     }
     return this.clientHolder.client.sendRequest('semforge/addVocabularyValue',
-      { uri: this.current.packageUri, cls: page.iri, name: name.trim(), label: label.trim() });
+      { uri: this.current.packageUri, cls: page.iri, name: name.trim(), label: label.trim(),
+        namespace: namespace || null });
   }
 
   async editLabel(row) {
@@ -482,16 +494,22 @@ function register(context, clientHolder, session) {
       }
       const name = await vscode.window.showInputBox({
         title: 'New vocabulary class',
-        prompt: parent.iri ? `Its name; it goes under ${parent.label}, in the same namespace`
-          : 'Its name; it goes in the namespace the other vocabularies use',
-        validateInput: (text) => /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(text.trim())
+        prompt: (parent.iri ? `Its name; it goes under ${parent.label}` : 'Its name') +
+          ' — or prefix:Name to choose its namespace',
+        validateInput: (text) => NAME.test(text.trim())
           ? undefined : 'letters, digits, "_", "-" and ".", starting with a letter'
       });
       if (!name) {
         return;
       }
+      const namespace = await pickVocabularyNamespace(client, packageUri, name.trim(),
+        parent.iri || '');
+      if (namespace === undefined) {
+        return;
+      }
       const made = await client.sendRequest('semforge/addVocabularyClass',
-        { uri: packageUri, name: name.trim(), parent: parent.iri || null });
+        { uri: packageUri, name: name.trim(), parent: parent.iri || null,
+          namespace: namespace || null });
       if (!made.ok) {
         vscode.window.showErrorMessage(`SemForge: ${made.error}`);
         return;

@@ -175,7 +175,7 @@ def test_a_new_level_is_made_and_set(tmp_path, kms):
                             'term': 'base:severityMajor'}})
     assert _asked(seen, 'semforge/addSeverityLevel') == [{
         'uri': 'file:///pkg/shacl.ttl', 'cls': 'sh:Severity', 'name': 'severityMajor',
-        'label': 'major'}]
+        'label': 'major', 'namespace': None}]
     assert _asked(seen, 'semforge/setSeverity')[0]['severity'] == 'base:severityMajor'
 
 
