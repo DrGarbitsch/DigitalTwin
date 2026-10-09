@@ -286,7 +286,7 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     });
     button('Now', 'The time it is now', () => send(new Date().toISOString()));
     if (link.dataset.latest) {
-      button('Just after the latest', 'One millisecond after its datasetId\'s latest',
+      button('Just after the latest', 'One millisecond after the latest of its datasetId',
         () => send(new Date(Date.parse(link.dataset.latest) + 1).toISOString()));
     }
     if (link.dataset.current) {
