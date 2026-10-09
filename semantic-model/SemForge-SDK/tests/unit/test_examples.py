@@ -791,7 +791,7 @@ def test_adding_an_attribute_that_is_already_there_is_refused(package):
         add_attribute(package, 'urn:filter:1', 'iffBaseEntities:hasStrength',
                       value=1)
     assert 'with a default instance' in str(exc.value)
-    assert 'Add observation' in str(exc.value)
+    assert 'a timestamp none of its instances has' in str(exc.value)
 
 
 def test_a_new_entity_is_legal_ngsi_ld(package):

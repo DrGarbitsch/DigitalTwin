@@ -58,7 +58,7 @@ def test_one_observation_of_a_series(kms):
     done = remove_value(load(str(kms)), WP, [H, 0, 'value'], CASE)
     assert done['removed'] == 'an observation of hasHeight'
     assert _entity(kms)[H] == [{'type': 'Property', 'value': 6.0,
-                                'observedAt': '2026-01-02T00:00:00Z'}]
+                                'observedAt': '2026-01-02T00:00:00.000Z'}]  # the kms form
 
 
 def test_the_only_observation_takes_the_attribute(kms):

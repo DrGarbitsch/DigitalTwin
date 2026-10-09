@@ -1172,11 +1172,22 @@ function register(context, clientHolder, session, onChanged) {
     }
     const datasetId = await askDatasetId(clientHolder.client, node.packageUri, {
       title: `${attribute.term} on ${raw.entity}: datasetId`,
-      taken, allowDefault: !taken.includes('@none'),
+      taken, allowDefault: true, observations: true,
       suggestion: `${name}-${number}`
     });
     if (datasetId === undefined) {
       return;
+    }
+    // A datasetId it already has: another observation of that instance, so
+    // it needs a time none of them has -- validation reads the latest.
+    let observedAt = null;
+    if (taken.includes(datasetId || '@none')) {
+      observedAt = await require('./timestamps').pickStamp({
+        title: `${attribute.term} ${datasetId || '(default)'} again: when was it observed?`,
+        removable: false });
+      if (!observedAt) {
+        return;
+      }
     }
     // The shape decides what this may be, and it is inherited -- hasState
     // on anything descending from Machine takes an individual of
@@ -1229,7 +1240,8 @@ function register(context, clientHolder, session, onChanged) {
         under: nested ? nested.under : null,
         underDataset: nested ? nested.dataset : null,
         datasetId: datasetId.trim() || null,
-        unitCode
+        unitCode,
+        observedAt
       }
     );
     if (result.ok) {
@@ -1308,14 +1320,12 @@ function register(context, clientHolder, session, onChanged) {
       if (value === undefined) {
         return;
       }
-      const observedAt = await vscode.window.showInputBox({
-        title: 'observedAt',
-        prompt:
-          'ISO 8601 UTC with milliseconds. Later than the current one, or it ' +
-          'will not become the value validation reads.',
-        value: new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z')
-      });
-      if (observedAt === undefined) {
+      // When it was observed -- later than the current one, or it is not
+      // the value validation reads. An observation needs a time: without
+      // one it would count as now and supersede the rest.
+      const observedAt = await require('./timestamps').pickStamp({
+        title: `observedAt of the new observation of ${raw.label}`, removable: false });
+      if (!observedAt) {
         return;
       }
       const result = await clientHolder.client.sendRequest(

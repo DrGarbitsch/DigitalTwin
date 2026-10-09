@@ -200,6 +200,15 @@
         "icon": "$(symbol-ruler)"
       },
       {
+        "command": "semforge.setObservedAt",
+        "title": "SemForge: Timestamp (observedAt)…",
+        "icon": "$(clock)"
+      },
+      {
+        "command": "semforge.sortObservations",
+        "title": "SemForge: Sort Observations by Time"
+      },
+      {
         "command": "semforge.setDatasetId",
         "title": "SemForge: Change datasetId…"
       },
@@ -712,6 +721,16 @@
           "command": "semforge.setUnitCode",
           "when": "view == semforgeModel && viewItem == exampleDataset",
           "group": "2_row@17"
+        },
+        {
+          "command": "semforge.setObservedAt",
+          "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@18"
+        },
+        {
+          "command": "semforge.setObservedAt",
+          "when": "view == semforgeModel && viewItem == exampleEditable",
+          "group": "2_row@18"
         },
         {
           "command": "semforge.setUnitCode",

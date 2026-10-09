@@ -25,9 +25,17 @@ guards intact. Both guards are load-bearing and are pinned by tests:
     to share a name, not one attribute updated twice, and collapsing across
     them would erase a value the broker keeps -- hiding any real count
     violation over them.
-  * only instances carrying observedAt are collapsed. Repeated values without
-    one are not a sequence of updates; collapsing them would suppress a
-    GENUINE cardinality violation, which is the direction that matters.
+  * only an OLDER instance is dropped. Instances tied on time -- the same
+    observedAt, or several without one -- are kept together: they are not a
+    sequence of updates, and collapsing them would suppress a GENUINE
+    cardinality violation, which is the direction that matters.
+
+"Latest" is the platform's: the attribute view keeps the greatest
+COALESCE(observedAt, ts), and the bridge stamps an instance that has no
+observedAt (or one that does not parse) with its arrival time. So such an
+instance counts as NOW (ngsild/timestamps.py) -- it supersedes every stamped
+instance of its datasetId -- and timestamps are compared as points in time,
+not as text: `+02:00` and a missing millisecond part order correctly.
 """
 
 from dataclasses import dataclass, field
@@ -74,31 +82,47 @@ def _drop_subtree(graph, node, seen=None):
             _drop_subtree(graph, obj, seen)
 
 
+INSTANCE_MARKS = {URIRef(NGSILD + name) for name in (
+    'hasValue', 'hasObject', 'hasValueList', 'hasObjectList', 'hasJSON', 'hasLanguageMap',
+    'hasVocab')}
+INSTANCE_TYPES = {URIRef(NGSILD + name) for name in (
+    'Property', 'Relationship', 'GeoProperty', 'ListProperty', 'ListRelationship',
+    'JsonProperty', 'LanguageProperty', 'VocabProperty')}
+
+
+def _is_instance(graph, node):
+    """An NGSI-LD attribute instance: a blank node with a payload or a kind."""
+    return any((node, mark, None) in graph for mark in INSTANCE_MARKS) or \
+        any((node, RDF.type, kind) in graph for kind in INSTANCE_TYPES)
+
+
 def collapse_updates(graph):
-    """Keep only the most recent instance of each (entity, predicate, datasetId).
+    """Keep only the most recent instance of each (entity, predicate, datasetId)
+    -- every instance tied for most recent, so a duplicate still counts.
 
     Returns the number of instances dropped. Mutates the graph in place.
     """
+    from .timestamps import NOW, parse
+
     groups = {}
     for subject, predicate, obj in graph:
-        if not isinstance(obj, BNode):
+        if not isinstance(obj, BNode) or not _is_instance(graph, obj):
             continue
         observed = graph.value(obj, OBSERVED_AT)
-        if observed is None:
-            continue
+        moment = (parse(str(observed)) if observed is not None else None) or NOW
         key = (subject, predicate, graph.value(obj, DATASET_ID))
-        groups.setdefault(key, []).append((str(observed), obj))
+        groups.setdefault(key, []).append((moment, obj))
 
     dropped = 0
     for (subject, predicate, _), instances in groups.items():
         if len(instances) < 2:
             continue
-        # Lexical sort is chronological here: the timestamps are fixed-width.
-        instances.sort()
-        for _, node in instances[:-1]:
-            graph.remove((subject, predicate, node))
-            _drop_subtree(graph, node, seen=set())
-            dropped += 1
+        latest = max(moment for moment, _ in instances)
+        for moment, node in instances:
+            if moment < latest:
+                graph.remove((subject, predicate, node))
+                _drop_subtree(graph, node, seen=set())
+                dropped += 1
     return dropped
 
 

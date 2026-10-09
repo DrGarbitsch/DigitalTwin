@@ -381,6 +381,20 @@ def _fixes_for(diagnostic, uri):
     elif code == 'severity-unlinked':
         action(f'Declare {_local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
                {'packageUri': uri, 'cls': subject}, preferred=True)
+    elif code in ('observed-at-invalid', 'observed-at-format', 'observed-at-mixed'):
+        where = {'packageUri': uri, 'entity': data.get('entity'),
+                 'attributePath': data.get('attributePath'), 'file': data.get('file'),
+                 'index': data.get('index')}
+        if code == 'observed-at-format':
+            action(f'Write it as {data.get("observedAt")}', 'semforge.setObservedAt',
+                   dict(where, observedAt=data.get('observedAt')), preferred=True)
+        else:
+            action('Set its time…', 'semforge.setObservedAt', where, preferred=True)
+    elif code == 'observed-at-order':
+        action('Sort them by time', 'semforge.sortObservations',
+               {'packageUri': uri, 'entity': data.get('entity'),
+                'attributePath': data.get('attributePath'), 'file': data.get('file'),
+                'datasetId': data.get('datasetId', '')}, preferred=True)
     elif code == 'unit-unknown':
         action('Choose the unit…', 'semforge.setUnitCode',
                {'packageUri': uri, 'entity': data.get('entity'),
@@ -1089,6 +1103,27 @@ def add_instance_feature(ls, params):
     return _instance_write(ls, params, lambda package: add_instance(
         package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
         _field(params, 'datasetId'), file=_field(params, 'file')))
+
+
+@server.feature('semforge/setObservedAt')
+def set_observed_at_feature(ls, params):
+    """One instance's observedAt -- set, changed, or (empty) removed."""
+    from ..cooked.examples import set_observed_at
+
+    return _instance_write(ls, params, lambda package: set_observed_at(
+        package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
+        _field(params, 'index', 0) or 0, _field(params, 'observedAt', '') or '',
+        file=_field(params, 'file')))
+
+
+@server.feature('semforge/sortObservations')
+def sort_observations_feature(ls, params):
+    """One datasetId's observations in time order, the latest last."""
+    from ..cooked.examples import sort_observations
+
+    return _instance_write(ls, params, lambda package: sort_observations(
+        package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
+        _field(params, 'datasetId', '') or '', file=_field(params, 'file')))
 
 
 @server.feature('semforge/setDatasetId')

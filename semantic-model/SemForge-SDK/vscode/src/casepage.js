@@ -46,15 +46,28 @@ function attributeRows(rows, file, depth, at) {
       ? `<a href="#" class="act" data-edit="${here}" title="Change the value">` +
         `${escape(row.value) || '<span class="dim">(none)</span>'}</a>`
       : escape(row.value);
+    // When it was observed: a click opens the date-and-time picker. An
+    // instance without one counts as now, as on the platform.
+    const time = here !== undefined && row.stamp && row.kind
+      ? ` <a href="#" class="stamp${row.superseded ? ' old' : ''}" data-stamp="${here}"` +
+        ` data-current="${escape(row.observedAt)}" data-latest="${escape(row.latestAt || '')}"` +
+        ` title="${row.observedAt ? `observedAt ${escape(row.observedAt)} — click to change`
+          : 'No observedAt: it counts as now. Click to give it a time'}">` +
+        `${row.observedAt ? escape(row.observedAt.replace('T', ' ').replace(/\.000Z$|Z$/, ' UTC'))
+          : '◷'}</a>` : '';
+    const superseded = row.superseded
+      ? ' <span class="dim" title="Only the latest observation of a datasetId is validated">' +
+        '· superseded — not validated</span>' : '';
     const menu = here !== undefined && (row.node || row.attributeNode)
       ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
         'the rule">⋯</button>' : '';
-    return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
+    return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}` +
+      `${row.superseded ? ' superseded' : ''}">` +
       `<span class="name">${open(row.display || row.name, file, row.line, row.term)}</span>` +
       `<span class="value">${value}` +
       `${row.unitText ? ` <span class="unit" title="unitCode ${escape(row.unitCode)}">${escape(row.unitText)}</span>` : ''}` +
       `${row.instances > 1 && !(row.dataset && row.dataset !== '@none') ? ' <span class="dim">· default</span>' : ''}` +
-      `${menu}</span>` +
+      `${time}${superseded}${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
       attributeRows(row.children || [], file, depth + 1, here);
   }).join('');
@@ -146,6 +159,11 @@ function renderCasePage(page, options) {
   a:hover, a:focus-visible { text-decoration: underline; }
   .dim, .crumbs { color: var(--vscode-descriptionForeground); }
   .unit { color: var(--vscode-descriptionForeground); margin-left: 0.15em; }
+  .stamp { color: var(--vscode-descriptionForeground); font-size: 0.88em; margin-left: 0.4em; }
+  .stamp.old { text-decoration: line-through; }
+  .attr.superseded > .name, .attr.superseded > .value > .act { opacity: 0.6; }
+  .stampedit { display: inline-flex; gap: 0.3em; align-items: center; margin-left: 0.4em; }
+  .stampedit input { font-family: var(--vscode-editor-font-family); }
   .crumbs { font-size: 0.92em; }
   .mono { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   h1 { font-size: 1.5em; font-weight: 600; margin: 4px 0 4px; }
@@ -233,7 +251,55 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   const vscode = acquireVsCodeApi();
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
+  // observedAt: a date-and-time picker beside the time, in UTC, to the
+  // millisecond; Now, Just after the latest of its datasetId, Remove.
+  const utc = (iso) => (iso || new Date().toISOString()).replace(/Z$/, '').slice(0, 23);
+  function stampEditor(link) {
+    const open = link.nextElementSibling;
+    if (open && open.classList.contains('stampedit')) { open.remove(); return; }
+    const box = document.createElement('span');
+    box.className = 'stampedit';
+    const input = document.createElement('input');
+    input.type = 'datetime-local';
+    input.step = '0.001';
+    input.value = utc(link.dataset.current);
+    const zone = document.createElement('span');
+    zone.className = 'dim';
+    zone.textContent = 'UTC';
+    box.append(input, zone);
+    const send = (value) => {
+      vscode.postMessage({ command: 'stamp', at: link.dataset.stamp, value });
+      box.remove();
+    };
+    const button = (label, title, act) => {
+      const b = document.createElement('button');
+      b.className = 'mini';
+      b.textContent = label;
+      b.title = title;
+      b.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); act(); });
+      box.append(b);
+    };
+    button('Set', 'Write this time as its observedAt', () => {
+      const value = input.value.length === 16 ? input.value + ':00.000'
+        : input.value.length === 19 ? input.value + '.000' : input.value;
+      if (value) { send(value + 'Z'); }
+    });
+    button('Now', 'The time it is now', () => send(new Date().toISOString()));
+    if (link.dataset.latest) {
+      button('Just after the latest', 'One millisecond after its datasetId\'s latest',
+        () => send(new Date(Date.parse(link.dataset.latest) + 1).toISOString()));
+    }
+    if (link.dataset.current) {
+      button('Remove', 'No observedAt: it then counts as now, as on the platform', () => send(''));
+    }
+    button('×', 'Close', () => box.remove());
+    link.after(box);
+    input.focus();
+  }
   document.addEventListener('click', (event) => {
+    const stamp = event.target.closest('[data-stamp]');
+    if (stamp) { event.preventDefault(); stampEditor(stamp); return; }
+    if (event.target.closest('.stampedit')) { return; }
     const target = event.target.closest('[data-open],[data-type],[data-refresh],[data-assert],' +
       '[data-edit],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu],' +
       '[data-retarget],[data-dropassert]');
@@ -390,8 +456,8 @@ class CasePages {
       // On success the case page reopens on the renamed file.
       await vscode.commands.executeCommand('semforge.renameTestCase',
         { raw: { kind: 'example', file: this.page.file }, packageUri: this.current.packageUri });
-    } else if (['edit', 'rowMenu', 'addAttribute', 'addEntity'].includes(message.command)) {
-      await this.edit(message.command, `${message.at}`);
+    } else if (['edit', 'rowMenu', 'addAttribute', 'addEntity', 'stamp'].includes(message.command)) {
+      await this.edit(message.command, `${message.at}`, message.value);
     }
   }
 
@@ -415,16 +481,31 @@ class CasePages {
    * (the shape's allowed values, a known attribute) and writes the same way.
    * Afterwards the case re-runs and the page shows what the change did.
    */
-  async edit(command, at) {
+  async edit(command, at, value) {
     const { file, card, row } = this.locate(at);
     const packageUri = this.current.packageUri;
     const run = (name, raw) => vscode.commands.executeCommand(name, { raw, packageUri });
     if (command === 'addEntity' && file) {
       await run('semforge.addEntity', { kind: 'example', file: file.path });
     } else if (command === 'addAttribute' && card && card.node) {
-      await run('semforge.addAttribute', card.node);
+      // What the entity already has, by datasetId: an attribute it has is
+      // added again as another instance, or -- same datasetId -- as another
+      // observation at a time of its own, so the dialog must know.
+      const has = {};
+      for (const attribute of card.attributes || []) {
+        (has[attribute.term] = has[attribute.term] || new Set()).add(attribute.dataset || '@none');
+      }
+      const children = Object.entries(has).map(([term, datasets]) => ({
+        kind: 'attribute', attributePath: [term], datasets: [...datasets] }));
+      await run('semforge.addAttribute', Object.assign({}, card.node, { children }));
     } else if (command === 'edit' && row && row.node) {
       await run('semforge.editValue', row.node);
+    } else if (command === 'stamp' && row && row.stamp && card) {
+      // From the page's picker: its value, or '' to remove it.
+      await vscode.commands.executeCommand('semforge.setObservedAt', {
+        packageUri, entity: card.id, file: card.file || (file && file.path),
+        attributePath: row.stamp.attributePath, index: row.stamp.index,
+        observedAt: value || '' });
     } else if (command === 'rowMenu' && row) {
       const items = [];
       if (row.node && row.node.editable) {

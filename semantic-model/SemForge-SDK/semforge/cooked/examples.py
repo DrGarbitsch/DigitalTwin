@@ -136,16 +136,16 @@ def _group_by_dataset(instances):
 
 
 def _current_index(members):
-    """Which member validation reads: the latest observedAt, else the last.
+    """Which member validation reads: the latest -- an unstamped one counting
+    as now, as on the platform -- and of those tied, the last in the file.
 
     Returns the index into the WHOLE attribute, not a position within the
     group -- an edit path has to address the JSON array, and the two coincide
     only when there is a single datasetId.
     """
-    stamped = [(str(instance.get('observedAt', '')), index)
-               for index, instance in members
-               if isinstance(instance, dict) and 'observedAt' in instance]
-    return max(stamped)[1] if stamped else members[-1][0]
+    from ..ngsild.timestamps import key
+
+    return max((key(instance), index) for index, instance in members)[1]
 
 
 def _member_at(members, index):
@@ -788,7 +788,8 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     except (TypeError, ValueError):
         fresh['value'] = value
     if observed_at:
-        fresh['observedAt'] = observed_at
+        same = _group_by_dataset(instances).get(dataset_id or DEFAULT_DATASET, [])
+        fresh['observedAt'] = checked_stamp(observed_at, same, f'{entity_id}: {key}')
     if dataset_id and dataset_id != DEFAULT_DATASET:
         fresh['datasetId'] = dataset_id
 
@@ -801,6 +802,25 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     with open(source, 'w', encoding='utf-8') as handle:
         handle.write(rendered)
     return source, len(cursor[key])
+
+
+def checked_stamp(stamp, members=(), what=''):
+    """`stamp` as an observedAt is written -- 2024-02-28T13:52:35.000Z -- after
+    checking it is one, and that no other instance of the same datasetId says
+    it: two of them would be one update written twice."""
+    from ..ngsild.timestamps import normalised, parse
+
+    written = normalised(stamp)
+    if written is None:
+        raise PackageError(f'"{stamp}" is not a timestamp: ISO 8601 with its zone, '
+                           f'e.g. 2024-02-28T13:52:35.000Z')
+    moment = parse(written)
+    for _, member in members:
+        if isinstance(member, dict) and parse(member.get('observedAt')) == moment:
+            raise PackageError(f'{what} already has an observation at {written} for this '
+                               f'datasetId; another one there would be the same update '
+                               f'written twice')
+    return written
 
 
 DATASET_IRI = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>"{}|\\^`]+$')
@@ -955,6 +975,48 @@ def set_dataset_id(package, entity_id, attribute_path, old, new, file=None, inde
     holder[key] = instances if isinstance(holder[key], list) else instances[0]
     _write(source, document, text)
     return {'file': source, 'datasetId': new, 'changed': len(moving)}
+
+
+def set_observed_at(package, entity_id, attribute_path, index, stamp, file=None):
+    """Give one instance -- `index` in the attribute's array -- its observedAt,
+    or with no stamp take it away (it then counts as now, as on the platform).
+    A stamp another instance of its datasetId already says is refused."""
+    source = _target_file(package, file)
+    text, document, entities = _read_document(source)
+    holder, key, instances = _instances_at(entities, entity_id, attribute_path)
+    index = int(index or 0)
+    if not 0 <= index < len(instances) or not isinstance(instances[index], dict):
+        raise PackageError(f'{entity_id}: {key} has no instance {index}')
+    instance = instances[index]
+    if stamp:
+        same = [(i, m) for i, m in _group_by_dataset(instances).get(
+            _dataset_of(instance), []) if i != index]
+        instance['observedAt'] = checked_stamp(stamp, same, f'{entity_id}: {key}')
+    else:
+        instance.pop('observedAt', None)
+    _write(source, document, text)
+    return {'file': source, 'observedAt': instance.get('observedAt', '')}
+
+
+def sort_observations(package, entity_id, attribute_path, dataset_id=None, file=None):
+    """Put the observations of one datasetId in time order, the latest last --
+    where Scorpio and the bridge look for the current one -- leaving every
+    other instance where it is."""
+    from ..ngsild.timestamps import key as moment
+
+    source = _target_file(package, file)
+    text, document, entities = _read_document(source)
+    holder, key, instances = _instances_at(entities, entity_id, attribute_path)
+    members = _group_by_dataset(instances).get(str(dataset_id or '') or DEFAULT_DATASET)
+    if not members:
+        raise PackageError(f'{entity_id}: {key} has no instance with datasetId {dataset_id}')
+    ordered = sorted((instance for _, instance in members), key=moment)
+    for (position, _), instance in zip(members, ordered):
+        instances[position] = instance
+    if isinstance(holder[key], list):
+        holder[key] = instances
+    _write(source, document, text)
+    return {'file': source, 'sorted': len(members)}
 
 
 def remove_value(package, entity_id, path, file=None, dataset=None):
@@ -1142,12 +1204,17 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
     if name in carrier:
         existing = carrier[name] if isinstance(carrier[name], list) else [carrier[name]]
         groups = _group_by_dataset(existing)
-        if (dataset_id or DEFAULT_DATASET) in groups:
+        same = groups.get(dataset_id or DEFAULT_DATASET)
+        if same and not metadata.get('observedAt'):
             which = f'datasetId {dataset_id}' if dataset_id else 'a default instance'
             raise PackageError(
                 f'{entity_id} already has {name} with {which}. Another one there is '
-                f'an observation of it (Add observation); another instance needs '
-                f'another datasetId')
+                f'an observation of it: give it a timestamp none of its instances has, '
+                f'or another datasetId')
+        if same:
+            # The same datasetId at another time: an observation of it.
+            metadata['observedAt'] = checked_stamp(metadata['observedAt'], same,
+                                                   f'{entity_id}: {name}')
         # The same attribute: its kind is what is already written.
         kind = next((i.get('type') for i in existing
                      if isinstance(i, dict) and i.get('type')), None) or kind
@@ -1160,6 +1227,8 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
     except (TypeError, ValueError):
         parsed = value
 
+    if metadata.get('observedAt') and existing is None:
+        metadata['observedAt'] = checked_stamp(metadata['observedAt'])
     fresh = attribute(kind, parsed, **metadata)
     carrier[name] = fresh if existing is None else existing + [fresh]
     _write(source, document, text)

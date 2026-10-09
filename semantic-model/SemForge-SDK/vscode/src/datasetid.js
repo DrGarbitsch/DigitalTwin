@@ -41,7 +41,8 @@ function problem(text, taken) {
  * `options.allowDefault`), the full IRI, or undefined when cancelled.
  *
  * options: { title, taken: [datasetIds the attribute has, '@none' for the
- * default], allowDefault, suggestion: a local name }
+ * default], allowDefault, suggestion: a local name, observations: offer the
+ * taken ones too -- another observation of one, which then needs a time }
  */
 async function askDatasetId(client, packageUri, options) {
   const taken = options.taken || [];
@@ -55,8 +56,15 @@ async function askDatasetId(client, packageUri, options) {
     spaces = [];      // an older server: typing the IRI still works
   }
   const items = [];
+  const again = options.observations ? taken.filter((d) => d !== '@none') : [];
   if (options.allowDefault) {
-    items.push({ label: 'Default instance', description: 'no datasetId', pick: 'default' });
+    items.push({ label: 'Default instance', pick: 'default',
+      description: taken.includes('@none') ? 'another observation of it — at another time'
+        : 'no datasetId' });
+  }
+  if (again.length) {
+    items.push({ label: 'Another observation of', kind: SEPARATOR },
+      ...again.map((d) => ({ label: d, description: 'at another time', pick: 'taken', id: d })));
   }
   if (spaces.length) {
     items.push({ label: 'In a namespace of this package', kind: SEPARATOR });
@@ -82,6 +90,9 @@ async function askDatasetId(client, packageUri, options) {
   if (picked.pick === 'default') {
     return '';
   }
+  if (picked.pick === 'taken') {
+    return picked.id;
+  }
   let namespace = picked.space && picked.space.namespace;
   if (picked.pick === 'new') {
     const made = await defineNamespace(client, packageUri);
@@ -95,7 +106,7 @@ async function askDatasetId(client, packageUri, options) {
     prompt: `The local part, in ${namespace}`,
     value: local,
     validateInput: (text) => (!LOCAL.test(text.trim()) ? 'no spaces, "/", "#" or "?"'
-      : problem(namespace + text.trim(), taken))
+      : problem(namespace + text.trim(), options.observations ? [] : taken))
   });
   return name === undefined ? undefined : namespace + name.trim();
 }

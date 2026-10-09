@@ -372,7 +372,13 @@ def test_add_attribute_and_add_entity_use_the_tree_commands(tmp_path, without):
     seen = _edit(tmp_path, without, [{'command': 'addAttribute', 'at': '0.0'},
                                      {'command': 'addEntity', 'at': '0'}])
     card = without['files'][0]['cards'][0]
-    assert _ran(seen, 'semforge.addAttribute')[0]['raw'] == card['node']
+    raw = _ran(seen, 'semforge.addAttribute')[0]['raw']
+    # The entity's row, and what it already has by datasetId -- an attribute
+    # it has is added again as another instance or another observation.
+    assert {k: v for k, v in raw.items() if k != 'children'} == \
+        {k: v for k, v in card['node'].items() if k != 'children'}
+    assert {c['attributePath'][0]: c['datasets'] for c in raw['children']} == {
+        a['term']: ['@none'] for a in card['attributes']}
     assert _ran(seen, 'semforge.addEntity')[0]['raw'] == {
         'kind': 'example', 'file': without['files'][0]['path']}
 

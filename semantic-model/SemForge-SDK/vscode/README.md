@@ -1962,7 +1962,7 @@ asks once, listing them, before writing. A file only one case includes asks
 nothing.
 
 A row with the 📈 icon takes **Add Observation** (right-click). It asks for the
-value and an `observedAt`, joins the series for *its* `datasetId`, and copies
+value and its time (picked: Now, Just after the latest, or one of your own), joins the series for *its* `datasetId`, and copies
 the `type` from what is already there — a Property whose new instance arrived
 as a Relationship would be a different attribute, not a new observation of the
 same one. A `datasetId` of `@none` is not written out: that *is* the default
@@ -2027,6 +2027,45 @@ JSON: you see the verdict move.
 its latest `observedAt` per `datasetId` before validation, so editing a
 superseded observation changes the file and nothing else. Without the marker
 that reads as the editor being broken.
+
+**Timestamps (`observedAt`) — only the latest is validated.** The platform's
+attribute view keeps, per (entity, attribute, `datasetId`), the instance with
+the greatest `COALESCE(observedAt, ts)`; the bridge stamps an instance that has
+no `observedAt` with the time it arrives. The SDK validates exactly that:
+
+- per `datasetId`, only the **latest** observation is validated — the older
+  ones are filtered out before validation, so an old out-of-range value does
+  not fire, and a series never trips `sh:maxCount`;
+- an instance **without** `observedAt` counts as **now** and supersedes every
+  stamped one of its `datasetId`, as on the platform;
+- timestamps are compared as points in time, not as text — `+02:00` or a
+  missing millisecond part order correctly — and written in the kms form
+  `2024-02-28T13:52:35.000Z`;
+- instances tied on time (the same stamp, or several without one) are all
+  kept: one update written twice is a duplicate, and still counts.
+
+Timestamps are **never asked by default**; an imported series keeps its own.
+When one is wanted:
+
+- on the **case page**, a click on an instance's time (or its ◷) opens a
+  date-and-time picker beside it — UTC, to the millisecond — with **Set**,
+  **Now**, **Just after the latest** of its `datasetId`, and **Remove**. A
+  superseded observation is struck through and says *superseded — not
+  validated*;
+- in the Model view, **Timestamp…** on an instance row offers Now, Just after
+  the latest, or a time of your own (any ISO 8601 with its zone);
+- **Add Attribute** offers the `datasetId`s the attribute already has: picking
+  one adds *another observation* of it, and asks for its time — one none of
+  its observations has. **Add Observation** asks the same way.
+
+Four things are reported where they are written, each with a quick fix:
+
+| code | what | quick fix |
+| --- | --- | --- |
+| `observed-at-invalid` | an `observedAt` that is no timestamp: the platform reads none, so the instance counts as now (error) | Set its time… |
+| `observed-at-format` | a timestamp not in the kms form | Write it as `…000Z` |
+| `observed-at-mixed` | one `datasetId` with stamped and unstamped instances: the unstamped one counts as now and supersedes them all | Set its time… |
+| `observed-at-order` | one `datasetId`'s observations out of time order in the file: Scorpio and the bridge take the **last** one, validation the latest — they would disagree | Sort them by time |
 
 An entity that violates something is marked, and carries the message on hover —
 a `minCount` violation is about an attribute that is *not there*, so there is no

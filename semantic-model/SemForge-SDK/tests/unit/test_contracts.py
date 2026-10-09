@@ -135,8 +135,10 @@ def test_the_main_page_payload_renders_with_its_edits(tmp_path, kms):
     assert seen['webviews'][0]['title'] == 'Main · instances'
     assert 'data-addentity="0"' in html and 'data-edit="0.' in html
     assert _executed(seen, 'semforge.addEntity')[0][0]['raw']['file'] == page['files'][0]['path']
-    assert _executed(seen, 'semforge.addAttribute')[0][0]['raw'] == \
-        page['files'][0]['cards'][0]['node']
+    raw = _executed(seen, 'semforge.addAttribute')[0][0]['raw']
+    # The entity's row -- plus what it already has, by datasetId (children).
+    assert {k: v for k, v in raw.items() if k != 'children'} == \
+        {k: v for k, v in page['files'][0]['cards'][0]['node'].items() if k != 'children'}
 
 
 def test_a_shapeless_subtype_s_page_offers_plus_attribute(tmp_path, kms):

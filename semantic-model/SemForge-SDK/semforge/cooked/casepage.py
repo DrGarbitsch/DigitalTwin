@@ -93,6 +93,7 @@ def _attributes(node, address, index, violations, entity):
             continue
         name = _short(key)
         members = instances if isinstance(instances, list) else [instances]
+        latest = _latest(members)
         for position, member in enumerate(members):
             where = address + [key] + ([position] if isinstance(instances, list) else [])
             line = index.get(tuple(address + [key])) or 0
@@ -107,6 +108,14 @@ def _attributes(node, address, index, violations, entity):
                 'value': _render(payload) if payload is not None else '',
                 'dataset': str(member.get('datasetId', '')),
                 'unitCode': str(member.get('unitCode', '')),
+                # When it was observed, where to change that, and whether
+                # validation reads it: only the latest of its datasetId counts.
+                'observedAt': str(member.get('observedAt', '')),
+                'stamp': {'attributePath': address[1:] + [key],
+                          'index': position if isinstance(instances, list) else 0},
+                'latestAt': latest.get(str(member.get('datasetId', '@none')), ('', 0))[0],
+                'superseded': latest.get(str(member.get('datasetId', '@none')),
+                                         ('', position))[1] != position,
                 # Distinct datasetIds: observations of one are one instance.
                 'instances': len({str(m.get('datasetId', '@none')) for m in members
                                   if isinstance(m, dict)}),
@@ -116,6 +125,22 @@ def _attributes(node, address, index, violations, entity):
                 violations.pop((entity, name + '.unitCode'), []),
                 'children': _attributes(member, where, index, violations, entity)})
     return rows
+
+
+def _latest(members):
+    """{datasetId: (its latest observedAt, the position validation reads)}:
+    the latest -- an unstamped one counting as now -- the last of a tie."""
+    from ..ngsild.timestamps import key
+
+    out = {}
+    for position, member in enumerate(members):
+        if not isinstance(member, dict):
+            continue
+        dataset = str(member.get('datasetId', '@none'))
+        best = out.get(dataset)
+        if best is None or key(member) >= best[2]:
+            out[dataset] = (str(member.get('observedAt', '')), position, key(member))
+    return {d: (stamp, position) for d, (stamp, position, _) in out.items()}
 
 
 def _cards(path, role, shared_by, violations):

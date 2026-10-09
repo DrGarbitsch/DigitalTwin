@@ -163,11 +163,21 @@ def test_a_new_namespace_is_defined_on_the_spot(tmp_path):
     assert _sent(seen)[0]['datasetId'] == 'https://example.org/plant/inlet'
 
 
-def test_with_a_default_instance_there_it_is_not_offered(tmp_path):
-    seen = _drive(tmp_path, _entity([PRESENT]), [], [])
-    labels = [i['label'] for i in seen['quickPicks'][1]['items']]
-    assert 'Default instance' not in labels
+def test_with_a_default_instance_there_another_one_is_an_observation_at_a_time(tmp_path):
+    """Same datasetId, another time: allowed -- it asks when it was observed."""
+    seen = _drive(tmp_path, _entity([PRESENT]),
+                  ['Default instance', '$(calendar) A time of your own…'],
+                  ['2024-02-28T14:52:35+01:00', '0.5'])
+    item = next(i for i in seen['quickPicks'][1]['items'] if i['label'] == 'Default instance')
+    assert item['description'] == 'another observation of it — at another time'
     assert 'Has default' in seen['quickPicks'][1]['placeHolder']
+    sent = _sent(seen)[0]
+    assert (sent['datasetId'], sent['observedAt']) == (None, '2024-02-28T13:52:35.000Z')
+
+
+def test_a_new_datasetid_asks_no_time(tmp_path):
+    seen = _drive(tmp_path, _entity([PRESENT]), ['sensors:hasStrength-2'], ['left', '0.5'])
+    assert _sent(seen)[0]['observedAt'] is None
 
 
 def test_cancelling_the_datasetid_adds_nothing(tmp_path):

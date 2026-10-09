@@ -36,6 +36,16 @@ line that holds it:
                      it has no attribute[prefix:name] to be read by
   unit-unknown       a unitCode in the data that is neither one of the curated
                      UN/CEFACT Rec 20 codes nor a unit of the package's own
+  observed-at-invalid   an observedAt that is no timestamp: the platform reads
+                     it as none -- the instance counts as now
+  observed-at-format    an observedAt that is a timestamp but not in the kms
+                     form (YYYY-MM-DDTHH:mm:ss.SSSZ), in which text order is
+                     time order
+  observed-at-mixed     one datasetId with stamped and unstamped instances: the
+                     unstamped one counts as now and supersedes every stamp
+  observed-at-order     the observations of one datasetId out of time order in
+                     the file: Scorpio and the bridge take the LAST one, the
+                     attribute view the latest -- they would disagree
   dataset-duplicate  two instances of one attribute share a datasetId and an
                      observedAt (or both carry none): one update, written
                      twice -- the platform keeps only the last, so a count
@@ -424,6 +434,8 @@ def _dataset_checks(package):
 
     from .cooked.units import units
 
+    from .ngsild.timestamps import normalised
+
     names = dataset_names(package)
     known_units = {u['code'] for u in units(package)}
     out = []
@@ -483,8 +495,28 @@ def _dataset_checks(package):
                                 f'the unit, or add {code} as one of the package\'s own.',
                         fix=dict(fix, datasetId='' if dataset is None else str(dataset),
                                  unit=str(code))))
+                stamp = instance.get('observedAt')
+                if stamp is not None:
+                    written = normalised(stamp)
+                    where = lines.get(tuple(inner + ['observedAt'])) or at
+                    if written is None:
+                        out.append(SanityFinding(
+                            file=source, line=where, severity='error',
+                            code='observed-at-invalid', subject=entity,
+                            message=f'{entity}: {name} says observedAt "{stamp}", which is '
+                                    f'no timestamp. The platform reads it as none: this '
+                                    f'instance counts as now and supersedes every other of '
+                                    f'its datasetId.', fix=dict(fix)))
+                    elif written != stamp:
+                        out.append(SanityFinding(
+                            file=source, line=where, severity='warning',
+                            code='observed-at-format', subject=entity,
+                            message=f'{entity}: {name} says observedAt "{stamp}" -- '
+                                    f'{written} in the kms form (YYYY-MM-DDTHH:mm:ss.SSSZ), '
+                                    f'the one in which text order is time order.',
+                            fix=dict(fix, observedAt=written)))
                 key = (DEFAULT_DATASET if dataset is None else str(dataset),
-                       str(instance['observedAt']) if 'observedAt' in instance else None)
+                       normalised(stamp) or str(stamp) if stamp is not None else None)
                 unstamped.setdefault(key, []).append((position, inner))
             for (dataset, stamp), found in unstamped.items():
                 for position, inner in found[1:]:
@@ -503,6 +535,53 @@ def _dataset_checks(package):
                                 f'later observation.',
                         fix={'entity': entity, 'attributePath': path, 'file': source,
                              'index': position, 'old': dataset}))
+            out += _stamp_findings(source, lines, entity, path, trail, name, members)
+    return out
+
+
+def _stamp_findings(source, lines, entity, path, trail, name, members):
+    """observed-at-mixed and observed-at-order, per datasetId of one attribute."""
+    from .cooked.examples import DEFAULT_DATASET
+    from .ngsild.timestamps import NOW, key, parse
+
+    groups = {}
+    for position, (inner, instance) in enumerate(members):
+        dataset = instance.get('datasetId')
+        groups.setdefault(DEFAULT_DATASET if dataset is None else str(dataset), []).append(
+            (position, inner, instance))
+    out = []
+    for dataset, group in groups.items():
+        if len(group) < 2:
+            continue
+        shown = 'the default instance' if dataset == DEFAULT_DATASET else f'datasetId {dataset}'
+        stamped = [g for g in group if parse(g[2].get('observedAt'))]
+        # No observedAt at all; one that does not parse is observed-at-invalid's.
+        bare = [g for g in group if 'observedAt' not in g[2]]
+        if stamped and bare:
+            for position, inner, _ in bare:
+                out.append(SanityFinding(
+                    file=source, line=lines.get(tuple(inner)) or lines.get(tuple(trail)) or 1,
+                    severity='warning', code='observed-at-mixed', subject=entity,
+                    message=f'{entity}: {name} ({shown}) has observations with a time and '
+                            f'this one without. On the platform it takes the time it '
+                            f'arrives -- now -- and supersedes them all; validation does '
+                            f'the same. Give it its time.',
+                    fix={'entity': entity, 'attributePath': path, 'file': source,
+                         'index': position}))
+        moments = [key(instance) for _, _, instance in group]
+        out_of_order = any(later < earlier for earlier, later in zip(moments, moments[1:]))
+        if out_of_order and any(m != NOW for m in moments):
+            last = group[-1][2].get('observedAt') or 'no time (now)'
+            latest = max(group, key=lambda g: key(g[2]))[2].get('observedAt') or 'now'
+            out.append(SanityFinding(
+                file=source, line=lines.get(tuple(trail)) or 1, severity='warning',
+                code='observed-at-order', subject=entity,
+                message=f'{entity}: {name} ({shown}) is not in time order. Scorpio and the '
+                        f'bridge take the last one in the file ({last}), validation and the '
+                        f'attribute view the latest ({latest}): they would disagree. Sort '
+                        f'them by time.',
+                fix={'entity': entity, 'attributePath': path, 'file': source,
+                     'datasetId': '' if dataset == DEFAULT_DATASET else dataset}))
     return out
 
 
