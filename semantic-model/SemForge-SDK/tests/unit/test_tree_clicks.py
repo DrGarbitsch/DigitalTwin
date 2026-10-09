@@ -967,6 +967,19 @@ def test_the_type_page_says_the_essentials_first(tmp_path):
     assert body.index('urn:pump:1') < body.index('data-case="/pkg/examples/ok.jsonld"')
 
 
+def test_test_coverage_is_one_column_and_the_model_marks_the_name(tmp_path):
+    """The column says how well the cases prove an attribute; what the model's
+    data does is a different question, answered beside the attribute's name."""
+    html = _pump(tmp_path)['webviews'][0]['html'][-1]
+    assert '>Test coverage</th>' in html and '<th>Status</th>' not in html
+    row = html.split('data-open="/pkg/shacl.ttl:50"', 1)[1].split('</tr>', 1)[0]
+    name, *cells = row.split('<td')
+    assert '<span class="violates"' in name and '✗ 1</span>' in name
+    assert 'Violated in the model by:\nurn:pump:2' in name
+    coverage = next(c for c in cells if c.startswith(' class="coverage"'))
+    assert 'in the model' not in coverage and 'data-action="test"' in coverage
+
+
 def test_the_type_page_menu_keeps_the_rare_actions(tmp_path):
     seen = _pump(tmp_path, webviewMessages=[{'command': 'pageMenu', 'row': -1}],
                  picks=['$(type-hierarchy-sub) New subtype…'])

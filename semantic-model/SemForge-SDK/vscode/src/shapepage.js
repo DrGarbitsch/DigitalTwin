@@ -230,7 +230,8 @@ function renderShapePage(page, options) {
        color: var(--vscode-descriptionForeground); font-weight: 600; padding: 6px 12px; }
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
-  td.status { white-space: normal; }
+  td.coverage { white-space: normal; }
+  .violates { color: var(--vscode-errorForeground, #f14c4c); font-size: 0.9em; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
@@ -249,7 +250,7 @@ function renderShapePage(page, options) {
   <button data-action="addCheck" title="An attribute, or a SPARQL constraint on the whole node">+ Add check ▾</button></div>
 ${checkRows(checks, cases)}
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes)}</tbody></table></div>` : ''}
 ${anything ? '' : '<p class="empty">No checks yet.</p>'}
 

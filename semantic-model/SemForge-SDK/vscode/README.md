@@ -1284,10 +1284,12 @@ views:
 
   - **Attributes**, grouped by where they come from — *Own · FilterShape*,
     *From Machine · MachineShape*, a shape's condition — instead of a column
-    repeating it on every row. One **Status** column says how each stands,
-    worst first: *✗ 2 in the model*, then how well the cases prove it
-    (*never fired*, *both ways*; a click writes a new test). Own rows have a
-    `⋯`; inherited ones a quiet **override…**.
+    repeating it on every row. The **Test coverage** column says how well
+    the cases prove it (*never fired*, *fires only*, *both ways*; a click
+    writes a new test). What the model's data does is another question,
+    marked beside the attribute's name: *hasXXXWorkpiece ✗ 2*, the violating
+    entities in its tooltip. Own rows have a `⋯`; inherited ones a quiet
+    **override…**. The shape page's table has the same columns.
   - **Rules** — each SPARQL constraint or rule by what it says (its
     `sh:message`), then its shape; **Open** takes it to the SPARQL workbench,
     its `⋯` to the shape page or the `.ttl`. Inherited ones are grouped the

@@ -93,10 +93,10 @@ function origin(row) {
 
 /** How an attribute stands, worst news first: what violates it in the model,
  *  then how well the test cases prove it -- which also starts a new test. */
-function statusCell(row, index) {
-  const model = row.violations.length
-    ? chip(`✗ ${row.violations.length} in the model`, 'bad', row.violations.join('\n')) + ' '
-    : '';
+/** How well the test cases prove an attribute's constraints -- and the way
+ *  to a new test. What the model's data does is not this column's: it is
+ *  marked beside the attribute's name. */
+function coverageCell(row, index) {
   const tested = row.tested && row.tested !== 'untested'
     ? chip(row.tested, TESTED_CLASS[row.tested],
       row.tested === 'never fired'
@@ -104,7 +104,7 @@ function statusCell(row, index) {
           'that cannot fire looks exactly like one that is satisfied. Click: New test…'
         : 'Click: New test…')
     : '';
-  return `${model}<a href="#" class="act" data-action="test" data-row="${index}" ` +
+  return `<a href="#" class="act" data-action="test" data-row="${index}" ` +
     `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
     `${tested || 'New test…'}</a>`;
 }
@@ -131,7 +131,10 @@ function attributeRows(attributes, focused, options) {
     const verbatim = row.verbatim.length
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '';
     return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
-      `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}</td>` +
+      `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}` +
+      `${row.violations.length ? ` <span class="violates" title="${escape(
+        `Violated in the model by:\n${row.violations.join('\n')}`)}">✗ ${row.violations.length}</span>`
+        : ''}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
@@ -140,7 +143,7 @@ function attributeRows(attributes, focused, options) {
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}` +
       `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
-      `<td class="status">${statusCell(row, index)}</td>` +
+      `<td class="coverage">${coverageCell(row, index)}</td>` +
       `<td class="acts">${actions(row, index)}</td></tr>` +
       (row.contributions && grouped
         ? contributionRows(row, index, row.depth || 0) : '');
@@ -308,7 +311,8 @@ function renderTypePage(page, options) {
        background: var(--vscode-sideBar-background, transparent); }
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
-  td.status { white-space: normal; }
+  td.coverage { white-space: normal; }
+  .violates { color: var(--vscode-errorForeground, #f14c4c); font-size: 0.9em; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.inh td { color: var(--vscode-descriptionForeground); }
   tr.group td { font-size: 0.86em; color: var(--vscode-descriptionForeground); padding-top: 9px;
@@ -355,7 +359,7 @@ function renderTypePage(page, options) {
 
 <div class="sechead"><h2>Attributes</h2></div>
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes, focusIndex(attributes, options && options.focus))}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
