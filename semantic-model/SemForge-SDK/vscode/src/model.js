@@ -1196,6 +1196,27 @@ function register(context, clientHolder, session, onChanged) {
     if (value === undefined) {
       return;
     }
+    // Its unit, when the shape names the units it may say -- the allowed
+    // ones first. Otherwise none is asked: Unit… on the row sets one.
+    let unitCode = null;
+    if (attribute.kind !== 'Relationship') {
+      let shaped;
+      try {
+        shaped = await clientHolder.client.sendRequest('semforge/units', {
+          uri: node.packageUri, entityType: raw.entityType, attribute: attribute.term });
+      } catch (error) {
+        shaped = undefined;       // an older server: no units to offer
+      }
+      if (shaped && shaped.ok && (shaped.allowed || []).length) {
+        const code = await require('./units').pickUnit(clientHolder.client, node.packageUri, {
+          title: `Unit of ${attribute.term} on ${raw.entity}`, allowed: shaped.allowed,
+          current: shaped.allowed[0], none: !shaped.required });
+        if (code === undefined) {
+          return;
+        }
+        unitCode = code || null;
+      }
+    }
     const result = await clientHolder.client.sendRequest(
       'semforge/addAttribute',
       {
@@ -1207,7 +1228,8 @@ function register(context, clientHolder, session, onChanged) {
         value,
         under: nested ? nested.under : null,
         underDataset: nested ? nested.dataset : null,
-        datasetId: datasetId.trim() || null
+        datasetId: datasetId.trim() || null,
+        unitCode
       }
     );
     if (result.ok) {

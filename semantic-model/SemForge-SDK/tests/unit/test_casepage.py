@@ -381,18 +381,26 @@ def test_add_attribute_and_add_entity_use_the_tree_commands(tmp_path, without):
     (1, 'semforge.addSubAttribute', 'attributeNode'),
     (2, 'semforge.addObservation', 'attributeNode'),
     (3, 'semforge.addInstance', 'attributeNode'),
-    (4, 'semforge.setDatasetId', 'attributeNode'),
-    (5, 'semforge.goToShape', 'node'),
-    (7, 'semforge.removeCaseValue', 'attributeNode')])
+    (4, 'semforge.setUnitCode', 'attributeNode'),
+    (5, 'semforge.setDatasetId', 'attributeNode'),
+    (6, 'semforge.goToShape', 'node'),
+    (8, 'semforge.removeCaseValue', 'attributeNode')])
 def test_the_row_menu(tmp_path, without, pick, command, which):
     at, _, row = _first_editable(without)
     seen = _edit(tmp_path, without, [{'command': 'rowMenu', 'at': at}], pick=pick)
     labels = [item['label'] for item in seen['quickPicks'][0]['items']]
     assert labels == ['$(edit) Edit value', '$(add) Add sub-attribute',
                       '$(history) Add observation', '$(layers) Add instance…',
-                      '$(symbol-key) Change datasetId…', '$(symbol-ruler) Go to the SHACL rule',
+                      '$(symbol-ruler) Unit…', '$(symbol-key) Change datasetId…',
+                      '$(symbol-ruler) Go to the SHACL rule',
                       '$(go-to-file) Open in .jsonld', f'$(trash) Remove {row["name"]}…']
-    assert _ran(seen, command)[0]['raw'] == row[which]
+    ran = _ran(seen, command)[0]['raw']
+    if command == 'semforge.setUnitCode':
+        # The instance, with the unit it says now and its entity type.
+        ran = {k: v for k, v in ran.items() if k not in ('current', 'entityType')}
+        assert ran == {k: v for k, v in row[which].items() if k != 'entityType'}
+    else:
+        assert ran == row[which]
 
 
 def test_a_dismissed_row_menu_changes_nothing(tmp_path, without):

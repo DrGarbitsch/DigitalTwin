@@ -192,9 +192,26 @@ def _params(node):
     return params, raw
 
 
+def _units_of(node):
+    """(codes, required) of an attribute node's unit constraint -- the nested
+    sh:property on ngsild:unitCode -- or ([], False)."""
+    from .tree import list_items
+
+    unit = next((c for c in node.children if c.kind == 'unit'), None)
+    if unit is None:
+        return [], False
+    listed = next((c.value for c in unit.children if c.parameter == 'sh:in'), '')
+    least = next((c.value for c in unit.children if c.parameter == 'sh:minCount'), '0')
+    codes = [item.strip().strip('"') for item in list_items(listed)] if listed else []
+    return codes, str(least).strip() not in ('', '0')
+
+
 def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     """One row per attribute node, its sub-attributes after it."""
+    from .units import unit_text
+
     own, raw_outer = _params(node)
+    units, unit_required = _units_of(node)
     slot = next((c for c in node.children if c.kind == 'slot'), None)
     value_params, raw = _params(slot) if slot is not None else ({}, [])
     token = node.detail or node.label
@@ -231,7 +248,13 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     rows = [{
         'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
-        'value': value_text(kind, value_params, raw),
+        'value': ' · '.join(p for p in (
+            value_text(kind, value_params, raw),
+            f'in {unit_text(package, units)}' if units else '',
+            'unit required' if unit_required else '') if p),
+        # The units its instances may say (ngsild:unitCode), and whether one
+        # is required -- what Unit… edits.
+        'units': units, 'unitRequired': unit_required,
         'verbatim': extra,
         'shape': node.shape, 'shapeName': shape_name,
         'inherited': bool(node.inherited_from),
@@ -252,7 +275,8 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'inList': _in_list(raw, value_params, slot),
         # What the list contradicts on the same value, said on the row.
         'notes': _list_notes(package, raw, value_params, slot),
-        'violations': violated.get((shape_name, _short(token)), []),
+        'violations': violated.get((shape_name, _short(token)), []) +
+        violated.get((shape_name, _short(token) + '.unitCode'), []),
         'definedAt': node.defined_at,
     }]
     for child in node.children:

@@ -292,6 +292,38 @@ def _severity_node(package, context):
     return node
 
 
+def _unit_node(package, context):
+    """The units the package can say, by the quantity they measure: the
+    curated UN/CEFACT Rec 20 set (read-only, like SHACL's severities) and
+    the package's own qudt:Units, which open where they are declared."""
+    from ..ngsild.units import QUDT
+    from .units import units
+
+    known = units(package)
+    own = [u for u in known if not u['builtin']]
+    node = KnowledgeNode(
+        kind='units', label='qudt:Unit', iri=str(QUDT.Unit),
+        detail=' · '.join(p for p in (f'{len(known) - len(own)} UN/CEFACT codes',
+                                      f'{len(own)} of the package\'s own' if own else '')
+                          if p))
+    by_quantity = {}
+    for unit in known:
+        by_quantity.setdefault(unit['quantityLabel'] or 'no quantity', []).append(unit)
+    for quantity in sorted(by_quantity):
+        group = KnowledgeNode(kind='quantity', label=quantity,
+                              detail=f'{len(by_quantity[quantity])} unit(s)')
+        for unit in by_quantity[quantity]:
+            group.children.append(KnowledgeNode(
+                kind='unit', label=unit['code'], iri=unit['iri'],
+                detail=' · '.join(p for p in (unit['name'], unit['symbol'],
+                                              'UN/CEFACT' if unit['builtin'] else 'own')
+                                  if p),
+                defined_at='' if unit['builtin'] else
+                context['knowledge_index'].locator(URIRef(unit['iri']))))
+        node.children.append(group)
+    return node
+
+
 def _class_node(package, cls, context):
     shapes = context['shapes_by_target'].get(cls, [])
     instances = context['instances'].get(local(cls), [])
@@ -483,6 +515,8 @@ def build_knowledge(package):
         for _, node in flatten(vocabulary.children):
             if node.kind == 'class':
                 node.role = 'vocabulary'
+        vocabulary.children.insert(1 if severity is not None else 0,
+                                   _unit_node(package, context))
         if any(n.severity for _, n in flatten(vocabulary.children)):
             vocabulary.severity = 'warning'
         roots.append(vocabulary)

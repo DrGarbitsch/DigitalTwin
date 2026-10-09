@@ -21,6 +21,11 @@ NGSILD = 'https://uri.etsi.org/ngsi-ld/'
 from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
 
 VALUE_PATHS = set(PAYLOAD_PATHS)
+# An attribute's unit is its metadata: a constraint on it is named after the
+# attribute -- hasTemperature.unitCode -- not after "unitCode", which every
+# attribute with a unit would share.
+UNIT_CODE = 'https://uri.etsi.org/ngsi-ld/unitCode'
+UNIT_SUFFIX = '.unitCode'
 
 # Edges carrying no name of their own: they say how a value is stored, not
 # which attribute it belongs to. The climb steps over them, including the
@@ -116,6 +121,8 @@ def attribute_name(focus, path, data_graph, shapes_graph, report_graph):
             # The path says how to read the value; the attribute is the edge
             # the focus node hangs from.
             name = local(edge) if edge is not None else None
+        elif str(path) == UNIT_CODE:
+            name = local(edge) + UNIT_SUFFIX if edge is not None else None
         else:
             name = local(path)
     elif isinstance(path, BNode):

@@ -45,6 +45,7 @@ EXPECTED = {
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
     'semforge.addInstance', 'semforge.setDatasetId',
+    'semforge.findUnit', 'semforge.newUnit', 'semforge.setUnitCode',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
     'semforge.initPackage', 'semforge.newProject', 'semforge.selectPackage',
     'semforge.menu', 'semforge.editSetting', 'semforge.refreshProject',

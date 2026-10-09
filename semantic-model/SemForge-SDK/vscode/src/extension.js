@@ -37,6 +37,7 @@ const rename = require('./rename');
 const shapeDelete = require('./shapedelete');
 const caseDelete = require('./casedelete');
 const severity = require('./severity');
+const units = require('./units');
 const { showLocation } = require('./reveal');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
@@ -299,6 +300,7 @@ function activate(context) {
   const caseViews = casePages.register(context, clientHolder, session);
   caseDelete.register(context, clientHolder, session, { case: caseViews });
   severity.register(context, clientHolder, session);
+  units.register(context, clientHolder, session);
   // A shape's SPARQL query, run over a case's data: where SPARQL constraints
   // are developed.
   const sparqlBench = sparqlPage.register(context, clientHolder, session);

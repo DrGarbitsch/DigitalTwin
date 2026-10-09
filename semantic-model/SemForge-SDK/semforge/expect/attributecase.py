@@ -178,10 +178,42 @@ def _breakers(row):
             'not an attribute node (edit the data by hand)', None)
     if 'sh:in' in value or any(name == 'sh:in' for name in row.get('verbatim', [])):
         out['InConstraintComponent'] = ('a value not in the list', 'in')
+    # The unit: its constraints are named after the attribute's unitCode
+    # (hasTemperature.unitCode), so their keys say so -- see _ref.
+    if row.get('units'):
+        out[UNIT_KEY + 'InConstraintComponent'] = (
+            f'a unit not allowed: one where {", ".join(row["units"])} is expected', 'unit')
+        if row.get('unitRequired'):
+            out[UNIT_KEY + 'MinCountConstraintComponent'] = (
+                'no unit: its unitCode left out', 'nounit')
     return out
 
 
+UNIT_KEY = '.unitCode/'
+
+
+def _ref(row, key):
+    """The constraint a breaker makes fire: Shape/attribute/Component, or
+    Shape/attribute.unitCode/Component for one of its unit."""
+    if key.startswith(UNIT_KEY):
+        return f'{row["shapeName"]}/{row["label"]}{key}'
+    return f'{row["shapeName"]}/{row["label"]}/{key}'
+
+
+def _wrong_unit(package, allowed):
+    """A unit outside `allowed`, of the same quantity when there is one --
+    FAH where CEL is expected -- so the case breaks the unit and nothing else."""
+    from ..cooked.units import units
+
+    known = units(package)
+    quantity = {u['quantity'] for u in known if u['code'] in allowed}
+    same = [u['code'] for u in known if u['quantity'] in quantity and u['code'] not in allowed]
+    other = [u['code'] for u in known if u['code'] not in allowed]
+    return (same or other or ['XXX'])[0]
+
+
 SUFFIX = {'omit': 'missing', 'novalue': 'no-value', 'more': 'too-many', 'fewer': 'too-few',
+          'unit': 'wrong-unit', 'nounit': 'no-unit',
           'datatype': 'wrong-datatype', 'sh:minInclusive': 'too-low',
           'sh:maxInclusive': 'too-high', 'sh:minExclusive': 'too-low',
           'sh:maxExclusive': 'too-high', 'class': 'wrong-class',
@@ -204,12 +236,14 @@ def attribute_test_options(package, entity_type, path):
     options = [{'purpose': 'valid', 'label': 'valid',
                 'detail': f'{row["label"]} present, with a valid value: the case conforms',
                 'automatic': True, 'name': _suggested(row['label'], None, valid=True)}]
-    for component, (words, how) in sorted(_breakers(row).items()):
-        constraint = f'{row["shapeName"]}/{row["label"]}/{component}'
+    for key, (words, how) in sorted(_breakers(row).items()):
+        constraint = _ref(row, key)
+        component = key.rsplit('/', 1)[-1]
         if constraint not in known:
             continue
         options.append({'purpose': constraint,
-                        'label': f'fires: {component.replace("ConstraintComponent", "")}',
+                        'label': 'fires: ' + ('unit ' if key.startswith(UNIT_KEY) else '')
+                        + component.replace('ConstraintComponent', ''),
                         'detail': words + ('' if how else ' — you edit the data'),
                         'automatic': bool(how), 'name': _suggested(row['label'], how)})
     return {'type': entry.label, 'attribute': row['label'], 'shape': row['shapeName'],
@@ -281,6 +315,10 @@ def _break(how, row, attribute, package=None):
         return _instances(package, attribute, high + 1)
     if how == 'novalue':
         return {k: v for k, v in attribute.items() if k not in ('value', 'object')}
+    if how == 'unit':
+        return dict(attribute, unitCode=_wrong_unit(package, row['units']))
+    if how == 'nounit':
+        return {k: v for k, v in attribute.items() if k != 'unitCode'}
     if how == 'datatype':
         broken = 1 if value.get('sh:datatype') == 'xsd:string' else 'not a number'
         return dict(attribute, **{key: broken})
@@ -417,11 +455,11 @@ def new_attribute_test(package, entity_type, path, purpose, name):
         component, how, words = None, None, 'present and valid'
     else:
         component = str(purpose).rsplit('/', 1)[-1]
-        if component not in breakers or \
-                purpose != f'{row["shapeName"]}/{row["label"]}/{component}':
+        key = next((k for k in breakers if _ref(row, k) == purpose), None)
+        if key is None:
             raise PackageError(f'{purpose} is not a constraint of {row["label"]} '
                                f'that a test can make fire')
-        words, how = breakers[component]
+        words, how = breakers[key]
 
     documents, entity, source = _scene(package, entry)
     if documents is None:
@@ -445,6 +483,9 @@ def new_attribute_test(package, entity_type, path, purpose, name):
         attribute = {'type': row['kind'] or 'Property', field: value}
         if any(isinstance(v, dict) and 'observedAt' in v for v in target.values()):
             attribute['observedAt'] = STAMP
+    if row.get('units') and attribute.get('unitCode') not in row['units']:
+        # A valid instance says one of the units its shape allows.
+        attribute['unitCode'] = row['units'][0]
     # As many instances as the attribute requires, each its own datasetId; a
     # broken value is broken in the first, the others stay valid.
     required = max(_counts(row)[0], 1)

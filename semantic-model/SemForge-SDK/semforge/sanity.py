@@ -34,6 +34,8 @@ line that holds it:
                      WITHOUT a datasetId; written, it is a different instance
   dataset-unregistered  a datasetId in no namespace the package registers:
                      it has no attribute[prefix:name] to be read by
+  unit-unknown       a unitCode in the data that is neither one of the curated
+                     UN/CEFACT Rec 20 codes nor a unit of the package's own
   dataset-duplicate  two instances of one attribute share a datasetId and an
                      observedAt (or both carry none): one update, written
                      twice -- the platform keeps only the last, so a count
@@ -420,7 +422,10 @@ def _dataset_checks(package):
     from .cooked.jsonloc import locate
     from .expect.identity import example_files
 
+    from .cooked.units import units
+
     names = dataset_names(package)
+    known_units = {u['code'] for u in units(package)}
     out = []
     for source in example_files(package):
         try:
@@ -467,6 +472,17 @@ def _dataset_checks(package):
                                 f'to be read by. Register its namespace, or change the '
                                 f'datasetId to one in a registered namespace.',
                         fix=dict(fix, old=text, namespace=text[:cut + 1])))
+                code = instance.get('unitCode')
+                if code is not None and str(code) not in known_units:
+                    out.append(SanityFinding(
+                        file=source, severity='warning', code='unit-unknown', subject=entity,
+                        line=lines.get(tuple(inner + ['unitCode'])) or at,
+                        message=f'{entity}: {name} says unitCode "{code}", which is neither '
+                                f'one of the curated UN/CEFACT codes nor a unit of this '
+                                f'package -- a reader cannot tell what it measures. Choose '
+                                f'the unit, or add {code} as one of the package\'s own.',
+                        fix=dict(fix, datasetId='' if dataset is None else str(dataset),
+                                 unit=str(code))))
                 key = (DEFAULT_DATASET if dataset is None else str(dataset),
                        str(instance['observedAt']) if 'observedAt' in instance else None)
                 unstamped.setdefault(key, []).append((position, inner))

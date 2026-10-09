@@ -106,11 +106,14 @@ def _attributes(node, address, index, violations, entity):
                 'name': name, 'term': key, 'kind': str(member.get('type', '')),
                 'value': _render(payload) if payload is not None else '',
                 'dataset': str(member.get('datasetId', '')),
+                'unitCode': str(member.get('unitCode', '')),
                 # Distinct datasetIds: observations of one are one instance.
                 'instances': len({str(m.get('datasetId', '@none')) for m in members
                                   if isinstance(m, dict)}),
                 'line': line,
-                'violations': violations.pop((entity, name), []),
+                # Its own, and its unit's (hasLength.unitCode): the unit is its metadata.
+                'violations': violations.pop((entity, name), []) +
+                violations.pop((entity, name + '.unitCode'), []),
                 'children': _attributes(member, where, index, violations, entity)})
     return rows
 
@@ -203,25 +206,30 @@ def _attach(rows, holder):
             _attach(row['children'], target)
 
 
-def _display(rows, names):
+def _display(rows, names, symbols):
     """attribute[prefix:name] for an instance under a datasetId; the name
-    itself stays as it is -- violations and the tree are keyed by it."""
+    itself stays as it is -- violations and the tree are keyed by it. A unit
+    reads by its symbol (°C), a code nothing knows as itself."""
     from .examples import instance_label
 
     for row in rows:
         row['display'] = instance_label(row['name'], row.get('dataset') or '', names)
-        _display(row.get('children') or [], names)
+        if row.get('unitCode'):
+            row['unitText'] = symbols.get(row['unitCode']) or row['unitCode']
+        _display(row.get('children') or [], names, symbols)
 
 
 def attach_editing(package, files):
     """Every card and row of these files, joined to its Tests-tree row."""
     from .examples import dataset_names
+    from .units import units
 
     names = dataset_names(package)
+    symbols = {u['code']: u['symbol'] or u['code'] for u in units(package)}
     entities = _tree_entities(package)
     for file in files:
         for card in file['cards']:
-            _display(card.get('attributes') or [], names)
+            _display(card.get('attributes') or [], names, symbols)
             node = entities.get((card['id'], os.path.abspath(card['file'])))
             if node is None:
                 continue

@@ -185,6 +185,21 @@
         "icon": "$(layers)"
       },
       {
+        "command": "semforge.findUnit",
+        "title": "SemForge: Find Unit…",
+        "icon": "$(search)"
+      },
+      {
+        "command": "semforge.newUnit",
+        "title": "SemForge: New Unit…",
+        "icon": "$(add)"
+      },
+      {
+        "command": "semforge.setUnitCode",
+        "title": "SemForge: Unit…",
+        "icon": "$(symbol-ruler)"
+      },
+      {
         "command": "semforge.setDatasetId",
         "title": "SemForge: Change datasetId…"
       },
@@ -694,6 +709,16 @@
           "group": "2_row@15"
         },
         {
+          "command": "semforge.setUnitCode",
+          "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@17"
+        },
+        {
+          "command": "semforge.setUnitCode",
+          "when": "view == semforgeModel && viewItem == exampleSeries",
+          "group": "2_row@17"
+        },
+        {
           "command": "semforge.addInstance",
           "when": "view == semforgeModel && viewItem == exampleSeries",
           "group": "2_row@15"
@@ -847,6 +872,26 @@
           "command": "semforge.newVocabularyClass",
           "when": "view == semforgeKnowledge && viewItem == vocabularyGroup",
           "group": "1_add@1"
+        },
+        {
+          "command": "semforge.newUnit",
+          "when": "view == semforgeKnowledge && viewItem == units && config.semforge.trees.detail == full",
+          "group": "inline@1"
+        },
+        {
+          "command": "semforge.findUnit",
+          "when": "view == semforgeKnowledge && viewItem == units && config.semforge.trees.detail == full",
+          "group": "inline@2"
+        },
+        {
+          "command": "semforge.newUnit",
+          "when": "view == semforgeKnowledge && viewItem == units",
+          "group": "1_add@1"
+        },
+        {
+          "command": "semforge.findUnit",
+          "when": "view == semforgeKnowledge && viewItem == units",
+          "group": "1_add@2"
         },
         {
           "command": "semforge.openVocabularyPage",

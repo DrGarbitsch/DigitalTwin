@@ -910,6 +910,14 @@ async function rowMenu(pages, row) {
         pages.clientHolder.client, pages.current.packageUri,
         { shape: row.shape, path: row.path, label: row.label,
           current: `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'}` })) },
+    // The units its instances may say (ngsild:unitCode): a Property's; a
+    // Relationship points at an entity and has none.
+    ...(row.kind === 'Relationship' ? [] : [{ label: '$(symbol-ruler) Unit…',
+      description: row.units && row.units.length
+        ? `${row.units.join(', ')}${row.unitRequired ? ', required' : ''} — the unitCode its instances may say`
+        : 'any — which unitCode its instances may say',
+      run: async () => require('./units').editUnits(pages.clientHolder.client,
+        pages.current.packageUri, row) }]),
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {

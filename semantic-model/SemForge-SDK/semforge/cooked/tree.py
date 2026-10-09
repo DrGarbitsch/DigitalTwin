@@ -188,9 +188,30 @@ def _attribute_node(block, shape, chain, locate=None):
                 _constraint_nodes(child, shape, chain + [child.path], locate,
                                   True))
             node.children.append(slot)
+        elif _is_unit_path(child.path):
+            # The attribute's unitCode: which units its instances may say
+            # (sh:in) and whether one is required -- metadata of the attribute,
+            # not a sub-attribute of it.
+            unit = CookedNode(
+                kind='unit', label='unit', detail=_short(child.path), shape=shape,
+                path_chain=chain + [child.path],
+                defined_at=locate(child.start) if locate else '')
+            unit.children.extend(
+                _constraint_nodes(child, shape, chain + [child.path], locate, True))
+            node.children.append(unit)
         else:
             node.children.append(_attribute_node(child, shape, chain, locate))
     return node
+
+
+UNIT_CODE = 'https://uri.etsi.org/ngsi-ld/unitCode'
+
+
+def _is_unit_path(path):
+    """ngsild:unitCode as the shapes write it -- prefixed or in full."""
+    text = str(path).strip('<>')
+    return text == UNIT_CODE or text.endswith(':unitCode') and \
+        text.split(':')[0] in ('ngsild', 'ngsi-ld')
 
 
 def _ancestors(graph, cls):

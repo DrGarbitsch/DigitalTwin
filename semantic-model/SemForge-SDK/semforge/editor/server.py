@@ -381,6 +381,14 @@ def _fixes_for(diagnostic, uri):
     elif code == 'severity-unlinked':
         action(f'Declare {_local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
                {'packageUri': uri, 'cls': subject}, preferred=True)
+    elif code == 'unit-unknown':
+        action('Choose the unit…', 'semforge.setUnitCode',
+               {'packageUri': uri, 'entity': data.get('entity'),
+                'attributePath': data.get('attributePath'), 'file': data.get('file'),
+                'datasetId': data.get('datasetId', ''), 'current': data.get('unit')},
+               preferred=True)
+        action(f'Add {data.get("unit")} as a unit of this package…', 'semforge.newUnit',
+               {'packageUri': uri, 'code': data.get('unit')})
     elif code == 'dataset-unregistered':
         action(f'Register a prefix for {data.get("namespace")}…', 'semforge.addNamespace',
                {'packageUri': uri, 'namespace': data.get('namespace')}, preferred=True)
@@ -1113,7 +1121,8 @@ def add_attribute_feature(ls, params):
             under=list(_field(params, 'under') or []) or None,
             dataset=_field(params, 'underDataset') or None,
             observedAt=_field(params, 'observedAt'),
-            datasetId=_field(params, 'datasetId'))
+            datasetId=_field(params, 'datasetId'),
+            unitCode=_field(params, 'unitCode') or None)
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(package.sources['shapes']))
         return {'ok': True, 'file': path, 'kind': kind}
@@ -1756,6 +1765,72 @@ def add_test_case_feature(ls, params):
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
     return dict(made, ok=True)
+
+
+@server.feature('semforge/units')
+def units_feature(ls, params):
+    """Every unit the package can say -- the curated Rec 20 set and its own --
+    matching `query` when given, and the quantities they measure. With `shape`
+    and `path`, also the units that attribute's shape allows; with
+    `entityType` and `attribute`, those of the attribute on that type."""
+    from ..cooked.units import attribute_units, quantities, search_units
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        answer = {'ok': True, 'units': search_units(package, _field(params, 'query', '') or ''),
+                  'quantities': quantities(package), 'allowed': [], 'required': False}
+        shape, path = _field(params, 'shape'), list(_field(params, 'path') or [])
+        entity_type, attribute = _field(params, 'entityType'), _field(params, 'attribute')
+        if shape and path:
+            allowed = attribute_units(package, shape, path)
+            answer.update(allowed=allowed['codes'], required=allowed['required'])
+        elif entity_type and attribute:
+            from ..cooked.typepage import build_type_page
+
+            page = build_type_page(package, entity_type)
+            row = next((r for r in page.get('attributes', []) if attribute in
+                        (r['term'], r['attribute'], r['label'])), None)
+            if row is not None:
+                answer.update(allowed=row.get('units', []),
+                              required=row.get('unitRequired', False))
+        return answer
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addUnit')
+def add_unit_feature(ls, params):
+    """A unit of the package's own, in its knowledge."""
+    from ..cooked.units import add_unit
+
+    return _package_write(ls, params, lambda package: add_unit(
+        package, _field(params, 'code', ''), _field(params, 'name', ''),
+        _field(params, 'quantity', ''), _field(params, 'symbol', '') or '',
+        _field(params, 'namespace', None) or None))
+
+
+@server.feature('semforge/setUnits')
+def set_units_feature(ls, params):
+    """Which units an attribute's instances may say, in its shape."""
+    from ..cooked.units import set_units
+
+    return _package_write(ls, params, lambda package: set_units(
+        package, _field(params, 'shape'), list(_field(params, 'path') or []),
+        list(_field(params, 'codes') or []), bool(_field(params, 'required', False))))
+
+
+@server.feature('semforge/setUnitCode')
+def set_unit_code_feature(ls, params):
+    """One instance's unitCode in the data -- every observation of it."""
+    from ..cooked.units import set_unit_code
+
+    return _instance_write(ls, params, lambda package: set_unit_code(
+        package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
+        _field(params, 'datasetId', '') or '', _field(params, 'code', '') or '',
+        file=_field(params, 'file')))
 
 
 @server.feature('semforge/severityLevels')

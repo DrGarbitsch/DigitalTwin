@@ -117,6 +117,11 @@ class KnowledgeTreeProvider {
       Attributes: 'symbol-field', 'NGSI-LD vocabulary': 'symbol-enum' };
     if (raw.kind === 'group') {
       item.iconPath = icon(GROUPS[raw.label] || 'symbol-namespace', tone);
+    } else if (raw.kind === 'units' || raw.kind === 'unit') {
+      // qudt:Unit and its units: a vocabulary and its values, as everywhere.
+      item.iconPath = icon(raw.kind === 'units' ? 'symbol-enum' : 'symbol-enum-member', tone);
+    } else if (raw.kind === 'quantity') {
+      item.iconPath = icon('symbol-namespace', tone);
     } else if (raw.kind === 'carrier') {
       item.iconPath = icon(raw.role === 'entityType' ? 'symbol-class' : 'symbol-field', tone);
     } else if (raw.kind === 'attribute') {
@@ -237,7 +242,11 @@ function register(context, clientHolder, session, onShape, onEntity) {
       const holder = raw.kind === 'individual' ? provider.getParent(selected) : undefined;
       const vocabulary = (raw.kind === 'class' && raw.role === 'vocabulary') ||
         (holder && holder.raw.kind === 'class' && holder.raw.role === 'vocabulary');
-      if (page && treeClick() === 'page') {
+      if (raw.kind === 'units' && treeClick() === 'page') {
+        // The units have no page: the search is where one is found.
+        await vscode.commands.executeCommand('semforge.findUnit',
+          { packageUri: selected.packageUri });
+      } else if (page && treeClick() === 'page') {
         await vscode.commands.executeCommand('semforge.openTypePage', selected,
           { preserveFocus: true });
       } else if (vocabulary && treeClick() === 'page') {

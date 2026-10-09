@@ -23,7 +23,7 @@ example forever, which is what the coverage report exists to surface.
 from rdflib import BNode, URIRef
 from rdflib.namespace import OWL, RDF, RDFS, SH
 
-from .normalise import inverse_predicate, local
+from .normalise import UNIT_CODE, UNIT_SUFFIX, inverse_predicate, local
 
 from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
 
@@ -137,7 +137,9 @@ def _walk(node, shapes_graph, attribute, seen):
 
     for child in shapes_graph.objects(node, SH.property):
         path = shapes_graph.value(child, SH.path)
-        if isinstance(path, URIRef) and str(path) not in NGSILD_VALUE_PATHS:
+        if isinstance(path, URIRef) and str(path) == UNIT_CODE:
+            child_attribute = attribute + UNIT_SUFFIX
+        elif isinstance(path, URIRef) and str(path) not in NGSILD_VALUE_PATHS:
             child_attribute = local(path)
         else:
             # An NGSI-LD inverse path is a two-hop sequence reported as an

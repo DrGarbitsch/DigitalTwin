@@ -1904,6 +1904,46 @@ quick fix:
 | `dataset-unregistered` | a `datasetId` in no namespace the package registers: it has no `attribute[prefix:name]` | Register a prefix for its namespace… · Change the datasetId… |
 | `dataset-duplicate` | two instances of one `datasetId` with the same `observedAt`, or both without: one update written twice — the platform keeps only the last, so a count over them tests what it never sees | Give this instance its own datasetId… |
 
+**Units (`unitCode`).** An NGSI-LD Property says its unit with `unitCode`, a
+UN/CEFACT Recommendation 20 common code — `CEL`, `BAR`, `KMH` — three
+characters that say nothing to a reader. So every unit carries its name, its
+symbol and the quantity it measures, and **the unit picker searches all of
+them**: *temperature* finds `CEL`, `FAH`, `KEL`; *celsius* or *°C* finds `CEL`.
+
+- **The curated set:** about 120 engineering units (temperature, pressure,
+  length, area, volume, mass, time, speed, flow, density, force, torque,
+  energy, power, electricity, frequency, light, ratio, data), shipped
+  read-only like SHACL's severities, under **`qudt:Unit`** in the Vocabulary
+  view, grouped by quantity. Its `+` is **New unit…**, its 🔍 **Find unit…**
+  (the code goes to the clipboard).
+- **The package's own:** **New unit…** asks the code, name, symbol, quantity
+  and namespace, and writes a `qudt:Unit` into the knowledge with the same
+  terms — `qudt:uneceCommonCode "XKG" ; rdfs:label … ; qudt:symbol … ;
+  qudt:hasQuantityKind quantitykind:…`.
+- **In the shape — Unit…** in an attribute row's `⋯` (type page, shape page)
+  ticks the units its instances may say and whether one is required. It is
+  written on the attribute node, where its metadata is:
+  `sh:property [ sh:path ngsild:unitCode ; sh:in ( "CEL" ) ; sh:minCount 1 ]`.
+  The Value column says it: `0 – 120 · in °C · unit required`. Its
+  constraints are named after the attribute — `…/hasTemperature.unitCode/InConstraintComponent`
+  — so two attributes' units never share a name, and their violations show on
+  the attribute's row.
+- **In the data — Unit…** on a dataset row (Model view) or a case page row sets
+  or removes the `unitCode` of that instance, every observation of it along;
+  the shape's units come first. **Add Attribute** asks for the unit when the
+  shape names some. A case page shows the unit after the value: `21.5 °C`.
+- **New test…** writes the allowed unit into a valid case, and offers
+  *fires: unit In* (a unit of the same quantity outside the list — `FAH` where
+  `CEL` is) and, when one is required, *fires: unit MinCount*.
+- A `unitCode` in the data that is neither in the curated set nor the
+  package's own is reported (`unit-unknown`), with **Choose the unit…** and
+  **Add it as a unit of this package…** as quick fixes.
+
+shacl2flink does not compile a unit constraint yet — it compiles a nested
+property shape only with a payload of its own — so the platform neither
+enforces it nor raises anything for it; that is part of aligning shacl2flink
+with the SDK.
+
 **Anything carrying a value carries the pencil** — including the value of an
 attribute with sub-attributes, which does not fold onto the attribute row: the
 row beneath it is where the value lives. **Add Observation** appears only on a

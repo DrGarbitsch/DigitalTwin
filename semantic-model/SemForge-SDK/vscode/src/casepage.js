@@ -52,6 +52,7 @@ function attributeRows(rows, file, depth, at) {
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
       `<span class="name">${open(row.display || row.name, file, row.line, row.term)}</span>` +
       `<span class="value">${value}` +
+      `${row.unitText ? ` <span class="unit" title="unitCode ${escape(row.unitCode)}">${escape(row.unitText)}</span>` : ''}` +
       `${row.instances > 1 && !(row.dataset && row.dataset !== '@none') ? ' <span class="dim">· default</span>' : ''}` +
       `${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
@@ -144,6 +145,7 @@ function renderCasePage(page, options) {
   a { color: var(--vscode-textLink-foreground); text-decoration: none; }
   a:hover, a:focus-visible { text-decoration: underline; }
   .dim, .crumbs { color: var(--vscode-descriptionForeground); }
+  .unit { color: var(--vscode-descriptionForeground); margin-left: 0.15em; }
   .crumbs { font-size: 0.92em; }
   .mono { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   h1 { font-size: 1.5em; font-weight: 600; margin: 4px 0 4px; }
@@ -441,6 +443,15 @@ class CasePages {
       }
       const instance = row.node && row.node.kind === 'dataset' ? row.node
         : row.attributeNode && row.attributeNode.datasetId ? row.attributeNode : null;
+      // Its unit (unitCode): a Property's, set on this instance and every
+      // observation of it.
+      if (instance && row.kind !== 'Relationship') {
+        items.push({ label: '$(symbol-ruler) Unit…',
+          description: row.unitCode ? `${row.unitCode}${row.unitText && row.unitText !== row.unitCode
+            ? ` (${row.unitText})` : ''}` : 'none',
+          run: () => run('semforge.setUnitCode', Object.assign({}, instance,
+            { current: row.unitCode, entityType: instance.entityType || (card && card.type) })) });
+      }
       if (instance) {
         items.push({ label: '$(symbol-key) Change datasetId…',
           description: instance.datasetId === '@none' ? 'default' : instance.datasetId,
