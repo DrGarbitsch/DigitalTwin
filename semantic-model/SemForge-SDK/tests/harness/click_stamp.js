@@ -34,11 +34,16 @@ function element(tag) {
   return el;
 }
 const posted = [];
+const row = element('div');
+row.className = 'attr';
+row.nextElementSibling = null;
+row.after = (box) => { row.inserted = box; };
 const link = element('a');
 link.dataset = { stamp: at, current: '2026-01-01T00:00:00.000Z', latest: '2026-01-01T00:00:00.000Z' };
 link.nextElementSibling = null;
 link.after = (box) => { link.inserted = box; };
-link.closest = (selector) => (selector === '[data-stamp]' ? link : null);
+link.closest = (selector) => (selector === '[data-stamp]' ? link
+  : selector === '.attr' ? row : null);
 const listeners = {};
 const document = {
   addEventListener: (type, fn) => { listeners[type] = fn; },
@@ -50,11 +55,11 @@ const acquireVsCodeApi = () => ({ postMessage: (m) => posted.push(m), getState: 
   setState: () => {} });
 new Function('document', 'window', 'acquireVsCodeApi', script)(document, window, acquireVsCodeApi);
 listeners.click({ target: link, preventDefault: () => {} });
-const box = link.inserted;
+const box = row.inserted;
 if (!box) { console.log('NO PICKER OPENED'); process.exit(1); }
 const input = box.children.find((c) => c.tag === 'input');
-console.log('picker:', input.type, input.value, box.children.filter((c) => c.tag === 'button')
-  .map((b) => b.textContent).join(' | '));
+console.log('picker:', box.tag, box.className, '|', input.type, input.value, '|',
+  box.children.filter((c) => c.tag === 'button').map((b) => b.textContent).join(' | '));
 input.value = '2026-03-04T05:06:07.890';
 box.children.find((c) => c.textContent === 'Set').listeners.click(
   { preventDefault: () => {}, stopPropagation: () => {} });

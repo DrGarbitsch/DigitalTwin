@@ -162,8 +162,15 @@ function renderCasePage(page, options) {
   .stamp { color: var(--vscode-descriptionForeground); font-size: 0.88em; margin-left: 0.4em; }
   .stamp.old { text-decoration: line-through; }
   .attr.superseded > .name, .attr.superseded > .value > .act { opacity: 0.6; }
-  .stampedit { display: inline-flex; gap: 0.3em; align-items: center; margin-left: 0.4em; }
-  .stampedit input { font-family: var(--vscode-editor-font-family); }
+  .stampedit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+               margin: 2px 0 6px; padding: 6px 8px; border-radius: 4px;
+               border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+               background: var(--vscode-editorWidget-background, transparent); }
+  .stampedit .zone { color: var(--vscode-descriptionForeground); font-size: 0.86em; }
+  .stampedit input { font-family: var(--vscode-editor-font-family); font-size: 0.92em;
+                     color: var(--vscode-input-foreground); background: var(--vscode-input-background);
+                     border: 1px solid var(--vscode-input-border, transparent); padding: 1px 4px; }
+  .stampedit button.mini { margin-left: 0; white-space: nowrap; }
   .crumbs { font-size: 0.92em; }
   .mono { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   h1 { font-size: 1.5em; font-weight: 600; margin: 4px 0 4px; }
@@ -254,19 +261,23 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.
   const utc = (iso) => (iso || new Date().toISOString()).replace(/Z$/, '').slice(0, 23);
+  // The picker is a panel of its own UNDER the row, across the card: the row
+  // stays as it is, and the controls run left to right.
   function stampEditor(link) {
-    const open = link.nextElementSibling;
+    const row = link.closest('.attr') || link;
+    const open = row.nextElementSibling;
     if (open && open.classList.contains('stampedit')) { open.remove(); return; }
-    const box = document.createElement('span');
+    const box = document.createElement('div');
     box.className = 'stampedit';
+    const zone = document.createElement('span');
+    zone.className = 'zone';
+    zone.textContent = 'observedAt (UTC)';
     const input = document.createElement('input');
     input.type = 'datetime-local';
     input.step = '0.001';
     input.value = utc(link.dataset.current);
-    const zone = document.createElement('span');
-    zone.className = 'dim';
-    zone.textContent = 'UTC';
-    box.append(input, zone);
+    input.title = 'Enter writes it, Esc closes';
+    box.append(zone, input);
     const send = (value) => {
       vscode.postMessage({ command: 'stamp', at: link.dataset.stamp, value });
       box.remove();
@@ -279,11 +290,16 @@ ${files.map((file, f) => `<div class="file"><div class="head">
       b.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); act(); });
       box.append(b);
     };
-    button('Set', 'Write this time as its observedAt', () => {
+    const set = () => {
       const value = input.value.length === 16 ? input.value + ':00.000'
         : input.value.length === 19 ? input.value + '.000' : input.value;
       if (value) { send(value + 'Z'); }
+    };
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); set(); }
+      if (event.key === 'Escape') { event.preventDefault(); box.remove(); }
     });
+    button('Set', 'Write this time as its observedAt (Enter)', set);
     button('Now', 'The time it is now', () => send(new Date().toISOString()));
     if (link.dataset.latest) {
       button('Just after the latest', 'One millisecond after the latest of its datasetId',
@@ -292,8 +308,8 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     if (link.dataset.current) {
       button('Remove', 'No observedAt: it then counts as now, as on the platform', () => send(''));
     }
-    button('×', 'Close', () => box.remove());
-    link.after(box);
+    button('×', 'Close (Esc)', () => box.remove());
+    row.after(box);
     input.focus();
   }
   document.addEventListener('click', (event) => {

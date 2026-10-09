@@ -106,7 +106,7 @@ def test_a_click_on_a_time_opens_the_picker_and_set_sends_it():
                           os.path.join(SRC, 'casepage.js')],
                          capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert 'picker: datetime-local 2026-01-01T00:00:00.000 ' \
+    assert 'picker: div stampedit | datetime-local 2026-01-01T00:00:00.000 | ' \
         'Set | Now | Just after the latest | Remove | ×' in out.stdout
     assert 'posted: [{"command":"stamp","at":"0.0.0","value":"2026-03-04T05:06:07.890Z"}]' \
         in out.stdout
