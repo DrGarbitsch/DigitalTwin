@@ -26,6 +26,7 @@ namespaces:
   iffFilterShacl: https://industryfusion.github.io/contexts/example/v0/filter_shacl/
   iffBindingsBaseTest: https://industryfusion.github.io/contexts/example/v0/bindings/base_test/
   ngsild: https://uri.etsi.org/ngsi-ld/
+  index: 'urn:index:'
 
   # base_knowledge/ is deliberately NOT listed. The context calls it `base` and
   # that name stays: rdflib binds one prefix per namespace, so a second name
