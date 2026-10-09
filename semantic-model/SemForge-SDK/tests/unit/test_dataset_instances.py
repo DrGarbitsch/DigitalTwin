@@ -126,8 +126,12 @@ def test_another_constraint_breaks_one_instance_and_keeps_the_count(counted):
 
 @pytest.fixture
 def case(counted):
+    from semforge.package.prefixes import add_namespace
+
     root, machine = counted
     made = new_attribute_test(load(root), machine, _path(root, machine), 'valid', 'two')
+    # A datasetId reads attribute[prefix:name]: urn:sensor:* needs its prefix.
+    add_namespace(root, 'sensor', 'urn:sensor:')
     return root, made
 
 
@@ -305,6 +309,10 @@ def test_the_quick_fixes(case):
     assert title == 'Change the datasetId…' and 'new' not in argument
     [(title, _, argument)] = fixes('dataset-duplicate', old='@none', index=2)
     assert argument['index'] == 2 and argument['old'] == '@none'
+    register, change = fixes('dataset-unregistered', old='urn:x:1', namespace='urn:x:')
+    assert register[:2] == ('Register a prefix for urn:x:…', 'semforge.addNamespace')
+    assert register[2]['namespace'] == 'urn:x:'
+    assert change[1] == 'semforge.setDatasetId' and change[2]['old'] == 'urn:x:1'
 
 
 # --- the tree --------------------------------------------------------------------------
@@ -321,9 +329,35 @@ def test_the_tree_names_the_default_instance_and_knows_the_others(case):
     attribute = next(n for n in rows if n.kind == 'attribute' and n.label == 'hasPressure'
                      and n.entity == made['resource'])
     assert '2 instances' in attribute.detail
-    default = next(c for c in attribute.children if c.dataset_id == '@none')
-    assert default.detail.startswith('default') or 'default' in default.label
+    default, other = attribute.children
+    assert (default.label, other.label) == ('hasPressure', 'hasPressure[myModelDataset:2]')
+    assert default.detail == '1.0 · Property · default'
+    assert other.detail.startswith('1.0 · Property')
     assert set(default.datasets) == {'@none', 'urn:my-model:dataset:2'}
+
+
+def test_generated_datasetids_register_their_namespace(case):
+    from semforge.package.prefixes import declared_prefixes
+
+    root, _ = case
+    assert declared_prefixes(root)['myModelDataset'] == 'urn:my-model:dataset:'
+
+
+def test_a_datasetid_in_no_registered_namespace_is_refused(case):
+    root, made = case
+    with pytest.raises(PackageError, match='no namespace this package registers'):
+        add_instance(load(root), made['resource'], [PRESSURE], 'urn:elsewhere:x',
+                     file=made['file'])
+
+
+def test_one_already_in_the_data_is_reported_with_a_register_fix(case):
+    from semforge.sanity import sanity
+
+    root, made = case
+    _edit(made, lambda instances: instances[1].update(datasetId='urn:elsewhere:x'))
+    [finding] = [f for f in sanity(load(root)) if f.code == 'dataset-unregistered']
+    assert finding.fix['namespace'] == 'urn:elsewhere:'
+    assert 'hasPressure[prefix:name]' in finding.message
 
 
 # --- the extension ---------------------------------------------------------------------
@@ -357,20 +391,28 @@ def test_add_instance_suggests_a_datasetid_the_attribute_has_not(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.addInstance',
         'node': {'raw': ROW, 'packageUri': 'file:///pkg/shacl.ttl'},
-        'inputs': ['urn:sensor:left'],
-        'replies': {'semforge/addInstance': {'ok': True, 'instances': 3}}})
-    assert seen['inputs'][0]['value'] == 'urn:m:1:hasPressure:3'
+        'picks': ['sensor:hasPressure-2'], 'inputs': ['urn-left'],
+        'replies': {'semforge/addInstance': {'ok': True, 'instances': 3},
+                    'semforge/vocabularyNamespaces': {'namespaces': [
+                        {'prefix': 'sensor', 'namespace': 'urn:sensor:', 'terms': 0,
+                         'default': False}]}}})
+    labels = [i['label'] for i in seen['quickPicks'][0]['items']]
+    assert 'Default instance' not in labels, 'a new instance is never the default one'
+    assert '$(edit) Type a full IRI…' not in labels, 'only a registered namespace'
+    assert seen['inputs'][0]['value'] == 'hasPressure-2'
     assert _asked(seen, 'semforge/addInstance') == [{
         'uri': 'file:///pkg/shacl.ttl', 'entity': 'urn:m:1', 'attributePath': [PRESSURE],
-        'datasetId': 'urn:sensor:left', 'file': 'case.jsonld'}]
+        'datasetId': 'urn:sensor:urn-left', 'file': 'case.jsonld'}]
 
 
-def test_change_datasetid_from_a_row_and_empty_makes_it_the_default(tmp_path):
+def test_change_datasetid_from_a_row_can_make_it_the_default(tmp_path):
+    # No default instance yet, so becoming it is offered.
+    row = dict(ROW, datasetId='urn:m:1:hasPressure:2',
+               datasets=['urn:m:1:hasPressure:2', 'urn:sensor:b'])
     seen = _drive(tmp_path, {
         'command': 'semforge.setDatasetId',
-        'node': {'raw': dict(ROW, datasetId='urn:m:1:hasPressure:2'),
-                 'packageUri': 'file:///pkg/shacl.ttl'},
-        'inputs': [''],
+        'node': {'raw': row, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'picks': ['Default instance'],
         'replies': {'semforge/setDatasetId': {'ok': True, 'changed': 1}}})
     assert _asked(seen, 'semforge/setDatasetId') == [{
         'uri': 'file:///pkg/shacl.ttl', 'new': '@none', 'entity': 'urn:m:1',
@@ -387,3 +429,57 @@ def test_a_quick_fix_with_its_answer_asks_nothing(tmp_path):
         'replies': {'semforge/setDatasetId': {'ok': True, 'changed': 1}}})
     assert not seen['inputs']
     assert _asked(seen, 'semforge/setDatasetId')[0]['new'] == '@none'
+
+
+# --- the case page: names, the right instance, removing just it ------------------------
+
+@pytest.fixture
+def observed(case):
+    """The default instance observed twice, then myModelDataset:2 -- three
+    JSON members, two instances: a row matched by position lands wrong."""
+    from semforge.cooked.casepage import build_case_page
+
+    root, made = case
+
+    def observe(instances):
+        instances[0]['observedAt'] = '2026-01-01T00:00:00.000Z'
+        instances.insert(1, dict(instances[0], observedAt='2026-01-02T00:00:00.000Z'))
+    _edit(made, observe)
+    page = build_case_page(load(root), made['case'])
+    card = next(c for f in page['files'] for c in f['cards'] if c['id'] == made['resource'])
+    return page, card
+
+
+def test_case_rows_read_attribute_prefix_name(observed):
+    _, card = observed
+    rows = [r for r in card['attributes'] if r['name'] == 'hasPressure']
+    assert [r['display'] for r in rows] == ['hasPressure', 'hasPressure',
+                                            'hasPressure[myModelDataset:2]']
+    assert {r['instances'] for r in rows} == {2}
+
+
+def test_case_rows_are_joined_to_their_own_datasetid(observed):
+    _, card = observed
+    row = next(r for r in card['attributes'] if r.get('dataset') == 'urn:my-model:dataset:2')
+    assert row['node']['kind'] == 'dataset'
+    assert row['node']['datasetId'] == 'urn:my-model:dataset:2'
+
+
+def test_remove_on_a_case_row_takes_just_that_instance(tmp_path, observed):
+    page, card = observed
+    c = next(i for f in page['files'] for i, x in enumerate(f['cards']) if x is card)
+    r = next(i for i, x in enumerate(card['attributes'])
+             if x.get('dataset') == 'urn:my-model:dataset:2')
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openCasePage',
+        'node': {'raw': {'kind': 'example', 'label': 'two.jsonld', 'file': page['file'],
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'rowMenu', 'at': f'0.{c}.{r}'}],
+        'picks': ['$(trash) Remove hasPressure[myModelDataset:2]'],
+        'replies': {'semforge/casePage': dict(page, ok=True)}})
+    items = {i['label']: i.get('description') for i in seen['quickPicks'][0]['items']}
+    assert items['$(trash) Remove hasPressure[myModelDataset:2]'] == 'this instance only'
+    assert items['$(trash) Remove hasPressure…'] == 'all 2 instances, from this entity'
+    ran = [e['args'][0]['raw'] for e in seen['executed']
+           if e['command'] == 'semforge.removeCaseValue']
+    assert ran and ran[0]['kind'] == 'dataset' and ran[0]['datasetId'] == 'urn:my-model:dataset:2'

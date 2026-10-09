@@ -184,22 +184,44 @@ def _attach(rows, holder):
                      == [row['term']]), None)
         if node is None:
             continue
-        position = seen.get(row['term'], 0)
-        seen[row['term']] = position + 1
-        instances = [c for c in node.get('children', [])
-                     if c.get('kind') in ('instance', 'dataset')]
-        target = instances[position] if position < len(instances) else node
+        # Several datasetIds: the tree has one row per datasetId, so a card
+        # row is joined to ITS datasetId's -- by position it would land on
+        # another instance as soon as one datasetId has several observations,
+        # and an edit or a removal would hit that one.
+        datasets = [c for c in node.get('children', []) if c.get('kind') == 'dataset']
+        if datasets:
+            wanted = row.get('dataset') or '@none'
+            target = next((c for c in datasets if c.get('datasetId') == wanted), node)
+        else:
+            position = seen.get(row['term'], 0)
+            seen[row['term']] = position + 1
+            instances = [c for c in node.get('children', []) if c.get('kind') == 'instance']
+            target = instances[position] if position < len(instances) else node
         row['node'] = _bare(target)
         row['attributeNode'] = _bare(node)
         if row.get('children'):
             _attach(row['children'], target)
 
 
+def _display(rows, names):
+    """attribute[prefix:name] for an instance under a datasetId; the name
+    itself stays as it is -- violations and the tree are keyed by it."""
+    from .examples import instance_label
+
+    for row in rows:
+        row['display'] = instance_label(row['name'], row.get('dataset') or '', names)
+        _display(row.get('children') or [], names)
+
+
 def attach_editing(package, files):
     """Every card and row of these files, joined to its Tests-tree row."""
+    from .examples import dataset_names
+
+    names = dataset_names(package)
     entities = _tree_entities(package)
     for file in files:
         for card in file['cards']:
+            _display(card.get('attributes') or [], names)
             node = entities.get((card['id'], os.path.abspath(card['file'])))
             if node is None:
                 continue

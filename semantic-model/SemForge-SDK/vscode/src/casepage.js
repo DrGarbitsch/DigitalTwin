@@ -50,9 +50,9 @@ function attributeRows(rows, file, depth, at) {
       ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
         'the rule">⋯</button>' : '';
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
-      `<span class="name">${open(row.name, file, row.line, row.term)}</span>` +
+      `<span class="name">${open(row.display || row.name, file, row.line, row.term)}</span>` +
       `<span class="value">${value}` +
-      `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : row.instances > 1 ? ' <span class="dim">· default</span>' : ''}` +
+      `${row.instances > 1 && !(row.dataset && row.dataset !== '@none') ? ' <span class="dim">· default</span>' : ''}` +
       `${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
       attributeRows(row.children || [], file, depth + 1, here);
@@ -452,16 +452,19 @@ class CasePages {
       }
       items.push({ label: '$(go-to-file) Open in .jsonld',
         run: () => showLocation(`${card ? card.file : file.path}:${row.line || 1}`, true) });
-      // Taking it out: the whole attribute, or -- when the row is one of
-      // several datasetIds -- just that instance.
+      // Taking it out: just this instance -- its datasetId -- when the row
+      // is one of several, and the whole attribute only when asked for by
+      // name. A removal that took every instance of hasHeight when one was
+      // meant is the mistake this guards against.
       if (row.node && row.node.kind === 'dataset') {
-        items.push({ label: '$(trash) Remove this instance',
-          description: row.node.datasetId === '@none' ? 'default' : row.node.datasetId,
+        items.push({ label: `$(trash) Remove ${row.display || row.name}`,
+          description: 'this instance only',
           run: () => run('semforge.removeCaseValue', row.node) });
       }
       if (row.attributeNode) {
         items.push({ label: `$(trash) Remove ${row.name}…`,
-          description: 'from this entity',
+          description: row.instances > 1 ? `all ${row.instances} instances, from this entity`
+            : 'from this entity',
           run: () => run('semforge.removeCaseValue', row.attributeNode) });
       }
       const picked = await vscode.window.showQuickPick(items,

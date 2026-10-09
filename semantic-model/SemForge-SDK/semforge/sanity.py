@@ -32,6 +32,8 @@ line that holds it:
   dataset-none       an explicit "datasetId": "@none" -- the platform's name
                      for the default instance, which in the data is the one
                      WITHOUT a datasetId; written, it is a different instance
+  dataset-unregistered  a datasetId in no namespace the package registers:
+                     it has no attribute[prefix:name] to be read by
   dataset-duplicate  two instances of one attribute share a datasetId and an
                      observedAt (or both carry none): one update, written
                      twice -- the platform keeps only the last, so a count
@@ -413,10 +415,12 @@ def _attribute_instances(document):
 def _dataset_checks(package):
     import json
 
-    from .cooked.examples import DEFAULT_DATASET, dataset_id_problem
+    from .cooked.examples import (DEFAULT_DATASET, dataset_id_problem, dataset_name,
+                                  dataset_names)
     from .cooked.jsonloc import locate
     from .expect.identity import example_files
 
+    names = dataset_names(package)
     out = []
     for source in example_files(package):
         try:
@@ -452,6 +456,17 @@ def _dataset_checks(package):
                                 f'not an IRI. The context reads a datasetId as one, so it '
                                 f'silently becomes another id; use e.g. urn:sensor:left.',
                         fix=dict(fix, old=str(dataset))))
+                elif dataset is not None and dataset_name(names, str(dataset)) is None:
+                    text = str(dataset)
+                    cut = max(text.rfind('/'), text.rfind('#'), text.rfind(':'))
+                    out.append(SanityFinding(
+                        file=source, line=at, severity='warning',
+                        code='dataset-unregistered', subject=entity,
+                        message=f'{entity}: {name} has datasetId {text}, in no namespace '
+                                f'this package registers -- it has no {name}[prefix:name] '
+                                f'to be read by. Register its namespace, or change the '
+                                f'datasetId to one in a registered namespace.',
+                        fix=dict(fix, old=text, namespace=text[:cut + 1])))
                 key = (DEFAULT_DATASET if dataset is None else str(dataset),
                        str(instance['observedAt']) if 'observedAt' in instance else None)
                 unstamped.setdefault(key, []).append((position, inner))

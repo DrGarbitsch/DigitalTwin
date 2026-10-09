@@ -24,7 +24,7 @@ const CLASS_NAME = new RegExp(`^${PREFIXED}[A-Z][A-Za-z0-9_-]*$`);
  * Ask for a prefix and its IRI and define it for the whole package. Returns
  * the server's answer ({prefix, namespace, file, line}) or undefined.
  */
-async function defineNamespace(client, packageUri) {
+async function defineNamespace(client, packageUri, namespaceIri) {
   const prefix = await vscode.window.showInputBox({
     title: 'New namespace prefix',
     prompt: 'The name this package uses for it, e.g. plant',
@@ -41,7 +41,7 @@ async function defineNamespace(client, packageUri) {
     title: `What does ${prefix.replace(/:$/, '')}: mean?`,
     prompt: 'The namespace IRI. It has to end in "/", "#" or ":", or a ' +
       'term appended to it runs into the last segment.',
-    value: 'https://'
+    value: namespaceIri || 'https://'
   });
   if (!namespace) {
     return undefined;

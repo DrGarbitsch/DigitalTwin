@@ -324,7 +324,41 @@ def build_suite(package, expectations=None):
     main.children = documents
     # Main first: it is the model you deploy; the cases are evidence about
     # the shapes.
-    return [main, cases]
+    return _name_instances(package, [main, cases])
+
+
+def _name_instances(package, roots):
+    """Each instance of a multi-instance attribute reads attribute[prefix:name]
+    -- hasHeight[sensors:left] -- and the default instance plain hasHeight;
+    the value moves into the detail. A single instance under a datasetId says
+    it the same way. Done once over the finished tree: the builders below do
+    not know the package's prefixes, and should not need to."""
+    names = dataset_names(package)
+
+    def detail_without(node, dataset):
+        parts = [p for p in node.detail.split(' · ') if p and p not in (dataset, 'default')]
+        return parts
+
+    def walk(nodes):
+        for node in nodes:
+            if node.kind == 'attribute':
+                datasets = [c for c in node.children if c.kind == 'dataset']
+                for child in datasets:
+                    value = child.label
+                    child.label = instance_label(node.label, child.dataset_id, names)
+                    rest = detail_without(child, dataset_label(child.dataset_id))
+                    if value and value != dataset_label(child.dataset_id):
+                        rest = [value] + rest
+                    if child.dataset_id == DEFAULT_DATASET:
+                        rest.append('default')
+                    child.detail = ' · '.join(rest)
+                if not datasets and node.dataset_id and node.dataset_id != DEFAULT_DATASET:
+                    plain = node.label
+                    node.label = instance_label(plain, node.dataset_id, names)
+                    node.detail = ' · '.join(detail_without(node, node.dataset_id))
+            walk(node.children)
+    walk(roots)
+    return roots
 
 
 def _suite_summary(roots):
@@ -625,7 +659,7 @@ def build_examples(package, report=None):
                 _attribute_node(key, value, identifier, [key], findings))
         _stamp_type(node, kind_name)
         root.children.append(node)
-    return [root]
+    return _name_instances(package, [root])
 
 
 # --- editing -----------------------------------------------------------------
@@ -772,7 +806,7 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
 DATASET_IRI = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>"{}|\\^`]+$')
 
 
-def dataset_id_problem(dataset_id):
+def dataset_id_problem(dataset_id, package=None):
     """What is wrong with `dataset_id` as a datasetId, or None.
 
     NGSI-LD makes it a URI, and the context reads it as an @id: a plain word
@@ -786,7 +820,44 @@ def dataset_id_problem(dataset_id):
                 'the default instance is the one WITHOUT a datasetId')
     if not DATASET_IRI.match(text):
         return f'"{text}" is not an IRI; a datasetId is one, e.g. urn:sensor:left'
+    if package is not None and dataset_name(dataset_names(package), text) is None:
+        return (f'{text} is in no namespace this package registers. A datasetId reads '
+                f'attribute[prefix:name], so its namespace needs a prefix: register it '
+                f'(New namespace…) first')
     return None
+
+
+LOCAL_NAME = re.compile(r'^[A-Za-z0-9_][\w.-]*$')
+
+
+def dataset_names(package):
+    """{namespace: prefix} a datasetId may be written in: the package's own
+    registered namespaces, not the standard vocabularies."""
+    from ..package.prefixes import STANDARD, names_by_namespace
+
+    standard = set(STANDARD.values())
+    return {space: prefix for space, prefix in names_by_namespace(package.path).items()
+            if prefix and space not in standard}
+
+
+def dataset_name(names, dataset_id):
+    """`prefix:name` for a datasetId in a registered namespace (the longest
+    that fits), else None. The default instance has none."""
+    text = str(dataset_id or '')
+    best = None
+    for space, prefix in names.items():
+        if text.startswith(space) and LOCAL_NAME.match(text[len(space):]) and \
+                (best is None or len(space) > len(best[0])):
+            best = (space, prefix)
+    return f'{best[1]}:{text[len(best[0]):]}' if best else None
+
+
+def instance_label(attribute, dataset_id, names):
+    """How one instance of an attribute reads: `hasHeight[sensors:left]`, the
+    default instance plain `hasHeight`, an unregistered datasetId in full."""
+    if not dataset_id or dataset_id == DEFAULT_DATASET:
+        return attribute
+    return f'{attribute}[{dataset_name(names, dataset_id) or dataset_id}]'
 
 
 def _read_document(source):
@@ -815,7 +886,7 @@ def add_instance(package, entity_id, attribute_path, dataset_id, file=None):
     """
     import copy
 
-    problem = dataset_id_problem(dataset_id)
+    problem = dataset_id_problem(dataset_id, package)
     if problem:
         raise PackageError(problem)
     dataset_id = str(dataset_id).strip()
@@ -849,7 +920,7 @@ def set_dataset_id(package, entity_id, attribute_path, old, new, file=None, inde
     old = str(old or '').strip() or DEFAULT_DATASET
     new = str(new or '').strip() or DEFAULT_DATASET
     if new != DEFAULT_DATASET:
-        problem = dataset_id_problem(new)
+        problem = dataset_id_problem(new, package)
         if problem:
             raise PackageError(problem)
     source = _target_file(package, file)
@@ -1061,7 +1132,7 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
     # -- empty meaning the default instance. Only that exact pair is refused.
     dataset_id = str(metadata.get('datasetId') or '').strip()
     if dataset_id:
-        problem = dataset_id_problem(dataset_id)
+        problem = dataset_id_problem(dataset_id, package)
         if problem:
             raise PackageError(problem)
         metadata['datasetId'] = dataset_id

@@ -86,11 +86,32 @@ def _counts(row):
     return low, (int(high) if high is not None else None)
 
 
+def _dataset_space(package):
+    """The namespace generated datasetIds live in -- urn:<package>:dataset: --
+    registered for the package if it is not yet: a datasetId reads
+    attribute[prefix:name], so its namespace needs a prefix (myModelDataset)."""
+    from ..cooked.examples import dataset_names
+    from ..package.prefixes import add_namespace, canonical_map
+
+    name = re.sub(r'[^a-z0-9]+', '-', os.path.basename(os.path.abspath(package.path)).lower())
+    space = f'urn:{name}:dataset:'
+    if space in dataset_names(package):
+        return space
+    words = [w for w in name.split('-') if w]
+    base = (words[0] + ''.join(w.capitalize() for w in words[1:]) if words else 'package') \
+        + 'Dataset'
+    taken = canonical_map(package.path)
+    prefix, number = base, 2
+    while prefix in taken:
+        prefix, number = f'{base}{number}', number + 1
+    add_namespace(package.path, prefix, space)
+    return space
+
+
 def _dataset_iri(package, number):
     """The datasetId of a generated case's `number`th instance (2, 3, ...);
     the first is the default instance, which carries none."""
-    name = re.sub(r'[^a-z0-9]+', '-', os.path.basename(os.path.abspath(package.path)).lower())
-    return f'urn:{name}:dataset:{number}'
+    return f'{_dataset_space(package)}{number}'
 
 
 def _instances(package, attribute, count):

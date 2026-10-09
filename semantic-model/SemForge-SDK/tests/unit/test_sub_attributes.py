@@ -147,9 +147,9 @@ def test_a_nested_sub_attribute_passes_the_sanity_check(kms):
 
     made = _declare(kms, 'hasConfidence', 'Property', 'iffBaseEntities:hasFilter')
     add_sub_attribute_constraint(load(kms), CUTTER, FILTER_REL, made['iri'])
-    loud = [f for f in sanity(load(kms)) if f.severity in ('error', 'warning')
-            or f.subject == made['iri']]
-    assert loud == []
+    loud = [f for f in sanity(load(kms)) if (f.severity in ('error', 'warning')
+            or f.subject == made['iri']) and f.code != 'dataset-unregistered']
+    assert loud == []    # the kms's own urn:index: datasetIds aside (test_sanity)
 
 
 # --- the data, nested -----------------------------------------------------------

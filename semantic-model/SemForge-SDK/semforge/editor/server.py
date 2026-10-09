@@ -381,6 +381,13 @@ def _fixes_for(diagnostic, uri):
     elif code == 'severity-unlinked':
         action(f'Declare {_local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
                {'packageUri': uri, 'cls': subject}, preferred=True)
+    elif code == 'dataset-unregistered':
+        action(f'Register a prefix for {data.get("namespace")}…', 'semforge.addNamespace',
+               {'packageUri': uri, 'namespace': data.get('namespace')}, preferred=True)
+        action('Change the datasetId…', 'semforge.setDatasetId',
+               {'packageUri': uri, 'entity': data.get('entity'),
+                'attributePath': data.get('attributePath'), 'file': data.get('file'),
+                'old': data.get('old')})
     elif code in ('dataset-none', 'dataset-not-iri', 'dataset-duplicate'):
         where = {'packageUri': uri, 'entity': data.get('entity'),
                  'attributePath': data.get('attributePath'), 'file': data.get('file'),

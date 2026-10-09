@@ -22,9 +22,12 @@ STRENGTH = 'iffBaseEntities:hasStrength'
 
 @pytest.fixture
 def kms(tmp_path, corpus_path):
+    from semforge.package.prefixes import add_namespace
+
     target = tmp_path / 'kms'
     shutil.copytree(corpus_path, target, symlinks=False,
                     ignore=shutil.ignore_patterns('.semforge'))
+    add_namespace(str(target), 'sensor', 'urn:sensor:')
     return target
 
 
@@ -97,7 +100,12 @@ def _entity(children):
             'packageUri': 'file:///pkg/shacl.ttl'}
 
 
-def _drive(tmp_path, node, inputs):
+SPACES = {'namespaces': [
+    {'prefix': 'base', 'namespace': 'https://x/base/', 'terms': 3, 'default': True},
+    {'prefix': 'sensors', 'namespace': 'https://x/sensors/', 'terms': 0, 'default': False}]}
+
+
+def _drive(tmp_path, node, picks, inputs, replies=None):
     executable = shutil.which('node')
     if executable is None:
         pytest.skip('node is not installed')
@@ -105,10 +113,13 @@ def _drive(tmp_path, node, inputs):
         (tmp_path / name).write_text('')
     path = tmp_path / 'scenario.json'
     path.write_text(json.dumps({
-        'command': 'semforge.addAttribute', 'node': node, 'pick': 'e:hasStrength',
-        'inputs': inputs,
-        'replies': {'semforge/attributes': ATTRIBUTES, 'semforge/valueChoices': {'choices': []},
-                    'semforge/addAttribute': {'ok': True, 'kind': 'Property'}}}))
+        'command': 'semforge.addAttribute', 'node': node,
+        'picks': ['e:hasStrength'] + picks, 'inputs': inputs,
+        'replies': dict({'semforge/attributes': ATTRIBUTES,
+                         'semforge/valueChoices': {'choices': []},
+                         'semforge/vocabularyNamespaces': SPACES,
+                         'semforge/addAttribute': {'ok': True, 'kind': 'Property'}},
+                        **(replies or {}))}))
     out = subprocess.run([executable, DRIVE, str(tmp_path), os.path.join(SRC, 'extension.js'),
                           str(path)], capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr[-1500:]
@@ -119,24 +130,46 @@ def _sent(seen):
     return [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addAttribute']
 
 
-def test_a_new_attribute_asks_and_empty_is_the_default(tmp_path):
-    seen = _drive(tmp_path, _entity([]), ['', '0.5'])
-    asked = seen['inputs'][0]
-    assert asked['title'] == 'e:hasStrength on urn:filter:1: datasetId'
-    assert asked['value'] == '' and 'Empty for the default instance' in asked['prompt']
+PRESENT = {'kind': 'attribute', 'attributePath': ['e:hasStrength'], 'datasetId': '@none',
+           'datasets': ['@none']}
+
+
+def test_the_default_instance_comes_first_then_the_namespaces(tmp_path):
+    seen = _drive(tmp_path, _entity([]), ['Default instance'], ['0.5'])
+    items = seen['quickPicks'][1]['items']
+    labels = [i['label'] for i in items if i['label']]
+    assert labels == ['Default instance', 'In a namespace of this package',
+                      'base:hasStrength-2', 'sensors:hasStrength-2',
+                      '$(add) New namespace…']
     assert _sent(seen)[0]['datasetId'] is None
 
 
-def test_one_already_there_suggests_another_datasetid(tmp_path):
-    present = {'kind': 'attribute', 'attributePath': ['e:hasStrength'], 'datasetId': '@none',
-               'datasets': ['@none']}
-    seen = _drive(tmp_path, _entity([present]), ['urn:sensor:b', '0.5'])
-    asked = seen['inputs'][0]
-    assert asked['value'] == 'urn:filter:1:hasStrength:2'
-    assert 'It has 1 instance(s) already (default)' in asked['prompt']
-    assert _sent(seen)[0]['datasetId'] == 'urn:sensor:b'
+def test_a_namespace_and_a_local_part_make_the_full_iri(tmp_path):
+    seen = _drive(tmp_path, _entity([]), ['sensors:hasStrength-2'], ['left', '0.5'])
+    assert seen['inputs'][0]['value'] == 'hasStrength-2'
+    assert _sent(seen)[0]['datasetId'] == 'https://x/sensors/left', \
+        'written whole: a prefix from semforge.yaml is not in the case\'s @context'
+
+
+def test_a_new_namespace_is_defined_on_the_spot(tmp_path):
+    seen = _drive(tmp_path, _entity([]), ['$(add) New namespace…'],
+                  ['plant', 'https://example.org/plant/', 'inlet', '0.5'],
+                  replies={'semforge/addNamespace': {
+                      'ok': True, 'prefix': 'plant', 'namespace': 'https://example.org/plant/',
+                      'file': 'semforge.yaml', 'line': 3}})
+    defined = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/addNamespace']
+    assert defined == [{'uri': 'file:///pkg/shacl.ttl', 'prefix': 'plant',
+                        'namespace': 'https://example.org/plant/'}]
+    assert _sent(seen)[0]['datasetId'] == 'https://example.org/plant/inlet'
+
+
+def test_with_a_default_instance_there_it_is_not_offered(tmp_path):
+    seen = _drive(tmp_path, _entity([PRESENT]), [], [])
+    labels = [i['label'] for i in seen['quickPicks'][1]['items']]
+    assert 'Default instance' not in labels
+    assert 'Has default' in seen['quickPicks'][1]['placeHolder']
 
 
 def test_cancelling_the_datasetid_adds_nothing(tmp_path):
-    seen = _drive(tmp_path, _entity([]), [])
-    assert _sent(seen) == [] and len(seen['inputs']) == 1
+    seen = _drive(tmp_path, _entity([]), [], [])
+    assert _sent(seen) == [] and seen['inputs'] == []

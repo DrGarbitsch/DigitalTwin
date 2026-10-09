@@ -336,7 +336,10 @@ def test_a_clean_package_publishes_no_identity_diagnostics(corpus_path):
             assert {f.code for f in items} == {'severity-unlinked'}, items
             continue
         assert path.endswith('model-instance.jsonld'), path
-        assert {f.kind for f in items} == {'vocabulary'}
+        # ...and its datasetIds, urn:index:1, in a namespace the kms does not
+        # register (sanity's dataset-unregistered).
+        assert {(f.kind, f.code if f.kind == 'sanity' else '') for f in items} == {
+            ('vocabulary', ''), ('sanity', 'dataset-unregistered')}
 
 
 def test_no_entity_row_is_marked_for_a_reused_id(corpus):

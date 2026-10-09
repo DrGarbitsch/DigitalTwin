@@ -51,7 +51,9 @@ def test_findings_about_shapes_land_on_the_shapes_file(corpus_path):
             assert {f.code for f in items} == {'severity-unlinked'}, items
         else:
             assert path.endswith('.jsonld'), path
-            assert kinds <= {'identity', 'vocabulary'}, kinds
+            # ...and a datasetId's: the kms's urn:index: one is unregistered.
+            assert {f.code for f in items if f.kind == 'sanity'} <= {'dataset-unregistered'}
+            assert kinds <= {'identity', 'vocabulary', 'sanity'}, kinds
 
 
 def test_every_finding_has_a_real_line(analysis):

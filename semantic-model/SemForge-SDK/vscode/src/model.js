@@ -10,6 +10,7 @@
  */
 
 const vscode = require('vscode');
+const { askDatasetId } = require('./datasetid');
 
 const { noPackageMessage } = require('./locate');
 const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
@@ -408,7 +409,8 @@ function removalOf(raw) {
   }
   if (raw.kind === 'dataset' && attributePath.length) {
     return { path: attributePath, dataset: raw.datasetId,
-      what: `${name(attributePath)} (${raw.datasetId})` };
+      what: raw.label && raw.label.includes('[') ? raw.label
+        : `${name(attributePath)} (${raw.datasetId === '@none' ? 'default' : raw.datasetId})` };
   }
   const path = raw.path || [];
   if (raw.kind === 'instance' && path.length >= 3) {
@@ -1165,24 +1167,13 @@ function register(context, clientHolder, session, onChanged) {
       : [here.datasetId || '@none']) : [];
     const name = attribute.term.split(/[:/#]/).pop();
     let number = 2;
-    while (taken.includes(`${raw.entity}:${name}:${number}`)) {
+    while (taken.some((d) => d.endsWith(`${name}-${number}`))) {
       number += 1;
     }
-    const datasetId = await vscode.window.showInputBox({
+    const datasetId = await askDatasetId(clientHolder.client, node.packageUri, {
       title: `${attribute.term} on ${raw.entity}: datasetId`,
-      prompt: taken.length
-        ? `It has ${taken.length} instance(s) already (${taken.map((d) => (d === '@none' ? 'default' : d))
-          .join(', ')}): this one needs its own datasetId, an IRI.`
-        : 'Empty for the default instance; an IRI for another one.',
-      value: taken.includes('@none') ? `${raw.entity}:${name}:${number}` : '',
-      validateInput: (text) => {
-        const value = text.trim();
-        if (!value) {
-          return taken.includes('@none')
-            ? 'it has a default instance already; another one needs a datasetId' : undefined;
-        }
-        return datasetIdProblem(value, taken);
-      }
+      taken, allowDefault: !taken.includes('@none'),
+      suggestion: `${name}-${number}`
     });
     if (datasetId === undefined) {
       return;
@@ -1347,14 +1338,14 @@ function register(context, clientHolder, session, onChanged) {
         .split(/[:/#]/).pop();
       const known = (raw.datasets || []).concat(raw.datasetId ? [raw.datasetId] : []);
       let number = 2;
-      while (known.includes(`${raw.entity}:${name}:${number}`)) {
+      while (known.some((d) => d.endsWith(`${name}-${number}`))) {
         number += 1;
       }
-      const datasetId = await vscode.window.showInputBox({
-        title: `New instance of ${name} on ${raw.entity}`,
-        prompt: 'Its datasetId: an IRI. It starts as a copy of the current instance.',
-        value: `${raw.entity}:${name}:${number}`,
-        validateInput: (text) => datasetIdProblem(text, known)
+      // A copy of the current instance, under the datasetId picked here.
+      const datasetId = await askDatasetId(clientHolder.client, node.packageUri, {
+        title: `New instance of ${name} on ${raw.entity}: datasetId`,
+        taken: known, allowDefault: false,
+        suggestion: `${name}-${number}`
       });
       if (!datasetId) {
         return;
@@ -1393,12 +1384,12 @@ function register(context, clientHolder, session, onChanged) {
       let datasetId = raw.new;
       if (datasetId === undefined) {
         const old = where.old && where.old !== '@none' ? where.old : '';
-        datasetId = await vscode.window.showInputBox({
-          title: `datasetId of ${raw.label || where.attributePath.slice(-1)[0]}`,
-          prompt: 'An IRI. Empty makes it the default instance (the one without a datasetId).',
-          value: old || `${where.entity}:${String(where.attributePath.slice(-1)[0])
-            .split(/[:/#]/).pop()}:2`,
-          validateInput: (text) => (text.trim() ? datasetIdProblem(text, []) : undefined)
+        const name = String(where.attributePath.slice(-1)[0]).split(/[:/#]/).pop();
+        const others = (raw.datasets || []).filter((d) => d !== where.old);
+        datasetId = await askDatasetId(clientHolder.client, node.packageUri || raw.packageUri, {
+          title: `datasetId of ${raw.label || name}${old ? ` — now ${old}` : ''}`,
+          taken: others, allowDefault: !others.includes('@none'),
+          suggestion: old ? old.split(/[:/#]/).pop() : `${name}-2`
         });
         if (datasetId === undefined) {
           return;
@@ -1418,22 +1409,6 @@ function register(context, clientHolder, session, onChanged) {
   );
 
   return provider;
-}
-
-/** What is wrong with a datasetId as typed, or undefined -- as the server's
- *  dataset_id_problem says it. */
-function datasetIdProblem(text, known) {
-  const value = String(text || '').trim();
-  if (value === '@none') {
-    return '@none is the platform\'s name for the default instance; the default instance has no datasetId';
-  }
-  if (!/^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>"{}|\\^`]+$/.test(value)) {
-    return 'an IRI, e.g. urn:sensor:left';
-  }
-  if (known.includes(value)) {
-    return 'this attribute already has an instance with it; another one there is an observation';
-  }
-  return undefined;
 }
 
 module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND, declareAttribute, removalOf };

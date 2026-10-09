@@ -1840,13 +1840,16 @@ sharing one are the *same* attribute observed repeatedly, while different
 resolves within a `datasetId` and never across, and a flat list hides that.
 
 With one `datasetId` the series hangs straight off the attribute. With several,
-each gets its own row showing its own current value:
+each gets its own row, named **`attribute[prefix:name]`** — the prefix one the
+package registers for the `datasetId`'s namespace — with its own current value:
 
 ```
 hasStrength                       2 instances
-├── 0.6    default · Property · 4 observations        📈
-└── 1.5    urn:sensor:B · Property · 2 observations   📈
+├── hasStrength            0.6 · Property · 4 observations · default   📈
+└── hasStrength[sensor:B]  1.5 · Property · 2 observations             📈
 ```
+
+The case page names its rows the same way.
 
 The default instance is the one *without* a `datasetId` — the platform calls it
 `@none` internally (the bridge fills it in, rules write it, and it is stripped
@@ -1867,23 +1870,38 @@ shacl2flink does. Observations of one `datasetId` are one instance.
   written; only a `datasetId` the attribute already has is (another one there
   would be an observation: **Add Observation**). When it has a default
   instance, a free `datasetId` is suggested.
+- **Which datasetId** is picked the same way in all three: *Default instance*
+  (when the attribute has none yet), one of the package's namespaces — then
+  only the local part is typed (`left`) — or **New namespace…**, defined for
+  the package on the spot. **Its namespace is always a registered one**: that
+  is what gives it its `prefix:name`, so a `datasetId` in no registered
+  namespace is refused, and there is no free-form IRI. The full IRI is written
+  (`https://…/sensors/left`): a prefix from `semforge.yaml` is not in a case's
+  `@context`, and `sensors:left` would be read as an IRI whose scheme is
+  `sensors` — valid, and silently another id.
+- **Remove…** on a case page row that is one of several instances offers
+  **Remove hasHeight[sensor:left]** — that instance only — and, separately,
+  **Remove hasHeight…** for all of them. Rows are joined to their own
+  `datasetId`, so an edit or a removal never lands on another instance.
 - **Change datasetId…** renames one instance, every observation of it along;
   empty makes it the default instance (when the attribute has none).
 - A `datasetId` must be an IRI: NGSI-LD makes it a URI and the context reads it
   as an `@id`, so `left` would silently resolve against the document's base.
   Both refuse anything else, and `@none`.
 - **New test…** writes cardinality cases at the boundary, as many instances as
-  that takes, each its own `datasetId` (`urn:<package>:dataset:2`, `:3`, …):
+  that takes, each its own `datasetId` (`urn:<package>:dataset:2`, `:3`, …, in
+  a namespace it registers as `<package>Dataset:` the first time):
   a valid case has `sh:minCount` instances, *too few* one less, *too many*
   `sh:maxCount + 1` — two instances would say nothing about a maximum of 3.
 
-Three things in the data are reported where they are written, each with a
+Four things in the data are reported where they are written, each with a
 quick fix:
 
 | code | what | quick fix |
 | --- | --- | --- |
 | `dataset-not-iri` | a `datasetId` that is no IRI (error) | Change the datasetId… |
 | `dataset-none` | `"datasetId": "@none"` written out: in JSON-LD that is *another* instance, not the default | Remove it |
+| `dataset-unregistered` | a `datasetId` in no namespace the package registers: it has no `attribute[prefix:name]` | Register a prefix for its namespace… · Change the datasetId… |
 | `dataset-duplicate` | two instances of one `datasetId` with the same `observedAt`, or both without: one update written twice — the platform keeps only the last, so a count over them tests what it never sees | Give this instance its own datasetId… |
 
 **Anything carrying a value carries the pencil** — including the value of an

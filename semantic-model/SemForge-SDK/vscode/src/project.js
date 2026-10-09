@@ -288,7 +288,8 @@ function register(context, clientHolder, session, onChanged) {
       // add to it from the editor at all -- you found semforge.yaml and typed.
       // The same prompts as "New namespace…" in a vocabulary dialog.
       const made = await require('./namespacepick').defineNamespace(
-        clientHolder.client, (node && node.packageUri) || provider.uri);
+        clientHolder.client, (node && node.packageUri) || provider.uri,
+        node && node.namespace);
       if (!made) {
         return;
       }
