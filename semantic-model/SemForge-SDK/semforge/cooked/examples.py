@@ -18,6 +18,7 @@ Turtle.
 """
 
 import json
+import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
@@ -49,6 +50,7 @@ class ExampleNode:
     dataset_id: str = ''       # the datasetId this row stands for
     observations: int = 0      # how many, when it is a series
     attribute_path: list = field(default_factory=list)  # where to append one
+    datasets: list = field(default_factory=list)  # every datasetId of the attribute
 
     @property
     def is_series(self):
@@ -171,17 +173,22 @@ def _series_children(members, current, entity, path, findings):
     return out
 
 
-def _dataset_node(dataset, members, entity, path, findings):
+def dataset_label(dataset):
+    """How a datasetId reads: the default instance has none, so it says so."""
+    return 'default' if dataset == DEFAULT_DATASET else dataset
+
+
+def _dataset_node(dataset, members, entity, path, findings, datasets=()):
     current = _current_index(members)
     head = _instance_node(_member_at(members, current), entity,
                           list(path) + [current], findings)
     node = ExampleNode(
-        kind='dataset', label=head.label or dataset, entity=entity,
-        dataset_id=dataset, observations=len(members),
+        kind='dataset', label=head.label or dataset_label(dataset), entity=entity,
+        dataset_id=dataset, observations=len(members), datasets=list(datasets),
         attribute_path=list(path), path=head.path, value=head.value,
         editable=head.editable,
         detail=' · '.join(p for p in (
-            dataset, head.detail,
+            dataset_label(dataset), head.detail,
             f'{len(members)} observations' if len(members) > 1 else '') if p))
     node.children = (_series_children(members, current, entity, path, findings)
                      if len(members) > 1 else list(head.children))
@@ -204,15 +211,17 @@ def _attribute_node(name, value, entity, path, findings):
 
     if len(groups) > 1:
         node.detail = ' · '.join(
-            p for p in (node.detail, f'{len(groups)} datasets') if p)
+            p for p in (node.detail, f'{len(groups)} instances') if p)
+        node.datasets = list(groups)
         for dataset, members in groups.items():
             node.children.append(
-                _dataset_node(dataset, members, entity, path, findings))
+                _dataset_node(dataset, members, entity, path, findings, groups))
         return node
 
     dataset, members = next(iter(groups.items()))
     current = _current_index(members)
     node.dataset_id = dataset
+    node.datasets = [dataset]
     node.observations = len(members)
     if dataset != DEFAULT_DATASET:
         node.detail = ' · '.join(p for p in (node.detail, dataset) if p)
@@ -758,6 +767,123 @@ def add_observation(package, entity_id, attribute_path, dataset_id=None,
     with open(source, 'w', encoding='utf-8') as handle:
         handle.write(rendered)
     return source, len(cursor[key])
+
+
+DATASET_IRI = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>"{}|\\^`]+$')
+
+
+def dataset_id_problem(dataset_id):
+    """What is wrong with `dataset_id` as a datasetId, or None.
+
+    NGSI-LD makes it a URI, and the context reads it as an @id: a plain word
+    is resolved against the document's base and silently becomes another id.
+    `@none` is the platform's own name for the default instance -- written in
+    the data it is NOT that: the default instance is the one without one.
+    """
+    text = str(dataset_id or '').strip()
+    if text == DEFAULT_DATASET:
+        return ('@none is the platform\'s name for the default instance; in the data '
+                'the default instance is the one WITHOUT a datasetId')
+    if not DATASET_IRI.match(text):
+        return f'"{text}" is not an IRI; a datasetId is one, e.g. urn:sensor:left'
+    return None
+
+
+def _read_document(source):
+    with open(source, encoding='utf-8') as handle:
+        text = handle.read()
+    document = json.loads(text, object_pairs_hook=OrderedDict)
+    return text, document, (document if isinstance(document, list) else [document])
+
+
+def _instances_at(entities, entity_id, attribute_path):
+    holder, key = _locate(entities, entity_id, list(attribute_path))
+    if not isinstance(holder, dict) or key not in holder:
+        raise PackageError(f'{entity_id} has no attribute {key}')
+    existing = holder[key]
+    return holder, key, list(existing) if isinstance(existing, list) else [existing]
+
+
+def add_instance(package, entity_id, attribute_path, dataset_id, file=None):
+    """Another instance of an attribute: the same attribute under a new
+    datasetId -- what sh:minCount and sh:maxCount count.
+
+    It starts as a copy of the attribute's current instance (its type, value
+    and sub-attributes), so the case stays valid in everything but the count.
+    A datasetId the attribute already has is refused: a second instance there
+    is an observation of that one, not another instance.
+    """
+    import copy
+
+    problem = dataset_id_problem(dataset_id)
+    if problem:
+        raise PackageError(problem)
+    dataset_id = str(dataset_id).strip()
+    source = _target_file(package, file)
+    text, document, entities = _read_document(source)
+    holder, key, instances = _instances_at(entities, entity_id, attribute_path)
+    groups = _group_by_dataset(instances)
+    if dataset_id in groups:
+        raise PackageError(f'{entity_id}: {key} already has an instance with datasetId '
+                           f'{dataset_id}; another one there is an observation of it')
+    members = next(iter(groups.values()))
+    fresh = copy.deepcopy(_member_at(members, _current_index(members)))
+    if not isinstance(fresh, dict):
+        raise PackageError(f'{entity_id}: {key} is not an NGSI-LD attribute')
+    fresh['datasetId'] = dataset_id
+    holder[key] = instances + [fresh]
+    _write(source, document, text)
+    return {'file': source, 'datasetId': dataset_id, 'instances': len(groups) + 1}
+
+
+def set_dataset_id(package, entity_id, attribute_path, old, new, file=None, index=None):
+    """Give the instances of datasetId `old` the datasetId `new` -- every
+    observation of it, since they are one instance. `@none` or '' as `old`
+    is the default instance; as `new` it makes that instance the default
+    (its datasetId is removed), when the attribute has none yet.
+
+    `index` (a position in the attribute's array) moves that ONE instance
+    instead: the fix for two instances that share a datasetId by mistake.
+    `@none` to `@none` drops a "datasetId": "@none" written out, which is
+    not the default instance it means to be."""
+    old = str(old or '').strip() or DEFAULT_DATASET
+    new = str(new or '').strip() or DEFAULT_DATASET
+    if new != DEFAULT_DATASET:
+        problem = dataset_id_problem(new)
+        if problem:
+            raise PackageError(problem)
+    source = _target_file(package, file)
+    text, document, entities = _read_document(source)
+    holder, key, instances = _instances_at(entities, entity_id, attribute_path)
+    groups = _group_by_dataset(instances)
+    if old not in groups:
+        raise PackageError(f'{entity_id}: {key} has no instance with datasetId {old}')
+    if new == old == DEFAULT_DATASET:
+        written = [i for _, i in groups[old] if i.get('datasetId') == DEFAULT_DATASET]
+        for instance in written:
+            del instance['datasetId']
+        _write(source, document, text)
+        return {'file': source, 'datasetId': new, 'changed': len(written)}
+    if new == old:
+        return {'file': source, 'datasetId': new, 'changed': 0}
+    if new in groups:
+        raise PackageError(f'{entity_id}: {key} already has '
+                           + ('a default instance' if new == DEFAULT_DATASET
+                              else f'an instance with datasetId {new}'))
+    moving = groups[old]
+    if index is not None:
+        moving = [(position, i) for position, i in moving if position == int(index)]
+        if not moving:
+            raise PackageError(f'{entity_id}: {key} has no instance {index} with '
+                               f'datasetId {old}')
+    for _, instance in moving:
+        if new == DEFAULT_DATASET:
+            instance.pop('datasetId', None)
+        else:
+            instance['datasetId'] = new
+    holder[key] = instances if isinstance(holder[key], list) else instances[0]
+    _write(source, document, text)
+    return {'file': source, 'datasetId': new, 'changed': len(moving)}
 
 
 def remove_value(package, entity_id, path, file=None, dataset=None):

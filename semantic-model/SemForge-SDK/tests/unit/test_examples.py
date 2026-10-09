@@ -270,7 +270,7 @@ def test_several_datasets_get_a_row_each(package):
 
     node = _find(build_examples(load(package.path)), 'urn:filter:1', 'entity')
     strength = next(c for c in node.children if c.label == 'hasStrength')
-    assert '2 datasets' in strength.detail
+    assert '2 instances' in strength.detail
     datasets = {c.dataset_id: c for c in strength.children}
     assert set(datasets) == {'@none', 'urn:sensor:B'}
     assert datasets['@none'].value == '0.6'

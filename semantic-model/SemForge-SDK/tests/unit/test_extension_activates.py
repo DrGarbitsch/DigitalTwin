@@ -44,6 +44,7 @@ EXPECTED = {
     'semforge.deleteSuite', 'semforge.removeCaseValue', 'semforge.linkSeverityClass',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
     'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
+    'semforge.addInstance', 'semforge.setDatasetId',
     'semforge.refreshKnowledge', 'semforge.showShapeForClass',
     'semforge.initPackage', 'semforge.newProject', 'semforge.selectPackage',
     'semforge.menu', 'semforge.editSetting', 'semforge.refreshProject',

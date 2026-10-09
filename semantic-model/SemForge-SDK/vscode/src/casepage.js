@@ -52,7 +52,7 @@ function attributeRows(rows, file, depth, at) {
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}">` +
       `<span class="name">${open(row.name, file, row.line, row.term)}</span>` +
       `<span class="value">${value}` +
-      `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : ''}` +
+      `${row.dataset && row.dataset !== '@none' ? ` <span class="dim">· ${escape(row.dataset)}</span>` : row.instances > 1 ? ' <span class="dim">· default</span>' : ''}` +
       `${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
       attributeRows(row.children || [], file, depth + 1, here);
@@ -433,7 +433,18 @@ class CasePages {
           { label: '$(add) Add sub-attribute',
             run: () => run('semforge.addSubAttribute', row.attributeNode) },
           { label: '$(history) Add observation',
-            run: () => run('semforge.addObservation', row.attributeNode) });
+            run: () => run('semforge.addObservation', row.attributeNode) },
+          // Another datasetId: what sh:minCount / sh:maxCount count.
+          { label: '$(layers) Add instance…', description: 'another datasetId',
+            run: () => run('semforge.addInstance', row.node && row.node.kind === 'dataset'
+              ? row.node : row.attributeNode) });
+      }
+      const instance = row.node && row.node.kind === 'dataset' ? row.node
+        : row.attributeNode && row.attributeNode.datasetId ? row.attributeNode : null;
+      if (instance) {
+        items.push({ label: '$(symbol-key) Change datasetId…',
+          description: instance.datasetId === '@none' ? 'default' : instance.datasetId,
+          run: () => run('semforge.setDatasetId', instance) });
       }
       if (row.node) {
         items.push({ label: '$(symbol-ruler) Go to the SHACL rule',
@@ -445,7 +456,7 @@ class CasePages {
       // several datasetIds -- just that instance.
       if (row.node && row.node.kind === 'dataset') {
         items.push({ label: '$(trash) Remove this instance',
-          description: row.node.datasetId,
+          description: row.node.datasetId === '@none' ? 'default' : row.node.datasetId,
           run: () => run('semforge.removeCaseValue', row.node) });
       }
       if (row.attributeNode) {

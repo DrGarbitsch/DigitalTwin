@@ -71,20 +71,62 @@ def _number(text):
         return None
 
 
+def _counts(row):
+    """(sh:minCount, sh:maxCount or None) of the attribute itself.
+
+    What they count is INSTANCES: an NGSI-LD attribute is identified by
+    (entity, name, datasetId), so n instances are n datasetIds -- the
+    platform counts distinct live datasetIds, and observations of one
+    datasetId are one instance.
+    """
+    attribute, _ = _params(row)
+    low = int(_number(attribute.get('sh:minCount', 0)) or 0)
+    high = _number(attribute.get('sh:maxCount')) \
+        if attribute.get('sh:maxCount') is not None else None
+    return low, (int(high) if high is not None else None)
+
+
+def _dataset_iri(package, number):
+    """The datasetId of a generated case's `number`th instance (2, 3, ...);
+    the first is the default instance, which carries none."""
+    name = re.sub(r'[^a-z0-9]+', '-', os.path.basename(os.path.abspath(package.path)).lower())
+    return f'urn:{name}:dataset:{number}'
+
+
+def _instances(package, attribute, count):
+    """`count` instances of `attribute`: the default one (no datasetId), then
+    one per datasetId. A single instance stays a plain object, none is None."""
+    if count <= 0:
+        return None
+    base = {k: v for k, v in attribute.items() if k != 'datasetId'}
+    out = [dict(base)] + [dict(base, datasetId=_dataset_iri(package, number))
+                          for number in range(2, count + 1)]
+    return out[0] if count == 1 else out
+
+
 # What each breakable constraint is, in words, and how to break it.
 def _breakers(row):
     """{component: (words, how)} for the constraints this attribute can fire,
-    `how` None when it cannot be broken mechanically."""
+    `how` None when it cannot be broken mechanically.
+
+    Counts are broken AT the boundary: one instance fewer than sh:minCount,
+    one more than sh:maxCount, each its own datasetId -- two instances say
+    nothing about a maximum of 3."""
     attribute, value = _params(row)
+    low, high = _counts(row)
     out = {}
-    if int(_number(attribute.get('sh:minCount', 0)) or 0) >= 1:
+    if low >= 2:
+        out['MinCountConstraintComponent'] = (
+            f'too few: {low - 1} instance(s) where {low} are required, each its own '
+            f'datasetId', 'fewer')
+    elif low >= 1:
         out['MinCountConstraintComponent'] = ('missing: the attribute is left out', 'omit')
     elif int(_number(value.get('sh:minCount', 0)) or 0) >= 1:
         out['MinCountConstraintComponent'] = ('no value: the attribute carries none',
                                               'novalue')
-    if attribute.get('sh:maxCount') is not None:
+    if high is not None:
         out['MaxCountConstraintComponent'] = (
-            f'more than {attribute["sh:maxCount"]}: two instances of it', 'twice')
+            f'more than {high}: {high + 1} instances, each its own datasetId', 'more')
     datatype = value.get('sh:datatype')
     if datatype:
         out['DatatypeConstraintComponent'] = (
@@ -118,7 +160,7 @@ def _breakers(row):
     return out
 
 
-SUFFIX = {'omit': 'missing', 'novalue': 'no-value', 'twice': 'twice',
+SUFFIX = {'omit': 'missing', 'novalue': 'no-value', 'more': 'too-many', 'fewer': 'too-few',
           'datatype': 'wrong-datatype', 'sh:minInclusive': 'too-low',
           'sh:maxInclusive': 'too-high', 'sh:minExclusive': 'too-low',
           'sh:maxExclusive': 'too-high', 'class': 'wrong-class',
@@ -204,17 +246,20 @@ def _valid(package, row, scene):
     return 'value', 'text'
 
 
-def _break(how, row, attribute):
-    """Change a valid attribute so its constraint fires; None to leave it out."""
+def _break(how, row, attribute, package=None):
+    """Change a valid attribute so its constraint fires; None to leave it out.
+    The count breakers return the instances, at the boundary."""
     _, value = _params(row)
     key = 'object' if 'object' in attribute else 'value'
+    low, high = _counts(row)
     if how == 'omit':
         return None
+    if how == 'fewer':
+        return _instances(package, attribute, low - 1)
+    if how == 'more':
+        return _instances(package, attribute, high + 1)
     if how == 'novalue':
         return {k: v for k, v in attribute.items() if k not in ('value', 'object')}
-    if how == 'twice':
-        return [dict(attribute, datasetId='urn:example:dataset:1'),
-                dict(attribute, datasetId='urn:example:dataset:2')]
     if how == 'datatype':
         broken = 1 if value.get('sh:datatype') == 'xsd:string' else 'not a number'
         return dict(attribute, **{key: broken})
@@ -322,10 +367,11 @@ def _fresh(package, entry):
                 continue
             _, row = _row(package, entry.iri, node.path_chain)
             attribute, _ = _params(row)
-            if int(_number(attribute.get('sh:minCount', 0)) or 0) >= 1:
+            low, _ = _counts(row)
+            if low >= 1:
                 field, value = _valid(package, row, [document])
-                document[model_term(package, URIRef(row['attribute']))] = {
-                    'type': row['kind'] or 'Property', field: value}
+                document[model_term(package, URIRef(row['attribute']))] = _instances(
+                    package, {'type': row['kind'] or 'Property', field: value}, low)
     document['@context'] = context
     return [document], document['id'], 'a new entity'
 
@@ -378,8 +424,17 @@ def new_attribute_test(package, entity_type, path, purpose, name):
         attribute = {'type': row['kind'] or 'Property', field: value}
         if any(isinstance(v, dict) and 'observedAt' in v for v in target.values()):
             attribute['observedAt'] = STAMP
-    if how:
-        attribute = _break(how, row, attribute)
+    # As many instances as the attribute requires, each its own datasetId; a
+    # broken value is broken in the first, the others stay valid.
+    required = max(_counts(row)[0], 1)
+    if how in ('omit', 'fewer', 'more'):
+        attribute = _break(how, row, attribute, package)
+    elif how:
+        broken = _break(how, row, attribute, package)
+        rest = _instances(package, attribute, required) if required > 1 else None
+        attribute = [broken] + rest[1:] if rest else broken
+    else:
+        attribute = _instances(package, attribute, required)
     if attribute is not None:
         position = list(target).index('@context') if '@context' in target else len(target)
         items = list(target.items())

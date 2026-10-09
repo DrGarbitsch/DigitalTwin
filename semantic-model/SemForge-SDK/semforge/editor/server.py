@@ -381,6 +381,18 @@ def _fixes_for(diagnostic, uri):
     elif code == 'severity-unlinked':
         action(f'Declare {_local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
                {'packageUri': uri, 'cls': subject}, preferred=True)
+    elif code in ('dataset-none', 'dataset-not-iri', 'dataset-duplicate'):
+        where = {'packageUri': uri, 'entity': data.get('entity'),
+                 'attributePath': data.get('attributePath'), 'file': data.get('file'),
+                 'old': data.get('old')}
+        if code == 'dataset-none':
+            action('Remove "datasetId": "@none" (the default instance has none)',
+                   'semforge.setDatasetId', dict(where, new='@none'), preferred=True)
+        elif code == 'dataset-not-iri':
+            action('Change the datasetId…', 'semforge.setDatasetId', where, preferred=True)
+        else:
+            action('Give this instance its own datasetId…', 'semforge.setDatasetId',
+                   dict(where, index=data.get('index')), preferred=True)
     elif code == 'unused-attribute':
         action(f'Delete {_local(subject)}…', 'semforge.deleteAttribute',
                {'packageUri': uri, 'raw': {'iri': subject}}, preferred=True)
@@ -680,6 +692,7 @@ def _serialise_example(node):
         'editable': node.editable, 'severity': node.severity,
         'messages': list(node.messages),
         'datasetId': node.dataset_id, 'observations': node.observations,
+        'datasets': list(node.datasets),
         'attributePath': list(node.attribute_path), 'file': node.file,
         'entityType': node.entity_type,
         # Which cases include this file. The row is editable either way; this is
@@ -1037,6 +1050,41 @@ def add_observation_feature(ls, params):
         return {'ok': True, 'file': path, 'count': count}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+def _instance_write(ls, params, write):
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        made = write(package)
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(package.sources['shapes']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/addInstance')
+def add_instance_feature(ls, params):
+    """Another instance of an attribute, under a new datasetId."""
+    from ..cooked.examples import add_instance
+
+    return _instance_write(ls, params, lambda package: add_instance(
+        package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
+        _field(params, 'datasetId'), file=_field(params, 'file')))
+
+
+@server.feature('semforge/setDatasetId')
+def set_dataset_id_feature(ls, params):
+    """Change one instance's datasetId (every observation of it)."""
+    from ..cooked.examples import set_dataset_id
+
+    return _instance_write(ls, params, lambda package: set_dataset_id(
+        package, _field(params, 'entity'), list(_field(params, 'attributePath') or []),
+        _field(params, 'old'), _field(params, 'new'), file=_field(params, 'file'),
+        index=_field(params, 'index', None)))
 
 
 @server.feature('semforge/addAttribute')

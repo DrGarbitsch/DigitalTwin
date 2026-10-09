@@ -24,6 +24,15 @@ line that holds it:
   severity-unlinked  a class whose individuals are used as severities but which
                      is not declared a kind of sh:Severity (information)
   unused-attribute   a declared attribute nothing uses (information)
+  dataset-not-iri    a datasetId in the data that is not an IRI: the context
+                     reads it as one, so a plain word silently becomes another
+  dataset-none       an explicit "datasetId": "@none" -- the platform's name
+                     for the default instance, which in the data is the one
+                     WITHOUT a datasetId; written, it is a different instance
+  dataset-duplicate  two instances of one attribute share a datasetId and an
+                     observedAt (or both carry none): one update, written
+                     twice -- the platform keeps only the last, so a count
+                     over them tests what it never sees
 
 Undeclared keys in the DATA are expect.vocabulary's, which predates this and
 already places them; `check` reports both.
@@ -328,6 +337,103 @@ def _severity_checks(package):
     return out
 
 
+# --- multi-instance attributes in the data ---------------------------------------
+
+def _attribute_instances(document):
+    """Every NGSI-LD attribute in a document, nested ones included:
+    (entity id, attribute path as the editor addresses it, JSON trail of the
+    attribute, [instance trail or None-for-bare, instance])."""
+    from .expect.vocabulary import RESERVED
+
+    entities = document if isinstance(document, list) else [document]
+    lead = [] if not isinstance(document, list) else None
+
+    def walk(entity_id, holder, trail, path):
+        for key, value in holder.items():
+            if key in RESERVED or key.startswith('@'):
+                continue
+            listed = isinstance(value, list)
+            instances = value if listed else [value]
+            if not all(isinstance(i, dict) for i in instances):
+                continue
+            members = [(trail + [key] + ([position] if listed else []), instance)
+                       for position, instance in enumerate(instances)]
+            yield entity_id, path + [key], trail + [key], members
+            for position, (inner, instance) in enumerate(members):
+                yield from walk(entity_id, instance, inner, path + [key, position])
+
+    for position, entity in enumerate(entities):
+        if isinstance(entity, dict):
+            start = [] if lead is not None else [position]
+            yield from walk(str(entity.get('id') or entity.get('@id') or ''), entity,
+                            start, [])
+
+
+def _dataset_checks(package):
+    import json
+
+    from .cooked.examples import DEFAULT_DATASET, dataset_id_problem
+    from .cooked.jsonloc import locate
+    from .expect.identity import example_files
+
+    out = []
+    for source in example_files(package):
+        try:
+            with open(source, encoding='utf-8') as handle:
+                raw = handle.read()
+            document = json.loads(raw)
+            lines = locate(raw)
+        except Exception:                          # noqa: BLE001
+            continue
+        for entity, path, trail, members in _attribute_instances(document):
+            name = path[-1].split(':')[-1].rsplit('/', 1)[-1]
+            unstamped = {}
+            for position, (inner, instance) in enumerate(members):
+                fix = {'entity': entity, 'attributePath': path, 'file': source,
+                       'index': position}
+                at = lines.get(tuple(inner + ['datasetId'])) or \
+                    lines.get(tuple(inner)) or lines.get(tuple(trail)) or 1
+                dataset = instance.get('datasetId')
+                if dataset is not None and str(dataset) == DEFAULT_DATASET:
+                    out.append(SanityFinding(
+                        file=source, line=at, severity='warning', code='dataset-none',
+                        subject=entity,
+                        message=f'{entity}: {name} names "@none" as its datasetId. That is '
+                                f'the platform\'s name for the default instance; in the data '
+                                f'the default instance is the one without a datasetId, and '
+                                f'written out "@none" reads as another instance.',
+                        fix=dict(fix, old=DEFAULT_DATASET)))
+                elif dataset is not None and dataset_id_problem(dataset):
+                    out.append(SanityFinding(
+                        file=source, line=at, severity='error', code='dataset-not-iri',
+                        subject=entity,
+                        message=f'{entity}: {name} has datasetId "{dataset}", which is '
+                                f'not an IRI. The context reads a datasetId as one, so it '
+                                f'silently becomes another id; use e.g. urn:sensor:left.',
+                        fix=dict(fix, old=str(dataset))))
+                key = (DEFAULT_DATASET if dataset is None else str(dataset),
+                       str(instance['observedAt']) if 'observedAt' in instance else None)
+                unstamped.setdefault(key, []).append((position, inner))
+            for (dataset, stamp), found in unstamped.items():
+                for position, inner in found[1:]:
+                    at = lines.get(tuple(inner)) or lines.get(tuple(trail)) or 1
+                    shown = 'the default instance' if dataset == DEFAULT_DATASET \
+                        else f'datasetId {dataset}'
+                    when = f'observed at the same {stamp}' if stamp else 'without observedAt'
+                    out.append(SanityFinding(
+                        file=source, line=at, severity='warning', code='dataset-duplicate',
+                        subject=entity,
+                        message=f'{entity}: {name} has {len(found)} instances of {shown} '
+                                f'{when}. One datasetId is one instance and these are one '
+                                f'update written twice: the platform keeps only the last, '
+                                f'so a count over them tests what it never sees. Give this '
+                                f'one its own datasetId, or a later observedAt if it is a '
+                                f'later observation.',
+                        fix={'entity': entity, 'attributePath': path, 'file': source,
+                             'index': position, 'old': dataset}))
+    return out
+
+
 def sanity(package):
     """Every finding, sorted by file and line. Reads only; writes nothing."""
     declared = _declared(package)
@@ -335,6 +441,7 @@ def sanity(package):
     for check in (lambda: _shape_checks(package, declared),
                   lambda: _expectation_checks(package),
                   lambda: _severity_checks(package),
+                  lambda: _dataset_checks(package),
                   lambda: _unused_attributes(package)):
         try:
             found += check()

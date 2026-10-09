@@ -106,6 +106,9 @@ def _attributes(node, address, index, violations, entity):
                 'name': name, 'term': key, 'kind': str(member.get('type', '')),
                 'value': _render(payload) if payload is not None else '',
                 'dataset': str(member.get('datasetId', '')),
+                # Distinct datasetIds: observations of one are one instance.
+                'instances': len({str(m.get('datasetId', '@none')) for m in members
+                                  if isinstance(m, dict)}),
                 'line': line,
                 'violations': violations.pop((entity, name), []),
                 'children': _attributes(member, where, index, violations, entity)})

@@ -180,6 +180,15 @@
         "icon": "$(add)"
       },
       {
+        "command": "semforge.addInstance",
+        "title": "SemForge: Add Instance (another datasetId)…",
+        "icon": "$(layers)"
+      },
+      {
+        "command": "semforge.setDatasetId",
+        "title": "SemForge: Change datasetId…"
+      },
+      {
         "command": "semforge.addAttribute",
         "title": "SemForge: Add Attribute",
         "icon": "$(add)"
@@ -678,6 +687,26 @@
           "command": "semforge.addObservation",
           "when": "view == semforgeModel && viewItem == exampleSeries",
           "group": "2_row@14"
+        },
+        {
+          "command": "semforge.addInstance",
+          "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@15"
+        },
+        {
+          "command": "semforge.addInstance",
+          "when": "view == semforgeModel && viewItem == exampleSeries",
+          "group": "2_row@15"
+        },
+        {
+          "command": "semforge.setDatasetId",
+          "when": "view == semforgeModel && viewItem == exampleDataset",
+          "group": "2_row@16"
+        },
+        {
+          "command": "semforge.setDatasetId",
+          "when": "view == semforgeModel && viewItem == exampleSeries",
+          "group": "2_row@16"
         },
         {
           "command": "semforge.addObservation",

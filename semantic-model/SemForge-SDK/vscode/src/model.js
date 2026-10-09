@@ -1296,10 +1296,111 @@ function register(context, clientHolder, session, onChanged) {
       } else {
         vscode.window.showErrorMessage(`SemForge: ${result.error}`);
       }
+    }),
+
+    // Another instance of an attribute: the same attribute under a new
+    // datasetId. NGSI-LD identifies an attribute by (entity, name, datasetId),
+    // so this is what sh:minCount and sh:maxCount count -- unlike an
+    // observation, which is one instance seen again.
+    vscode.commands.registerCommand('semforge.addInstance', async (node) => {
+      const raw = node && node.raw;
+      if (!raw || !raw.attributePath || !raw.attributePath.length) {
+        return;
+      }
+      if (!(await confirmShared(raw, 'Adding an instance to'))) {
+        return;
+      }
+      const name = String(raw.attributePath[raw.attributePath.length - 1])
+        .split(/[:/#]/).pop();
+      const known = (raw.datasets || []).concat(raw.datasetId ? [raw.datasetId] : []);
+      let number = 2;
+      while (known.includes(`${raw.entity}:${name}:${number}`)) {
+        number += 1;
+      }
+      const datasetId = await vscode.window.showInputBox({
+        title: `New instance of ${name} on ${raw.entity}`,
+        prompt: 'Its datasetId: an IRI. It starts as a copy of the current instance.',
+        value: `${raw.entity}:${name}:${number}`,
+        validateInput: (text) => datasetIdProblem(text, known)
+      });
+      if (!datasetId) {
+        return;
+      }
+      const result = await clientHolder.client.sendRequest('semforge/addInstance', {
+        uri: node.packageUri, entity: raw.entity, attributePath: raw.attributePath,
+        datasetId: datasetId.trim(), file: raw.file
+      });
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return;
+      }
+      vscode.window.setStatusBarMessage(
+        `SemForge: ${name} now has ${result.instances} instance(s)`, 5000);
+      provider.refresh();
+      if (onChanged) {
+        onChanged();
+      }
+    }),
+
+    // A dataset row's datasetId -- every observation of it moves along, since
+    // they are one instance. Also what the datasetId quick fixes run, with
+    // `old`, `index` and sometimes `new` already settled.
+    vscode.commands.registerCommand('semforge.setDatasetId', async (node) => {
+      const raw = (node && node.raw) || node || {};
+      const where = {
+        entity: raw.entity, attributePath: raw.attributePath, file: raw.file,
+        old: raw.old !== undefined ? raw.old : raw.datasetId, index: raw.index
+      };
+      if (!where.entity || !where.attributePath) {
+        return;
+      }
+      if (node.raw && !(await confirmShared(raw, 'Changing the datasetId of'))) {
+        return;
+      }
+      let datasetId = raw.new;
+      if (datasetId === undefined) {
+        const old = where.old && where.old !== '@none' ? where.old : '';
+        datasetId = await vscode.window.showInputBox({
+          title: `datasetId of ${raw.label || where.attributePath.slice(-1)[0]}`,
+          prompt: 'An IRI. Empty makes it the default instance (the one without a datasetId).',
+          value: old || `${where.entity}:${String(where.attributePath.slice(-1)[0])
+            .split(/[:/#]/).pop()}:2`,
+          validateInput: (text) => (text.trim() ? datasetIdProblem(text, []) : undefined)
+        });
+        if (datasetId === undefined) {
+          return;
+        }
+      }
+      const result = await clientHolder.client.sendRequest('semforge/setDatasetId', Object.assign(
+        { uri: node.packageUri || raw.packageUri, new: datasetId.trim() || '@none' }, where));
+      if (!result.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+        return;
+      }
+      provider.refresh();
+      if (onChanged) {
+        onChanged();
+      }
     })
   );
 
   return provider;
+}
+
+/** What is wrong with a datasetId as typed, or undefined -- as the server's
+ *  dataset_id_problem says it. */
+function datasetIdProblem(text, known) {
+  const value = String(text || '').trim();
+  if (value === '@none') {
+    return '@none is the platform\'s name for the default instance; the default instance has no datasetId';
+  }
+  if (!/^[A-Za-z][A-Za-z0-9+.-]*:[^\s<>"{}|\\^`]+$/.test(value)) {
+    return 'an IRI, e.g. urn:sensor:left';
+  }
+  if (known.includes(value)) {
+    return 'this attribute already has an instance with it; another one there is an observation';
+  }
+  return undefined;
 }
 
 module.exports = { register, ModelTreeProvider, CONTEXT_BY_KIND, declareAttribute, removalOf };

@@ -1829,10 +1829,42 @@ With one `datasetId` the series hangs straight off the attribute. With several,
 each gets its own row showing its own current value:
 
 ```
-hasStrength                       2 datasets
-├── 0.6    @none · Property · 4 observations        📈
-└── 1.5    urn:sensor:B · Property · 2 observations 📈
+hasStrength                       2 instances
+├── 0.6    default · Property · 4 observations        📈
+└── 1.5    urn:sensor:B · Property · 2 observations   📈
 ```
+
+The default instance is the one *without* a `datasetId` — the platform calls it
+`@none` internally (the bridge fills it in, rules write it, and it is stripped
+again before Scorpio), but in the data it is simply absent.
+
+**Several instances: what a count counts.** JSON-LD writes an attribute's
+instances as an array, but it is a dictionary keyed by `datasetId`, and
+`sh:minCount` / `sh:maxCount` count its keys — distinct live `datasetId`s, as
+shacl2flink does. Observations of one `datasetId` are one instance.
+
+- **Add instance…** — on a dataset row in the Model view, and in a case page
+  row's `⋯` — asks for a `datasetId` (suggesting one the attribute does not
+  have yet) and adds a copy of the current instance under it: valid in
+  everything but the count.
+- **Change datasetId…** renames one instance, every observation of it along;
+  empty makes it the default instance (when the attribute has none).
+- A `datasetId` must be an IRI: NGSI-LD makes it a URI and the context reads it
+  as an `@id`, so `left` would silently resolve against the document's base.
+  Both refuse anything else, and `@none`.
+- **New test…** writes cardinality cases at the boundary, as many instances as
+  that takes, each its own `datasetId` (`urn:<package>:dataset:2`, `:3`, …):
+  a valid case has `sh:minCount` instances, *too few* one less, *too many*
+  `sh:maxCount + 1` — two instances would say nothing about a maximum of 3.
+
+Three things in the data are reported where they are written, each with a
+quick fix:
+
+| code | what | quick fix |
+| --- | --- | --- |
+| `dataset-not-iri` | a `datasetId` that is no IRI (error) | Change the datasetId… |
+| `dataset-none` | `"datasetId": "@none"` written out: in JSON-LD that is *another* instance, not the default | Remove it |
+| `dataset-duplicate` | two instances of one `datasetId` with the same `observedAt`, or both without: one update written twice — the platform keeps only the last, so a count over them tests what it never sees | Give this instance its own datasetId… |
 
 **Anything carrying a value carries the pencil** — including the value of an
 attribute with sub-attributes, which does not fold onto the attribute row: the
