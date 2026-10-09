@@ -1367,16 +1367,22 @@ base:severityMajor a owl:NamedIndividual, base:AlarmLevel ;
     rdfs:label "major" .
 ```
 
-A level is said by its `rdfs:label` (else its name), and a severity class is a
-vocabulary class like any other, on the Vocabulary page.
+A level is said by its `rdfs:label` (else its name). **`sh:Severity` is in the
+Vocabulary view** as SHACL's own class — its three levels marked *SHACL*,
+violation *the default* — with the package's levels of it and the classes
+derived from it beneath. Its page shows SHACL's levels read-only (never
+"unused": not naming one is no gap) and the constraints that name a severity;
+**+ Value** adds a level in the package's namespace, and its `⋯` — like a
+derived class's — offers **New severity class derived from …**.
 
-**Severity…** sets it on any constraint — an attribute's ⋯ on the type page and
-the shape page (its property shape), a SPARQL check's ⋯ on the shape page, the
-workbench's ⋯. It offers SHACL's three, then each class's levels; **No
+The attribute tables of the type page and the shape page have a **Severity**
+column: a click on the cell picks the level (inherited rows show it, changed on
+the supertype's shape); an undeclared one reads *violation (default)*, dimmed.
+**Severity…** is in a SPARQL check's ⋯ on the shape page and in the workbench's
+⋯ too, and in each attribute row's ⋯. It offers SHACL's three, then each class's levels; **No
 severity** goes back to SHACL's default; **+ New severity level…** and **+ New
 severity class…** are made from the same list, a new level set at once. A
-declared severity shows beside the attribute's kind; an undeclared one reads
-*severity: violation (default)* on SPARQL checks. The Problems panel reports
+SPARQL check's undeclared severity reads *severity: violation (default)*. The Problems panel reports
 an `sh:severity` that is no level (not SHACL's, nor an individual of
 `sh:Severity` or a derived class), and a class whose individuals are used as
 severities but which is not declared a kind of `sh:Severity` — the kms's

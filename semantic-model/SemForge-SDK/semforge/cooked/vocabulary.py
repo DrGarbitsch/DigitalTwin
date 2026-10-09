@@ -42,6 +42,10 @@ def vocabulary_classes(package):
 
 def _resolve_class(package, cls):
     wanted = str(cls or '').strip('<>')
+    # SHACL's class of severities is a vocabulary every package has -- its
+    # three levels are SHACL's own -- and the one a package extends.
+    if wanted in (str(SH.Severity), 'sh:Severity'):
+        return SH.Severity
     for iri in vocabulary_classes(package):
         if wanted in (iri, curie(package.knowledge, URIRef(iri)), local(iri)):
             return URIRef(iri)
@@ -169,10 +173,62 @@ def _spoken(name):
     return ' '.join(words) or name
 
 
+def _severity_page(package):
+    """sh:Severity as a vocabulary page: SHACL's three levels -- read-only,
+    SHACL declares them -- then the package's own, and the classes derived
+    from it; drawn from by every constraint that names a severity."""
+    from .severity import BUILTIN, DEFAULT, levels
+
+    graph = package.knowledge
+    index = package.index('knowledge')
+    rows = [{'iri': str(iri), 'name': local(iri), 'term': 'sh:' + local(iri), 'label': label,
+             'properties': [], 'uses': _uses(package, iri), 'definedAt': '', 'builtin': True,
+             'note': note + (' (the default)' if iri == DEFAULT and 'default' not in note else '')}
+            for iri, label, note in BUILTIN]
+    for level in levels(package):
+        if level['builtin'] or level['class'] != 'sh:Severity':
+            continue
+        iri = URIRef(level['iri'])
+        rows.append({'iri': level['iri'], 'name': local(iri), 'term': level['term'],
+                     'label': str(graph.value(iri, RDFS.label) or ''), 'properties': [],
+                     'uses': _uses(package, iri), 'definedAt': index.locator(iri) or ''})
+    drawn = []
+    for node, _ in package.shapes.subject_objects(SH.severity):
+        shape, chain = (node, []) if isinstance(node, URIRef) else _owning_shape(package.shapes, node)
+        if shape is None:
+            shape = next((s for s in package.shapes.subjects(SH.sparql, node)), None)
+        if shape is None:
+            continue
+        drawn.append({'shape': str(shape), 'shapeName': curie(package.shapes, shape),
+                      'attribute': ' / '.join(local(p) for p in chain if isinstance(p, URIRef)),
+                      'how': 'sh:severity'})
+    drawn.sort(key=lambda d: (d['shapeName'], d['attribute']))
+    vocabularies = set(vocabulary_classes(package))
+    derived = sorted((str(c) for c in graph.subjects(RDFS.subClassOf, SH.Severity)
+                      if isinstance(c, URIRef)), key=lambda c: local(c).lower())
+    # SHACL's own levels are never "unused": not naming one is no gap.
+    unused = [r for r in rows if not r['uses']['total'] and not r.get('builtin')]
+    return {
+        'iri': str(SH.Severity), 'label': 'Severity', 'term': 'sh:Severity',
+        'comment': 'SHACL\'s class of severities: how serious a result is when a constraint '
+                   'fires. Its three levels are SHACL\'s own; add levels here, or derive a '
+                   'class of your own.',
+        'definedAt': '', 'namespace': '', 'severity': True, 'builtin': True,
+        'parents': [],
+        'subclasses': [{'iri': c, 'label': local(c), 'page': c in vocabularies} for c in derived],
+        'values': rows, 'constrainedBy': drawn, 'relations': [],
+        'summary': {'values': len(rows), 'unused': len(unused),
+                    'inData': sum(1 for r in rows if r['uses']['data']),
+                    'constraints': len(drawn)},
+    }
+
+
 def build_vocabulary_page(package, cls):
     """The payload the vocabulary page renders. Reads only."""
     graph = package.knowledge
     cls = _resolve_class(package, cls)
+    if cls == SH.Severity:
+        return _severity_page(package)
     index = package.index('knowledge')
     values = _values(package, cls)
     vocabularies = set(vocabulary_classes(package))
@@ -215,8 +271,12 @@ def build_vocabulary_page(package, cls):
     comment = graph.value(cls, RDFS.comment) or graph.value(cls, RDFS.label)
 
     unused = [r['name'] for r in rows if not r['uses']['total']]
+    from .severity import severity_classes
+    severity = any(c['iri'] == str(cls) and c['linked'] for c in severity_classes(package))
     return {
         'iri': str(cls), 'label': local(cls), 'term': curie(graph, cls),
+        # A class of severity levels: derived classes are made from its page.
+        'severity': severity,
         'comment': str(comment) if comment is not None else '',
         'definedAt': index.locator(cls) or '',
         'namespace': _namespace(cls),
@@ -306,6 +366,13 @@ def add_value(package, cls, name, label=''):
 
     cls = _resolve_class(package, cls)
     name = _check_name(name)
+    if cls == SH.Severity:
+        # A level of SHACL's class goes in the package's namespace, not SHACL's.
+        from .severity import add_level
+        made = add_level(package, 'sh:Severity', name, label)
+        path = package.index('knowledge').file_for(URIRef(made['iri'])) or \
+            package.sources['knowledge']
+        return dict(made, file=path, line=1)
     iri = URIRef(_namespace(cls) + name)
     if (iri, None, None) in package.knowledge:
         raise PackageError(f'{curie(package.knowledge, iri)} is already declared')

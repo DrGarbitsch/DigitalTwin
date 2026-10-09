@@ -1145,7 +1145,7 @@ def test_the_type_page_marks_a_conditional_row_and_sends_it_to_its_shape(tmp_pat
     html = seen['webviews'][0]['html'][-1]
     assert 'only when it has hasValve' in html
     assert 'Open shape' in html and 'data-action="override"' not in html
-    assert '<tr class="group"><td colspan="6"><a href="#" class="mono" ' \
+    assert '<tr class="group"><td colspan="7"><a href="#" class="mono" ' \
         'data-shape="https://x/HasValveShape"' in html, 'grouped under its shape'
     assert '>Rules</h2>' in html
 
@@ -1361,7 +1361,7 @@ def test_each_shape_s_name_leads_its_own_line(tmp_path):
     line = html.split('<tr class="contrib">', 2)[1].split('</tr>', 1)[0]
     cells = line.split('<td')[1:]
     assert '↳' in cells[0] and 'data-shape="https://x/MachineShape"' in cells[0]
-    assert len(cells) == 6, 'the table has six columns'
+    assert len(cells) == 7, 'the table has seven columns'
 
 
 # --- Merge into… ---------------------------------------------------------------------------

@@ -179,13 +179,34 @@ def test_a_new_level_is_made_and_set(tmp_path, kms):
     assert _asked(seen, 'semforge/setSeverity')[0]['severity'] == 'base:severityMajor'
 
 
-def test_a_declared_severity_shows_beside_the_kind(tmp_path, kms):
+def test_severity_has_its_own_column_and_is_edited_in_it(tmp_path, kms):
     set_severity(load(str(kms)), FILTER, path=['iffBaseEntities:hasStrength'],
                  severity='sh:Warning')
     seen, _ = _row_menu(tmp_path, kms, [])
     html = seen['webviews'][0]['html'][-1]
+    assert '>Severity</th>' in html
     row = html.split('>hasStrength</a>', 1)[1].split('</tr>', 1)[0]
-    assert '<span class="severity"' in row and '>warning</span>' in row
+    assert 'data-action="severity"' in row and '>warning</a>' in row
+    other = html.split('>hasCartridge</a>', 1)[1].split('</tr>', 1)[0]
+    assert '<span class="dim">violation (default)</span>' in other
+
+
+def test_clicking_the_severity_cell_opens_the_picker(tmp_path, kms):
+    from semforge.cooked.typepage import build_type_page
+
+    page = dict(build_type_page(load(str(kms)), ENT + 'Filter'), ok=True)
+    row = next(i for i, a in enumerate(page['attributes']) if a['label'] == 'hasStrength')
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openTypePage',
+        'node': {'raw': {'kind': 'type', 'targetClass': ENT + 'Filter', 'label': 'Filter',
+                         'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'severity', 'row': row}], 'picks': ['info'],
+        'replies': {'semforge/typePage': page, 'semforge/severityLevels': dict(
+            LEVELS, levels=LEVELS['levels'] + [{
+                'iri': str(SH.Info), 'term': 'sh:Info', 'label': 'info', 'class': 'sh:Severity',
+                'builtin': True, 'used': 0, 'note': ''}]),
+            'semforge/setSeverity': {'ok': True, 'file': '/f', 'severity': 'x'}}})
+    assert _asked(seen, 'semforge/setSeverity')[0]['severity'] == 'sh:Info'
 
 
 def test_the_shape_page_s_check_menu_sets_it_by_the_query(tmp_path, kms):

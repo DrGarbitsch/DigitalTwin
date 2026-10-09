@@ -605,8 +605,10 @@ def test_the_knowledge_tree_arrives_over_the_protocol(session):
     classes = [r for r in rows if r['kind'] == 'class']
     assert len(classes) > 10
     # Both jumps have to survive serialisation: the class in knowledge.ttl and
-    # the shape in shacl.ttl.
-    assert all(r['definedAt'] for r in classes)
+    # the shape in shacl.ttl. SHACL's own sh:Severity is in no file.
+    assert all(r['definedAt'] for r in classes
+               if not r.get('iri', '').startswith('http://www.w3.org/ns/shacl#'))
+    assert any(r['label'] == 'sh:Severity' for r in classes), 'SHACL\'s severities shown'
     filters = next(r for r in classes if r['label'] == 'iffBaseEntities:Filter')
     assert filters['shapeAt'].endswith(tuple('0123456789'))
     assert filters['shapeName'].endswith('FilterShape')

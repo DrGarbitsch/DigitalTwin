@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 
 from rdflib import URIRef
-from rdflib.namespace import OWL, RDF, RDFS
+from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from ..errors import PackageError
 
@@ -264,6 +264,34 @@ def _relative(package, path):
         return path
 
 
+def _severity_node(package, context):
+    """SHACL's class of severities, as a vocabulary: its three levels -- which
+    no package declares, SHACL does -- then the package's own levels of it and
+    the classes derived from it. Where a package extends severities."""
+    from .severity import BUILTIN, DEFAULT, levels
+
+    node = KnowledgeNode(kind='class', label='sh:Severity', iri=str(SH.Severity),
+                         detail='SHACL')
+    for iri, label, note in BUILTIN:
+        node.children.append(KnowledgeNode(
+            kind='individual', label=local(iri), iri=str(iri),
+            detail=' · '.join(p for p in (label, 'SHACL',
+                                          'the default' if iri == DEFAULT else '') if p)))
+    own = [URIRef(level['iri']) for level in levels(package)
+           if not level['builtin'] and level['class'] == 'sh:Severity']
+    for individual in own:
+        node.children.append(_individual_node(package, individual, context))
+    derived = sorted({c for c in package.knowledge.subjects(RDFS.subClassOf, SH.Severity)
+                      if isinstance(c, URIRef)}, key=local)
+    for cls in derived:
+        node.children.append(_class_node(package, cls, context))
+    node.detail = ' · '.join(p for p in (
+        'SHACL', f'{len(BUILTIN)} level(s) of its own',
+        f'{len(own)} added' if own else '',
+        f'{len(derived)} derived class(es)' if derived else '') if p)
+    return node
+
+
 def _class_node(package, cls, context):
     shapes = context['shapes_by_target'].get(cls, [])
     instances = context['instances'].get(local(cls), [])
@@ -438,14 +466,18 @@ def build_knowledge(package):
 
     others = sorted((c for c in classes if c not in entity_family),
                     key=lambda c: (-len(individuals.get(c, [])), local(c)))
-    # Only the tops: a vocabulary class with a parent is shown under it.
+    # Only the tops: a vocabulary class with a parent is shown under it --
+    # sh:Severity's derived classes under sh:Severity.
     tops = [c for c in others
-            if not any(p in others
+            if not any(p in others or p == SH.Severity
                        for p in package.knowledge.objects(c, RDFS.subClassOf))]
-    if tops:
+    severity = _severity_node(package, context)
+    if tops or severity is not None:
         vocabulary = KnowledgeNode(
             kind='group', label='Vocabulary classes',
-            detail=f'{len(others)} class(es)')
+            detail=f'{len(others) + (1 if severity is not None else 0)} class(es)')
+        if severity is not None:
+            vocabulary.children.append(severity)
         for cls in tops:
             vocabulary.children.append(_class_node(package, cls, context))
         for _, node in flatten(vocabulary.children):

@@ -258,7 +258,7 @@ function renderShapePage(page, options) {
   <button data-action="addCheck" title="An attribute, or a SPARQL constraint on the whole node">+ Add check ▾</button></div>
 ${checkRows(checks, cases)}
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How serious its results are when it fires (sh:severity)">Severity</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes)}</tbody></table></div>` : ''}
 ${anything ? '' : '<p class="empty">No checks yet.</p>'}
 
@@ -417,14 +417,14 @@ class ShapePages {
       if (check.kind === 'constraint') {
         items.push({ label: '$(warning) Severity…',
           description: `${check.severity}${check.severityDeclared === false ? ' (default)' : ''}`,
-          message: { command: 'severity', row: message.row } });
+          message: { command: 'checkSeverity', row: message.row } });
       }
       items.push({ label: '$(trash) Remove…', message: { command: 'removeSparql', row: message.row } });
       const picked = await vscode.window.showQuickPick(items, { title: check.message || check.kind });
       if (picked) {
         await this.receive(picked.message);
       }
-    } else if (message.command === 'severity') {
+    } else if (message.command === 'checkSeverity') {
       const check = (this.page.checks || [])[message.row];
       if (check && await require('./severity').chooseSeverity(this.clientHolder.client, packageUri,
         { shape: this.current.shape, query: check.query, label: check.message || 'this check',

@@ -93,6 +93,24 @@ function origin(row) {
 
 /** How an attribute stands, worst news first: what violates it in the model,
  *  then how well the test cases prove it -- which also starts a new test. */
+/** How serious its results are when it fires: the level's label, or
+ *  SHACL's default -- dimmed, since nobody said it. */
+function severityText(row) {
+  return row.severityDeclared ? escape(row.severity || '')
+    : '<span class="dim">violation (default)</span>';
+}
+
+const SEVERITY_TIP = 'sh:severity: how serious its results are when it fires — ' +
+  'violation, warning, info, or a level the package declares. Click to change.';
+
+function severityCell(row, index) {
+  // An inherited constraint is the supertype's shape's: shown, changed there
+  // (or overridden), like its presence and value.
+  return row.inherited ? severityText(row)
+    : `<a href="#" class="act" data-action="severity" data-row="${index}" ` +
+      `title="${escape(SEVERITY_TIP)}">${severityText(row)}</a>`;
+}
+
 /** How well the test cases prove an attribute's constraints -- and the way
  *  to a new test. What the model's data does is not this column's: it is
  *  marked beside the attribute's name. */
@@ -120,7 +138,7 @@ function attributeRows(attributes, focused, options) {
       const from = origin(row);
       if (from.key !== group) {
         group = from.key;
-        head = `<tr class="group"><td colspan="6">${from.html}</td></tr>`;
+        head = `<tr class="group"><td colspan="7">${from.html}</td></tr>`;
       }
     }
     const classes = [row.inherited ? 'inh' : '', row.violations.length ? 'flag' : '',
@@ -135,9 +153,7 @@ function attributeRows(attributes, focused, options) {
       `${row.violations.length ? ` <span class="violates" title="${escape(
         `Violated in the model by:\n${row.violations.join('\n')}`)}">✗ ${row.violations.length}</span>`
         : ''}</td>` +
-      `<td><span class="kind">${escape(row.kind)}</span>` +
-      `${row.severityDeclared ? ` <span class="severity" title="sh:severity: how serious its ` +
-        `results are when it fires">${escape(row.severity)}</span>` : ''}</td>` +
+      `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
       `<td>${row.inherited ? escape(row.value)
@@ -145,6 +161,7 @@ function attributeRows(attributes, focused, options) {
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}` +
       `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
+      `<td>${severityCell(row, index)}</td>` +
       `<td class="coverage">${coverageCell(row, index)}</td>` +
       `<td class="acts">${actions(row, index)}</td></tr>` +
       (row.contributions && grouped
@@ -184,6 +201,7 @@ function contributionRows(row, index, depth) {
       `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
       '<td></td>' +
       `<td>${escape(c.presence)}</td><td>${escape(c.value)}${weaker}</td>` +
+      `<td>${severityText(c)}</td>` +
       '<td></td>' +
       `<td class="acts">${actions(c, index, j)}</td></tr>`;
   }).join('');
@@ -362,7 +380,7 @@ function renderTypePage(page, options) {
 
 <div class="sechead"><h2>Attributes</h2></div>
 ${attributes.length ? `<div class="table"><table>
-<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
+<thead><tr><th>Attribute</th><th>Kind</th><th>Presence</th><th>Value</th><th title="How serious its results are when it fires (sh:severity)">Severity</th><th title="How well the test cases prove its constraints: both ways, fires only, never fired">Test coverage</th><th></th></tr></thead>
 <tbody>${attributeRows(attributes, focusIndex(attributes, options && options.focus))}</tbody></table></div>`
     : '<p class="empty">No shape constrains an attribute of this type.</p>'}
 
@@ -1017,8 +1035,20 @@ async function addAttributeToType(packageUri, type) {
   return true;
 }
 
+/** The Severity cell: SHACL's levels and the package's, in the same picker
+ *  as ⋯ → Severity…. */
+async function editSeverity(pages, row) {
+  if (!row) {
+    return false;
+  }
+  const current = `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'}`;
+  return Boolean(await require('./severity').chooseSeverity(
+    pages.clientHolder.client, pages.current.packageUri,
+    { shape: row.shape, path: row.path, label: row.label, current }));
+}
+
 const EDITS = { presence: editPresence, value: editValue, menu: rowMenu, test: newTest,
-  createShape, newSubtype,
+  severity: editSeverity, createShape, newSubtype,
   override, addAttribute };
 
 /** The entity type a tree row stands for, whichever tree it is in. */

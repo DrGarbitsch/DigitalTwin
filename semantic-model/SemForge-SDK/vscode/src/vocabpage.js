@@ -63,6 +63,19 @@ function valueRows(values, focus) {
     .sort((x, y) => (x.row.uses.total ? 0 : 1) - (y.row.uses.total ? 0 : 1));
   return order.map(({ row, index }) => {
     const focused = focus && row.iri === focus;
+    if (row.builtin) {
+      // SHACL declares these, not the package: shown, used, not edited.
+      return `<tr${focused ? ' class="focus" id="focus"' : ''}>` +
+        `<td><span class="mono" title="${escape(row.iri)}">${escape(row.term || row.name)}</span></td>` +
+        `<td>${escape(row.label)}</td>` +
+        `<td>${chip('SHACL', '', 'Declared by SHACL itself; every package has it')} ` +
+        `<span class="dim">${escape(row.note || '')}</span></td>` +
+        // Not naming one of SHACL's levels is no gap: violation is what every
+        // constraint that names none already has.
+        `<td>${row.uses.total ? usedChips(row.uses) : `<span class="dim">${
+          /#Violation$/.test(row.iri) ? 'the default of every constraint that names none'
+            : 'not named yet'}</span>`}</td><td></td></tr>`;
+    }
     return `<tr${focused ? ' class="focus" id="focus"' : ''}>` +
       `<td>${openable(row.name, row.definedAt, row.iri)}</td>` +
       `<td><a href="#" class="act" data-action="label" data-row="${index}" ` +
@@ -281,6 +294,10 @@ class VocabularyPages {
         { raw: { kind: 'type', targetClass: message.iri }, packageUri });
     } else if (message.command === 'pageMenu') {
       const items = [];
+      if (this.page.severity) {
+        items.push({ label: `$(type-hierarchy-sub) New severity class derived from ${this.page.label}…`,
+          description: 'its own levels, a kind of sh:Severity', message: { command: 'deriveSeverity' } });
+      }
       if (this.page.definedAt) {
         items.push({ label: '$(go-to-file) Open in .ttl', message: { command: 'open', at: this.page.definedAt } });
       }
@@ -289,6 +306,26 @@ class VocabularyPages {
       if (picked) {
         await this.receive(picked.message);
       }
+    } else if (message.command === 'deriveSeverity' && this.page.severity) {
+      const name = await vscode.window.showInputBox({
+        title: `New severity class, derived from ${this.page.term}`,
+        prompt: 'Its name, e.g. AlarmLevel — a capital first',
+        validateInput: (text) => (/^[A-Z][A-Za-z0-9_-]*$/.test(text.trim()) ? undefined
+          : 'a capital first, then letters, digits, "_" and "-"')
+      });
+      if (!name) {
+        return;
+      }
+      const made = await this.clientHolder.client.sendRequest('semforge/addSeverityClass',
+        { uri: packageUri, name: name.trim(), parent: this.page.term });
+      if (!made.ok) {
+        vscode.window.showErrorMessage(`SemForge: ${made.error}`);
+        return;
+      }
+      for (const command of REFRESH_VIEWS) {
+        vscode.commands.executeCommand(command);
+      }
+      await this.show(packageUri, made.iri);
     } else if (message.command === 'rowMenu' && row) {
       const items = [{ label: '$(edit) Label…', message: { command: 'label', row: message.row } }];
       if (row.definedAt) {

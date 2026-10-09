@@ -205,7 +205,11 @@ def test_an_entity_range_is_not_reported_as_having_no_members(tree):
 # --- the locations every row needs --------------------------------------------
 
 def test_every_class_and_member_can_be_opened(tree, corpus):
-    rows = _all(tree, 'class') + _all(tree, 'individual')
+    # SHACL's own class of severities and its three levels are no package's:
+    # they are shown so the package can extend them, and live in no file.
+    shacl = 'http://www.w3.org/ns/shacl#'
+    rows = [n for n in _all(tree, 'class') + _all(tree, 'individual')
+            if not n.iri.startswith(shacl)]
     # Every one of them, including the base:-prefixed vocabulary whose
     # statements the index used to discard as @base directives.
     assert [n.label for n in rows if not n.defined_at] == []
