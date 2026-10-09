@@ -1478,10 +1478,13 @@ editor area — its tab reads `Filter · type` — with all of it:
 - **Tested**: whether any test case makes the attribute's constraints fire
   (*both ways* / *fires only* / *never fired* — a constraint that cannot fire
   looks exactly like one that is satisfied);
-- **Model**: how many entities in the model violate it;
+- **Main model**: how many entities in the main model violate it — the `✗ N`
+  beside the attribute's name, a click opening the Main page;
 - **its rules** (SPARQL), with their message and whether they ever fired;
 - **the cases that exercise it** and whether they pass, and **its instances in
-  the model** with what is wrong with each.
+  the main model** with what is wrong with each. A case opens its case page; a
+  main-model entity — its id or its violations — opens the Main page scrolled
+  to it.
 
 Every name links to its line in the `.ttl` or `.jsonld`. It is one reused tab,
 refreshes on save, and is served from the cache.

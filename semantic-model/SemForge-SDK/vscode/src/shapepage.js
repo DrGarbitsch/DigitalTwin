@@ -123,8 +123,8 @@ function appliesTo(page) {
     `${escape(t.label)}</a>`).join(', ');
   return `<p class="line" title="The node selector: which nodes the checks run on">${said}` +
     `${types ? ` <span class="dim">· type</span> ${types}` : ''}</p>` +
-    (nodes ? `<div class="nodes" title="In the model">${nodes}</div>`
-      : '<p class="empty">Nothing in the model is one of them.</p>') +
+    (nodes ? `<div class="nodes" title="In the main model">${nodes}</div>`
+      : '<p class="empty">Nothing in the main model is one of them.</p>') +
     `<details class="fold"><summary>Edit targets</summary>${editable}` +
     '<div class="bar"><button data-action="addTarget">+ Target</button></div></details>';
 }
@@ -152,9 +152,9 @@ function renderShapePage(page, options) {
   const cases = page.exercisedBy || [];
   const status = [
     summary.violations
-      ? `<span class="bad-text">${summary.violations} violation(s) in the model</span>`
-      : summary.reached ? `<span class="ok-text">${summary.reached} in the model, all valid</span>`
-        : '<span class="dim">reaches nothing in the model</span>',
+      ? `<span class="bad-text">${summary.violations} violation(s) in the main model</span>`
+      : summary.reached ? `<span class="ok-text">${summary.reached} in the main model, all valid</span>`
+        : '<span class="dim">reaches nothing in the main model</span>',
     summary.cases
       ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ` +
         `${summary.cases} case(s) failing</span>` : `${summary.cases} case(s), all pass`)
@@ -273,7 +273,7 @@ ${testedBy(page, cases)}
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-newcase],[data-action],[data-refresh]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-model],[data-newcase],[data-action],[data-refresh]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -284,6 +284,7 @@ ${testedBy(page, cases)}
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else if (target.dataset.case) { vscode.postMessage({ command: 'case', file: target.dataset.case }); }
+    else if (target.dataset.model !== undefined) { vscode.postMessage({ command: 'model', entity: target.dataset.model }); }
     else if (target.dataset.newcase) { vscode.postMessage({ command: 'newCase' }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
@@ -460,6 +461,10 @@ class ShapePages {
     } else if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri });
+    } else if (message.command === 'model') {
+      // "✗ N" on an attribute row: what violates it is in the model -- Main.
+      await vscode.commands.executeCommand('semforge.openModelPage', { packageUri },
+        { focus: message.entity || undefined });
     } else if (message.command === 'delete') {
       // On success this page closes: its shape is gone.
       await vscode.commands.executeCommand('semforge.deleteShape',

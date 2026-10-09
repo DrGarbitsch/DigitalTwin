@@ -948,7 +948,7 @@ def test_the_type_page_says_the_essentials_first(tmp_path):
     html = _pump(tmp_path)['webviews'][0]['html'][-1]
     body = html.split('<body>', 1)[1]
     # One status line, one primary action, the rest behind the ⋯.
-    assert '1 in the model, all valid' in body and '1 case(s), all pass' in body
+    assert '1 in the main model, all valid' in body and '1 case(s), all pass' in body
     assert 'class="primary" data-action="addAttribute"' in body
     assert 'data-action="pageMenu"' in body
     for rare in ('data-action="newSubtype"', 'Refresh</button>', 'Open the shape in .ttl</button>'):
@@ -974,10 +974,11 @@ def test_test_coverage_is_one_column_and_the_model_marks_the_name(tmp_path):
     assert '>Test coverage</th>' in html and '<th>Status</th>' not in html
     row = html.split('data-open="/pkg/shacl.ttl:50"', 1)[1].split('</tr>', 1)[0]
     name, *cells = row.split('<td')
-    assert '<span class="violates"' in name and '✗ 1</span>' in name
-    assert 'Violated in the model by:\nurn:pump:2' in name
+    # A link: what violates it is in the main model, and that has a page.
+    assert 'class="violates" data-model=""' in name and '✗ 1</a>' in name
+    assert 'Violated in the main model by:\nurn:pump:2' in name
     coverage = next(c for c in cells if c.startswith(' class="coverage"'))
-    assert 'in the model' not in coverage and 'data-action="test"' in coverage
+    assert 'main model' not in coverage and 'data-action="test"' in coverage
 
 
 def test_the_type_page_menu_keeps_the_rare_actions(tmp_path):

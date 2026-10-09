@@ -150,8 +150,8 @@ function attributeRows(attributes, focused, options) {
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '';
     return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
       `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}` +
-      `${row.violations.length ? ` <span class="violates" title="${escape(
-        `Violated in the model by:\n${row.violations.join('\n')}`)}">✗ ${row.violations.length}</span>`
+      `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
+        `Violated in the main model by:\n${row.violations.join('\n')}\n\nClick: open the main model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
       `<td><span class="kind">${escape(row.kind)}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
@@ -248,18 +248,18 @@ function ruleRows(rules) {
 function instanceRows(page) {
   const model = (page.instances || []).map((i) => `<div class="inst">` +
     `<span class="${i.violations.length ? 'bad-text' : 'ok-text'}">${i.violations.length ? '✗' : '✓'}</span>` +
-    `<span class="mono">${escape(i.id)}</span>` +
-    `<span class="dim">model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
-    `<span>${i.violations.length ? i.violations.map((v) =>
-      chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ')
-      : '<span class="dim">valid</span>'}</span></div>`).join('');
+    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main model">${escape(i.id)}</a>` +
+    `<span class="dim">main model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
+    `<span>${i.violations.length ? `<a href="#" data-model="${escape(i.id)}">` + i.violations.map((v) =>
+      chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ') +
+      '</a>' : '<span class="dim">valid</span>'}</span></div>`).join('');
   const cases = (page.exercisedBy || []).map((c) => `<div class="inst">` +
     `<span class="${c.passed ? 'ok-text' : 'bad-text'}">${c.passed ? '✓' : '✗'}</span>` +
     `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
     `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
     `<span class="dim">${escape(c.expect)}</span>` +
     `<span>${c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')}</span></div>`).join('');
-  return (model || '<p class="empty">No entity of this type in the model.</p>') +
+  return (model || '<p class="empty">No entity of this type in the main model.</p>') +
     (cases || '<p class="empty">No test case has an entity of this type: nothing proves ' +
       'its constraints can fire.</p>');
 }
@@ -277,9 +277,9 @@ function renderTypePage(page, options) {
   const status = [
     summary.instances
       ? (summary.instancesViolating
-        ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the model violate</span>`
-        : `<span class="ok-text">${summary.instances} in the model, all valid</span>`)
-      : '<span class="dim">none in the model</span>',
+        ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the main model violate</span>`
+        : `<span class="ok-text">${summary.instances} in the main model, all valid</span>`)
+      : '<span class="dim">none in the main model</span>',
     summary.cases
       ? (summary.casesFailing ? `<span class="bad-text">${summary.casesFailing} of ${summary.cases} ` +
         'case(s) failing</span>' : `${summary.cases} case(s), all pass`)
@@ -404,7 +404,7 @@ ${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-refresh],[data-action],[data-bench]');
+    const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-model],[data-refresh],[data-action],[data-bench]');
     if (!target) { return; }
     event.preventDefault();
     if (target.dataset.action) {
@@ -420,6 +420,7 @@ ${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
     else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
     else if (target.dataset.shape) { vscode.postMessage({ command: 'shape', name: target.dataset.shape }); }
     else if (target.dataset.case) { vscode.postMessage({ command: 'case', file: target.dataset.case }); }
+    else if (target.dataset.model !== undefined) { vscode.postMessage({ command: 'model', entity: target.dataset.model }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -568,6 +569,12 @@ class TypePages {
     if (message.command === 'case' && message.file) {
       await vscode.commands.executeCommand('semforge.openCasePage',
         { raw: { kind: 'example', file: message.file }, packageUri: this.current.packageUri });
+      return;
+    }
+    // The model has a page too -- Main -- scrolled to the entity named.
+    if (message.command === 'model') {
+      await vscode.commands.executeCommand('semforge.openModelPage',
+        { packageUri: this.current.packageUri }, { focus: message.entity || undefined });
       return;
     }
     if (message.command === 'bench' && message.shape) {

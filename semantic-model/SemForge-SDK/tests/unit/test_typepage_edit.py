@@ -278,3 +278,26 @@ def test_new_subtype_on_the_page_names_the_page_s_type(tmp_path, page):
     assert asked == [{'raw': {'targetClass': page['iri']},
                       'packageUri': 'file:///pkg/shacl.ttl'}]
     assert len(_sent(seen, 'semforge/typePage')) == 1, 'the parent page is unchanged'
+
+
+# --- the model has a page too: Main ------------------------------------------------------
+
+def test_a_model_entity_and_a_row_s_model_violations_link_to_the_main_page(tmp_path, page):
+    """A test case opens its case page from here; the model's entities did not
+    open anything -- the Main page is where the model is, entity by entity."""
+    flagged = json.loads(json.dumps(page))
+    flagged['attributes'][0]['violations'] = ['urn:filter:1: too many']
+    seen = _click(tmp_path, flagged, [])
+    html = seen['webviews'][0]['html'][-1]
+    for instance in page['instances']:
+        assert f'data-model="{instance["id"]}"' in html, instance['id']
+    assert 'class="violates" data-model=""' in html
+
+
+@pytest.mark.parametrize('entity, options', [('urn:filter:1', {'focus': 'urn:filter:1'}),
+                                             ('', {})])
+def test_clicking_one_opens_the_main_page_at_it(tmp_path, page, entity, options):
+    # An empty entity (a row's "✗ N") opens the page unscrolled: no focus.
+    seen = _click(tmp_path, page, [{'command': 'model', 'entity': entity}])
+    opened = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.openModelPage']
+    assert opened == [[{'packageUri': 'file:///pkg/shacl.ttl'}, options]]
