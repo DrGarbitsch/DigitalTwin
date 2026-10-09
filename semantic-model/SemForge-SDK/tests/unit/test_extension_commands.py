@@ -988,7 +988,7 @@ def test_the_attribute_is_chosen_from_the_knowledge(tmp_path):
     """An attribute typed by hand is invisible, not wrong: no sh:path selects it."""
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'pick': 'e:hasState', 'input': '"ON"',
+        'pick': 'e:hasState', 'inputs': ['', '"ON"'],
         'replies': {'semforge/attributes': ATTRIBUTES_REPLY,
                     'semforge/addAttribute': {'ok': True, 'kind': 'Property'}},
     })
@@ -1002,28 +1002,30 @@ def test_the_attribute_is_chosen_from_the_knowledge(tmp_path):
     # One with no domain is offered, and says so rather than claiming a carrier.
     assert 'no domain declared' in offered['e:hasTrust']['detail']
 
-    # Only the value is typed.
-    assert len(seen['inputs']) == 1
+    # Only its datasetId (empty: the default instance) and the value are typed.
+    assert len(seen['inputs']) == 2
+    assert seen['inputs'][0]['title'].endswith('datasetId')
     wrote = [r for r in seen['requests'] if r['method'] == 'semforge/addAttribute']
     assert wrote[0]['params']['name'] == 'e:hasState'
     assert wrote[0]['params']['kind'] == 'Property'
+    assert wrote[0]['params']['datasetId'] is None
 
 
 def test_a_relationship_says_it_wants_an_entity(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'pick': 'e:hasState',
+        'pick': 'e:hasState', 'inputs': [''],
         'replies': {'semforge/attributes': {'attributes': [
             dict(ATTRIBUTES_REPLY['attributes'][0], kind='Relationship')]}},
     })
-    assert 'entity' in seen['inputs'][0]['prompt']
+    assert 'entity' in seen['inputs'][1]['prompt']
 
 
 def test_a_missing_attribute_is_declared_in_the_knowledge_first(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
         'picks': [2, 'Property'],
-        'inputs': ['hasPressure', 'bar at the inlet', '1.0'],
+        'inputs': ['hasPressure', 'bar at the inlet', '', '1.0'],
         'replies': {
             'semforge/attributes': ATTRIBUTES_REPLY,
             'semforge/addAttributeTerm': {
@@ -1103,7 +1105,7 @@ def test_adding_an_attribute_offers_the_values_its_shape_allows(tmp_path):
     """
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'picks': ['e:hasState', 'state_ON'],
+        'picks': ['e:hasState', 'state_ON'], 'inputs': [''],
         'replies': {
             'semforge/attributes': ATTRIBUTES_REPLY,
             'semforge/valueChoices': {'choices': [
@@ -1133,7 +1135,7 @@ def test_an_unconstrained_value_is_still_typed(tmp_path):
     """No sh:class means no list; a text box is the right answer then."""
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'pick': 'e:hasState', 'input': '21.5',
+        'pick': 'e:hasState', 'inputs': ['', '21.5'],
         'replies': {'semforge/attributes': ATTRIBUTES_REPLY,
                     'semforge/valueChoices': {'choices': []},
                     'semforge/addAttribute': {'ok': True, 'kind': 'Property'}},

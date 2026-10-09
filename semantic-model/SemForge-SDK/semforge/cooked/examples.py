@@ -1056,10 +1056,30 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
             kind = next((e.kind for e in declared
                          if name in (e.term, e.iri)), '') or 'Property'
 
+    # An attribute is (entity, name, datasetId): one the entity already has is
+    # added again as another INSTANCE, under a datasetId it does not have yet
+    # -- empty meaning the default instance. Only that exact pair is refused.
+    dataset_id = str(metadata.get('datasetId') or '').strip()
+    if dataset_id:
+        problem = dataset_id_problem(dataset_id)
+        if problem:
+            raise PackageError(problem)
+        metadata['datasetId'] = dataset_id
+    else:
+        metadata.pop('datasetId', None)
+    existing = None
     if name in carrier:
-        raise PackageError(
-            f'{entity_id} already has {name} there; add an observation to it '
-            f'instead')
+        existing = carrier[name] if isinstance(carrier[name], list) else [carrier[name]]
+        groups = _group_by_dataset(existing)
+        if (dataset_id or DEFAULT_DATASET) in groups:
+            which = f'datasetId {dataset_id}' if dataset_id else 'a default instance'
+            raise PackageError(
+                f'{entity_id} already has {name} with {which}. Another one there is '
+                f'an observation of it (Add observation); another instance needs '
+                f'another datasetId')
+        # The same attribute: its kind is what is already written.
+        kind = next((i.get('type') for i in existing
+                     if isinstance(i, dict) and i.get('type')), None) or kind
 
     if not kind:
         kind = kind_for_shape(package, str(entity.get('type', '')), name) \
@@ -1069,7 +1089,8 @@ def add_attribute(package, entity_id, name, kind=None, value=None,
     except (TypeError, ValueError):
         parsed = value
 
-    carrier[name] = attribute(kind, parsed, **metadata)
+    fresh = attribute(kind, parsed, **metadata)
+    carrier[name] = fresh if existing is None else existing + [fresh]
     _write(source, document, text)
     return source, kind
 

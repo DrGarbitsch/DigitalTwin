@@ -1156,6 +1156,37 @@ function register(context, clientHolder, session, onChanged) {
     if (!attribute) {
       return;
     }
+    // An attribute is (entity, name, datasetId), so one the entity already
+    // has is simply another instance. Asked every time; empty is the default
+    // instance, and only a datasetId the attribute already has is refused.
+    const here = (raw.children || []).find((child) => child.kind === 'attribute' &&
+      (child.attributePath || []).slice(-1)[0] === attribute.term);
+    const taken = here ? (here.datasets && here.datasets.length ? here.datasets
+      : [here.datasetId || '@none']) : [];
+    const name = attribute.term.split(/[:/#]/).pop();
+    let number = 2;
+    while (taken.includes(`${raw.entity}:${name}:${number}`)) {
+      number += 1;
+    }
+    const datasetId = await vscode.window.showInputBox({
+      title: `${attribute.term} on ${raw.entity}: datasetId`,
+      prompt: taken.length
+        ? `It has ${taken.length} instance(s) already (${taken.map((d) => (d === '@none' ? 'default' : d))
+          .join(', ')}): this one needs its own datasetId, an IRI.`
+        : 'Empty for the default instance; an IRI for another one.',
+      value: taken.includes('@none') ? `${raw.entity}:${name}:${number}` : '',
+      validateInput: (text) => {
+        const value = text.trim();
+        if (!value) {
+          return taken.includes('@none')
+            ? 'it has a default instance already; another one needs a datasetId' : undefined;
+        }
+        return datasetIdProblem(value, taken);
+      }
+    });
+    if (datasetId === undefined) {
+      return;
+    }
     // The shape decides what this may be, and it is inherited -- hasState
     // on anything descending from Machine takes an individual of
     // base:MachineState. Asking the server for those beats a text box in
@@ -1184,12 +1215,14 @@ function register(context, clientHolder, session, onChanged) {
         kind: attribute.kind || '',
         value,
         under: nested ? nested.under : null,
-        underDataset: nested ? nested.dataset : null
+        underDataset: nested ? nested.dataset : null,
+        datasetId: datasetId.trim() || null
       }
     );
     if (result.ok) {
       vscode.window.setStatusBarMessage(
-        `SemForge: ${attribute.term} added as ${result.kind}`,
+        `SemForge: ${attribute.term} added as ${result.kind}` +
+          (datasetId.trim() ? ` (datasetId ${datasetId.trim()})` : ''),
         5000
       );
       provider.refresh();

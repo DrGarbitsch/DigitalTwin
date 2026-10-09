@@ -1861,6 +1861,12 @@ shacl2flink does. Observations of one `datasetId` are one instance.
   row's `⋯` — asks for a `datasetId` (suggesting one the attribute does not
   have yet) and adds a copy of the current instance under it: valid in
   everything but the count.
+- **Add Attribute** asks for the `datasetId` every time, right after the
+  attribute: empty is the default instance. An attribute the entity already
+  has is not refused — it gets another instance, with the type already
+  written; only a `datasetId` the attribute already has is (another one there
+  would be an observation: **Add Observation**). When it has a default
+  instance, a free `datasetId` is suggested.
 - **Change datasetId…** renames one instance, every observation of it along;
   empty makes it the default instance (when the attribute has none).
 - A `datasetId` must be an IRI: NGSI-LD makes it a URI and the context reads it

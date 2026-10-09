@@ -48,6 +48,32 @@ describe('Multi-instance attributes (datasetId)', () => {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
+  it('+ Attribute on an entity that has it adds another instance, by datasetId', async () => {
+    const api = await semforge();
+    await vscode.commands.executeCommand('semforge.openCasePage',
+      { raw: { kind: 'example', file: CASE }, packageUri: PACKAGE_URI });
+    const page = await until(() => api.pages.case.page && api.pages.case.page.file === CASE &&
+      api.pages.case.page, 'the case page');
+    const card = page.files[0].cards.findIndex((c) => c.id === 'urn:workpiece:1');
+    const session = answering([
+      { kind: 'pick', labelStarts: 'iffBaseEntities:hasHeight' },
+      { kind: 'input', value: 'urn:sensor:third' },
+      { kind: 'input', value: '2.5' }]);
+    try {
+      await api.pages.case.receive({ command: 'addAttribute', at: `0.${card}` });
+    } finally {
+      session.restore();
+    }
+    const document = JSON.parse(read(RELATIVE));
+    const workpiece = (Array.isArray(document) ? document : [document])
+      .find((e) => e.id === 'urn:workpiece:1');
+    const height = Object.keys(workpiece).find((k) => k.endsWith('hasHeight'));
+    assert.deepStrictEqual(workpiece[height].map((i) => i.datasetId),
+      [undefined, 'urn:sensor:second', 'urn:sensor:third'], JSON.stringify(session.asked));
+    assert.strictEqual(workpiece[height][2].value, 2.5);
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  });
+
   it('"datasetId": "@none" written out is reported, and the quick fix removes it', async () => {
     await semforge();
     const text = read(RELATIVE).replace('"datasetId": "urn:sensor:second"', '"datasetId": "@none"');

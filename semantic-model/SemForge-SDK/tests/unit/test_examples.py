@@ -783,12 +783,15 @@ def test_adding_an_attribute_infers_its_kind(package):
 
 
 def test_adding_an_attribute_that_is_already_there_is_refused(package):
+    """...for the datasetId it already has; another one is another instance
+    (test_add_attribute_instances.py)."""
     from semforge.cooked.examples import add_attribute
 
     with pytest.raises(PackageError) as exc:
         add_attribute(package, 'urn:filter:1', 'iffBaseEntities:hasStrength',
                       value=1)
-    assert 'add an observation' in str(exc.value)
+    assert 'with a default instance' in str(exc.value)
+    assert 'Add observation' in str(exc.value)
 
 
 def test_a_new_entity_is_legal_ngsi_ld(package):
