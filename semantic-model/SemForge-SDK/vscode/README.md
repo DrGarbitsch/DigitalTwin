@@ -1616,7 +1616,7 @@ action is a visible button rather than a hover icon:
 
 | On | Click | Does |
 |---|---|---|
-| your own attribute | **Presence** | Required or Optional (`sh:minCount`) |
+| your own attribute | **Presence** | how many instances: Optional · Required · Exactly one · **Exactly…** · **At least…** · **Between…** · Any number (`sh:minCount` / `sh:maxCount` on the attribute) |
 | your own attribute | **Value** | what the value must be — an entity type, a datatype, a vocabulary class, or any value; ranges and counts are kept. A value written with `sh:or`/`sh:in` is not rewritten by a picker; the tooltip says so |
 | your own attribute | **⋯** | New test… · **Constraints…** · add a sub-attribute · remove it from this shape · delete the attribute everywhere · open in `.ttl` |
 | your own attribute | **⋯ → Constraints…** | the constraints it carries — change or remove each — and every one it does not carry yet, to add: `sh:minInclusive` (≥), `sh:maxInclusive` (≤), `sh:minExclusive` (>), `sh:maxExclusive` (<), `sh:datatype`, `sh:class`, `sh:nodeKind` (picked from what fits), `sh:minLength`, `sh:maxLength`, `sh:pattern`, `sh:in` (a list: the values of the vocabulary class it draws from to tick, or typed — numbers, "quoted text", prefixed names), and `sh:minCount`/`sh:maxCount` on the attribute (instances) or on the value |
@@ -1636,6 +1636,20 @@ layer gets one (`sh:property [ sh:path ngsild:hasValue ; … ]`). Bounds that
 together admit nothing (`> 100` and `≤ 16`) are written as asked and said in a
 warning. The Value column words them: `> 0 and ≤ 16`, `at most 20 characters`,
 `matching ^[A-Z]+$`.
+
+**Counts beyond one.** `sh:minCount` / `sh:maxCount` on the attribute count its
+instances — distinct `datasetId`s (see *Several instances* below). The Presence
+cell sets any count: *Exactly…* (min = max), *At least…* (no maximum),
+*Between…* (both, the current ones offered); the column says it back —
+*exactly 3*, *at least 2*, *2 to 4*, *at most 5*, *any number*. **Required**
+means *at least one* and keeps a minimum already above it: *exactly 3* made
+required stays 3. **Optional** and **Required** leave the maximum alone.
+
+A minimum above the maximum can never be satisfied — every entity the shape
+judges would fail, for a reason no data can fix — so every edit that would
+leave one (the Presence cell, *Constraints…*, an added count) is refused and
+writes nothing. One typed into the `.ttl` by hand is reported on its
+`sh:path` (`count-impossible`).
 
 **An `sh:in` list is checked against the rest of the value.** `sh:in` compares
 RDF terms exactly, so each item is read as the term it is and checked against

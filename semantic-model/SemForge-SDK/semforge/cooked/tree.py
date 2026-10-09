@@ -357,16 +357,49 @@ def _locate(package, shape, path_chain):
     return source_path, text, target
 
 
+def impossible_counts(graph):
+    """[(sh:path, sh:minCount, sh:maxCount)] for every property shape that asks
+    for more instances than it allows -- no data can ever satisfy it."""
+    out = []
+    for node, low in graph.subject_objects(SH.minCount):
+        for high in graph.objects(node, SH.maxCount):
+            try:
+                least, most = int(low), int(high)
+            except (TypeError, ValueError):
+                continue
+            if least > most:
+                out.append((str(graph.value(node, SH.path) or ''), least, most))
+    return sorted(out)
+
+
 def _write_verified(source_path, text):
-    """Write only after the result parses.
+    """Write only after the result parses -- and asks nothing impossible.
 
     A cooked edit that produces invalid Turtle would take the file with it, and
     the whole point of editing spans rather than reserialising is that the file
-    survives.
+    survives. An edit that leaves sh:minCount above sh:maxCount parses fine
+    and can never be satisfied, so it is refused here, where every cooked write
+    passes; one the file already had is left to the sanity finding.
     """
     from rdflib import Graph
 
-    Graph().parse(data=text, format='turtle')
+    graph = Graph().parse(data=text, format='turtle')
+    impossible = impossible_counts(graph)
+    if impossible:
+        before = []
+        if os.path.exists(source_path):
+            try:
+                before = impossible_counts(Graph().parse(source_path, format='turtle'))
+            except Exception:                      # noqa: BLE001
+                before = []
+        for found in before:
+            if found in impossible:
+                impossible.remove(found)
+    if impossible:
+        path, least, most = impossible[0]
+        raise PackageError(
+            f'{local(path) if path else "a property shape"} would need at least {least} '
+            f'and at most {most} instances -- no data can satisfy that. Nothing written.')
     with open(source_path, 'w', encoding='utf-8') as handle:
         handle.write(text)
 

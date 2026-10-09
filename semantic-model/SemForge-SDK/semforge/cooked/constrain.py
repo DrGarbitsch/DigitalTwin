@@ -588,11 +588,14 @@ def _remove_line(text, group, name):
     return updated[:start].rstrip(' \t') + updated[line_end:]
 
 
-def edit_attribute(package, shape, path_chain, presence=None, value=None):
+def edit_attribute(package, shape, path_chain, presence=None, value=None, counts=None):
     """Change how an attribute is constrained, from the type page.
 
     `presence` is 'required' or 'optional' and sets the attribute layer's
-    sh:minCount; sh:maxCount is left alone. `value` replaces what the value
+    sh:minCount; sh:maxCount is left alone. 'required' keeps a minimum that is
+    already 1 or more -- "exactly 3" made required again stays 3.
+    `counts` ({'min': n, 'max': m or None}) sets both: how many instances --
+    datasetIds -- the attribute must have; a max of None removes sh:maxCount. `value` replaces what the value
     must be: {'kind': 'any'} drops the class / datatype, {'datatype': ...} or
     {'valueClass': ...} sets one, through the same checks as adding an
     attribute. Ranges and every other parameter of the value layer stay.
@@ -617,8 +620,35 @@ def edit_attribute(package, shape, path_chain, presence=None, value=None):
         if presence not in ('required', 'optional'):
             raise PackageError(f'presence is required or optional, not {presence}')
         group = _group_in(text, shape, chain)
-        text = _set(text, group, _turtle_name(text, SH.minCount),
-                    '1' if presence == 'required' else '0')
+        name = _turtle_name(text, SH.minCount)
+        current = group.parameter(name)
+        try:
+            least = int(str(current[2]).strip()) if current else 0
+        except ValueError:
+            least = 0
+        wanted = (str(least) if least >= 1 else '1') if presence == 'required' else '0'
+        text = _set(text, group, name, wanted)
+
+    if counts is not None:
+        least, most = counts.get('min'), counts.get('max')
+        try:
+            least = int(least)
+            most = None if most in (None, '') else int(most)
+        except (TypeError, ValueError):
+            raise PackageError(f'a count is a whole number: {counts}')
+        if least < 0 or (most is not None and most < 0):
+            raise PackageError('a count is 0 or more')
+        if most is not None and least > most:
+            raise PackageError(f'at least {least} and at most {most}: no data can '
+                               f'satisfy that')
+        group = _group_in(text, shape, chain)
+        text = _set(text, group, _turtle_name(text, SH.minCount), str(least))
+        group = _group_in(text, shape, chain)
+        name = _turtle_name(text, SH.maxCount)
+        if most is not None:
+            text = _set(text, group, name, str(most))
+        elif group.parameter(name) is not None:
+            text = _remove_line(text, group, name)
 
     if value is not None:
         group = _group_in(text, shape, chain)

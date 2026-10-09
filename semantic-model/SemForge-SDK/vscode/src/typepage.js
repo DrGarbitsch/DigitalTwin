@@ -606,19 +606,81 @@ async function request(pages, method, params) {
   return result;
 }
 
+/** A whole number typed into a box, or undefined when cancelled. */
+async function askCount(title, prompt, value, least) {
+  const typed = await vscode.window.showInputBox({
+    title, prompt, value: value === undefined ? '' : String(value),
+    validateInput: (text) => {
+      if (!/^\d+$/.test(text.trim())) {
+        return 'a whole number, 0 or more';
+      }
+      return least !== undefined && Number(text) < least
+        ? `at least ${least}: fewer than the minimum can never be satisfied` : undefined;
+    }
+  });
+  return typed === undefined ? undefined : Number(typed.trim());
+}
+
+/**
+ * How many instances the attribute must have -- distinct datasetIds, which is
+ * what sh:minCount / sh:maxCount count. Optional and Required change only the
+ * minimum (Required keeps one already above 1); the others set both.
+ */
 async function editPresence(pages, row) {
   if (!row) {
     return false;
   }
-  const picked = await vscode.window.showQuickPick([
-    { label: 'Required', description: 'sh:minCount 1', value: 'required' },
-    { label: 'Optional', description: 'sh:minCount 0', value: 'optional' }
-  ], { title: `${row.label}: present on every ${pages.page.subject || pages.page.label}?` });
+  const own = (name) => {
+    const found = (row.parameters || []).find((p) => p.layer === 'attribute' && p.parameter === name);
+    return found && /^\d+$/.test(String(found.value)) ? Number(found.value) : undefined;
+  };
+  const least = own('sh:minCount') || 0;
+  const most = own('sh:maxCount');
+  const items = [
+    { label: 'Optional', description: 'sh:minCount 0', value: { presence: 'optional' } },
+    { label: 'Required', description: least > 1 ? `at least one — keeps sh:minCount ${least}`
+      : 'at least one: sh:minCount 1', value: { presence: 'required' } },
+    { label: 'Exactly one', description: 'sh:minCount 1 · sh:maxCount 1',
+      value: { counts: { min: 1, max: 1 } } },
+    { label: 'Exactly…', description: 'n instances, each its own datasetId', ask: 'exactly' },
+    { label: 'At least…', description: 'n or more; no maximum', ask: 'atLeast' },
+    { label: 'Between…', description: 'a minimum and a maximum', ask: 'between' },
+    { label: 'Any number', description: 'sh:minCount 0, no sh:maxCount',
+      value: { counts: { min: 0, max: null } } }
+  ];
+  for (const item of items) {
+    if (item.label.toLowerCase() === String(row.presence).split(' · ')[0] ||
+        (item.label === 'Exactly one' && row.presence === 'required · one')) {
+      item.description = `${item.description} — now`;
+    }
+  }
+  const picked = await vscode.window.showQuickPick(items, {
+    title: `${row.label}: how many on every ${pages.page.subject || pages.page.label}? Now ${row.presence}`,
+    placeHolder: 'Instances are datasetIds: one attribute name, several values'
+  });
   if (!picked) {
     return false;
   }
+  let change = picked.value;
+  if (picked.ask === 'exactly') {
+    const count = await askCount(`${row.label}: exactly how many?`, 'Instances, each its own datasetId',
+      least || 2);
+    change = count === undefined ? undefined : { counts: { min: count, max: count } };
+  } else if (picked.ask === 'atLeast') {
+    const count = await askCount(`${row.label}: at least how many?`, 'No maximum', least || 2);
+    change = count === undefined ? undefined : { counts: { min: count, max: null } };
+  } else if (picked.ask === 'between') {
+    const low = await askCount(`${row.label}: at least how many?`, 'The minimum', least);
+    const high = low === undefined ? undefined
+      : await askCount(`${row.label}: at most how many?`, `The maximum — ${low} or more`,
+        most !== undefined && most >= low ? most : Math.max(low, 1), low);
+    change = high === undefined ? undefined : { counts: { min: low, max: high } };
+  }
+  if (!change) {
+    return false;
+  }
   return Boolean(await request(pages, 'semforge/editAttribute',
-    { shape: row.shape, path: row.path, presence: picked.value }));
+    Object.assign({ shape: row.shape, path: row.path }, change)));
 }
 
 async function editValue(pages, row) {

@@ -24,6 +24,9 @@ line that holds it:
   severity-unlinked  a class whose individuals are used as severities but which
                      is not declared a kind of sh:Severity (information)
   unused-attribute   a declared attribute nothing uses (information)
+  count-impossible   a property shape whose sh:minCount is above its
+                     sh:maxCount: no data can ever satisfy it, so every
+                     entity it judges fails -- for a reason no data can fix
   dataset-not-iri    a datasetId in the data that is not an IRI: the context
                      reads it as one, so a plain word silently becomes another
   dataset-none       an explicit "datasetId": "@none" -- the platform's name
@@ -337,6 +340,44 @@ def _severity_checks(package):
     return out
 
 
+# --- counts no data can satisfy --------------------------------------------------
+
+def _count_checks(package):
+    """count-impossible, on the sh:path of the property shape that says it."""
+    from rdflib import Graph
+
+    from .cooked.tree import impossible_counts
+    from .rdfio import terms
+
+    out = []
+    for path in package.files('shapes'):
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding='utf-8') as handle:
+                text = handle.read()
+            impossible = impossible_counts(Graph().parse(data=text, format='turtle'))
+        except Exception:                          # noqa: BLE001
+            continue
+        if not impossible:
+            continue
+        found = terms(text)
+        used = set()
+        for attribute, least, most in impossible:
+            line = next((term.line for index, term in enumerate(found)
+                         if term.iri == attribute and index and
+                         found[index - 1].iri == str(SH.path) and term.line not in used), 1)
+            used.add(line)
+            name = attribute.rsplit('/', 1)[-1].rsplit('#', 1)[-1]
+            out.append(SanityFinding(
+                file=os.path.abspath(path), line=line, severity='error',
+                code='count-impossible', subject=attribute,
+                message=f'{name} needs at least {least} and at most {most} instances. '
+                        f'No data can satisfy that: every entity this shape judges '
+                        f'fails, for a reason no data can fix.'))
+    return out
+
+
 # --- multi-instance attributes in the data ---------------------------------------
 
 def _attribute_instances(document):
@@ -442,6 +483,7 @@ def sanity(package):
                   lambda: _expectation_checks(package),
                   lambda: _severity_checks(package),
                   lambda: _dataset_checks(package),
+                  lambda: _count_checks(package),
                   lambda: _unused_attributes(package)):
         try:
             found += check()

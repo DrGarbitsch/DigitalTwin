@@ -2279,10 +2279,15 @@ def edit_attribute_feature(ls, params):
     if root is None:
         return {'ok': False, 'error': 'not a SemForge package'}
     try:
+        counts, value = _field(params, 'counts'), _field(params, 'value')
         made = edit_attribute(_package_for(root), _field(params, 'shape'),
                               list(_field(params, 'path') or []),
                               presence=_field(params, 'presence') or None,
-                              value=_field(params, 'value') or None)
+                              value={k: _field(value, k) for k in ('kind', 'datatype', 'valueClass')
+                                     if _field(value, k) is not None} if value else None,
+                              # A nested object arrives as pygls's Object too.
+                              counts={'min': _field(counts, 'min'), 'max': _field(counts, 'max')}
+                              if counts else None)
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(made['file']))
         return dict(made, ok=True)
