@@ -135,7 +135,9 @@ function attributeRows(attributes, focused, options) {
       `${row.violations.length ? ` <span class="violates" title="${escape(
         `Violated in the model by:\n${row.violations.join('\n')}`)}">✗ ${row.violations.length}</span>`
         : ''}</td>` +
-      `<td><span class="kind">${escape(row.kind)}</span></td>` +
+      `<td><span class="kind">${escape(row.kind)}</span>` +
+      `${row.severityDeclared ? ` <span class="severity" title="sh:severity: how serious its ` +
+        `results are when it fires">${escape(row.severity)}</span>` : ''}</td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
       `<td>${row.inherited ? escape(row.value)
@@ -312,6 +314,7 @@ function renderTypePage(page, options) {
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   td.coverage { white-space: normal; }
+  .severity { font-size: 0.86em; color: var(--vscode-descriptionForeground); white-space: nowrap; }
   .violates { color: var(--vscode-errorForeground, #f14c4c); font-size: 0.9em; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   tr.inh td { color: var(--vscode-descriptionForeground); }
@@ -821,6 +824,12 @@ async function rowMenu(pages, row) {
       run: newTest },
     { label: '$(edit) Constraints…', description: 'add, change or remove: ranges, datatype, class, length, pattern, counts',
       run: editParameter },
+    { label: '$(warning) Severity…',
+      description: `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'} — how serious its results are`,
+      run: async () => Boolean(await require('./severity').chooseSeverity(
+        pages.clientHolder.client, pages.current.packageUri,
+        { shape: row.shape, path: row.path, label: row.label,
+          current: `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'}` })) },
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {

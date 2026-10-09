@@ -546,7 +546,14 @@ def _add_line(text, group, name, value):
     if '\n' not in body:
         separator = '' if text[at - 1] in '[;' else ' ;'
         return text[:at] + f'{separator} {name} {value}' + text[at:]
-    last_line = body.rsplit('\n', 1)[-1]
+    # Indented like the group's own parameters -- not like its last line,
+    # which may be the end of a nested `sh:property [ … ]`.
+    own = [start for start, _, _ in (getattr(group, 'parameters', None) or {}).values()]
+    if own:
+        line_start = text.rfind('\n', 0, max(own)) + 1
+        last_line = text[line_start:max(own)]
+    else:
+        last_line = body.rsplit('\n', 1)[-1]
     indent = re.match(r'[ \t]*', last_line).group(0)
     separator = '' if text[at - 1] == ';' else ' ;'
     return text[:at] + f'{separator}\n{indent}{name} {value}' + text[at:]

@@ -18,6 +18,11 @@ line that holds it:
                      own namespaces (a warning: a query is checked by token,
                      not by meaning)
   stale-assert       an expectation names a constraint no shape declares
+  severity-unknown   an sh:severity that is no severity level: not SHACL's
+                     violation/warning/info, nor an individual of sh:Severity
+                     or a class derived from it
+  severity-unlinked  a class whose individuals are used as severities but which
+                     is not declared a kind of sh:Severity (information)
   unused-attribute   a declared attribute nothing uses (information)
 
 Undeclared keys in the DATA are expect.vocabulary's, which predates this and
@@ -272,12 +277,64 @@ def _unused_attributes(package):
     return out
 
 
+def _severity_checks(package):
+    """Severities that are not levels, and classes of levels not linked to
+    sh:Severity -- the vocabulary SemForge reads them in."""
+    from .cooked.severity import levels, severity_classes
+    from .validate.normalise import curie
+
+    def owner(node):
+        # Up from a constraint's blank node -- through sh:property, sh:sparql,
+        # a list -- to the named shape whose statement holds it.
+        seen = set()
+        while not isinstance(node, URIRef) and node not in seen:
+            seen.add(node)
+            node = next(iter(package.shapes.subjects(None, node)), None)
+            if node is None:
+                return None
+        return node
+
+    known = {level['iri'] for level in levels(package)}
+    shapes_index = package.index('shapes')
+    out = []
+    for node, value in sorted(package.shapes.subject_objects(SH.severity), key=str):
+        if str(value) in known:
+            continue
+        shape = owner(node)
+        at = shapes_index.locator(str(shape)) if shape is not None else ''
+        file, _, line = at.rpartition(':') if at else ('', '', '1')
+        name = curie(package.shapes, URIRef(str(value)))
+        out.append(SanityFinding(
+            file=file or package.files('shapes')[0], line=int(line or 1),
+            severity='warning', code='severity-unknown', subject=str(value),
+            message=f'{curie(package.shapes, shape) if shape is not None else "a shape"} '
+                    f'uses {name} as a severity, which is no severity level: not SHACL\'s '
+                    f'violation, warning or info, nor an individual of sh:Severity or of '
+                    f'a class derived from it. Declare it as one, or pick a level.'))
+    knowledge_index = package.index('knowledge')
+    for cls in severity_classes(package):
+        if cls['linked']:
+            continue
+        at = knowledge_index.locator(cls['iri'])
+        if not at:
+            continue
+        file, _, line = at.rpartition(':')
+        out.append(SanityFinding(
+            file=file, line=int(line), severity='information', code='severity-unlinked',
+            subject=cls['iri'],
+            message=f'{cls["term"]} holds the severity levels this package uses, but is not '
+                    f'declared a kind of sh:Severity -- the class SHACL gives severities.',
+            fix={'link': cls['iri']}))
+    return out
+
+
 def sanity(package):
     """Every finding, sorted by file and line. Reads only; writes nothing."""
     declared = _declared(package)
     found = []
     for check in (lambda: _shape_checks(package, declared),
                   lambda: _expectation_checks(package),
+                  lambda: _severity_checks(package),
                   lambda: _unused_attributes(package)):
         try:
             found += check()

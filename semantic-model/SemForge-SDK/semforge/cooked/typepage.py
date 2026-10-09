@@ -205,7 +205,7 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     # Verbatim is for what the vocabulary could NOT say; an sh:or it already
     # rendered as "number" is not shown twice.
     extra = [f'{name} {value}' for name, value in raw + raw_outer
-             if not (name == 'sh:or' and _numbers_only(value))]
+             if not (name == 'sh:or' and _numbers_only(value)) and name != 'sh:severity']
     extra += [f'{name} {value}' for name, value in value_params.items()
               if name not in RENDERED]
     tested = coverage.get((shape_name, _short(token)), 'untested')
@@ -218,6 +218,14 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
                   if holder is not None
                   for c in holder.children
                   if c.kind == 'constraint' and c.parameter]
+    # How serious its results are: said by the level's label, SHACL's
+    # default (violation) when the property shape declares none.
+    from .severity import describe
+    # The tree keeps sh:severity among the parameters it does not render.
+    severity_token = own.get('sh:severity') or next(
+        (value for name, value in raw_outer if name == 'sh:severity'), None)
+    severity = describe(package, str(_resolve_token(package, severity_token))
+                        if severity_token else None)
     blocked = [name for name, _ in raw if name in ('sh:or', 'sh:in')] or \
         (['sh:in'] if 'sh:in' in value_params else [])
     rows = [{
@@ -229,6 +237,8 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'inherited': bool(node.inherited_from),
         'inheritedFrom': _short(node.inherited_class) if node.inherited_class else '',
         'depth': depth, 'tested': tested,
+        'severity': severity['label'], 'severityDeclared': bool(severity_token),
+        'severityKnown': severity['known'],
         'path': list(node.path_chain), 'parameters': parameters,
         # The value picker rewrites class / datatype / nodeKind; a value
         # written with sh:or or sh:in is a choice it cannot round-trip.

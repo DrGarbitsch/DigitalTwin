@@ -378,6 +378,9 @@ def _fixes_for(diagnostic, uri):
                {'uri': uri, 'kind': 'assert', 'file': data.get('file'),
                 'case': data.get('case'), 'index': data.get('index'),
                 'label': subject}, preferred=not data.get('suggest'))
+    elif code == 'severity-unlinked':
+        action(f'Declare {_local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
+               {'packageUri': uri, 'cls': subject}, preferred=True)
     elif code == 'unused-attribute':
         action(f'Delete {_local(subject)}…', 'semforge.deleteAttribute',
                {'packageUri': uri, 'raw': {'iri': subject}}, preferred=True)
@@ -1682,6 +1685,73 @@ def add_test_case_feature(ls, params):
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
     return dict(made, ok=True)
+
+
+@server.feature('semforge/severityLevels')
+def severity_levels_feature(ls, params):
+    """The severity levels a constraint may name, and the classes they come from."""
+    from ..cooked.severity import levels, severity_classes
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        return {'ok': True, 'levels': levels(package), 'classes': severity_classes(package)}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/setSeverity')
+def set_severity_feature(ls, params):
+    """Set (or clear) sh:severity on an attribute constraint or a SPARQL constraint."""
+    from ..cooked.severity import set_severity
+
+    holder = _field(params, 'holder', None)
+    query = _field(params, 'query', '')
+
+    def write(package):
+        index = holder
+        if index is None and query:
+            # The shape page knows its queries by their text, not their place.
+            from ..cooked.sparqlbench import holders
+            index = next((h['index'] for h in holders(package, _field(params, 'shape', ''))
+                          if h['query'].strip() == str(query).strip()), None)
+            if index is None:
+                raise ValueError('that SPARQL query is not on the shape any more')
+        return set_severity(
+            package, _field(params, 'shape', ''), list(_field(params, 'path', []) or []) or None,
+            int(index) if index is not None else None, _field(params, 'severity', '') or None)
+
+    return _package_write(ls, params, write)
+
+
+@server.feature('semforge/addSeverityLevel')
+def add_severity_level_feature(ls, params):
+    """A new severity level: an individual of sh:Severity or a class derived from it."""
+    from ..cooked.severity import add_level
+
+    return _package_write(ls, params, lambda package: add_level(
+        package, _field(params, 'cls', ''), _field(params, 'name', ''),
+        _field(params, 'label', '')))
+
+
+@server.feature('semforge/addSeverityClass')
+def add_severity_class_feature(ls, params):
+    """A new severity class, derived from sh:Severity or a class derived from it."""
+    from ..cooked.severity import add_class
+
+    return _package_write(ls, params, lambda package: add_class(
+        package, _field(params, 'name', ''), _field(params, 'parent', '') or None))
+
+
+@server.feature('semforge/linkSeverityClass')
+def link_severity_class_feature(ls, params):
+    """Declare a class already used for severities a kind of sh:Severity."""
+    from ..cooked.severity import link_class
+
+    return _package_write(ls, params, lambda package: link_class(
+        package, _field(params, 'cls', '')))
 
 
 @server.feature('semforge/removeCaseValue')

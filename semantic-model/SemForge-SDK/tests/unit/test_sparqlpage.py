@@ -364,7 +364,7 @@ def test_the_shape_page_s_remove_names_the_query_by_its_text(tmp_path, corpus):
         'replies': {'semforge/shapePage': shape_page}})
     assert 'data-action="checkMenu" data-row="0"' in seen['webviews'][0]['html'][0]
     assert [i['label'] for i in seen['quickPicks'][0]['items']] == [
-        '$(beaker) Open in SPARQL workbench', '$(trash) Remove…']
+        '$(beaker) Open in SPARQL workbench', '$(warning) Severity…', '$(trash) Remove…']
     asked = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.removeSparqlQuery']
     check = shape_page['checks'][0]
     assert asked[0][1] == {'query': check['query'], 'kind': 'constraint',

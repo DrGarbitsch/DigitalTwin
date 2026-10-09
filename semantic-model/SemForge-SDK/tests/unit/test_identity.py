@@ -330,6 +330,11 @@ def test_a_clean_package_publishes_no_identity_diagnostics(corpus_path):
     for path, items in findings.items():
         if path.endswith('shacl.ttl'):
             continue
+        if path.endswith('knowledge.ttl'):
+            # The one finding about the knowledge itself: base:SeverityClass
+            # is not declared a kind of sh:Severity.
+            assert {f.code for f in items} == {'severity-unlinked'}, items
+            continue
         assert path.endswith('model-instance.jsonld'), path
         assert {f.kind for f in items} == {'vocabulary'}
 

@@ -115,6 +115,17 @@ def _bodies(package, shape):
             if holder.parameter(KINDS[kind][1])], text, path
 
 
+def _severity_label(package, text, token):
+    """A severity as written (`base:severityCritical`), as a reader says it --
+    the prefix resolved the way the file declares it."""
+    from ..rdfio.turtle_index import terms
+    from .severity import describe
+
+    iri = next((t.iri for t in terms(text) if t.raw == token and not t.quoted),
+               token.strip('<>'))
+    return describe(package, iri)['label']
+
+
 def holders(package, shape):
     """Every SPARQL query on a shape, in the order the file writes them."""
     bodies, text, path = _bodies(package, shape)
@@ -127,6 +138,8 @@ def holders(package, shape):
             'index': position, 'kind': kind, 'query': _literal(raw),
             'message': _literal(message[2]) if message else '',
             'severity': severity[2].strip() if severity else '',
+            'severityLabel': _severity_label(package, text, severity[2].strip())
+            if severity else '',
             'file': path, 'line': text.count('\n', 0, start) + 1})
     return out
 

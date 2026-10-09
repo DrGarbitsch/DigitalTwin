@@ -687,10 +687,23 @@ class SparqlBench {
           message: { command: 'save' } },
         { label: '$(discard) Revert to the saved query', message: { command: 'cancel' } });
       }
+      if (holder.kind === 'constraint') {
+        items.push({ label: '$(warning) Severity…',
+          description: `${holder.severityLabel || 'violation'}${holder.severity ? '' : ' (default)'}`,
+          message: { command: 'severity' } });
+      }
       items.push({ label: `$(trash) Remove this ${holder.kind}…`, message: { command: 'remove' } });
       const picked = await vscode.window.showQuickPick(items, { title: this.page.label });
       if (picked) {
         return this.receive(picked.message);
+      }
+    } else if (message.command === 'severity') {
+      const holder = this.page.holder;
+      if (await require('./severity').chooseSeverity(this.clientHolder.client,
+        this.current.packageUri, { shape: this.current.shape, holder: holder.index,
+          label: holder.message || 'this constraint',
+          current: `${holder.severityLabel || 'violation'}${holder.severity ? '' : ' (default)'}` })) {
+        await this.render();
       }
     } else if (message.command === 'editor') {
       const doc = this.document() || await vscode.workspace.openTextDocument(this.uri);

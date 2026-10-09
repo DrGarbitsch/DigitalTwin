@@ -100,8 +100,11 @@ def _checks(package, shape):
         # a default shown like a declared value reads as a verdict.
         declared = graph.value(holder, SH.severity) is not None or \
             graph.value(shape, SH.severity) is not None
+        from .severity import describe
+        value = graph.value(holder, SH.severity) or graph.value(shape, SH.severity)
         out.append({'kind': 'constraint', 'message': str(message or ''),
-                    'severity': _severity(graph.value(holder, SH.severity), severity),
+                    'severity': describe(package, value)['label'] if value is not None
+                    else severity,
                     'severityDeclared': declared,
                     'query': _query(package, holder, SH.select)})
     for holder in graph.objects(shape, SH.rule):

@@ -504,7 +504,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Clone… of a case into its twin, Delete… of a case and a suite, Remove… of an attribute from a case, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Clone… of a case into its twin, Delete… of a case and a suite, Remove… of an attribute from a case, Severity… with a new level, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -1350,13 +1350,37 @@ kept. Its page opens; attributes and constraints are added there. A type with
 no shape of its own offers **Create its shape** in its page's `⋯` (and
 **+ Attribute** creates one first anyway).
 
-**Severity is a label, not a result.** `sh:severity` says how serious a
-result is *when* the constraint fires — violation (the data does not
-conform), warning (reported, the data still conforms) or info — not that it
-fires. The shape page and the workbench show it as plain grey text,
-*severity: critical*; when the shape declares none, SHACL's default stands in
-and it reads *severity: violation (default)*. Red and green mean only what
-fires and what holds.
+**Severity — how serious a result is, in SHACL's own vocabulary.**
+`sh:severity` says how serious a constraint's result is *when* it fires, not
+that it fires, so the pages show it as plain grey text — *severity: critical*
+— and red and green mean only what fires and what holds. SHACL gives the
+vocabulary: the class **`sh:Severity`** and its three levels, always offered
+whether a package declares them or not — **violation** (the default: the data
+does not conform), **warning** (reported; the data still conforms) and
+**info**. A package adds its own levels as individuals of `sh:Severity`, or of a
+class it derives from it, and may derive further classes from those:
+
+```turtle
+base:AlarmLevel a owl:Class ;
+    rdfs:subClassOf sh:Severity .
+base:severityMajor a owl:NamedIndividual, base:AlarmLevel ;
+    rdfs:label "major" .
+```
+
+A level is said by its `rdfs:label` (else its name), and a severity class is a
+vocabulary class like any other, on the Vocabulary page.
+
+**Severity…** sets it on any constraint — an attribute's ⋯ on the type page and
+the shape page (its property shape), a SPARQL check's ⋯ on the shape page, the
+workbench's ⋯. It offers SHACL's three, then each class's levels; **No
+severity** goes back to SHACL's default; **+ New severity level…** and **+ New
+severity class…** are made from the same list, a new level set at once. A
+declared severity shows beside the attribute's kind; an undeclared one reads
+*severity: violation (default)* on SPARQL checks. The Problems panel reports
+an `sh:severity` that is no level (not SHACL's, nor an individual of
+`sh:Severity` or a derived class), and a class whose individuals are used as
+severities but which is not declared a kind of `sh:Severity` — the kms's
+`base:SeverityClass` — with the fix **Declare it a kind of sh:Severity**.
 
 **A rule's evidence, and + New case.** For a shape with a SPARQL constraint
 or rule the page says **what it checks** (its `sh:message`, and *severity:

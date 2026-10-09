@@ -44,6 +44,11 @@ def test_findings_about_shapes_land_on_the_shapes_file(corpus_path):
         kinds = {finding.kind for finding in items}
         if path.endswith('shacl.ttl'):
             assert not kinds & {'identity', 'vocabulary'}
+        elif path.endswith('knowledge.ttl'):
+            # A class's own business lands on its declaration: the kms's
+            # base:SeverityClass holds severity levels without being declared
+            # a kind of sh:Severity.
+            assert {f.code for f in items} == {'severity-unlinked'}, items
         else:
             assert path.endswith('.jsonld'), path
             assert kinds <= {'identity', 'vocabulary'}, kinds

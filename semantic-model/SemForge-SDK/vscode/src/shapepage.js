@@ -412,12 +412,24 @@ class ShapePages {
       if (!check) {
         return;
       }
-      const picked = await vscode.window.showQuickPick([
-        { label: '$(beaker) Open in SPARQL workbench', message: { command: 'bench', row: message.row } },
-        { label: '$(trash) Remove…', message: { command: 'removeSparql', row: message.row } }],
-      { title: check.message || check.kind });
+      const items = [
+        { label: '$(beaker) Open in SPARQL workbench', message: { command: 'bench', row: message.row } }];
+      if (check.kind === 'constraint') {
+        items.push({ label: '$(warning) Severity…',
+          description: `${check.severity}${check.severityDeclared === false ? ' (default)' : ''}`,
+          message: { command: 'severity', row: message.row } });
+      }
+      items.push({ label: '$(trash) Remove…', message: { command: 'removeSparql', row: message.row } });
+      const picked = await vscode.window.showQuickPick(items, { title: check.message || check.kind });
       if (picked) {
         await this.receive(picked.message);
+      }
+    } else if (message.command === 'severity') {
+      const check = (this.page.checks || [])[message.row];
+      if (check && await require('./severity').chooseSeverity(this.clientHolder.client, packageUri,
+        { shape: this.current.shape, query: check.query, label: check.message || 'this check',
+          current: `${check.severity}${check.severityDeclared === false ? ' (default)' : ''}` })) {
+        await this.render();
       }
     } else if (message.command === 'bench') {
       const check = (this.page.checks || [])[message.row];
