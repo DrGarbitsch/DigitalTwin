@@ -49,6 +49,10 @@ TMC_NODESET               := https://raw.githubusercontent.com/OPCFoundation/UA-
 DEXPI_NODESET             := https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/$(NODESET_VERSION)/DEXPI/Opc.Ua.DEXPI.NodeSet2.xml
 ISA95_NODESET             := https://raw.githubusercontent.com/OPCFoundation/UA-Nodeset/$(NODESET_VERSION)/ISA-95/Opc.ISA95.NodeSet2.xml
 
+# Server URI (svu) of the example instance nodesets. Instance nodes are dynamic, i.e. server
+# specific, and are only exported by nodeset2owl.py when a server URI is given.
+SERVER_URI ?= urn:example:opcua-server
+
 # -----------------------------------------------------------------------------
 # Base Ontology URL and Remote Mode
 # -----------------------------------------------------------------------------
@@ -130,7 +134,7 @@ PUMPEXAMPLE_NODESET_URL  = $(PUMP_EXAMPLE_NODESET)
 PUMPEXAMPLE_ONTOLOGY     = pumpexample.owl.ttl
 PUMPEXAMPLE_OWL          = pumpexample.vt.owl.ttl
 PUMPEXAMPLE_DEPENDENCIES = $(BASE_ONTOLOGY) $(CORE_ONTOLOGY) $(DI_ONTOLOGY) $(MACHINERY_ONTOLOGY) $(PUMPS_ONTOLOGY)
-PUMPEXAMPLE_OPTS         = -n http://yourorganisation.org/InstanceExample/ -v http://example.com/v0.1/pumpexample/ -p pumpexample
+PUMPEXAMPLE_OPTS         = -n http://yourorganisation.org/InstanceExample/ -v http://example.com/v0.1/pumpexample/ -p pumpexample --serverUri $(SERVER_URI)
 
 # MACHINETOOL target
 MACHINETOOL_NODESET_URL   = $(MACHINETOOL_NODESET)
@@ -151,21 +155,21 @@ LASERSYSTEMSEXAMPLE_NODESET_URL   = $(LASERSYSTEMS_EXAMPLE_NODESET)
 LASERSYSTEMSEXAMPLE_ONTOLOGY      = lasersystemsexample.owl.ttl
 LASERSYSTEMSEXAMPLE_OWL           = lasersystemsexample.vt.owl.ttl
 LASERSYSTEMSEXAMPLE_DEPENDENCIES  = $(BASE_ONTOLOGY) $(CORE_ONTOLOGY) $(DI_ONTOLOGY) $(MACHINERY_ONTOLOGY) $(IA_ONTOLOGY) $(MACHINETOOL_ONTOLOGY) $(LASERSYSTEMS_ONTOLOGY)
-LASERSYSTEMSEXAMPLE_OPTS          = -v http://example.com/v0.1/LaserSystems/ -p lasersystemsexample
+LASERSYSTEMSEXAMPLE_OPTS          = -v http://example.com/v0.1/LaserSystems/ -p lasersystemsexample --serverUri $(SERVER_URI)
 
 # MACHINETOOLEXAMPLE target
 MACHINETOOLEXAMPLE_NODESET_URL   = $(MACHINETOOL_EXAMPLE_NODESET)
 MACHINETOOLEXAMPLE_ONTOLOGY      = machinetoolexample.owl.ttl
 MACHINETOOLEXAMPLE_OWL           = machinetoolexample.vt.owl.ttl
 MACHINETOOLEXAMPLE_DEPENDENCIES  = $(BASE_ONTOLOGY) $(CORE_ONTOLOGY) $(DI_ONTOLOGY) $(MACHINERY_ONTOLOGY) $(MACHINETOOL_ONTOLOGY) $(IA_ONTOLOGY)
-MACHINETOOLEXAMPLE_OPTS          = -n http://yourorganisation.org/MachineTool-Example/ -v http://example.com/MachineToolExample/v0.1/pumpexample/ -p machinetoolexample
+MACHINETOOLEXAMPLE_OPTS          = -n http://yourorganisation.org/MachineTool-Example/ -v http://example.com/MachineToolExample/v0.1/pumpexample/ -p machinetoolexample --serverUri $(SERVER_URI)
 
 # MACHINERYEXAMPLE target
 MACHINERYEXAMPLE_NODESET_URL   = $(MACHINERY_EXAMPLE_NODESET)
 MACHINERYEXAMPLE_ONTOLOGY      = machineryexample.owl.ttl
 MACHINERYEXAMPLE_OWL           = machineryexample.vt.owl.ttl
 MACHINERYEXAMPLE_DEPENDENCIES  = $(BASE_ONTOLOGY) $(CORE_ONTOLOGY) $(DI_ONTOLOGY) $(MACHINERY_ONTOLOGY)
-MACHINERYEXAMPLE_OPTS          = -v http://example.com/MachineryExample/v0.1/pumpexample/ -p machineryexample
+MACHINERYEXAMPLE_OPTS          = -v http://example.com/MachineryExample/v0.1/pumpexample/ -p machineryexample --serverUri $(SERVER_URI)
 
 # DICTIONARY_IRDI target
 DICTIONARY_IRDI_NODESET_URL   = $(DICTIONARY_IRDI)
