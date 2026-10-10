@@ -143,13 +143,12 @@ def base64url_nopad(value):
     return base64.urlsafe_b64encode(value.encode('utf-8')).decode('ascii').rstrip('=')
 
 
-def expanded_nodeid_to_iri(namespace_prefix, canonical_id, namespace_uri, server_uri=None):
-    """IRI of a node: namespace URI as prefix plus base64url of the canonical ExpandedNodeId.
+def expanded_nodeid_to_iri(namespace_prefix, expanded_nodeid):
+    """IRI of a node: namespace URI as prefix plus base64url of the canonical ExpandedNodeId string.
 
     e.g. i=31 in http://opcfoundation.org/UA/ => http://opcfoundation.org/UA/aT0zMQ
     """
-    local = base64url_nopad(expanded_nodeid_string(canonical_id, namespace_uri, server_uri))
-    return URIRef(f'{str(namespace_prefix)}{local}')
+    return URIRef(f'{str(namespace_prefix)}{base64url_nopad(expanded_nodeid)}')
 
 
 def parse_numeric_range(numeric_range):

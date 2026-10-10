@@ -159,6 +159,7 @@ class NodesetParser:
         # Server URI (svu) used to identify dynamic nodes. Without it, dynamic nodes are not exported.
         self.server_uri = getattr(args, 'serverUri', None)
         self.node_iris = {}  # (ns index, canonical nodeid) -> IRI, or None for not exported dynamic nodes
+        self.expanded_nodeids = {}  # (ns index, canonical nodeid) -> canonical ExpandedNodeId string (encoded in IRI)
         self.skipped_dynamic_nodes = []
         self.unknown_nodes = set()
         self.xml_ns = {
@@ -525,7 +526,8 @@ Did you forget to import it?")
     def add_uardf_identification(self, node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri):
         key = self.node_key(index, nid, idtype)
         self.g.add((classiri, RDF.type, UARDF[nodeclasstype.removesuffix('NodeClass')]))
-        self.g.add((classiri, UARDF['nodeId'], Literal(key[1])))
+        # the canonical ExpandedNodeId string, exactly what is encoded in the IRI
+        self.g.add((classiri, UARDF['nodeId'], Literal(self.expanded_nodeids[key])))
         self.g.add((classiri, UARDF['namespaceUri'], Literal(self.opcua_ns_raw[index])))
         if key not in self.static_nodes:
             self.g.add((classiri, UARDF['serverUri'], Literal(self.server_uri)))
@@ -1116,10 +1118,14 @@ Did you forget to import it?")
             prefix = self.get_rdf_ns_from_ua_index(index)
             if self.is_static_node(key, node, xml_nodes):
                 self.static_nodes.add(key)
-                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical, self.opcua_ns_raw[index])
+                expanded_nodeid = utils.expanded_nodeid_string(canonical, self.opcua_ns_raw[index])
             elif self.server_uri is not None:
-                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical, self.opcua_ns_raw[index],
-                                                                   self.server_uri)
+                expanded_nodeid = utils.expanded_nodeid_string(canonical, self.opcua_ns_raw[index], self.server_uri)
+            else:
+                expanded_nodeid = None
+            if expanded_nodeid is not None:
+                self.expanded_nodeids[key] = expanded_nodeid
+                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, expanded_nodeid)
             else:
                 self.node_iris[key] = None
                 self.skipped_dynamic_nodes.append((self.opcua_ns_raw[index], canonical, node.get('BrowseName')))
