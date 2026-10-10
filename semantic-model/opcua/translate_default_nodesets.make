@@ -241,9 +241,19 @@ TARGET_NAMES = CORE DI IA MACHINERY PUMPS PUMPEXAMPLE MACHINETOOL LASERSYSTEMS L
 
 ALL_TARGETS = $(foreach t, $(TARGET_NAMES), $($(t)_ONTOLOGY) $($(t)_OWL))
 
+# nodeset2owl.py outputs only (*.owl.ttl, without the owl2vt.py *.vt.owl.ttl), e.g.
+#   make -f translate_default_nodesets.make nodeset2owl                 (all of them)
+#   make -f translate_default_nodesets.make nodeset2owl-pumpexample     (one, plus the *.owl.ttl it depends on)
+NODESET2OWL_TARGETS = $(foreach t, $(TARGET_NAMES), $($(t)_ONTOLOGY))
+NODESET2OWL_NAMES = $(patsubst %.owl.ttl,nodeset2owl-%,$(NODESET2OWL_TARGETS))
 
-.PHONY: all clean print-nodesets
+
+.PHONY: all clean print-nodesets nodeset2owl $(NODESET2OWL_NAMES)
 all: $(ALL_TARGETS)
+
+nodeset2owl: $(NODESET2OWL_TARGETS)
+
+$(NODESET2OWL_NAMES): nodeset2owl-%: %.owl.ttl
 
 # -----------------------------------------------------------------------------
 # Print `export VAR=value` lines for every nodeset's source URL (and the base
