@@ -66,3 +66,23 @@ uaq:StaticButVolatile
             }
         """ ;
     ] .
+
+# R4: candidate list ("delinquents"): static Variables with a dynamic node somewhere above them in
+# the hierarchy. Purely structural, no value heuristic. Such a variable is one global node but lives
+# inside server specific structure; each hit has to be checked (access level, treatment by the standard).
+uaq:StaticVariableUnderDynamic
+    a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        sh:severity sh:Info ;
+        sh:message "Static variable below dynamic node {?dynamicAncestor}." ;
+        sh:prefixes uaq:prefixes ;
+        sh:select """
+            SELECT $this ?dynamicAncestor WHERE {
+                $this uardf:nodeId ?id .
+                FILTER NOT EXISTS { $this uardf:serverUri ?svu }
+                $this ^(opcua:HasComponent|opcua:HasProperty|opcua:HasOrderedComponent|opcua:HasAddIn|opcua:Organizes)+ ?dynamicAncestor .
+                ?dynamicAncestor uardf:serverUri ?s .
+            }
+        """ ;
+    ] .
