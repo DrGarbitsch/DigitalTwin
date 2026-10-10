@@ -22,6 +22,7 @@ from pathlib import Path
 import re
 import os
 import json
+import base64
 from pyld import jsonld
 import urllib
 import warnings
@@ -99,6 +100,52 @@ def nodeId_to_iri(namespace, basens, nid, idtype, instance_id='', is_entityns=Fa
         else:
             return namespace[f'{instance_id}node{idt}{quoted_node_id}']
     return namespace[f'node{idt}{quoted_node_id}']
+
+
+def canonical_nodeid(idt, identifier):
+    """Canonical OPC UA NodeId string without namespace part, e.g. 'i=31', 's=Foo'.
+
+    idt is the identifier type character ('i', 's', 'g', 'b').
+    """
+    identifier = str(identifier)
+    if idt == 'i':
+        identifier = str(int(identifier))
+    elif idt == 'g':
+        identifier = identifier.strip('{}').lower()
+    return f'{idt}={identifier}'
+
+
+def expanded_nodeid_local_part(canonical_id, server_uri=None):
+    """The part of the expanded NodeId which is not covered by the namespace prefix of the IRI.
+
+    Static nodes are server independent and are identified by their canonical NodeId only.
+    Dynamic nodes only exist in a specific server, so the server URI (sru) becomes part of the id.
+    """
+    if server_uri is None:
+        return canonical_id
+    return f'sru={server_uri};{canonical_id}'
+
+
+def base64url_nopad(value):
+    return base64.urlsafe_b64encode(value.encode('utf-8')).decode('ascii').rstrip('=')
+
+
+def expanded_nodeid_to_iri(namespace_prefix, canonical_id, server_uri=None):
+    """IRI of a node: namespace URI as prefix plus base64url of the remaining expanded NodeId.
+
+    e.g. i=31 in http://opcfoundation.org/UA/ => http://opcfoundation.org/UA/aT0zMQ
+    """
+    local = base64url_nopad(expanded_nodeid_local_part(canonical_id, server_uri))
+    return URIRef(f'{str(namespace_prefix)}{local}')
+
+
+def parse_numeric_range(numeric_range):
+    """Parse an OPC UA NumericRange string '<lo>:<hi>' or '<value>' into (lo, hi)."""
+    numeric_range = numeric_range.strip()
+    if ':' in numeric_range:
+        lo, hi = numeric_range.split(':', 1)
+        return int(lo), int(hi)
+    return int(numeric_range), int(numeric_range)
 
 
 def is_iri(iri):
