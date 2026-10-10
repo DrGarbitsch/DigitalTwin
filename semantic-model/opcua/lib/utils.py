@@ -132,6 +132,30 @@ def expanded_nodeid_string(canonical_id, namespace_uri, server_uri=None):
     return result
 
 
+def parse_expanded_nodeid(expanded_nodeid):
+    """Inverse of expanded_nodeid_string: 'svu=<s>;nsu=<n>;i=5' -> (server_uri, namespace_uri, 'i', '5').
+
+    server_uri/namespace_uri are None when not contained (namespace_uri None means the core namespace).
+    """
+    server_uri = namespace_uri = None
+    rest = str(expanded_nodeid)
+    if rest.startswith('svu='):
+        server_uri, rest = rest[4:].split(';', 1)
+    if rest.startswith('nsu='):
+        namespace_uri, rest = rest[4:].split(';', 1)
+    idt, identifier = rest.split('=', 1)
+    return server_uri, namespace_uri, idt, identifier
+
+
+def parse_qualified_name(qualified_name):
+    """Inverse of canonical_qualified_name: 'nsu=<uri>;<name>' -> (uri, name), '<name>' -> (core, name)."""
+    qualified_name = str(qualified_name)
+    if qualified_name.startswith('nsu='):
+        namespace_uri, name = qualified_name[4:].split(';', 1)
+        return namespace_uri, name
+    return OPCUA_CORE_NAMESPACE, qualified_name
+
+
 def canonical_qualified_name(name, namespace_uri):
     """Canonical QualifiedName string, e.g. 'References' or 'nsu=http://opcfoundation.org/UA/DI/;DeviceType'."""
     if namespace_uri is None or str(namespace_uri) == OPCUA_CORE_NAMESPACE:

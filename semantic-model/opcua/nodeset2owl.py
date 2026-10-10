@@ -24,6 +24,10 @@ from lib.nodesetparser import NodesetParser
 import lib.utils as utils
 
 
+# uardf meta ontology, local file for now
+DEFAULT_UARDF_ONTOLOGY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uardf.ttl')
+
+
 def parse_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(description='\
 parse nodeset and create RDF-graph <nodeset2.xml>')
@@ -42,6 +46,9 @@ parse nodeset and create RDF-graph <nodeset2.xml>')
                         https://industryfusion.github.io/contexts/staging/ontology/v0/base.ttl',
                         required=False,
                         default='https://industryfusion.github.io/contexts/staging/ontology/v0/base.ttl')
+    parser.add_argument('--uardfOntology', help='Location of the uardf meta ontology (node classes and '
+                        'identification properties, http://opcfoundation.org/rdf/uacore#) which is imported '
+                        'by the output, e.g. a local file or URL.', required=False, default=DEFAULT_UARDF_ONTOLOGY)
     parser.add_argument('-u', '--opcuaNamespace', help='OPCUA Core namespace, e.g. http://opcfoundation.org/UA/',
                         required=False, default='http://opcfoundation.org/UA/')
     parser.add_argument('-p', '--prefix', help='Prefix for added ontolgoy, e.g. "pumps"', required=True)
@@ -105,6 +112,9 @@ if __name__ == '__main__':
             break
     if not base_ontology_found:
         imported_ontologies.append(URIRef(args.baseOntologyURL))
+    uardf_ontology = URIRef(args.uardfOntology)
+    if uardf_ontology not in imported_ontologies:
+        imported_ontologies.append(uardf_ontology)
     opcua_output = args.output
     prefix = args.prefix
     data_schema = xmlschema.XMLSchema(args.typesxsd)

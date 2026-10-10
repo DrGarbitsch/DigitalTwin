@@ -35,47 +35,30 @@ SELECT ?uri ?prefix ?ns WHERE {
     ?ns base:hasPrefix ?prefix .
 }
 """
+# Nodes of the imported ontologies are read via their uardf: identification.
+# ?nodeId is the canonical ExpandedNodeId string (e.g. "i=31", "nsu=...;i=1001").
 query_nodeIds = """
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT ?nodeId ?uri ?node WHERE {
-    ?node rdf:type/rdfs:subClassOf opcua:BaseNodeClass .
-    ?node base:hasNodeId ?nodeId .
-    ?node base:hasNamespace ?ns .
-    ?ns base:hasUri ?uri .
+    VALUES ?nodeclass { uardf:DataType uardf:ReferenceType uardf:ObjectType uardf:VariableType
+                        uardf:Object uardf:Variable uardf:Method uardf:View }
+    ?node a ?nodeclass ;
+          uardf:nodeId ?nodeId ;
+          uardf:namespaceUri ?uri .
 }
 """
 query_types = """
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT ?nodeId ?uri ?type WHERE {
-  {?type rdfs:subClassOf* opcua:BaseDataType .
-   ?node base:definesType ?type .
-   ?node base:hasNodeId ?nodeId .
-   ?node base:hasNamespace ?ns .
-   ?ns base:hasUri ?uri .
-  }
+  {?type rdfs:subClassOf* opcua:BaseDataType . }
   UNION
-  {?type rdfs:subClassOf* opcua:BaseObjectType .
-   ?node base:definesType ?type .
-   ?node base:hasNodeId ?nodeId .
-   ?node base:hasNamespace ?ns .
-   ?ns base:hasUri ?uri .
-  }
-   UNION
-  {?type rdfs:subClassOf* opcua:BaseVariableType .
-   ?node base:definesType ?type .
-   ?node base:hasNodeId ?nodeId .
-   ?node base:hasNamespace ?ns .
-   ?ns base:hasUri ?uri .
-  }
-   UNION
-  {?type rdfs:subPropertyOf* opcua:References .
-   ?node base:definesType ?type .
-   ?node base:hasNodeId ?nodeId .
-   ?node base:hasNamespace ?ns .
-   ?ns base:hasUri ?uri .
-  }
+  {?type rdfs:subClassOf* opcua:BaseObjectType . }
+  UNION
+  {?type rdfs:subClassOf* opcua:BaseVariableType . }
+  UNION
+  {?type rdfs:subPropertyOf* opcua:References . }
+  ?node base:definesType ?type ;
+        uardf:nodeId ?nodeId ;
+        uardf:namespaceUri ?uri .
 }
 """
 query_references = """
@@ -84,11 +67,10 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT ?id ?namespaceUri ?name
 WHERE {
   ?subclass rdfs:subPropertyOf* <http://opcfoundation.org/UA/References> .
-  ?node base:definesType ?subclass .
-  ?node base:hasNodeId ?id .
-  ?node base:hasNamespace ?ns .
-  ?ns base:hasUri ?namespaceUri .
-  ?node base:hasBrowseName ?name .
+  ?node base:definesType ?subclass ;
+        uardf:nodeId ?id ;
+        uardf:namespaceUri ?namespaceUri ;
+        uardf:name ?name .
 }
 """
 basic_types = ['String', 'Boolean', 'Byte', 'SByte', 'Int16', 'UInt16', 'Int32', 'UInt32', 'Uin64', 'Int64', 'Float',
@@ -288,25 +270,31 @@ Please set it explictly.")
         PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
         PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-        SELECT ?s ?sbc ?o ?bn ?nsuri WHERE {
+        SELECT ?s ?sbc ?o ?bn ?qualifiedname WHERE {
             ?sbc rdfs:subPropertyOf* opcua:Aggregates .
             ?s ?sbc ?o .
-            ?o base:hasBrowseName ?bn .
-            ?o base:hasBrowseNameNamespace ?bnn .
-            ?bnn base:hasUri ?nsuri .
+            ?o uardf:name ?bn ;
+               uardf:browseName ?qualifiedname .
         }
         """
         joint_graph = self.g + self.ig
         root_property = self.rdf_utils.get_root_property_of_semantic_bridge()
         bindings = {'root_property': root_property}
         query_result = joint_graph.query(not_needed_property_query, initNs=self.rdf_ns, initBindings=bindings)
-        for s, sbc, o, bn, nsuri in query_result:
+        for s, sbc, o, bn, qualifiedname in query_result:
             if ((s, sbc, o) in self.g) is False:
                 continue
-            targetns = Namespace(str(nsuri))
+            targetns = self.rdf_ns_for_uri(utils.parse_qualified_name(qualifiedname)[0])
             targetreference = targetns[urllib.parse.quote(f'{attribute_prefix}{bn}')]
             self.g.add((s, targetreference, o))
             self.add_semantic_relationship(targetreference)
+
+    def rdf_ns_for_uri(self, namespace_uri):
+        """RDF namespace of an OPC UA namespace URI (as used for the nodes of that namespace)."""
+        normalized = str(utils.normalize_namespaceuri(namespace_uri))
+        if normalized in self.opcua_ns:
+            return self.get_rdf_ns_from_ua_index(self.opcua_ns.index(normalized))
+        return Namespace(normalized)
 
     def add_semantic_relationship(self, targetreference):
         semantic_bridge_property = self.rdf_utils.get_semantic_relationship_type()
@@ -334,12 +322,13 @@ Please set it explictly.")
             self.nodeIds.append({})
             self.typeIds.append({})
         for nodeId, uri, nodeIri in query_result:
-            if str(uri) in urimap.keys():
-                ns = urimap[str(uri)]
+            uri = str(utils.normalize_namespaceuri(uri))
+            if uri in urimap.keys():
+                ns = urimap[uri]
             else:
                 continue
             try:
-                self.nodeIds[ns][str(nodeId)] = nodeIri
+                self.nodeIds[ns][utils.parse_expanded_nodeid(nodeId)[3]] = nodeIri
             except Exception:
                 print(f"Warning: Did not find namespace {uri}. Did you import the respective companion specification?")
                 sys.exit(1)
@@ -348,16 +337,18 @@ Please set it explictly.")
     def get_all_types(self):
         query_result = self.ig.query(query_types, initNs=self.rdf_ns)
         for nodeId, uri, type in query_result:
-            if str(uri) in self.urimap.keys():
-                ns = self.urimap[str(uri)]
+            uri = str(utils.normalize_namespaceuri(uri))
+            if uri in self.urimap.keys():
+                ns = self.urimap[uri]
             else:
                 continue
-            self.typeIds[ns][str(nodeId)] = type
+            self.typeIds[ns][utils.parse_expanded_nodeid(nodeId)[3]] = type
 
     def get_all_references(self):
         query_result = self.ig.query(query_references, initNs=self.rdf_ns)
         for id, namespace_uri, name in query_result:
-            self.known_references.append((id, namespace_uri, name))
+            self.known_references.append((Literal(utils.parse_expanded_nodeid(id)[3]),
+                                          utils.normalize_namespaceuri(namespace_uri), name))
 
     def get_all_namespaces(self, ontology_prefix, ontology_name, namespaceclass):
         query_result = self.ig.query(query_namespaces, initNs=self.rdf_ns)
@@ -487,26 +478,15 @@ Did you forget to import it?")
     def add_nodeid_to_class(self, node, nodeclasstype, xml_ns):
         nid, index, bn_name, bn_index, idtype = self.get_nid_ns_and_name(node)
         rdf_namespace = self.get_rdf_ns_from_ua_index(index)
-        bn_namespace = self.get_rdf_ns_from_ua_index(bn_index)
         classiri = self.node_iri(index, nid, idtype)
         if classiri is None:
             return rdf_namespace, None
+        # Node class, NodeId, namespace, BrowseName and SymbolicName are described by uardf: only.
+        # The base: attributes below have no uardf: counterpart yet.
         self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri)
-        self.g.add((classiri, self.rdf_ns['base']['hasNodeId'], Literal(nid)))
-        self.g.add((classiri, self.rdf_ns['base']['hasIdentifierType'], idtype))
-        self.g.add((classiri, self.rdf_ns['base']['hasBrowseName'], Literal(bn_name)))
-        self.g.add((classiri, self.rdf_ns['base']['hasBrowseNameNamespace'],
-                    self.known_ns_classes[str(utils.normalize_namespaceuri(bn_namespace))]))
-        namespace = self.opcua_ns[index]
-        self.g.add((classiri, self.rdf_ns['base']['hasNamespace'],
-                    self.known_ns_classes[str(utils.normalize_namespaceuri(namespace))]))
-        self.g.add((classiri, RDF.type, self.rdf_ns['opcua'][nodeclasstype]))
         self.nodeIds[index][nid] = classiri
         displayname_node = node.find('opcua:DisplayName', xml_ns)
         self.g.add((classiri, self.rdf_ns['base']['hasDisplayName'], Literal(displayname_node.text)))
-        symbolic_name = node.get('SymbolicName')
-        if symbolic_name is not None:
-            self.g.add((classiri, self.rdf_ns['base']['hasSymbolicName'], Literal(symbolic_name)))
         description_node = node.find('opcua:Description', xml_ns)
         if description_node is not None:
             description = description_node.text
