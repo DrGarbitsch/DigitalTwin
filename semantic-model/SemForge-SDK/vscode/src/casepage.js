@@ -38,8 +38,18 @@ function problem(violation) {
  * is a link, and every row with a Tests-tree row behind it has a ⋯.
  */
 function attributeRows(rows, file, depth, at) {
-  // Indented by a class: the CSP admits only the nonce'd stylesheet.
-  return rows.map((row, index) => {
+  // Only the latest observation of each datasetId is shown -- the one that is
+  // validated; the earlier ones fold under it behind "+N earlier", so a
+  // series does not crowd the card. A series is (attribute, datasetId).
+  const seriesOf = (row) => `${row.term}|${row.dataset || '@none'}`;
+  const earlier = {};
+  rows.forEach((row, index) => {
+    if (row.superseded) {
+      (earlier[seriesOf(row)] = earlier[seriesOf(row)] || []).push(index);
+    }
+  });
+  const series = (row) => `${at === undefined ? 'x' : at}-${Object.keys(earlier).indexOf(seriesOf(row))}`;
+  const one = (row, index) => {
     const here = at === undefined ? undefined : `${at}.${index}`;
     const editable = here !== undefined && row.node && row.node.editable;
     const value = editable
@@ -49,15 +59,17 @@ function attributeRows(rows, file, depth, at) {
     // When it was observed: a click opens the date-and-time picker. An
     // instance without one counts as now, as on the platform.
     const time = here !== undefined && row.stamp && row.kind
-      ? ` <a href="#" class="stamp${row.superseded ? ' old' : ''}" data-stamp="${here}"` +
+      ? ` <a href="#" class="stamp" data-stamp="${here}"` +
         ` data-current="${escape(row.observedAt)}" data-latest="${escape(row.latestAt || '')}"` +
         ` title="${row.observedAt ? `observedAt ${escape(row.observedAt)} — click to change`
           : 'No observedAt: it counts as now. Click to give it a time'}">` +
         `${row.observedAt ? escape(row.observedAt.replace('T', ' ').replace(/\.000Z$|Z$/, ' UTC'))
           : '◷'}</a>` : '';
-    const superseded = row.superseded
-      ? ' <span class="dim" title="Only the latest observation of a datasetId is validated">' +
-        '· superseded — not validated</span>' : '';
+    const older = !row.superseded && earlier[seriesOf(row)] ? earlier[seriesOf(row)].length : 0;
+    const superseded = older
+      ? ` <a href="#" class="history" data-history="${series(row)}" title="${older} earlier ` +
+        'observation(s) of this instance. Only the latest is validated; click to show them.">' +
+        `+${older} earlier</a>` : '';
     const menu = here !== undefined && (row.node || row.attributeNode)
       ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
         'the rule">⋯</button>' : '';
@@ -70,6 +82,17 @@ function attributeRows(rows, file, depth, at) {
       `${time}${superseded}${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
       attributeRows(row.children || [], file, depth + 1, here);
+  };
+  // Each current row, then -- folded -- the earlier observations of its series.
+  return rows.map((row, index) => {
+    if (row.superseded) {
+      return '';
+    }
+    const before = earlier[seriesOf(row)] || [];
+    return one(row, index) + (before.length
+      ? `<div class="older" data-series="${series(row)}">` +
+        before.map((position) => one(rows[position], position)).join('') + '</div>'
+      : '');
   }).join('');
 }
 
@@ -160,8 +183,15 @@ function renderCasePage(page, options) {
   .dim, .crumbs { color: var(--vscode-descriptionForeground); }
   .unit { color: var(--vscode-descriptionForeground); margin-left: 0.15em; }
   .stamp { color: var(--vscode-descriptionForeground); font-size: 0.88em; margin-left: 0.4em; }
-  .stamp.old { text-decoration: line-through; }
-  .attr.superseded > .name, .attr.superseded > .value > .act { opacity: 0.6; }
+  .attr.superseded > .name, .attr.superseded > .value > .act,
+  .attr.superseded > .value > .unit { opacity: 0.6; }
+  .history { font-size: 0.82em; margin-left: 0.4em; padding: 0 5px; border-radius: 8px;
+             color: var(--vscode-descriptionForeground);
+             border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35)); }
+  .history.open { color: var(--vscode-foreground); }
+  .older { display: none; }
+  .older.open { display: grid; gap: 4px; padding-left: 10px;
+                border-left: 2px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35)); }
   .stampedit { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
                margin: 2px 0 6px; padding: 6px 8px; border-radius: 4px;
                border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
@@ -313,6 +343,15 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     input.focus();
   }
   document.addEventListener('click', (event) => {
+    const history = event.target.closest('[data-history]');
+    if (history) {
+      event.preventDefault();
+      document.querySelectorAll('.older').forEach(function (older) {
+        if (older.dataset.series === history.dataset.history) { older.classList.toggle('open'); }
+      });
+      history.classList.toggle('open');
+      return;
+    }
     const stamp = event.target.closest('[data-stamp]');
     if (stamp) { event.preventDefault(); stampEditor(stamp); return; }
     if (event.target.closest('.stampedit')) { return; }

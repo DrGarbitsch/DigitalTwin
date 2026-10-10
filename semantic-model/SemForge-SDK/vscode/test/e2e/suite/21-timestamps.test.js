@@ -56,7 +56,9 @@ describe('Timestamps (observedAt)', () => {
       return rows && rows.length === 2 && rows[0].superseded && !rows[1].superseded &&
         api.pages.case.page;
     }, 'the earlier one superseded');
-    assert.ok(api.pages.case.panel.webview.html.includes('superseded — not validated'));
+    // Shown: the latest, with "+1 earlier"; the earlier one folded under it.
+    const html = api.pages.case.panel.webview.html;
+    assert.ok(html.includes('>+1 earlier</a>') && html.includes('class="older"'));
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 });

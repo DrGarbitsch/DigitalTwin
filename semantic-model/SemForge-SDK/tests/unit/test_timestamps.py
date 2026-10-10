@@ -246,6 +246,32 @@ def test_case_rows_say_their_time_and_which_one_is_read(pkg, tmp_path):
     assert rows[0]['latestAt'] == '2026-06-01T00:00:00.000Z'
 
 
+def test_the_page_shows_the_latest_and_folds_the_earlier_under_it(pkg, tmp_path):
+    """Only the latest observation is shown; "+N earlier" folds the rest out --
+    underneath it, not struck through beside it."""
+    from semforge.cooked.tree import build_tree
+    from semforge.expect.attributecase import new_attribute_test
+
+    machine = next(c for c in load(pkg).knowledge.subjects() if str(c).endswith('/Machine'))
+    node = next(a for r in build_tree(load(pkg)) if r.target_class == str(machine)
+                for s in r.children for a in s.children
+                if a.kind == 'attribute' and a.label.endswith('hasTemperature'))
+    made = new_attribute_test(load(pkg), str(machine), list(node.path_chain), 'valid', 'fold')
+    for stamp, value in (('2026-06-01T00:00:00.000Z', '30.0'), ('2026-07-01T00:00:00.000Z', '31.0')):
+        add_observation(load(pkg), made['resource'], [TEMPERATURE], value=value,
+                        observed_at=stamp, file=made['file'])
+    page = dict(build_case_page(load(pkg), made['case']), ok=True)
+    html = _drive(tmp_path, {
+        'command': 'semforge.openCasePage',
+        'node': {'raw': {'kind': 'example', 'file': page['file'], 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/casePage': page}})['webviews'][0]['html'][-1]
+    shown, _, folded = html.partition('class="older"')
+    assert '31.0' in shown and '>+2 earlier</a>' in shown
+    assert '30.0' not in shown, 'an earlier observation is not shown until asked'
+    assert '30.0' in folded and 'line-through' not in html
+
+
 DRIVE = os.path.join(os.path.dirname(__file__), '..', 'harness', 'drive.js')
 SRC = os.path.join(os.path.dirname(__file__), '..', '..', 'vscode', 'src')
 

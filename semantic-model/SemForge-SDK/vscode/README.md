@@ -2047,11 +2047,13 @@ no `observedAt` with the time it arrives. The SDK validates exactly that:
 Timestamps are **never asked by default**; an imported series keeps its own.
 When one is wanted:
 
-- on the **case page**, a click on an instance's time (or its ◷) opens a
-  date-and-time picker beside it — UTC, to the millisecond — with **Set**,
-  **Now**, **Just after the latest** of its `datasetId`, and **Remove**. A
-  superseded observation is struck through and says *superseded — not
-  validated*;
+- on the **case page** (and the Main page), each instance shows its **latest**
+  observation — the one validated — and, when it has older ones, a small
+  **+N earlier** beside it: a click folds them out underneath, dimmed and
+  indented, each with its time, and folds them away again. A click on a time
+  (or its ◷) opens a date-and-time panel under the row — UTC, to the
+  millisecond — with **Set** (or Enter), **Now**, **Just after the latest**
+  of its `datasetId`, **Remove**, and × (or Esc);
 - in the Model view, **Timestamp…** on an instance row offers Now, Just after
   the latest, or a time of your own (any ISO 8601 with its zone);
 - **Add Attribute** offers the `datasetId`s the attribute already has: picking
