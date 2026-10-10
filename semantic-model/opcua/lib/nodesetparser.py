@@ -156,7 +156,7 @@ class NodesetParser:
         self.opcua_inputs = opcua_inputs
         self.versionIRI = version_iri
         self.isstrict = isstrict
-        # Server URI (sru) used to identify dynamic nodes. Without it, dynamic nodes are not exported.
+        # Server URI (svu) used to identify dynamic nodes. Without it, dynamic nodes are not exported.
         self.server_uri = getattr(args, 'serverUri', None)
         self.node_iris = {}  # (ns index, canonical nodeid) -> IRI, or None for not exported dynamic nodes
         self.skipped_dynamic_nodes = []
@@ -489,7 +489,7 @@ Did you forget to import it?")
         classiri = self.node_iri(index, nid, idtype)
         if classiri is None:
             return rdf_namespace, None
-        self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, classiri, xml_ns)
+        self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri)
         self.g.add((classiri, self.rdf_ns['base']['hasNodeId'], Literal(nid)))
         self.g.add((classiri, self.rdf_ns['base']['hasIdentifierType'], idtype))
         self.g.add((classiri, self.rdf_ns['base']['hasBrowseName'], Literal(bn_name)))
@@ -522,17 +522,17 @@ Did you forget to import it?")
             self.g.add((classiri, self.rdf_ns['base']['isHistorizing'], Literal(bool(historizing))))
         return rdf_namespace, classiri
 
-    def add_uardf_identification(self, node, nodeclasstype, index, nid, idtype, bn_name, classiri, xml_ns):
+    def add_uardf_identification(self, node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri):
         key = self.node_key(index, nid, idtype)
         self.g.add((classiri, RDF.type, UARDF[nodeclasstype.removesuffix('NodeClass')]))
         self.g.add((classiri, UARDF['nodeId'], Literal(key[1])))
         self.g.add((classiri, UARDF['namespaceUri'], Literal(self.opcua_ns_raw[index])))
         if key not in self.static_nodes:
             self.g.add((classiri, UARDF['serverUri'], Literal(self.server_uri)))
-        self.g.add((classiri, UARDF['browseName'], Literal(bn_name)))
-        displayname_node = node.find('opcua:DisplayName', xml_ns)
-        if displayname_node is not None and displayname_node.text is not None:
-            self.g.add((classiri, UARDF['name'], Literal(displayname_node.text)))
+        # browseName is the canonical QualifiedName (nsu=<uri>;<name>), name is just its name part
+        self.g.add((classiri, UARDF['browseName'],
+                    Literal(utils.canonical_qualified_name(bn_name, self.opcua_ns_raw[bn_index]))))
+        self.g.add((classiri, UARDF['name'], Literal(bn_name)))
         # SymbolicName defaults to the BrowseName
         symbolic_name = node.get('SymbolicName')
         self.g.add((classiri, UARDF['symbolicName'], Literal(symbolic_name if symbolic_name is not None else bn_name)))
@@ -962,9 +962,12 @@ Did you forget to import it?")
     # Identification of nodes
     #
     # Every node is identified by its namespace URI as IRI prefix plus the base64url encoded
-    # canonical NodeId, e.g. i=31 in http://opcfoundation.org/UA/ => opcua:aT0zMQ.
+    # canonical ExpandedNodeId, e.g. i=31 in http://opcfoundation.org/UA/ => opcua:aT0zMQ,
+    # ns=1;i=1001 in http://opcfoundation.org/UA/DI/ =>
+    #     di:<base64url(nsu=http://opcfoundation.org/UA/DI/;i=1001)>.
     # Static nodes are server independent. Dynamic nodes only exist in a specific server, so their
-    # identifier additionally contains the server URI (sru). Whether a node is static is decided by
+    # ExpandedNodeId additionally contains the server URI (svu=<uri>;nsu=<uri>;i=...).
+    # Whether a node is static is decided by
     # 1. the NamespaceMetadataType object of its namespace (StaticNodeIdTypes,
     #    StaticNumericNodeIdRange, StaticStringNodeIdPattern), if it decides the node's IdType,
     # 2. otherwise the general rule: type nodes and instance declarations are static,
@@ -1113,9 +1116,10 @@ Did you forget to import it?")
             prefix = self.get_rdf_ns_from_ua_index(index)
             if self.is_static_node(key, node, xml_nodes):
                 self.static_nodes.add(key)
-                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical)
+                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical, self.opcua_ns_raw[index])
             elif self.server_uri is not None:
-                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical, self.server_uri)
+                self.node_iris[key] = utils.expanded_nodeid_to_iri(prefix, canonical, self.opcua_ns_raw[index],
+                                                                   self.server_uri)
             else:
                 self.node_iris[key] = None
                 self.skipped_dynamic_nodes.append((self.opcua_ns_raw[index], canonical, node.get('BrowseName')))

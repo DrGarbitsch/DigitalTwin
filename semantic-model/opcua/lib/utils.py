@@ -33,6 +33,7 @@ import traceback
 EX = Namespace("http://example.org/")
 _V_SEG_REGEX = re.compile(r"/v(?P<maj>\d+)(?:\.\d+)?(?=/|$)")
 ATTRIBUTE_PREFIX = 'has'
+OPCUA_CORE_NAMESPACE = 'http://opcfoundation.org/UA/'
 SEMANTIC_RELATIONSHIP_TYPE = 'SemanticBridgeReferenceType'
 ROOT_PROPERTY_OF_SEMANTIC_BRIDGE = 'Aggregates'
 WARNSTR = {
@@ -115,27 +116,39 @@ def canonical_nodeid(idt, identifier):
     return f'{idt}={identifier}'
 
 
-def expanded_nodeid_local_part(canonical_id, server_uri=None):
-    """The part of the expanded NodeId which is not covered by the namespace prefix of the IRI.
+def expanded_nodeid_string(canonical_id, namespace_uri, server_uri=None):
+    """Canonical ExpandedNodeId string, e.g. 'i=31', 'nsu=http://opcfoundation.org/UA/DI/;i=1001'
+    or 'svu=urn:server;nsu=http://example.org/;i=5002'.
 
-    Static nodes are server independent and are identified by their canonical NodeId only.
-    Dynamic nodes only exist in a specific server, so the server URI (sru) becomes part of the id.
+    Like in the OPC UA string representation, nsu is omitted for the core namespace (index 0).
+    Static nodes are server independent and have no svu. Dynamic nodes only exist in a specific
+    server, so its server URI (svu) becomes part of the id.
     """
-    if server_uri is None:
-        return canonical_id
-    return f'sru={server_uri};{canonical_id}'
+    result = canonical_id
+    if namespace_uri is not None and str(namespace_uri) != OPCUA_CORE_NAMESPACE:
+        result = f'nsu={namespace_uri};{result}'
+    if server_uri is not None:
+        result = f'svu={server_uri};{result}'
+    return result
+
+
+def canonical_qualified_name(name, namespace_uri):
+    """Canonical QualifiedName string, e.g. 'References' or 'nsu=http://opcfoundation.org/UA/DI/;DeviceType'."""
+    if namespace_uri is None or str(namespace_uri) == OPCUA_CORE_NAMESPACE:
+        return name
+    return f'nsu={namespace_uri};{name}'
 
 
 def base64url_nopad(value):
     return base64.urlsafe_b64encode(value.encode('utf-8')).decode('ascii').rstrip('=')
 
 
-def expanded_nodeid_to_iri(namespace_prefix, canonical_id, server_uri=None):
-    """IRI of a node: namespace URI as prefix plus base64url of the remaining expanded NodeId.
+def expanded_nodeid_to_iri(namespace_prefix, canonical_id, namespace_uri, server_uri=None):
+    """IRI of a node: namespace URI as prefix plus base64url of the canonical ExpandedNodeId.
 
     e.g. i=31 in http://opcfoundation.org/UA/ => http://opcfoundation.org/UA/aT0zMQ
     """
-    local = base64url_nopad(expanded_nodeid_local_part(canonical_id, server_uri))
+    local = base64url_nopad(expanded_nodeid_string(canonical_id, namespace_uri, server_uri))
     return URIRef(f'{str(namespace_prefix)}{local}')
 
 
