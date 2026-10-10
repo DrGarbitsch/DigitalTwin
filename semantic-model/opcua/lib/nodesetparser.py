@@ -56,7 +56,7 @@ SELECT ?nodeId ?uri ?type WHERE {
   {?type rdfs:subClassOf* opcua:BaseVariableType . }
   UNION
   {?type rdfs:subPropertyOf* opcua:References . }
-  ?node base:definesType ?type ;
+  ?node uardf:definesType ?type ;
         uardf:nodeId ?nodeId ;
         uardf:namespaceUri ?uri .
 }
@@ -67,7 +67,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT ?id ?namespaceUri ?name
 WHERE {
   ?subclass rdfs:subPropertyOf* <http://opcfoundation.org/UA/References> .
-  ?node base:definesType ?subclass ;
+  ?node uardf:definesType ?subclass ;
         uardf:nodeId ?id ;
         uardf:namespaceUri ?namespaceUri ;
         uardf:name ?name .
@@ -297,8 +297,9 @@ Please set it explictly.")
         return Namespace(normalized)
 
     def add_semantic_relationship(self, targetreference):
-        semantic_bridge_property = self.rdf_utils.get_semantic_relationship_type()
+        semantic_bridge_property = UARDF['semanticBridgeReferenceType']
         if (targetreference, RDFS.subPropertyOf, semantic_bridge_property) not in self.ig:
+            self.g.add((targetreference, RDF.type, OWL.ObjectProperty))
             self.g.add((targetreference, RDFS.subPropertyOf, semantic_bridge_property))
 
     def init_imports(self, base_ontologies):
@@ -484,6 +485,7 @@ Did you forget to import it?")
         # Node class, NodeId, namespace, BrowseName and SymbolicName are described by uardf: only.
         # The base: attributes below have no uardf: counterpart yet.
         self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri)
+        self.add_uardf_parent(node, classiri)
         self.nodeIds[index][nid] = classiri
         displayname_node = node.find('opcua:DisplayName', xml_ns)
         self.g.add((classiri, self.rdf_ns['base']['hasDisplayName'], Literal(displayname_node.text)))
@@ -503,6 +505,16 @@ Did you forget to import it?")
         if historizing is not None:
             self.g.add((classiri, self.rdf_ns['base']['isHistorizing'], Literal(bool(historizing))))
         return rdf_namespace, classiri
+
+    def add_uardf_parent(self, node, classiri):
+        """Preserve the ParentNodeId structure of the nodeset."""
+        parent = node.get('ParentNodeId')
+        if parent is None:
+            return
+        parent_index, parent_id, parent_idtype = self.parse_nodeid(self.resolve_alias(parent))
+        parent_iri = self.node_iri(parent_index, parent_id, parent_idtype)
+        if parent_iri is not None:  # None: not exported dynamic node
+            self.g.add((classiri, UARDF['parent'], parent_iri))
 
     def add_uardf_identification(self, node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri):
         key = self.node_key(index, nid, idtype)
@@ -887,7 +899,7 @@ Did you forget to import it?")
             self.g.add((br_namespace[browsename], self.rdf_ns['base']['isAbstract'], Literal(isAbstract)))
         self.typeIds[ref_index][ref_id] = br_namespace[browsename]
         if ref_classiri is not None:
-            self.g.add((ref_classiri, self.rdf_ns['base']['definesType'], br_namespace[browsename]))
+            self.g.add((ref_classiri, UARDF['definesType'], br_namespace[browsename]))
         if not node.tag.endswith("UAReferenceType"):
             self.g.add((ref_namespace[browsename], RDF.type, OWL.Class))
         else:
@@ -1174,6 +1186,7 @@ Did you forget to import it?")
         # e.g. semantic bridge properties which are only used by references of dynamic nodes
         for p in {p for _, p, _ in keep}:
             keep.update(self.g.triples((p, RDFS.subPropertyOf, None)))
+            keep.update(self.g.triples((p, RDF.type, None)))
         # ontology header and namespace declaration
         keep.update(self.g.triples((self.ontology_name, None, None)))
         for namespace in self.g.subjects(RDF.type, self.rdf_ns['base']['Namespace']):

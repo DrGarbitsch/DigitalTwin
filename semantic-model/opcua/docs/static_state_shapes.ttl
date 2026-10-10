@@ -38,7 +38,7 @@ uaq:StaticStateNeedsSpecValue
                 FILTER NOT EXISTS { $this base:hasValueList ?vl }
                 FILTER NOT EXISTS { $this opcua:HasModellingRule ?mr }                # not a template
                 FILTER NOT EXISTS { $this ^(opcua:HasComponent|opcua:HasProperty|opcua:HasOrderedComponent|opcua:HasAddIn)+ ?t .
-                                    ?t base:definesType ?type }                       # not part of a type
+                                    ?t uardf:definesType ?type }                       # not part of a type
                 FILTER (NOT EXISTS { $this base:hasAccessLevel ?al }                   # readable (default)
                         || EXISTS { $this base:hasAccessLevel opcua:CurrentRead })     # write-only is fine
             }
@@ -59,7 +59,7 @@ uaq:StaticButVolatile
                 FILTER NOT EXISTS { $this uardf:serverUri ?svu }
                 FILTER NOT EXISTS { $this opcua:HasModellingRule ?mr }
                 FILTER NOT EXISTS { $this ^(opcua:HasComponent|opcua:HasProperty|opcua:HasOrderedComponent|opcua:HasAddIn)+ ?t .
-                                    ?t base:definesType ?type }
+                                    ?t uardf:definesType ?type }
                 { $this base:hasAccessLevel opcua:CurrentWrite }
                 UNION { $this base:isHistorizing true }
                 UNION { $this base:hasMinimumSamplingInterval ?msi . FILTER (?msi >= 0) }

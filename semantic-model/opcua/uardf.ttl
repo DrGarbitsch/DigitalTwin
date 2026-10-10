@@ -9,6 +9,27 @@
 <http://opcfoundation.org/rdf/uacore#> rdf:type owl:Ontology .
 
 #################################################################
+#    Object properties
+#################################################################
+
+###  http://opcfoundation.org/rdf/uacore#definesType
+:definesType rdf:type owl:ObjectProperty ;
+             rdfs:domain :Type .
+
+
+###  http://opcfoundation.org/rdf/uacore#parent
+:parent rdf:type owl:ObjectProperty ;
+        rdfs:domain :Node ;
+        rdfs:range :Node .
+
+
+###  http://opcfoundation.org/rdf/uacore#semanticBridgeReferenceType
+:semanticBridgeReferenceType rdf:type owl:ObjectProperty ;
+                             rdfs:domain :Node ;
+                             rdfs:range :Node .
+
+
+#################################################################
 #    Data properties
 #################################################################
 
