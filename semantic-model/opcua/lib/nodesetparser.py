@@ -162,6 +162,7 @@ class NodesetParser:
         self.expanded_nodeids = {}  # (ns index, canonical nodeid) -> canonical ExpandedNodeId string (encoded in IRI)
         self.skipped_dynamic_nodes = []
         self.unknown_nodes = set()
+        self.foreign_dynamic_iris = set()  # dynamic nodes of other nodesets which are referenced
         self.xml_ns = {
             'opcua': 'http://opcfoundation.org/UA/2011/03/UANodeSet.xsd',
             'xsd': 'http://opcfoundation.org/UA/2008/02/Types.xsd'
@@ -1149,9 +1150,22 @@ Did you forget to import it?")
         except IndexError:
             imported = None
         if imported is not None:
+            if (imported, UARDF['serverUri'], None) in self.ig:  # imported ontology was built with server URI
+                self.foreign_dynamic_iris.add(imported)
             return imported
-        # Neither defined here nor exported by an imported ontology: either a dynamic node which
-        # was not exported (no server URI) or a missing node. Its IRI cannot be derived safely.
+        # Neither defined here nor exported by an imported ontology. The (static) export of its namespace
+        # contains all static nodes, so it is a dynamic node (or missing). With a server URI it can be
+        # identified as dynamic node of this server, otherwise references to it cannot be exported.
+        if self.server_uri is not None:
+            iri = utils.expanded_nodeid_to_iri(
+                self.get_rdf_ns_from_ua_index(key[0]),
+                utils.expanded_nodeid_string(key[1], self.opcua_ns_raw[key[0]], self.server_uri))
+            if key not in self.unknown_nodes:
+                self.unknown_nodes.add(key)
+                self.foreign_dynamic_iris.add(iri)
+                print(f"Note: Node nsu={self.opcua_ns_raw[key[0]]};{key[1]} is not exported by the imported "
+                      "ontologies, it is referenced as dynamic node of the given server URI.")
+            return iri
         if key not in self.unknown_nodes:
             self.unknown_nodes.add(key)
             print(f"Warning: Node nsu={self.opcua_ns_raw[key[0]]};{key[1]} is neither defined in the nodeset nor "
@@ -1166,6 +1180,7 @@ Did you forget to import it?")
         The export without server URI contains exactly the rest, so both together compose the full export.
         """
         dynamic = {iri for key, iri in self.node_iris.items() if iri is not None and key not in self.static_nodes}
+        dynamic |= self.foreign_dynamic_iris
         keep = {(s, p, o) for s, p, o in self.g if s in dynamic or o in dynamic}
         # RDF lists and other blank node structures used by the kept triples
         frontier = [o for _, _, o in keep if isinstance(o, BNode)]
@@ -1188,7 +1203,8 @@ Did you forget to import it?")
             if triple not in keep:
                 self.g.remove(triple)
                 removed += 1
-        print(f"Dynamic only: kept {len(keep)} triples of {len(dynamic)} dynamic nodes, removed {removed} triples.")
+        print(f"Dynamic only: kept {len(keep)} triples of {len(dynamic)} dynamic nodes "
+              f"({len(self.foreign_dynamic_iris)} of other nodesets), removed {removed} triples.")
 
     def write_graph(self, filename):
         self.g.serialize(destination=filename)
