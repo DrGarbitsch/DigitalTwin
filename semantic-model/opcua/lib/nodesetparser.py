@@ -1158,5 +1158,37 @@ Did you forget to import it?")
                   "exported by the imported ontologies (dynamic node?). References to it are not exported.")
         return None
 
+    def restrict_to_dynamic_nodes(self):
+        """Keep only the server specific part of the graph.
+
+        Kept are all triples about dynamic nodes, including references between static and dynamic nodes,
+        the RDF lists they use, the declarations of the properties they need and the ontology header.
+        The export without server URI contains exactly the rest, so both together compose the full export.
+        """
+        dynamic = {iri for key, iri in self.node_iris.items() if iri is not None and key not in self.static_nodes}
+        keep = {(s, p, o) for s, p, o in self.g if s in dynamic or o in dynamic}
+        # RDF lists and other blank node structures used by the kept triples
+        frontier = [o for _, _, o in keep if isinstance(o, BNode)]
+        while frontier:
+            bnode = frontier.pop()
+            for s, p, o in self.g.triples((bnode, None, None)):
+                if (s, p, o) not in keep:
+                    keep.add((s, p, o))
+                    if isinstance(o, BNode):
+                        frontier.append(o)
+        # e.g. semantic bridge properties which are only used by references of dynamic nodes
+        for p in {p for _, p, _ in keep}:
+            keep.update(self.g.triples((p, RDFS.subPropertyOf, None)))
+        # ontology header and namespace declaration
+        keep.update(self.g.triples((self.ontology_name, None, None)))
+        for namespace in self.g.subjects(RDF.type, self.rdf_ns['base']['Namespace']):
+            keep.update(self.g.triples((namespace, None, None)))
+        removed = 0
+        for triple in list(self.g):
+            if triple not in keep:
+                self.g.remove(triple)
+                removed += 1
+        print(f"Dynamic only: kept {len(keep)} triples of {len(dynamic)} dynamic nodes, removed {removed} triples.")
+
     def write_graph(self, filename):
         self.g.serialize(destination=filename)

@@ -59,7 +59,13 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('-s', '--serverUri', required=False, default=None,
                         help='Server URI (svu) used to identify dynamic nodes, e.g. urn:example:server. '
                              'Without it, dynamic nodes are not exported.')
+    parser.add_argument('--dynamic-only', required=False, action='store_true',
+                        help='Export only the server specific (dynamic) part, including references between static '
+                             'and dynamic nodes. Requires --serverUri. Together with the export without '
+                             '--serverUri (static part) it composes the full export.')
     parsed_args = parser.parse_args(args)
+    if parsed_args.dynamic_only and parsed_args.serverUri is None:
+        parser.error('--dynamic-only requires --serverUri')
     return parsed_args
 
 
@@ -121,6 +127,8 @@ if __name__ == '__main__':
                                         nodesetparser.rdf_ns['opcua'],
                                         nodesetparser.rdf_ns['base'],
                                         ig=nodesetparser.ig)
+    if args.dynamic_only:
+        nodesetparser.restrict_to_dynamic_nodes()
     print("Writing graph to file ...")
     nodesetparser.write_graph(opcua_output)
     print(f"Done. Output written to: {opcua_output}")
