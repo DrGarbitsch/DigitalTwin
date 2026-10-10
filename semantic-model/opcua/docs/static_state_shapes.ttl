@@ -20,6 +20,9 @@ uaq:prefixes
 
 # R1: a static, readable Variable which is a real instance (not a template = instance declaration
 # or part of a type definition) must have its value fixed by the specification.
+# Heuristic: "fixed by the specification" is approximated by "the nodeset defines a Value"
+# (base:hasValue / base:hasValueList). This misses server state shipped with a default value and
+# flags constants whose value the nodeset omits (or nodeset2owl drops, e.g. empty strings).
 uaq:StaticStateNeedsSpecValue
     a sh:NodeShape ;
     sh:targetClass opcua:VariableNodeClass ;
