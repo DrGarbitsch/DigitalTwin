@@ -1,0 +1,65 @@
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix uardf: <http://opcfoundation.org/rdf/uacore#> .
+@prefix base:  <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix uaq:   <http://example.org/ua-quality#> .
+
+# A static node is identical in every server, so every statement about it must hold in every
+# server. Server specific statements need a dynamic node (uardf:serverUri) as subject or object.
+# Topology ("static under dynamic") is NOT an error: that edge is server scoped and carried by the
+# dynamic node. The error is readable state on a static node whose value the specification does
+# not fix: that value can only come from the server.
+
+uaq:prefixes
+    sh:declare [ sh:prefix "opcua" ; sh:namespace "http://opcfoundation.org/UA/"^^xsd:anyURI ] ,
+               [ sh:prefix "uardf" ; sh:namespace "http://opcfoundation.org/rdf/uacore#"^^xsd:anyURI ] ,
+               [ sh:prefix "base" ;
+                 sh:namespace "https://industryfusion.github.io/contexts/ontology/v0/base/"^^xsd:anyURI ] .
+
+# R1: a static, readable Variable which is a real instance (not a template = instance declaration
+# or part of a type definition) must have its value fixed by the specification.
+uaq:StaticStateNeedsSpecValue
+    a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        sh:severity sh:Violation ;
+        sh:message "Static variable exposes readable state that the specification does not fix: its value must come from the server, i.e. it differs between servers sharing this IRI." ;
+        sh:prefixes uaq:prefixes ;
+        sh:select """
+            SELECT $this WHERE {
+                $this uardf:nodeId ?id .
+                FILTER NOT EXISTS { $this uardf:serverUri ?svu }                       # static
+                FILTER NOT EXISTS { $this base:hasValue ?v }                          # value not fixed
+                FILTER NOT EXISTS { $this base:hasValueList ?vl }
+                FILTER NOT EXISTS { $this opcua:HasModellingRule ?mr }                # not a template
+                FILTER NOT EXISTS { $this ^(opcua:HasComponent|opcua:HasProperty|opcua:HasOrderedComponent|opcua:HasAddIn)+ ?t .
+                                    ?t base:definesType ?type }                       # not part of a type
+                FILTER (NOT EXISTS { $this base:hasAccessLevel ?al }                   # readable (default)
+                        || EXISTS { $this base:hasAccessLevel opcua:CurrentRead })     # write-only is fine
+            }
+        """ ;
+    ] .
+
+# R2: a static real-instance Variable whose metadata says the value is meant to change.
+uaq:StaticButVolatile
+    a sh:NodeShape ;
+    sh:targetClass opcua:VariableNodeClass ;
+    sh:sparql [
+        sh:severity sh:Warning ;
+        sh:message "Static variable is declared to change (writable, historizing or sampled): its value is server state." ;
+        sh:prefixes uaq:prefixes ;
+        sh:select """
+            SELECT $this WHERE {
+                $this uardf:nodeId ?id .
+                FILTER NOT EXISTS { $this uardf:serverUri ?svu }
+                FILTER NOT EXISTS { $this opcua:HasModellingRule ?mr }
+                FILTER NOT EXISTS { $this ^(opcua:HasComponent|opcua:HasProperty|opcua:HasOrderedComponent|opcua:HasAddIn)+ ?t .
+                                    ?t base:definesType ?type }
+                { $this base:hasAccessLevel opcua:CurrentWrite }
+                UNION { $this base:isHistorizing true }
+                UNION { $this base:hasMinimumSamplingInterval ?msi . FILTER (?msi >= 0) }
+            }
+        """ ;
+    ] .
