@@ -4,12 +4,12 @@
 @prefix xml: <http://www.w3.org/XML/1998/namespace> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@base <http://opcfoundation.org/rdf/uacore> .
+@base <http://opcfoundation.org/rdf/uacore#> .
 
 <http://opcfoundation.org/rdf/uacore#> rdf:type owl:Ontology .
 
 #################################################################
-#    Object properties
+#    Object Properties
 #################################################################
 
 ###  http://opcfoundation.org/rdf/uacore#definesType
@@ -40,16 +40,19 @@
 
 ###  http://opcfoundation.org/rdf/uacore#browseName
 :browseName rdf:type owl:DatatypeProperty ;
+            rdfs:domain :Node ;
             rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#description
 :description rdf:type owl:DatatypeProperty ;
+             rdfs:domain :Node ;
              rdfs:range rdf:langString .
 
 
 ###  http://opcfoundation.org/rdf/uacore#displayName
 :displayName rdf:type owl:DatatypeProperty ;
+             rdfs:domain :Node ;
              rdfs:range rdf:langString .
 
 
@@ -61,26 +64,31 @@
 
 ###  http://opcfoundation.org/rdf/uacore#name
 :name rdf:type owl:DatatypeProperty ;
+      rdfs:domain :Node ;
       rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#namespaceUri
 :namespaceUri rdf:type owl:DatatypeProperty ;
+              rdfs:domain :Node ;
               rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#nodeId
 :nodeId rdf:type owl:DatatypeProperty ;
+        rdfs:domain :Node ;
         rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#serverUri
 :serverUri rdf:type owl:DatatypeProperty ;
+           rdfs:domain :Node ;
            rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#symbolicName
 :symbolicName rdf:type owl:DatatypeProperty ;
+              rdfs:domain :Node ;
               rdfs:range xsd:string .
 
 
