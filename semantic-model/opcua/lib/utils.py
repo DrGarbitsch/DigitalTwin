@@ -34,6 +34,7 @@ EX = Namespace("http://example.org/")
 _V_SEG_REGEX = re.compile(r"/v(?P<maj>\d+)(?:\.\d+)?(?=/|$)")
 ATTRIBUTE_PREFIX = 'has'
 OPCUA_CORE_NAMESPACE = 'http://opcfoundation.org/UA/'
+UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
 SEMANTIC_RELATIONSHIP_TYPE = 'SemanticBridgeReferenceType'
 ROOT_PROPERTY_OF_SEMANTIC_BRIDGE = 'Aggregates'
 WARNSTR = {
@@ -754,7 +755,7 @@ def replace_type_of_node_iris(g: Graph, opcuans: Namespace, basens: Namespace, i
     validator which combines the knowledge graph with the instance graph will get confused and validating
     the wrong structures.
     This is why all OPC UA nodes must not be typed other than being node-classes. In addition the nodes
-    are describing types. That is why the instance will declare <node> base:instanceOf <type>.
+    are describing types. That is why the instance will declare <node> uardf:hasTypeDefinition <type>.
     """
     query = """
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -794,28 +795,29 @@ def replace_type_of_node_iris(g: Graph, opcuans: Namespace, basens: Namespace, i
     query_result = combined.query(query, initNs={'opcua': opcuans, 'base': basens})
     for s, o in query_result:
         g.remove((s, RDF.type, o))
-        g.add((s, basens['instanceOf'], o))
+        g.add((s, UARDF['hasTypeDefinition'], o))
 
 
 def restore_type_of_node_iris(ig: Graph, opcuans: Namespace, basens: Namespace):
     """
     Inverse of the replace_type_of_node_iris.
-    This is transforming imported ontologies from the insntaceOf back to rdf:type.
+    This is transforming imported ontologies from uardf:hasTypeDefinition back to rdf:type.
     Note that this, in contrast to the replace function is applied to the imported
-    ontologies in ig graph.
+    ontologies in ig graph. Ontologies created before uardf:hasTypeDefinition use base:instanceOf.
     """
     query = """
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
                 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
                 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-                SELECT ?s ?o WHERE {
-                    ?s base:instanceOf ?o .
+                SELECT ?s ?p ?o WHERE {
+                    VALUES ?p { uardf:hasTypeDefinition base:instanceOf }
+                    ?s ?p ?o .
                 }
     """
-    query_result = ig.query(query, initNs={'opcua': opcuans, 'base': basens})
-    for s, o in query_result:
-        ig.remove((s, basens['instanceOf'], o))
+    query_result = ig.query(query, initNs={'opcua': opcuans, 'base': basens, 'uardf': UARDF})
+    for s, p, o in query_result:
+        ig.remove((s, p, o))
         ig.add((s, RDF.type, o))
 
 

@@ -17,6 +17,11 @@
              rdfs:domain :Type .
 
 
+###  http://opcfoundation.org/rdf/uacore#hasTypeDefinition
+:hasTypeDefinition rdf:type owl:ObjectProperty ;
+                   rdfs:domain :Instance .
+
+
 ###  http://opcfoundation.org/rdf/uacore#parent
 :parent rdf:type owl:ObjectProperty ;
         rdfs:domain :Node ;
@@ -36,6 +41,16 @@
 ###  http://opcfoundation.org/rdf/uacore#browseName
 :browseName rdf:type owl:DatatypeProperty ;
             rdfs:range xsd:string .
+
+
+###  http://opcfoundation.org/rdf/uacore#description
+:description rdf:type owl:DatatypeProperty ;
+             rdfs:range xsd:string .
+
+
+###  http://opcfoundation.org/rdf/uacore#displayName
+:displayName rdf:type owl:DatatypeProperty ;
+             rdfs:range xsd:string .
 
 
 ###  http://opcfoundation.org/rdf/uacore#name

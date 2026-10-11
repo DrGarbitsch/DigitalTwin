@@ -107,7 +107,7 @@ baseVariableType = '62'
 hasOrderedComponentId = '49'
 namespaceMetadataTypeId = '11616'
 
-UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
+UARDF = utils.UARDF
 # IdType enumeration (i=256) as used in NamespaceMetadataType.StaticNodeIdTypes
 idtype_enum = {'i': 0, 's': 1, 'g': 2, 'b': 3}
 instance_tags = ('UAObject', 'UAVariable', 'UAMethod', 'UAView')
@@ -482,17 +482,18 @@ Did you forget to import it?")
         classiri = self.node_iri(index, nid, idtype)
         if classiri is None:
             return rdf_namespace, None
-        # Node class, NodeId, namespace, BrowseName and SymbolicName are described by uardf: only.
+        # Node class, NodeId, namespace, BrowseName, SymbolicName, DisplayName and Description are
+        # described by uardf: only.
         # The base: attributes below have no uardf: counterpart yet.
         self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri)
         self.add_uardf_parent(node, classiri)
         self.nodeIds[index][nid] = classiri
         displayname_node = node.find('opcua:DisplayName', xml_ns)
-        self.g.add((classiri, self.rdf_ns['base']['hasDisplayName'], Literal(displayname_node.text)))
+        self.g.add((classiri, UARDF['displayName'], Literal(displayname_node.text)))
         description_node = node.find('opcua:Description', xml_ns)
         if description_node is not None:
             description = description_node.text
-            self.g.add((classiri, self.rdf_ns['base']['hasDescription'], Literal(description)))
+            self.g.add((classiri, UARDF['description'], Literal(description)))
         isSymmetric = node.get('Symmetric')
         if isSymmetric is not None:
             self.g.add((classiri, self.rdf_ns['base']['isSymmetric'], Literal(isSymmetric)))

@@ -61,8 +61,8 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('--disable-semantic-bridge', required=False, action='store_true',
                         help='Disable adding semantic bridge between OPC UA and Containment/Domain ontology terms.')
     parser.add_argument('--enforce-opcua-type-semantic', required=False, action='store_true',
-                        help='Enforce OPC UA type semantics, instead of instanceOf. This can create instance'
-                             ' validation problems.')
+                        help='Enforce OPC UA type semantics, instead of uardf:hasTypeDefinition. This can create '
+                             'instance validation problems.')
     parser.add_argument('-s', '--serverUri', required=False, default=None,
                         help='Server URI (svu) used to identify dynamic nodes, e.g. urn:example:server. '
                              'Without it, dynamic nodes are not exported.')
