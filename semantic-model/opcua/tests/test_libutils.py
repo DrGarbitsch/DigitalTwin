@@ -633,64 +633,33 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(self.rdf_utils.isNodeclass(not_a_nodeclass))
 
     def test_generate_node_id(self):
-        """Test the generate_node_id method with various namespace and id scenarios."""
-        # Scenario 1: id provided and node namespace equals root entity namespace.
-        graph = Graph()
-        node = URIRef("http://example.org/node")
-        rootentity = URIRef("http://example.org/root")
-        ns = URIRef("http://example.org/ns")
-        # Set required triples for node
-        graph.add((node, UARDF['nodeId'], Literal("nsu=ns://example;i=12345")))  # Expect idtype 'i'
-        graph.add((node, UARDF['namespaceUri'], Literal("ns://example")))
-        # Set rootentity with matching namespace
-        graph.add((rootentity, UARDF['namespaceUri'], Literal("ns://example")))
-        
-        result1 = self.rdf_utils.generate_node_id(graph, rootentity, node, "testID:")
-        # Expected: "ns://example" + "testID" + ":" + "i" + "12345" => "ns://exampletestID:i12345"
-        self.assertEqual(str(result1), "ns://exampletestID:nodei12345")
-        
-        # Scenario 2: id is None, so the extra id value is not included.
-        graph2 = Graph()
-        node2 = URIRef("http://example.org/node2")
-        rootentity2 = URIRef("http://example.org/root2")
-        ns2 = URIRef("http://example.org/ns2")
-        graph2.add((node2, UARDF['nodeId'], Literal("nsu=ns://another;g=67890")))  # Expect idtype 'g'
-        graph2.add((node2, UARDF['namespaceUri'], Literal("ns://another")))
-        graph2.add((rootentity2, UARDF['namespaceUri'], Literal("ns://another")))
-        
-        result2 = self.rdf_utils.generate_node_id(graph2, rootentity2, node2, None)
-        # Expected: "ns://another" + "g" + "67890" => "ns://anotherg67890"
-        self.assertEqual(str(result2), "ns://anothernodeg67890")
+        """Entity ids: <prefix><base64url of the canonical ExpandedNodeId>, default prefix urn:uaentity:."""
+        import base64
 
-        # Scenario 3: id provided but node namespace differs from root entity namespace.
-        graph3 = Graph()
-        node3 = URIRef("http://example.org/node3")
-        rootentity3 = URIRef("http://example.org/root3")
-        ns3_node = URIRef("http://example.org/nsnode")
-        ns3_root = URIRef("http://example.org/nsroot")
-        # dynamic node: the server URI is part of uardf:nodeId, the entity id uses the identifier only
-        graph3.add((node3, UARDF['nodeId'], Literal("svu=urn:server;nsu=ns://node:;b=abcde")))  # Expect 'b'
-        graph3.add((node3, UARDF['namespaceUri'], Literal("ns://node:")))
-        # Root entity with a different namespace
-        graph3.add((rootentity3, UARDF['namespaceUri'], Literal("ns://root")))
-        
-        result3 = self.rdf_utils.generate_node_id(graph3, rootentity3, node3, "whatever")
-        # Expected: "ns://node" + "b" + "abcde" => "ns://nodebabcde"
-        self.assertEqual(str(result3), "ns://node:nodebabcde")
-        # Scenario 4: root entity is created and id contains a full IRI.
-        graph3 = Graph()
-        node3 = URIRef("http://example.org/node3")
-        rootentity3 = URIRef("http://example.org/root3")
-        ns3_node = URIRef("http://example.org/nsnode")
-        ns3_root = URIRef("http://example.org/nsroot")
-        graph3.add((node3, UARDF['nodeId'], Literal("nsu=ns://root;b=abcde")))  # Expect idtype 'b'
-        graph3.add((node3, UARDF['namespaceUri'], Literal("ns://root")))
-        # Root entity with the same namespace
-        graph3.add((rootentity3, UARDF['namespaceUri'], Literal("ns://root")))
-        
-        result3 = self.rdf_utils.generate_node_id(graph3, rootentity3, node3, "http://whatever:")
-        # Expected: "http://whatever:" + "b" + "abcde" => "http://whatever:nodebabcde"
-        self.assertEqual(str(result3), "http://whatever:nodebabcde")
+        def b64(value):
+            return base64.urlsafe_b64encode(value.encode()).decode().rstrip('=')
+        graph = Graph()
+        rootentity = URIRef("http://example.org/root")
+        static = URIRef("http://example.org/static")
+        dynamic = URIRef("http://example.org/dynamic")
+        graph.add((static, UARDF['nodeId'], Literal("nsu=http://example.org/;i=12345")))
+        graph.add((dynamic, UARDF['nodeId'], Literal("svu=urn:server;nsu=http://example.org/;s=Pump1")))
+        # default prefix
+        self.assertEqual(self.rdf_utils.generate_node_id(graph, rootentity, static, None),
+                         URIRef("urn:uaentity:" + b64("nsu=http://example.org/;i=12345")))
+        # the server URI of a dynamic node is part of the id: no collisions between servers
+        self.assertEqual(self.rdf_utils.generate_node_id(graph, rootentity, dynamic, None),
+                         URIRef("urn:uaentity:" + b64("svu=urn:server;nsu=http://example.org/;s=Pump1")))
+        # the prefix can be overridden
+        self.assertEqual(self.rdf_utils.generate_node_id(graph, rootentity, static, "http://example.org/FullId/"),
+                         URIRef("http://example.org/FullId/" + b64("nsu=http://example.org/;i=12345")))
+        # the entity id differs from, but is related to the node IRI (same encoded string)
+        node_iri = "http://example.org/" + b64("nsu=http://example.org/;i=12345")
+        entity_id = str(self.rdf_utils.generate_node_id(graph, rootentity, static, None))
+        self.assertNotEqual(entity_id, node_iri)
+        self.assertEqual(entity_id.rsplit(':', 1)[1], node_iri.rsplit('/', 1)[1])
+        # node without identification
+        self.assertIsNone(self.rdf_utils.generate_node_id(graph, rootentity, URIRef("http://example.org/x"), None))
 
     def test_get_object_types_from_namespace(self):
         """Test retrieving object types from the RDF graph within a specific namespace."""

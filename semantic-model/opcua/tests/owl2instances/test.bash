@@ -61,7 +61,6 @@ TESTNODESETS=(
     )
 CLEANGRAPH=cleangraph.py
 TYPEURI=http://example.org/MinimalNodeset
-TESTID=testid
 SHACL=shacl.ttl
 ENTITIES_FILE=entities.ttl
 INSTANCES=instances.jsonld
@@ -177,9 +176,9 @@ for tuple in "${TESTNODESETS[@]}"; do IFS=","
 
     if [ -n "$testid" ]; then
         echo "Test ID defined: '$testid'"
-        TESTID="$testid"
+        TESTID=(-i "$testid")
     else
-        TESTID="testid:" # Default
+        TESTID=() # Default: entity ids urn:uaentity:<base64url of the canonical ExpandedNodeId>
     fi
     if [ -n "$options" ]; then
     IFS=';' read -r -a OPTIONS_ARR <<< "$options"
@@ -219,7 +218,7 @@ for tuple in "${TESTNODESETS[@]}"; do IFS=","
     fi
     if [ "$DEBUG" = "true" ]; then
         echo DEBUG: python3 ${NODESET2OWL} ${nodeset}.xml -i ${IMPORTS[@]} ${INSTANCENAMESPACE[@]} -v http://example.com/v0.1/UA/ -p test --serverUri ${SERVER_URI} -o ${NODESET2OWL_RESULT}
-        echo DEBUG: python3 ${OWL2INSTANCES} ${INSTANCETYPEOPTION} -n ${THETESTURI} ${NODESET2OWL_RESULT} -i ${TESTID} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]}
+        echo DEBUG: python3 ${OWL2INSTANCES} ${INSTANCETYPEOPTION} -n ${THETESTURI} ${NODESET2OWL_RESULT} ${TESTID[@]} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]}
     fi
     echo Create owl nodesets
     echo -------------------
@@ -228,9 +227,9 @@ for tuple in "${TESTNODESETS[@]}"; do IFS=","
     echo Extract types and instances
     echo ---------------------------
     if [ -z "$instancetype" ]; then
-        python3 ${OWL2INSTANCES}  -n ${TESTURI} ${NODESET2OWL_RESULT} -i ${TESTID} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]} 2>&1 | tee output.log
+        python3 ${OWL2INSTANCES}  -n ${TESTURI} ${NODESET2OWL_RESULT} ${TESTID[@]} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]} 2>&1 | tee output.log
     else
-        python3 ${OWL2INSTANCES} -t ${instancetype} -n ${THETESTURI} ${NODESET2OWL_RESULT} -i ${TESTID} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]} 2>&1 | tee output.log
+        python3 ${OWL2INSTANCES} -t ${instancetype} -n ${THETESTURI} ${NODESET2OWL_RESULT} ${TESTID[@]} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]} 2>&1 | tee output.log
     fi
     if [ ! -z "$warning" ]; then
         if ! grep -q $warning output.log; then

@@ -34,6 +34,7 @@ EX = Namespace("http://example.org/")
 _V_SEG_REGEX = re.compile(r"/v(?P<maj>\d+)(?:\.\d+)?(?=/|$)")
 ATTRIBUTE_PREFIX = 'has'
 OPCUA_CORE_NAMESPACE = 'http://opcfoundation.org/UA/'
+ENTITY_ID_PREFIX = 'urn:uaentity:'
 UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
 ROOT_PROPERTY_OF_SEMANTIC_BRIDGE = 'Aggregates'
 WARNSTR = {
@@ -1032,13 +1033,17 @@ class RdfUtils:
         return foundtypes
 
     def generate_node_id(self, graph, rootentity, node, id):
-        """IRI of the entity (real instance) of a node: <namespace><id>node<idtype><identifier>"""
-        node_id, idtype = self.get_nodeid_and_idtype(graph, node)
-        rootnsuri = normalize_namespaceuri(next(graph.objects(rootentity, UARDF['namespaceUri']), 'unknown'))
-        nsuri = normalize_namespaceuri(next(graph.objects(node, UARDF['namespaceUri']), 'unknown'))
-        nsurins = Namespace(nsuri)
-        result = nodeId_to_iri(nsurins, self.basens, node_id, idtype, id, is_entityns=(str(nsuri) == str(rootnsuri)))
-        return result
+        """IRI of the entity (real instance) of a node: <prefix><base64url(canonical ExpandedNodeId)>.
+
+        The entity is related to, but not the same as the node: the node IRI is <namespace URI> + the same
+        encoded string. The default prefix is urn:uaentity:, id overrides it. Since the ExpandedNodeId of a
+        dynamic node contains the server URI, entity ids of different servers do not collide.
+        """
+        expanded_nodeid = next(graph.objects(node, UARDF['nodeId']), None)
+        if expanded_nodeid is None:
+            return None
+        prefix = id if id is not None else ENTITY_ID_PREFIX
+        return URIRef(f'{prefix}{base64url_nopad(str(expanded_nodeid))}')
 
     def get_nodeid_and_idtype(self, graph, node):
         """Identifier and identifier type (base:numericID, ...) of a node from its uardf:nodeId"""
