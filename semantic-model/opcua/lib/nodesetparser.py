@@ -147,6 +147,7 @@ class NodesetParser:
         self.skipped_dynamic_nodes = []
         self.unknown_nodes = set()
         self.foreign_dynamic_iris = set()  # dynamic nodes of other nodesets which are referenced
+        self.imported_namespace_indices = set()  # namespaces (index) exported by the imported ontologies
         self.xml_ns = {
             'opcua': 'http://opcfoundation.org/UA/2011/03/UANodeSet.xsd',
             'xsd': 'http://opcfoundation.org/UA/2008/02/Types.xsd'
@@ -331,6 +332,7 @@ Please set it explictly.")
                 continue
             try:
                 self.nodeIds[ns][utils.parse_expanded_nodeid(nodeId)[3]] = nodeIri
+                self.imported_namespace_indices.add(ns)
             except Exception:
                 print(f"Warning: Did not find namespace {uri}. Did you import the respective companion specification?")
                 sys.exit(1)
@@ -1162,7 +1164,12 @@ Did you forget to import it?")
             if (imported, UARDF['serverUri'], None) in self.ig:  # imported ontology was built with server URI
                 self.foreign_dynamic_iris.add(imported)
             return imported
-        # Neither defined here nor exported by an imported ontology. The (static) export of its namespace
+        if key[0] not in self.imported_namespace_indices:
+            # Its namespace is not exported by any imported ontology (e.g. a nodeset which defines only a
+            # part of a namespace): nothing is known about the node, it is assumed to be static.
+            return utils.expanded_nodeid_to_iri(self.get_rdf_ns_from_ua_index(key[0]),
+                                                utils.expanded_nodeid_string(key[1], self.opcua_ns_raw[key[0]]))
+        # Neither defined here nor exported by the imported ontology of its namespace. That (static) export
         # contains all static nodes, so it is a dynamic node (or missing). With a server URI it can be
         # identified as dynamic node of this server, otherwise references to it cannot be exported.
         if self.server_uri is not None:

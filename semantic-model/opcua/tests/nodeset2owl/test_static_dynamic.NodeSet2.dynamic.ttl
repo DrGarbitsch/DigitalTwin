@@ -1,0 +1,65 @@
+@prefix base: <https://industryfusion.github.io/contexts/ontology/v0/base/> .
+@prefix opcua: <http://opcfoundation.org/UA/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sd: <http://test/StaticDynamic/> .
+@prefix uardf: <http://opcfoundation.org/rdf/uacore#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+sd: a owl:Ontology ;
+    owl:versionIRI <http://example.com/v0.1/UA/> ;
+    owl:versionInfo 1e-01 .
+
+sd:SDNamespace a base:Namespace ;
+    base:hasPrefix "sd" ;
+    base:hasUri "http://test/StaticDynamic/" .
+
+sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9NzAwMA opcua:Organizes sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAx,
+        sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87cz1EZXZpY2Uy .
+
+sd:hasTemperature a owl:ObjectProperty ;
+    rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
+
+<http://test/StaticDynamic/hashttp%3A//test/StaticDynamic/> a owl:ObjectProperty ;
+    rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
+
+opcua:c3Z1PXVybjp0ZXN0OnNlcnZlcjtpPTExNzE1 opcua:HasComponent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA ;
+    <http://test/StaticDynamic/hashttp%3A//test/StaticDynamic/> sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA .
+
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87cz1EZXZpY2Uy a uardf:Object ;
+    uardf:browseName "nsu=http://test/StaticDynamic/;Device2" ;
+    uardf:displayName "Device2"@en ;
+    uardf:hasTypeDefinition sd:TestDeviceType ;
+    uardf:name "Device2" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;s=Device2" ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "Device2" .
+
+sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA uardf:parent opcua:c3Z1PXVybjp0ZXN0OnNlcnZlcjtpPTExNzE1 .
+
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAx a uardf:Object ;
+    opcua:HasComponent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAy ;
+    uardf:browseName "nsu=http://test/StaticDynamic/;Device1" ;
+    uardf:displayName "Device1"@en ;
+    uardf:hasTypeDefinition sd:TestDeviceType ;
+    uardf:name "Device1" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=5001" ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "Device1" ;
+    sd:hasTemperature sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAy .
+
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAy a uardf:Variable ;
+    uardf:browseName "nsu=http://test/StaticDynamic/;Temperature" ;
+    uardf:displayName "Temperature"@en ;
+    uardf:hasTypeDefinition opcua:BaseDataVariableType ;
+    uardf:name "Temperature" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=5002" ;
+    uardf:parent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAx ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "Temperature" ;
+    base:hasDatatype opcua:Double ;
+    base:hasValue 2.15e+01 .
+
