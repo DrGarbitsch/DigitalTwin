@@ -30,6 +30,8 @@ CORE_RESULT=core.ttl
 CLEANED=cleaned.ttl
 NODESET2OWL=../../nodeset2owl.py
 TESTURI=http://my.test/
+# Instance nodes are dynamic, nodeset2owl exports them only with a server URI
+SERVER_URI=urn:test:server
 EXURI=http://example.org/
 DEBUG=${DEBUG:-false}
 if [ "$DEBUG" = "true" ]; then
@@ -216,12 +218,12 @@ for tuple in "${TESTNODESETS[@]}"; do IFS=","
         echo ----------------------------------------
     fi
     if [ "$DEBUG" = "true" ]; then
-        echo DEBUG: python3 ${NODESET2OWL} ${nodeset}.xml -i ${IMPORTS[@]} ${INSTANCENAMESPACE[@]} -v http://example.com/v0.1/UA/ -p test -o ${NODESET2OWL_RESULT}
+        echo DEBUG: python3 ${NODESET2OWL} ${nodeset}.xml -i ${IMPORTS[@]} ${INSTANCENAMESPACE[@]} -v http://example.com/v0.1/UA/ -p test --serverUri ${SERVER_URI} -o ${NODESET2OWL_RESULT}
         echo DEBUG: python3 ${OWL2INSTANCES} ${INSTANCETYPEOPTION} -n ${THETESTURI} ${NODESET2OWL_RESULT} -i ${TESTID} -xc ${LOCAL_CONTEXT} ${OPTIONS_ARR[@]}
     fi
     echo Create owl nodesets
     echo -------------------
-    python3 ${NODESET2OWL} ${nodeset}.xml -i ${IMPORTS[@]} ${INSTANCENAMESPACE[@]} -v http://example.com/v0.1/UA/ -p test -o ${NODESET2OWL_RESULT} || exit 1
+    python3 ${NODESET2OWL} ${nodeset}.xml -i ${IMPORTS[@]} ${INSTANCENAMESPACE[@]} -v http://example.com/v0.1/UA/ -p test --serverUri ${SERVER_URI} -o ${NODESET2OWL_RESULT} || exit 1
     startstop_context_server "Starting context server" true
     echo Extract types and instances
     echo ---------------------------
