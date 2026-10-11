@@ -102,6 +102,9 @@ from rdflib.namespace import OWL, RDF
 import lib.utils as utils
 from lib.owlbuilder import OwlBuilder
 
+# the uardf meta ontology (local file for now) is imported as it is, it has no Virtual Types sibling
+UARDF_ONTOLOGY_FILENAME = "uardf.ttl"
+
 
 def parse_args(args=sys.argv[1:]):
     parser = argparse.ArgumentParser(
@@ -231,7 +234,8 @@ if __name__ == '__main__':
                 out.add((ontology_iri, p, o))
         for imported in loader.visited_files:
             local_path = file_uri_to_path(imported)
-            if local_path is None:
+            if local_path is None or os.path.basename(local_path) == UARDF_ONTOLOGY_FILENAME:
+                # not a Part-14-processed dependency, e.g. base.ttl or the uardf meta ontology
                 out.add((ontology_iri, OWL.imports, URIRef(imported)))
                 continue
             sibling = vt_owl_sibling_path(local_path)
