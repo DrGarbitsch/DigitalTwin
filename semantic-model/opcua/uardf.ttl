@@ -45,12 +45,18 @@
 
 ###  http://opcfoundation.org/rdf/uacore#description
 :description rdf:type owl:DatatypeProperty ;
-             rdfs:range xsd:string .
+             rdfs:range rdf:langString .
 
 
 ###  http://opcfoundation.org/rdf/uacore#displayName
 :displayName rdf:type owl:DatatypeProperty ;
-             rdfs:range xsd:string .
+             rdfs:range rdf:langString .
+
+
+###  http://opcfoundation.org/rdf/uacore#isAbstract
+:isAbstract rdf:type owl:DatatypeProperty ;
+            rdfs:domain :Type ;
+            rdfs:range xsd:boolean .
 
 
 ###  http://opcfoundation.org/rdf/uacore#name

@@ -63,6 +63,8 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('--enforce-opcua-type-semantic', required=False, action='store_true',
                         help='Enforce OPC UA type semantics, instead of uardf:hasTypeDefinition. This can create '
                              'instance validation problems.')
+    parser.add_argument('--defaultLocale', required=False, default='en',
+                        help='Locale of LocalizedText (DisplayName, Description, values) without Locale.')
     parser.add_argument('-s', '--serverUri', required=False, default=None,
                         help='Server URI (svu) used to identify dynamic nodes, e.g. urn:example:server. '
                              'Without it, dynamic nodes are not exported.')
@@ -131,12 +133,6 @@ if __name__ == '__main__':
     if not args.disable_semantic_bridge:
         print("Adding semantic relationships...")
         nodesetparser.add_semantic_bridge()
-    if not args.enforce_opcua_type_semantic:
-        print("Cleaning up types of nodeIds ...")
-        utils.replace_type_of_node_iris(nodesetparser.g,
-                                        nodesetparser.rdf_ns['opcua'],
-                                        nodesetparser.rdf_ns['base'],
-                                        ig=nodesetparser.ig)
     if args.dynamic_only:
         nodesetparser.restrict_to_dynamic_nodes()
     print("Writing graph to file ...")

@@ -140,6 +140,8 @@ class NodesetParser:
         self.isstrict = isstrict
         # Server URI (svu) used to identify dynamic nodes. Without it, dynamic nodes are not exported.
         self.server_uri = getattr(args, 'serverUri', None)
+        self.default_locale = getattr(args, 'defaultLocale', 'en')
+        self.enforce_opcua_type_semantic = getattr(args, 'enforce_opcua_type_semantic', False)
         self.node_iris = {}  # (ns index, canonical nodeid) -> IRI, or None for not exported dynamic nodes
         self.expanded_nodeids = {}  # (ns index, canonical nodeid) -> canonical ExpandedNodeId string (encoded in IRI)
         self.skipped_dynamic_nodes = []
@@ -312,7 +314,6 @@ Please set it explictly.")
                 hgraph = Graph()
                 hgraph.parse(file)
                 self.ig += hgraph
-        utils.restore_type_of_node_iris(self.ig, self.rdf_ns['opcua'], self.rdf_ns['base'])
 
     def get_all_node_ids(self):
         query_result = self.ig.query(query_nodeIds, initNs=self.rdf_ns)
@@ -488,12 +489,12 @@ Did you forget to import it?")
         self.add_uardf_identification(node, nodeclasstype, index, nid, idtype, bn_name, bn_index, classiri)
         self.add_uardf_parent(node, classiri)
         self.nodeIds[index][nid] = classiri
-        displayname_node = node.find('opcua:DisplayName', xml_ns)
-        self.g.add((classiri, UARDF['displayName'], Literal(displayname_node.text)))
-        description_node = node.find('opcua:Description', xml_ns)
-        if description_node is not None:
-            description = description_node.text
-            self.g.add((classiri, UARDF['description'], Literal(description)))
+        displayname = self.localized_text(node.find('opcua:DisplayName', xml_ns))
+        if displayname is not None:
+            self.g.add((classiri, UARDF['displayName'], displayname))
+        description = self.localized_text(node.find('opcua:Description', xml_ns))
+        if description is not None:
+            self.g.add((classiri, UARDF['description'], description))
         isSymmetric = node.get('Symmetric')
         if isSymmetric is not None:
             self.g.add((classiri, self.rdf_ns['base']['isSymmetric'], Literal(isSymmetric)))
@@ -506,6 +507,16 @@ Did you forget to import it?")
         if historizing is not None:
             self.g.add((classiri, self.rdf_ns['base']['isHistorizing'], Literal(bool(historizing))))
         return rdf_namespace, classiri
+
+    def localized_text(self, element):
+        """LocalizedText element (e.g. DisplayName, Description) as rdf:langString, None if empty.
+
+        Elements without Locale get the default locale.
+        """
+        if element is None or element.text is None or element.text.strip() == '':
+            return None
+        locale = (element.get('Locale') or '').strip() or self.default_locale
+        return Literal(element.text, lang=locale)
 
     def add_uardf_parent(self, node, classiri):
         """Preserve the ParentNodeId structure of the nodeset."""
@@ -661,6 +672,8 @@ Did you forget to import it?")
                     locale = data.get('xsd:Locale')
                     if locale is not None:
                         locale = locale.strip() or None
+                    if locale is None:
+                        locale = self.default_locale
                     if text is not None:
                         result = Literal(text, lang=locale)
                         return Literal(result)
@@ -757,7 +770,10 @@ Did you forget to import it?")
                 print(f"Warning: IsForward=false makes not sense here: {classiri}")
             else:
                 try:
-                    self.g.add((classiri, RDF.type, self.typeIds[typedef_index][typedef_id]))
+                    # uardf:hasTypeDefinition is the instantiation intent of OPC UA, not the real
+                    # instantiation (rdf:type) of e.g. JSON-LD instances
+                    type_predicate = RDF.type if self.enforce_opcua_type_semantic else UARDF['hasTypeDefinition']
+                    self.g.add((classiri, type_predicate, self.typeIds[typedef_index][typedef_id]))
                 except IndexError as e:
                     print(f"Could not find namespace with id {typedef_index}")
                     raise e
@@ -896,8 +912,8 @@ Did you forget to import it?")
         ref_classiri = self.node_iri(ref_index, ref_id, idtype)
         isAbstract = node.get('IsAbstract')
         br_namespace = ref_namespace
-        if isAbstract is not None:
-            self.g.add((br_namespace[browsename], self.rdf_ns['base']['isAbstract'], Literal(isAbstract)))
+        if isAbstract is not None and ref_classiri is not None:
+            self.g.add((ref_classiri, UARDF['isAbstract'], Literal(isAbstract.strip().lower() == 'true')))
         self.typeIds[ref_index][ref_id] = br_namespace[browsename]
         if ref_classiri is not None:
             self.g.add((ref_classiri, UARDF['definesType'], br_namespace[browsename]))
