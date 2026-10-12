@@ -20,9 +20,9 @@ Virtual Types (Part 14 of owl_to_virtualtypes.md).
 
 What this actually does, in order:
 
-1. Parses the input ttl and undoes the base:instanceOf rewrite that Part 5
-   applies to Object instance declarations, so Object and Variable
-   declarations can be read uniformly.
+1. Parses the input ttl. Object and Variable declarations are read uniformly
+   by their node class (uardf:Object/uardf:Variable) and TypeDefinition
+   (uardf:hasTypeDefinition), see the README's Node Identification section.
 2. Resolves the input's own owl:imports (e.g. di.owl.ttl importing
    core.owl.ttl) by loading each imported dependency into a *separate*
    graph, used only to resolve cross-file references -- a companion spec's

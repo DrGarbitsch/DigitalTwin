@@ -56,16 +56,20 @@ explicitly: `python3 check_consistency.py core.vt.owl.ttl`.
 This script translates OPCUA nodeset files to OWL (in ttl format).
 
 ```console
-usage: nodeset2owl.py [-h] [-i [INPUTS [INPUTS ...]]] [-o OUTPUT] [-n NAMESPACE] [-v VERSIONIRI] [-b BASEONTOLOGY] [-u OPCUANAMESPACE] -p PREFIX [-t TYPESXSD] nodeset2
+usage: nodeset2owl.py [-h] [-i [INPUTS ...]] [-o OUTPUT] [-n NAMESPACE] [-v VERSIONIRI] [-b BASEONTOLOGY]
+                      [-burl BASEONTOLOGYURL] [--uardfOntology UARDFONTOLOGY] [-u OPCUANAMESPACE] -p PREFIX
+                      [-t TYPESXSD] [--import-indirect-dependencies] [--disable-semantic-bridge]
+                      [--enforce-opcua-type-semantic] [--defaultLocale DEFAULTLOCALE] [-s SERVERURI] [--dynamic-only]
+                      nodeset2
 
 parse nodeset and create RDF-graph <nodeset2.xml>
 
 positional arguments:
   nodeset2              Path to the nodeset2 file
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
-  -i [INPUTS [INPUTS ...]], --inputs [INPUTS [INPUTS ...]]
+  -i [INPUTS ...], --inputs [INPUTS ...]
                         <Required> add dependent nodesets as ttl
   -o OUTPUT, --output OUTPUT
                         Resulting file.
@@ -74,19 +78,95 @@ optional arguments:
   -v VERSIONIRI, --versionIRI VERSIONIRI
                         VersionIRI of ouput ontology, e.g. http://example.com/v0.1/UA/
   -b BASEONTOLOGY, --baseOntology BASEONTOLOGY
-                        Ontology containing the base terms, e.g. https://industryfusion.github.io/contexts/ontology/v0/base/
+                        Ontology containing the base terms, e.g.
+                        https://industryfusion.github.io/contexts/ontology/v0/base/
+  -burl BASEONTOLOGYURL, --baseOntologyURL BASEONTOLOGYURL
+                        Ontology URL , e.g. https://industryfusion.github.io/contexts/staging/ontology/v0/base.ttl
+  --uardfOntology UARDFONTOLOGY
+                        Location of the uardf meta ontology (node classes and identification properties,
+                        http://opcfoundation.org/rdf/uacore#) which is imported by the output, e.g. a local file or
+                        URL.
   -u OPCUANAMESPACE, --opcuaNamespace OPCUANAMESPACE
                         OPCUA Core namespace, e.g. http://opcfoundation.org/UA/
   -p PREFIX, --prefix PREFIX
                         Prefix for added ontolgoy, e.g. "pumps"
   -t TYPESXSD, --typesxsd TYPESXSD
                         Schema for value definitions, e.g. Opc.Ua.Types.xsd
+  --import-indirect-dependencies
+                        Import not only direct dependencies but also indirect dependencies.
+  --disable-semantic-bridge
+                        Disable adding semantic bridge between OPC UA and Containment/Domain ontology terms.
+  --enforce-opcua-type-semantic
+                        Enforce OPC UA type semantics, instead of uardf:hasTypeDefinition. This can create instance
+                        validation problems.
+  --defaultLocale DEFAULTLOCALE
+                        Locale of LocalizedText (DisplayName, Description, values) without Locale.
+  -s SERVERURI, --serverUri SERVERURI
+                        Server URI (svu) used to identify dynamic nodes, e.g. urn:example:server. Without it, dynamic
+                        nodes are not exported.
+  --dynamic-only        Export only the server specific (dynamic) part, including references between static and
+                        dynamic nodes. Requires --serverUri. Together with the export without --serverUri (static
+                        part) it composes the full export.
 ```
+
+### Node Identification (uardf)
+
+`nodeset2owl.py` identifies every node with the terms of the upcoming OPC UA RDF
+standard, namespace `uardf:` = `http://opcfoundation.org/rdf/uacore#`. The terms are
+declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output imports
+(`--uardfOntology` changes its location).
+
+- The IRI of a node is `<namespace URI>` + base64url (without padding) of its canonical
+  ExpandedNodeId, e.g. core `i=2042` becomes `http://opcfoundation.org/UA/aT0yMDQy`.
+- `rdf:type` is the node class: `uardf:Object`, `uardf:Variable`, `uardf:Method`,
+  `uardf:View`, `uardf:ObjectType`, `uardf:VariableType`, `uardf:DataType` or
+  `uardf:ReferenceType`.
+- `uardf:nodeId` is the canonical ExpandedNodeId: `i=2042` for core nodes,
+  `nsu=<namespace URI>;i=1001` for companion specifications and
+  `svu=<server URI>;nsu=<namespace URI>;i=5001` for dynamic nodes (see below).
+- `uardf:namespaceUri`, `uardf:browseName` (`nsu=<namespace URI>;<name>`), `uardf:name`,
+  `uardf:symbolicName`, `uardf:displayName` and `uardf:description` (both `rdf:langString`,
+  `--defaultLocale` for texts without locale) describe the node.
+- `uardf:hasTypeDefinition` points to the TypeDefinition of Objects and Variables.
+  It is deliberately not `rdf:type`; `--enforce-opcua-type-semantic` writes `rdf:type`
+  instead.
+- Type nodes carry `uardf:definesType` (the OWL class of the type) and `uardf:isAbstract`;
+  `uardf:parent` keeps the ParentNodeId structure.
+- The semantic bridge properties (e.g. `pumps:hasMotor`) are `owl:ObjectProperty` and
+  `rdfs:subPropertyOf uardf:semanticBridgeReferenceType`.
+
+### Static and Dynamic Nodes
+
+A node is *static* when it is the same in every server (types, instance declarations,
+well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
+machine). The decision is made per namespace by the `NamespaceMetadata` of the nodeset
+(StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern). Without it,
+the fallback rule applies: types and instance declarations are static, everything else
+is dynamic. An instance declaration is a node with a ModellingRule or a node whose parent
+(ParentNodeId, otherwise the inverse HasComponent/HasProperty) is a type or an instance
+declaration. The analysis in
+[docs/static-variables-below-dynamic-nodes.md](./docs/static-variables-below-dynamic-nodes.md)
+shows where this classification is questionable.
+
+Dynamic nodes are only exported with a server URI. Without `--serverUri`, nodeset2owl.py
+warns and leaves them and all references to them out; this is the *global* version of
+a companion specification, which can be shared by everyone. With `--serverUri` the
+dynamic nodes get `uardf:serverUri` and an `svu=` in their ExpandedNodeId (and IRI).
+`--dynamic-only` exports just the server specific part, which together with the static
+export composes the full export.
+
+Instance nodesets therefore have to be translated with `--serverUri`, otherwise their
+instances are missing and `owl2instances.py` reports that it cannot find any instance
+of the requested type. The Makefiles pass `--serverUri $(SERVER_URI)` (default
+`urn:example:opcua-server`) for the instance examples.
 
 ### Create Default Specs
 For local testing
 
     make -f translate_default_nodesets.make
+
+Single specifications (with their dependencies) are built with `nodeset2owl-<name>`
+targets, e.g. `make -f translate_default_nodesets.make nodeset2owl-pumps`.
 
 ### Get the NodeSet Source URLs Into Your Shell
 
@@ -134,7 +214,7 @@ Create pumps.owl.ttl:
 
 create pumpexample.owl.ttl:
 
-    python3 nodeset2owl.py  ${PUMPEXAMPLE_NODESET_URL} -i ${BASE_ONTOLOGY} core.owl.ttl devices.owl.ttl machinery.owl.ttl pumps.owl.ttl -n http://yourorganisation.org/InstanceExample/ -v http://example.com/v0.1/pumpexample/ -p pumpexample -o pumpexample.owl.ttl
+    python3 nodeset2owl.py  ${PUMPEXAMPLE_NODESET_URL} -i ${BASE_ONTOLOGY} core.owl.ttl devices.owl.ttl machinery.owl.ttl pumps.owl.ttl -n http://yourorganisation.org/InstanceExample/ -v http://example.com/v0.1/pumpexample/ -p pumpexample --serverUri urn:example:opcua-server -o pumpexample.owl.ttl
 
 
 
@@ -143,40 +223,65 @@ create pumpexample.owl.ttl:
 Create SHACL, entities.ttl, json-ld and bindings.ttl from an OPCUA instance model.
 
 ```console
-usage: owl2instances.py [-h] -t TYPE [-j JSONLD] [-e ENTITIES] [-s SHACL] [-k KNOWLEDGE] [-b BINDINGS] [-c CONTEXT] [-d] [-m] -n NAMESPACE [-i ID] [-xe ENTITY_NAMESPACE] [-xc CONTEXT_URL] [-xp ENTITY_PREFIX] instance
+usage: owl2instances.py [-h] [-t TYPE] [-so] [-ta] [-eid] [-j JSONLD] [-e ENTITIES] [-s SHACL] [-b BINDINGS]
+                        [-c CONTEXT] [-d] [-mi] [-ma] -n NAMESPACE [-i ID] [-xe ENTITY_NAMESPACE] [-xc CONTEXT_URL]
+                        [-r] [-sw [SUPPRESS_WARNINGS ...]] [-p] [-vrs] [-sb] [-nr]
+                        instance
 
 parse nodeset instance and create ngsi-ld model
 
 positional arguments:
   instance              Path to the instance nodeset2 file.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
-  -t TYPE, --type TYPE  Type of root object, e.g. http://opcfoundation.org/UA/Pumps/
+  -t TYPE, --type TYPE  Type of root object to be extracted, e.g. http://opcfoundation.org/UA/Pumps/
+  -so, --shacl-only     Only create SHACL shapes without JSON-LD instances.
+  -ta, --type-all       Extract all ObjectTypes of the mainontologies namespace. In additiion, extract all well known
+                        instances (i.e. referenced by the "objects" folder)
+  -eid, --extract-instance-declarations
+                        Extract all instance declarations in order to validate them. This option only works with -ta
+                        option enabled.
   -j JSONLD, --jsonld JSONLD
                         Filename of jsonld output file
   -e ENTITIES, --entities ENTITIES
                         Filename of entities output file
   -s SHACL, --shacl SHACL
                         Filename of SHACL output file
-  -k KNOWLEDGE, --knowledge KNOWLEDGE
-                        Filename of SHACL output file
   -b BINDINGS, --bindings BINDINGS
                         Filename of bindings output file
   -c CONTEXT, --context CONTEXT
                         Filename of JSONLD context output file
   -d, --debug           Add additional debug info to structure (e.g. for better SHACL debug)
-  -m, --minimalshacl    Remove all not monitored/updated shacl nodes
+  -mi, --minimalshacl   Remove all not monitored/updated shacl nodes
+  -ma, --maximalshacl   Add all types from nodes in the namespace.
   -n NAMESPACE, --namespace NAMESPACE
                         Namespace prefix for entities, SHACL and JSON-LD
-  -i ID, --id ID        ID prefix of object. The ID for every object is generated by "urn:<prefix>:nodeId"
+  -i ID, --id ID        ID prefix of the entities. The ID of every entity is "<prefix><base64url encoded canonical
+                        ExpandedNodeId of its node>", default prefix: urn:uaentity:
   -xe ENTITY_NAMESPACE, --entity-namespace ENTITY_NAMESPACE
                         Overwrite Namespace for entities (which is otherwise derived from <namespace>/entity)
   -xc CONTEXT_URL, --context-url CONTEXT_URL
-                        Context URL
-  -xp ENTITY_PREFIX, --entity-prefix ENTITY_PREFIX
-                        prefix in context for entities
+                        Context URL, default:
+                        https://industryfusion.github.io/contexts/staging/opcua/v0.2/context.jsonld
+  -r, --recursive-import
+                        Import dependencies of dependencies
+  -sw [SUPPRESS_WARNINGS ...], --suppress-warnings [SUPPRESS_WARNINGS ...]
+                        List of Warnings which are to be suppressed.
+  -p, --properties      Consider OPC UA Properties.
+  -vrs, --value-rank-subshapes
+                        Add ValueRank subshapes (instead of nest the whole expression).
+  -sb, --semantic-bridge
+                        Add Semantic Bridge in JSON-LD to allow convenient mapping back to OWL (includes --node-
+                        references)
+  -nr, --node-references
+                        Add a reference (base:hasNodeRef) from every entity to the OPC UA node it is created from
 ```
+
+Every entity id is `urn:uaentity:` (or the `-i` prefix) followed by the base64url encoded
+canonical ExpandedNodeId of the node it is created from. It is derived from, but deliberately
+different from, the node IRI. With `-nr` (or `-sb`) every entity also gets a `base:hasNodeRef`
+to its node.
 
 Extract ngsi-ld prototype:
 
@@ -185,7 +290,97 @@ Extract ngsi-ld prototype:
 
 Check the SHACL compliance:
 
-    pyshacl -df json-ld entities.jsonld -s shacl.ttl -e knowledge.ttl
+    pyshacl -s shacl.ttl -e entities.ttl -df json-ld instances.jsonld
+
+## owl2vt.py
+
+Transform a semantic bridge `*.owl.ttl` (nodeset2owl.py output) into an OWL ontology of
+Virtual Types (`*.vt.owl.ttl`) for reasoning with HermiT, see
+[owl_to_virtualtypes.md](./owl_to_virtualtypes.md) and
+[Virtual Type Validation](./docs/virtual-type-validation.md).
+
+```console
+usage: owl2vt.py [-h] [-o OUTPUT] [-i [INPUTS ...]] [-b BASEONTOLOGY] [-u OPCUANAMESPACE] [--roots ROOTS]
+                 [--no-disjoint-valuerank] [--require-modelling-rule] [-q]
+                 input
+
+Transform a Semantic Bridge ttl into an OWL ontology of Virtual Types.
+
+positional arguments:
+  input                 Path to the Semantic Bridge ttl file, e.g. core.owl.ttl or di.owl.ttl
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Resulting file.
+  -i [INPUTS ...], --inputs [INPUTS ...]
+                        Additional already-processed dependency ttl file(s)/URL(s) to import, on top of whatever this
+                        file's own owl:imports already declare (which are resolved automatically for file://
+                        locations). Use this only if a dependency can't be auto-resolved, e.g. a remote URL not
+                        available locally.
+  -b BASEONTOLOGY, --baseOntology BASEONTOLOGY
+                        Namespace of the base terms, e.g. https://industryfusion.github.io/contexts/ontology/v0/base/
+  -u OPCUANAMESPACE, --opcuaNamespace OPCUANAMESPACE
+                        OPC UA namespace, e.g. http://opcfoundation.org/UA/
+  --roots ROOTS         Comma-separated list of type local names to scope Virtual Type generation to (e.g.
+                        "PumpType,MotorType"), instead of every ObjectType/VariableType the input file itself
+                        declares. Useful for a first, fast test run before processing the whole file.
+  --no-disjoint-valuerank
+                        Do not declare the ValueRank symbolic classes pairwise disjoint.
+  --require-modelling-rule
+                        Skip a declaration entirely (no Virtual Type, no restriction, nothing nested inside it visited
+                        either) unless it carries a recognized ModellingRule
+                        (Mandatory/Optional/(Mandatory|Optional)Placeholder) -- the strict OPC UA sense of "Instance
+                        Declaration". Default off: every Object/Variable child is processed regardless, including e.g.
+                        named States/Transitions inside a StateMachineType-derived type, which OPC UA aggregates via
+                        HasComponent/HasProperty with no ModellingRule at all. Use this to get a Virtual Type count
+                        that lines up 1:1 with a strict Instance Declaration count -- see virtual_type_stats.py's own
+                        --include-unruled, which is this flag's inverse.
+  -q, --quiet           Suppress per-root progress output.
+```
+
+### Example
+
+    python3 owl2vt.py core.owl.ttl -o core.vt.owl.ttl
+    python3 owl2vt.py di.owl.ttl -o di.vt.owl.ttl
+
+or `make -f translate_default_nodesets.make core.vt.owl.ttl di.vt.owl.ttl`.
+
+## extractIffBindings.py
+
+Create the bindings of an *IFF Semantic Data Model* from a nodeset which follows the
+[IFF Mappings Companion Specification](./IffMappingsCompanionSpec/README.md).
+
+```console
+usage: extractIffBindings.py [-h] [-fi FOLDER_ID] [-bv BINDING_VERSION] [-bn BINDING_NAMESPACE] [-b BINDINGS]
+                             [-i INSTANCE_FILE] [-n IFFMAPPING_NAMESPACE] [-d]
+                             mapping
+
+parse nodeset instance and create ngsi-ld model
+
+positional arguments:
+  mapping               Path to the mapping ttl file which contains the IFFMappingsFolder Object.
+
+options:
+  -h, --help            show this help message and exit
+  -fi FOLDER_ID, --folder-id FOLDER_ID
+                        Id of IFFMappingFolder Object. default: 42
+  -bv BINDING_VERSION, --binding-version BINDING_VERSION
+                        Version of the binding model. default: 0.1
+  -bn BINDING_NAMESPACE, --binding-namespace BINDING_NAMESPACE
+                        Namespace prefix for binding ontology. default: https://industry-fusion.org/UA/Bindings/
+  -b BINDINGS, --bindings BINDINGS
+                        Filename of bindings output file. default: bindings_iffmodel.ttl
+  -i INSTANCE_FILE, --instance-file INSTANCE_FILE
+                        Filename of instances file contating entity Ids. default: iff_instances.jsonld
+  -n IFFMAPPING_NAMESPACE, --iffmapping-namespace IFFMAPPING_NAMESPACE
+                        Overwrite Namespace for IFF mapping ontology. default: https://industry-fusion.org/UA/Mapping/
+  -d, --debug           Help debugging. e.g by setting seed.
+```
+
+The `IFFMappingsFolder` is found by its `uardf:nodeId`. Without NamespaceMetadata it is a
+dynamic node, so the mapping nodesets have to be translated with `--serverUri`; see the
+[example](./IffMappingsCompanionSpec/README.md#example).
 
 
 ## nodeset-dump.py
@@ -223,7 +418,7 @@ ontology, or a Virtual-Types `*.vt.owl.ttl` ontology's logical consistency.
 
 
 ```console
-usage: validate.py [-h] [-s SHACL] [-e EXTRA] [-df DATA_FORMAT] [-d] [-m MODE] [-st] [-x] [-ni] [-so] [-ns] data
+usage: validate.py [-h] [-s SHACL] [-e EXTRA] [-df DATA_FORMAT] [-d] [-m MODE] [-st] [-x] [-ni] [-so] [-ns] [-me] data
 
 SHACL Validation with Shape and Focus Context
 
@@ -233,25 +428,24 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   -s SHACL, --shacl SHACL
-                        Path to a SHACL shapes file, or a directory of *.shacl.ttl files
-                        to merge. Defaults to shacl.ttl for -m instance (extractType.py's
-                        per-instance-type output); for -m ontology, defaults to the
-                        validation/ontology/ directory (every structural rule file, merged).
-                        Pass a single file explicitly to scope -m ontology to one rule.
+                        Path to a SHACL shapes file, or a directory of *.shacl.ttl files to merge. Defaults to
+                        shacl.ttl for -m instance (owl2instances.py's output); for -m ontology,
+                        defaults to the validation/ontology/ directory (every structural rule file, merged). Pass a
+                        single file explicitly to scope -m ontology to one rule.
   -e EXTRA, --extra EXTRA
                         Path to extra ontology file
   -df DATA_FORMAT, --data-format DATA_FORMAT
-                        Data file format (e.g., turtle, json-ld, xml). If not provided infered from data-file name (.jsonld, .ttl).
+                        Data file format (e.g., turtle, json-ld, xml). If not provided infered from data-file name
+                        (.jsonld, .ttl).
   -d, --debug           Debug output
-  -m MODE, --mode MODE  Modes: "instance" to validate instance, "ontology" to validate ontology
-                        files, "vt" to check a *.vt.owl.ttl Virtual-Types ontology for logical
-                        consistency via the HermiT DL reasoner.
+  -m MODE, --mode MODE  Modes: "instance" to validate instance, "ontology" to validate ontology files, "vt" to check a
+                        *.vt.owl.ttl Virtual-Types ontology for logical consistency via the HermiT DL reasoner.
   -st, --strict         Use strict, non accelerated SPARQL query.
   -x, --extended        Use eXtended output with detailed context.
   -ni, --no-imports     No imports of dependent ontologies.
   -so, --sparql-only    Only apply sparql-rules
   -ns, --no_sparql      Only apply sparql-rules
-
+  -me, --merge-entity   Merge entity graph into the data graph (experimental)
 ```
 
 This tool operates in three modes:

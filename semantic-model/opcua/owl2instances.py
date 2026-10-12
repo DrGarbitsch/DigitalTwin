@@ -840,6 +840,10 @@ Machinery Folder was found in instance ontology.")
         # created with --enforce-opcua-type-semantic)
         rootentities = [next(g.subjects(UARDF['hasTypeDefinition'], URIRef(rootinstancetype)),
                              next(g.subjects(RDF.type, URIRef(rootinstancetype)), None))]
+        if rootentities[0] is None:
+            print(f"Error: no instance of type {rootinstancetype} found. Instances are usually dynamic nodes, "
+                  "which are only exported when the nodeset was translated with nodeset2owl.py --serverUri.")
+            sys.exit(1)
     else:
         rootentities = [rootentity]
     entity_id = f'{entity_id}' if entity_id is not None else None
