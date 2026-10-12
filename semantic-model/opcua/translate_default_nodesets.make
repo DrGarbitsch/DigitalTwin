@@ -248,10 +248,24 @@ NODESET2OWL_TARGETS = $(foreach t, $(TARGET_NAMES), $($(t)_ONTOLOGY))
 NODESET2OWL_NAMES = $(patsubst %.owl.ttl,nodeset2owl-%,$(NODESET2OWL_TARGETS))
 
 
-.PHONY: all clean print-nodesets nodeset2owl $(NODESET2OWL_NAMES)
+# Server specific (dynamic) part of the specifications, next to the static *.owl.ttl, e.g.
+#   core.owl.ttl          static (global) part, built without server URI
+#   core.owl.dynamic.ttl  dynamic part of server $(SERVER_URI) (nodeset2owl.py --dynamic-only)
+# Both together compose the full export. The instance examples are already built completely with
+# --serverUri in their OPTS and get no separate dynamic file.
+#   make -f translate_default_nodesets.make dynamic                (all of them)
+#   make -f translate_default_nodesets.make core.owl.dynamic.ttl   (one)
+DYNAMIC_NAMES = $(foreach t, $(TARGET_NAMES), $(if $(findstring --serverUri,$($(t)_OPTS)),,$(t)))
+DYNAMIC_STATIC_ONTOLOGIES = $(foreach t, $(DYNAMIC_NAMES), $($(t)_ONTOLOGY))
+DYNAMIC_TARGETS = $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.ttl)
+
+
+.PHONY: all clean print-nodesets nodeset2owl dynamic $(NODESET2OWL_NAMES)
 all: $(ALL_TARGETS)
 
 nodeset2owl: $(NODESET2OWL_TARGETS)
+
+dynamic: $(DYNAMIC_TARGETS)
 
 $(NODESET2OWL_NAMES): nodeset2owl-%: %.owl.ttl
 
@@ -285,6 +299,15 @@ print-nodesets:
 	$(eval NAME := $(shell echo $* | tr a-z A-Z))
 	python3 nodeset2owl.py $($(NAME)_NODESET_URL) -i $($(NAME)_DEPENDENCIES) $($(NAME)_OPTS) -burl $(BASE_ONTOLOGY) -b $(BASE_ONTOLOGY_NS) -o $@ $(DSB)
 
+# Generic rule to build the dynamic part *.owl.dynamic.ttl next to a static *.owl.ttl (see DYNAMIC_TARGETS).
+# It has its own ontology IRI (<ontology>dynamic) and imports the static file of the same nodeset and the
+# dynamic files of its dependencies, so that loading it brings in the full export.
+%.owl.dynamic.ttl: %.owl.ttl
+	@echo "Creating $@"
+	$(eval NAME := $(shell echo $* | tr a-z A-Z))
+	$(eval DYN_DEPS := $(patsubst %.owl.ttl,%.owl.dynamic.ttl,$(filter $(DYNAMIC_STATIC_ONTOLOGIES),$($(NAME)_DEPENDENCIES))))
+	python3 nodeset2owl.py $($(NAME)_NODESET_URL) -i $($(NAME)_DEPENDENCIES) $($(NAME)_OPTS) -burl $(BASE_ONTOLOGY) -b $(BASE_ONTOLOGY_NS) --serverUri $(SERVER_URI) --dynamic-only --dynamic-imports $< $(DYN_DEPS) -o $@ $(DSB)
+
 
 # Generic rule to build a *.vt.owl.ttl file (owl2vt.py's Virtual
 # Types output, derived from the *.owl.ttl above -- GNU Make's shortest-stem
@@ -309,4 +332,4 @@ $(foreach t, $(TARGET_NAMES), \
 clean:
 	@echo "Cleaning generated ontology files..."
 	@echo deleting $(ALL_TARGETS)
-	rm -f $(ALL_TARGETS)
+	rm -f $(ALL_TARGETS) $(DYNAMIC_TARGETS)

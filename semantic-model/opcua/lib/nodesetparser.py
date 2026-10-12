@@ -1188,12 +1188,21 @@ Did you forget to import it?")
                   "exported by the imported ontologies (dynamic node?). References to it are not exported.")
         return None
 
-    def restrict_to_dynamic_nodes(self):
+    @staticmethod
+    def dynamic_ontology_iri(iri):
+        """IRI of the dynamic export of the ontology iri: <iri>dynamic (with '/' unless iri ends with / or #)."""
+        iri = str(iri)
+        return URIRef(iri + ('dynamic' if iri.endswith(('/', '#')) else '/dynamic'))
+
+    def restrict_to_dynamic_nodes(self, dynamic_imports=()):
         """Keep only the server specific part of the graph.
 
         Kept are all triples about dynamic nodes, including references between static and dynamic nodes,
         the RDF lists they use, the declarations of the properties they need and the ontology header.
         The export without server URI contains exactly the rest, so both together compose the full export.
+        The header gets its own ontology IRI (and versionIRI), so that the static and the dynamic export can
+        be loaded together; dynamic_imports are added as owl:imports (e.g. the static export of the same
+        nodeset and the dynamic exports of its dependencies).
         """
         dynamic = {iri for key, iri in self.node_iris.items() if iri is not None and key not in self.static_nodes}
         dynamic |= self.foreign_dynamic_iris
@@ -1220,6 +1229,14 @@ Did you forget to import it?")
             if triple not in keep:
                 self.g.remove(triple)
                 removed += 1
+        dynamic_ontology = self.dynamic_ontology_iri(self.ontology_name)
+        for _, p, o in list(self.g.triples((self.ontology_name, None, None))):
+            self.g.remove((self.ontology_name, p, o))
+            if p == OWL.versionIRI:
+                o = self.dynamic_ontology_iri(o)
+            self.g.add((dynamic_ontology, p, o))
+        for ontology in dynamic_imports:
+            self.g.add((dynamic_ontology, OWL.imports, utils.file_path_to_uri(ontology)))
         print(f"Dynamic only: kept {len(keep)} triples of {len(dynamic)} dynamic nodes "
               f"({len(self.foreign_dynamic_iris)} of other nodesets), removed {removed} triples.")
 

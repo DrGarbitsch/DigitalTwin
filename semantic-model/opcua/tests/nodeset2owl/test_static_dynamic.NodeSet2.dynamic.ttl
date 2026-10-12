@@ -6,16 +6,16 @@
 @prefix uardf: <http://opcfoundation.org/rdf/uacore#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-sd: a owl:Ontology ;
-    owl:versionIRI <http://example.com/v0.1/UA/> ;
-    owl:versionInfo 1e-01 .
-
 sd:SDNamespace a base:Namespace ;
     base:hasPrefix "sd" ;
     base:hasUri "http://test/StaticDynamic/" .
 
 sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9NzAwMA opcua:Organizes sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAx,
         sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87cz1EZXZpY2Uy .
+
+sd:dynamic a owl:Ontology ;
+    owl:versionIRI <http://example.com/v0.1/UA/dynamic> ;
+    owl:versionInfo 1e-01 .
 
 sd:hasTemperature a owl:ObjectProperty ;
     rdfs:subPropertyOf uardf:semanticBridgeReferenceType .

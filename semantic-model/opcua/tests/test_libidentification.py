@@ -322,6 +322,7 @@ class TestClassification(unittest.TestCase):
         bridge = URIRef(TEST_NS + 'hasInstance')
         g = parser.g
         g.add((URIRef(TEST_NS), RDF.type, OWL.Ontology))
+        g.add((URIRef(TEST_NS), OWL.versionIRI, URIRef('http://example.com/v0.1/test/')))
         g.add((URIRef(TEST_NS + 'TESTNamespace'), RDF.type, BASE['Namespace']))
         g.add((static, UARDF['name'], Literal('TestType')))  # static part
         g.add((dynamic, UARDF['name'], Literal('Instance')))  # dynamic part
@@ -333,15 +334,26 @@ class TestClassification(unittest.TestCase):
         values = BNode()
         Collection(g, values, [Literal(1), Literal(2)])
         g.add((dynamic, BASE['hasValueList'], values))
-        parser.restrict_to_dynamic_nodes()
+        parser.restrict_to_dynamic_nodes(['http://example.com/static.owl.ttl'])
         self.assertNotIn((static, UARDF['name'], Literal('TestType')), g)
         for triple in ((dynamic, UARDF['name'], Literal('Instance')), (static, OPCUA['Organizes'], dynamic),
                        (static, bridge, dynamic), (bridge, RDF.type, OWL.ObjectProperty),
                        (bridge, RDFS.subPropertyOf, UARDF['semanticBridgeReferenceType']),
-                       (foreign, OPCUA['HasComponent'], static), (URIRef(TEST_NS), RDF.type, OWL.Ontology),
+                       (foreign, OPCUA['HasComponent'], static),
                        (URIRef(TEST_NS + 'TESTNamespace'), RDF.type, BASE['Namespace'])):
             self.assertIn(triple, g)
+        # own ontology header, importing the static export
+        dynamic_ontology = URIRef(TEST_NS + 'dynamic')
+        self.assertNotIn((URIRef(TEST_NS), RDF.type, OWL.Ontology), g)
+        self.assertIn((dynamic_ontology, RDF.type, OWL.Ontology), g)
+        self.assertIn((dynamic_ontology, OWL.versionIRI, URIRef('http://example.com/v0.1/test/dynamic')), g)
+        self.assertIn((dynamic_ontology, OWL.imports, URIRef('http://example.com/static.owl.ttl')), g)
         self.assertEqual(list(Collection(g, values)), [Literal(1), Literal(2)])
+
+    def test_dynamic_ontology_iri(self):
+        self.assertEqual(NodesetParser.dynamic_ontology_iri('http://opcfoundation.org/UA/'),
+                         URIRef('http://opcfoundation.org/UA/dynamic'))
+        self.assertEqual(NodesetParser.dynamic_ontology_iri('urn:example:model'), URIRef('urn:example:model/dynamic'))
 
 
 if __name__ == '__main__':

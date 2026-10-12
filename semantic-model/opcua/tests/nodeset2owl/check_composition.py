@@ -20,6 +20,7 @@ must not contain any dynamic node."""
 import argparse
 import sys
 from rdflib import Graph, Namespace
+from rdflib.namespace import OWL, RDF
 from rdflib.compare import to_isomorphic, graph_diff
 
 UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
@@ -27,8 +28,15 @@ UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
 
 def main(full_file, static_file, dynamic_file):
     full, static, dynamic = Graph().parse(full_file), Graph().parse(static_file), Graph().parse(dynamic_file)
-    union = static + dynamic
     ok = True
+    # the dynamic export has its own ontology header (<ontology>dynamic), which is not part of the full export
+    own_headers = set(dynamic.subjects(RDF.type, OWL.Ontology)) - set(full.subjects(RDF.type, OWL.Ontology))
+    if len(own_headers) != 1 or not str(next(iter(own_headers))).endswith('dynamic'):
+        print(f'Dynamic export must have exactly one own ontology header <ontology>dynamic, found {own_headers}')
+        ok = False
+    for header in own_headers:
+        dynamic.remove((header, None, None))
+    union = static + dynamic
     if list(static.triples((None, UARDF.serverUri, None))):
         print('Static export contains dynamic nodes (uardf:serverUri)')
         ok = False

@@ -60,6 +60,7 @@ usage: nodeset2owl.py [-h] [-i [INPUTS ...]] [-o OUTPUT] [-n NAMESPACE] [-v VERS
                       [-burl BASEONTOLOGYURL] [--uardfOntology UARDFONTOLOGY] [-u OPCUANAMESPACE] -p PREFIX
                       [-t TYPESXSD] [--import-indirect-dependencies] [--disable-semantic-bridge]
                       [--enforce-opcua-type-semantic] [--defaultLocale DEFAULTLOCALE] [-s SERVERURI] [--dynamic-only]
+                      [--dynamic-imports [DYNAMIC_IMPORTS ...]]
                       nodeset2
 
 parse nodeset and create RDF-graph <nodeset2.xml>
@@ -106,7 +107,11 @@ options:
                         nodes are not exported.
   --dynamic-only        Export only the server specific (dynamic) part, including references between static and
                         dynamic nodes. Requires --serverUri. Together with the export without --serverUri (static
-                        part) it composes the full export.
+                        part) it composes the full export. The export gets its own ontology IRI (<ontology>dynamic).
+  --dynamic-imports [DYNAMIC_IMPORTS ...]
+                        With --dynamic-only: additional owl:imports of the dynamic export, which are not read as
+                        inputs, e.g. the static export of the same nodeset and the dynamic exports of its
+                        dependencies.
 ```
 
 ### Node Identification (uardf)
@@ -153,7 +158,20 @@ warns and leaves them and all references to them out; this is the *global* versi
 a companion specification, which can be shared by everyone. With `--serverUri` the
 dynamic nodes get `uardf:serverUri` and an `svu=` in their ExpandedNodeId (and IRI).
 `--dynamic-only` exports just the server specific part, which together with the static
-export composes the full export.
+export composes the full export. It gets its own ontology IRI (`<ontology>dynamic`), and
+`--dynamic-imports` adds `owl:imports` to it (e.g. the static file and the dynamic files of
+the dependencies), so that both files can be loaded together.
+
+`translate_default_nodesets.make` builds this dynamic part next to every static
+specification, for the server `$(SERVER_URI)`:
+
+    make -f translate_default_nodesets.make dynamic                # all of them
+    make -f translate_default_nodesets.make core.owl.dynamic.ttl   # core.owl.ttl + core.owl.dynamic.ttl
+
+`core.owl.ttl` stays the global, shareable version; `core.owl.dynamic.ttl` holds the Server
+object and everything else that is specific to one server, and imports `core.owl.ttl`. The
+instance examples (e.g. `pumpexample.owl.ttl`) are already translated completely with
+`--serverUri` and get no separate dynamic file.
 
 Instance nodesets therefore have to be translated with `--serverUri`, otherwise their
 instances are missing and `owl2instances.py` reports that it cannot find any instance

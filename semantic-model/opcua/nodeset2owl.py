@@ -71,10 +71,17 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('--dynamic-only', required=False, action='store_true',
                         help='Export only the server specific (dynamic) part, including references between static '
                              'and dynamic nodes. Requires --serverUri. Together with the export without '
-                             '--serverUri (static part) it composes the full export.')
+                             '--serverUri (static part) it composes the full export. The export gets its own '
+                             'ontology IRI (<ontology>dynamic).')
+    parser.add_argument('--dynamic-imports', nargs='*', required=False, default=[],
+                        help='With --dynamic-only: additional owl:imports of the dynamic export, which are not read '
+                             'as inputs, e.g. the static export of the same nodeset and the dynamic exports of its '
+                             'dependencies.')
     parsed_args = parser.parse_args(args)
     if parsed_args.dynamic_only and parsed_args.serverUri is None:
         parser.error('--dynamic-only requires --serverUri')
+    if parsed_args.dynamic_imports and not parsed_args.dynamic_only:
+        parser.error('--dynamic-imports requires --dynamic-only')
     return parsed_args
 
 
@@ -134,7 +141,7 @@ if __name__ == '__main__':
         print("Adding semantic relationships...")
         nodesetparser.add_semantic_bridge()
     if args.dynamic_only:
-        nodesetparser.restrict_to_dynamic_nodes()
+        nodesetparser.restrict_to_dynamic_nodes(args.dynamic_imports)
     print("Writing graph to file ...")
     nodesetparser.write_graph(opcua_output)
     print(f"Done. Output written to: {opcua_output}")
