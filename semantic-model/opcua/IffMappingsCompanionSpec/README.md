@@ -183,6 +183,8 @@ cd example
 make all
 ```
 
+The example Nodesets have no `NamespaceMetadata`, so their instances, including the `IFFMappingsFolder`, are dynamic nodes. Dynamic nodes are only exported with a server URI, therefore the Makefile translates them with `--serverUri urn:test:server`.
+
 As a result, when the make jobs are executed successfully there are newly created files:
 
 * [iffmapping.owl.ttl](./example/iffmapping.owl.ttl) OWL version of `iffmapping.nodeset2.xml`
