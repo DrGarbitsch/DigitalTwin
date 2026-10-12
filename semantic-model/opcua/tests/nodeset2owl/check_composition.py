@@ -26,7 +26,7 @@ from rdflib.compare import to_isomorphic, graph_diff
 UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
 
 
-def main(full_file, static_file, dynamic_file):
+def main(full_file, static_file, dynamic_file, composed_file=None):
     full, static, dynamic = Graph().parse(full_file), Graph().parse(static_file), Graph().parse(dynamic_file)
     ok = True
     # the dynamic export has its own ontology header (<ontology> + base64url(svu=<server>)), which is not part
@@ -54,6 +54,17 @@ def main(full_file, static_file, dynamic_file):
         ok = False
     if ok:
         print(f'OK: static ({len(static)}) + dynamic ({len(dynamic)}) == full ({len(full)})')
+    if composed_file is not None:
+        # compose_owl.py output: same content as the full export, only with its own header (<ontology>all)
+        composed = Graph().parse(composed_file)
+        for graph in (composed, full):
+            for header in list(graph.subjects(RDF.type, OWL.Ontology)):
+                graph.remove((header, None, None))
+        if to_isomorphic(full) != to_isomorphic(composed):
+            print('composed export != full export (without headers)')
+            ok = False
+        else:
+            print(f'OK: composed ({len(composed)}) == full ({len(full)}), without headers')
     return 0 if ok else 1
 
 
@@ -62,5 +73,6 @@ if __name__ == '__main__':
     parser.add_argument('full')
     parser.add_argument('static')
     parser.add_argument('dynamic')
+    parser.add_argument('composed', nargs='?', help='compose_owl.py output of static and dynamic')
     args = parser.parse_args()
-    sys.exit(main(args.full, args.static, args.dynamic))
+    sys.exit(main(args.full, args.static, args.dynamic, args.composed))

@@ -104,8 +104,9 @@ for mode in static full dynamic; do
     diff ${nodeset}.${mode}.ttl ${nodeset}.${mode}.result.ttl >$DIFFRESULT || { echo "Diff failed, result can be found in $DIFFRESULT" && exit 1; }
 done
 echo test composition of static and dynamic export
-python3 check_composition.py ${nodeset}.full.result.ttl ${nodeset}.static.result.ttl ${nodeset}.dynamic.result.ttl || exit 1
-rm -f ${nodeset}.static.result.ttl ${nodeset}.full.result.ttl ${nodeset}.dynamic.result.ttl
+python3 ../../compose_owl.py ${nodeset}.static.result.ttl ${nodeset}.dynamic.result.ttl -o ${nodeset}.all.result.ttl || exit 1
+python3 check_composition.py ${nodeset}.full.result.ttl ${nodeset}.static.result.ttl ${nodeset}.dynamic.result.ttl ${nodeset}.all.result.ttl || exit 1
+rm -f ${nodeset}.static.result.ttl ${nodeset}.full.result.ttl ${nodeset}.dynamic.result.ttl ${nodeset}.all.result.ttl
 echo test --dynamic-only without --serverUri is rejected
 if python3 ${NODESET2OWL} ${nodeset}.xml "${SD_ARGS[@]}" --dynamic-only -o ${RESULT} >/dev/null 2>&1; then
     echo "Expected nodeset2owl.py to reject --dynamic-only without --serverUri" && exit 1

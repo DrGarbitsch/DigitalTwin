@@ -262,14 +262,22 @@ SERVER_SLUG = $(shell printf '%s' '$(SERVER_URI)' | tr -c 'A-Za-z0-9._-' '_')
 DYNAMIC_NAMES = $(foreach t, $(TARGET_NAMES), $(if $(findstring --serverUri,$($(t)_OPTS)),,$(t)))
 DYNAMIC_STATIC_ONTOLOGIES = $(foreach t, $(DYNAMIC_NAMES), $($(t)_ONTOLOGY))
 DYNAMIC_TARGETS = $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.$(SERVER_SLUG).ttl)
+# Composition of the static part and the dynamic parts of all servers built so far (always including
+# $(SERVER_URI)) into one file, e.g. to browse it with Protege or query it with Fuseki. It imports the
+# composed files of its dependencies instead of their static files:
+#   core.owl.all.ttl = core.owl.ttl + core.owl.dynamic.*.ttl
+#   make -f translate_default_nodesets.make composed
+COMPOSED_TARGETS = $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.all.ttl)
 
 
-.PHONY: all clean print-nodesets nodeset2owl dynamic $(NODESET2OWL_NAMES)
+.PHONY: all clean print-nodesets nodeset2owl dynamic composed $(NODESET2OWL_NAMES)
 all: $(ALL_TARGETS)
 
 nodeset2owl: $(NODESET2OWL_TARGETS)
 
 dynamic: $(DYNAMIC_TARGETS)
+
+composed: $(COMPOSED_TARGETS)
 
 $(NODESET2OWL_NAMES): nodeset2owl-%: %.owl.ttl
 
@@ -313,6 +321,18 @@ print-nodesets:
 	$(eval DYN_DEPS := $(patsubst %.owl.ttl,%.owl.dynamic.$(SERVER_SLUG).ttl,$(filter $(DYNAMIC_STATIC_ONTOLOGIES),$($(NAME)_DEPENDENCIES))))
 	python3 nodeset2owl.py $($(NAME)_NODESET_URL) -i $($(NAME)_DEPENDENCIES) $($(NAME)_OPTS) -burl $(BASE_ONTOLOGY) -b $(BASE_ONTOLOGY_NS) --serverUri $(SERVER_URI) --dynamic-only --dynamic-imports $< $(DYN_DEPS) -o $@ $(DSB)
 
+# Generic rule to compose the static part and the dynamic parts of all servers into *.owl.all.ttl (see
+# COMPOSED_TARGETS). Prerequisites are the static file, the dynamic file of $(SERVER_URI) and every other
+# existing *.owl.dynamic.*.ttl of the nodeset (secondary expansion). Its ontology IRI is <ontology>all; it keeps
+# the imports of the static file, but imports the composed files of its dependencies instead of their static
+# files.
+.SECONDEXPANSION:
+%.owl.all.ttl: %.owl.ttl %.owl.dynamic.$(SERVER_SLUG).ttl $$(wildcard $$*.owl.dynamic.*.ttl)
+	@echo "Creating $@"
+	$(eval NAME := $(shell echo $* | tr a-z A-Z))
+	$(eval ALL_DEPS := $(filter $(DYNAMIC_STATIC_ONTOLOGIES),$($(NAME)_DEPENDENCIES)))
+	python3 compose_owl.py $< $(filter-out $<,$^) -m $(foreach d,$(ALL_DEPS),$(d)=$(d:.owl.ttl=.owl.all.ttl)) -o $@
+
 
 # Generic rule to build a *.vt.owl.ttl file (owl2vt.py's Virtual
 # Types output, derived from the *.owl.ttl above -- GNU Make's shortest-stem
@@ -337,4 +357,4 @@ $(foreach t, $(TARGET_NAMES), \
 clean:
 	@echo "Cleaning generated ontology files..."
 	@echo deleting $(ALL_TARGETS)
-	rm -f $(ALL_TARGETS) $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.*.ttl)
+	rm -f $(ALL_TARGETS) $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.*.ttl) $(COMPOSED_TARGETS)

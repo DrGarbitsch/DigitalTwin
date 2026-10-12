@@ -179,6 +179,18 @@ NamespaceMetadata object, which is a component of the `Namespaces` objects of bo
 The instance examples (e.g. `pumpexample.owl.ttl`) are already translated completely with
 `--serverUri` and get no separate dynamic file.
 
+To browse or query an example of the complete model, the static part and the dynamic parts of
+all servers built so far (always including `$(SERVER_URI)`) are composed into one file per
+specification, `<spec>.owl.all.ttl` (ontology IRI `<ontology>all`), with `compose_owl.py`:
+
+    make -f translate_default_nodesets.make composed          # e.g. core.owl.all.ttl, di.owl.all.ttl, ...
+    make -f translate_default_nodesets.make di.owl.all.ttl
+
+A composed file imports the composed files of its dependencies instead of their static files,
+so `di.owl.all.ttl` loads `core.owl.all.ttl` (and `uardf.ttl` and the base ontology) and nothing
+else. Open it in Protégé, or load it into Fuseki with `python3 start_fuseki.py di.owl.all.ttl`,
+which follows the same imports.
+
 Instance nodesets therefore have to be translated with `--serverUri`, otherwise their
 instances are missing and `owl2instances.py` reports that it cannot find any instance
 of the requested type. The Makefiles pass `--serverUri $(SERVER_URI)` (default
