@@ -248,16 +248,20 @@ NODESET2OWL_TARGETS = $(foreach t, $(TARGET_NAMES), $($(t)_ONTOLOGY))
 NODESET2OWL_NAMES = $(patsubst %.owl.ttl,nodeset2owl-%,$(NODESET2OWL_TARGETS))
 
 
-# Server specific (dynamic) part of the specifications, next to the static *.owl.ttl, e.g.
-#   core.owl.ttl          static (global) part, built without server URI
-#   core.owl.dynamic.ttl  dynamic part of server $(SERVER_URI) (nodeset2owl.py --dynamic-only)
-# Both together compose the full export. The instance examples are already built completely with
-# --serverUri in their OPTS and get no separate dynamic file.
-#   make -f translate_default_nodesets.make dynamic                (all of them)
-#   make -f translate_default_nodesets.make core.owl.dynamic.ttl   (one)
+# Server specific (dynamic) part of the specifications, next to the static *.owl.ttl, per server, e.g.
+#   core.owl.ttl                                   static (global) part, built without server URI
+#   core.owl.dynamic.urn_example_opcua-server.ttl  dynamic part of server urn:example:opcua-server
+# The file name carries the server URI (SERVER_SLUG: every character except A-Za-z0-9._- replaced
+# by _), so the dynamic parts of several servers can be built and loaded side by side:
+#   make -f translate_default_nodesets.make dynamic                                   (all, $(SERVER_URI))
+#   make -f translate_default_nodesets.make dynamic SERVER_URI=urn:plant:server2      (all, another server)
+#   make -f translate_default_nodesets.make core.owl.dynamic.urn_example_opcua-server.ttl   (one)
+# Static + dynamic part of a server compose the full export of that server. The instance examples are
+# already built completely with --serverUri in their OPTS and get no separate dynamic file.
+SERVER_SLUG = $(shell printf '%s' '$(SERVER_URI)' | tr -c 'A-Za-z0-9._-' '_')
 DYNAMIC_NAMES = $(foreach t, $(TARGET_NAMES), $(if $(findstring --serverUri,$($(t)_OPTS)),,$(t)))
 DYNAMIC_STATIC_ONTOLOGIES = $(foreach t, $(DYNAMIC_NAMES), $($(t)_ONTOLOGY))
-DYNAMIC_TARGETS = $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.ttl)
+DYNAMIC_TARGETS = $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.$(SERVER_SLUG).ttl)
 
 
 .PHONY: all clean print-nodesets nodeset2owl dynamic $(NODESET2OWL_NAMES)
@@ -299,13 +303,14 @@ print-nodesets:
 	$(eval NAME := $(shell echo $* | tr a-z A-Z))
 	python3 nodeset2owl.py $($(NAME)_NODESET_URL) -i $($(NAME)_DEPENDENCIES) $($(NAME)_OPTS) -burl $(BASE_ONTOLOGY) -b $(BASE_ONTOLOGY_NS) -o $@ $(DSB)
 
-# Generic rule to build the dynamic part *.owl.dynamic.ttl next to a static *.owl.ttl (see DYNAMIC_TARGETS).
-# It has its own ontology IRI (<ontology>dynamic) and imports the static file of the same nodeset and the
-# dynamic files of its dependencies, so that loading it brings in the full export.
-%.owl.dynamic.ttl: %.owl.ttl
+# Generic rule to build the dynamic part *.owl.dynamic.<server slug>.ttl of server $(SERVER_URI) next to a
+# static *.owl.ttl (see DYNAMIC_TARGETS). It has its own ontology IRI per server (<ontology> +
+# base64url(svu=<server>)) and imports the static file of the same nodeset and the dynamic files of its
+# dependencies for the same server, so that loading it brings in the full export of that server.
+%.owl.dynamic.$(SERVER_SLUG).ttl: %.owl.ttl
 	@echo "Creating $@"
 	$(eval NAME := $(shell echo $* | tr a-z A-Z))
-	$(eval DYN_DEPS := $(patsubst %.owl.ttl,%.owl.dynamic.ttl,$(filter $(DYNAMIC_STATIC_ONTOLOGIES),$($(NAME)_DEPENDENCIES))))
+	$(eval DYN_DEPS := $(patsubst %.owl.ttl,%.owl.dynamic.$(SERVER_SLUG).ttl,$(filter $(DYNAMIC_STATIC_ONTOLOGIES),$($(NAME)_DEPENDENCIES))))
 	python3 nodeset2owl.py $($(NAME)_NODESET_URL) -i $($(NAME)_DEPENDENCIES) $($(NAME)_OPTS) -burl $(BASE_ONTOLOGY) -b $(BASE_ONTOLOGY_NS) --serverUri $(SERVER_URI) --dynamic-only --dynamic-imports $< $(DYN_DEPS) -o $@ $(DSB)
 
 
@@ -332,4 +337,4 @@ $(foreach t, $(TARGET_NAMES), \
 clean:
 	@echo "Cleaning generated ontology files..."
 	@echo deleting $(ALL_TARGETS)
-	rm -f $(ALL_TARGETS) $(DYNAMIC_TARGETS)
+	rm -f $(ALL_TARGETS) $(DYNAMIC_STATIC_ONTOLOGIES:.owl.ttl=.owl.dynamic.*.ttl)

@@ -72,7 +72,7 @@ Schema/Opc.Ua.Types.xsd')
                         help='Export only the server specific (dynamic) part, including references between static '
                              'and dynamic nodes. Requires --serverUri. Together with the export without '
                              '--serverUri (static part) it composes the full export. The export gets its own '
-                             'ontology IRI (<ontology>dynamic).')
+                             'ontology IRI per server: <ontology> + base64url(svu=<serverUri>).')
     parser.add_argument('--dynamic-imports', nargs='*', required=False, default=[],
                         help='With --dynamic-only: additional owl:imports of the dynamic export, which are not read '
                              'as inputs, e.g. the static export of the same nodeset and the dynamic exports of its '

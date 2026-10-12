@@ -343,17 +343,22 @@ class TestClassification(unittest.TestCase):
                        (URIRef(TEST_NS + 'TESTNamespace'), RDF.type, BASE['Namespace'])):
             self.assertIn(triple, g)
         # own ontology header, importing the static export
-        dynamic_ontology = URIRef(TEST_NS + 'dynamic')
+        dynamic_ontology = utils.expanded_nodeid_to_iri(TEST_NS, f'svu={SERVER}')
         self.assertNotIn((URIRef(TEST_NS), RDF.type, OWL.Ontology), g)
         self.assertIn((dynamic_ontology, RDF.type, OWL.Ontology), g)
-        self.assertIn((dynamic_ontology, OWL.versionIRI, URIRef('http://example.com/v0.1/test/dynamic')), g)
+        self.assertIn((dynamic_ontology, OWL.versionIRI,
+                       utils.expanded_nodeid_to_iri('http://example.com/v0.1/test/', f'svu={SERVER}')), g)
         self.assertIn((dynamic_ontology, OWL.imports, URIRef('http://example.com/static.owl.ttl')), g)
         self.assertEqual(list(Collection(g, values)), [Literal(1), Literal(2)])
 
     def test_dynamic_ontology_iri(self):
-        self.assertEqual(NodesetParser.dynamic_ontology_iri('http://opcfoundation.org/UA/'),
-                         URIRef('http://opcfoundation.org/UA/dynamic'))
-        self.assertEqual(NodesetParser.dynamic_ontology_iri('urn:example:model'), URIRef('urn:example:model/dynamic'))
+        # base64url('svu=urn:a') = 'c3Z1PXVybjph'
+        self.assertEqual(NodesetParser.dynamic_ontology_iri('http://opcfoundation.org/UA/', 'urn:a'),
+                         URIRef('http://opcfoundation.org/UA/c3Z1PXVybjph'))
+        self.assertEqual(NodesetParser.dynamic_ontology_iri('http://example.com/v0.1/PADIM', 'urn:a'),
+                         URIRef('http://example.com/v0.1/PADIM/c3Z1PXVybjph'))
+        self.assertNotEqual(NodesetParser.dynamic_ontology_iri('http://opcfoundation.org/UA/', 'urn:a'),
+                            NodesetParser.dynamic_ontology_iri('http://opcfoundation.org/UA/', 'urn:b'))
 
 
 if __name__ == '__main__':

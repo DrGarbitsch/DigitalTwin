@@ -107,7 +107,8 @@ options:
                         nodes are not exported.
   --dynamic-only        Export only the server specific (dynamic) part, including references between static and
                         dynamic nodes. Requires --serverUri. Together with the export without --serverUri (static
-                        part) it composes the full export. The export gets its own ontology IRI (<ontology>dynamic).
+                        part) it composes the full export. The export gets its own ontology IRI per server: <ontology>
+                        + base64url(svu=<serverUri>).
   --dynamic-imports [DYNAMIC_IMPORTS ...]
                         With --dynamic-only: additional owl:imports of the dynamic export, which are not read as
                         inputs, e.g. the static export of the same nodeset and the dynamic exports of its
@@ -158,19 +159,24 @@ warns and leaves them and all references to them out; this is the *global* versi
 a companion specification, which can be shared by everyone. With `--serverUri` the
 dynamic nodes get `uardf:serverUri` and an `svu=` in their ExpandedNodeId (and IRI).
 `--dynamic-only` exports just the server specific part, which together with the static
-export composes the full export. It gets its own ontology IRI (`<ontology>dynamic`), and
-`--dynamic-imports` adds `owl:imports` to it (e.g. the static file and the dynamic files of
-the dependencies), so that both files can be loaded together.
+export composes the full export. It gets its own ontology IRI per server, the ontology IRI
+plus the base64url encoding of `svu=<server URI>` (like a node IRI), and `--dynamic-imports`
+adds `owl:imports` to it (e.g. the static file and the dynamic files of the dependencies), so
+that the static file and the dynamic files of one or more servers can be loaded together.
 
 `translate_default_nodesets.make` builds this dynamic part next to every static
-specification, for the server `$(SERVER_URI)`:
+specification. The file name carries the server URI (every character except `A-Za-z0-9._-`
+replaced by `_`), so the parts of several servers can be built and composed side by side:
 
-    make -f translate_default_nodesets.make dynamic                # all of them
-    make -f translate_default_nodesets.make core.owl.dynamic.ttl   # core.owl.ttl + core.owl.dynamic.ttl
+    make -f translate_default_nodesets.make dynamic                                # urn:example:opcua-server
+    make -f translate_default_nodesets.make dynamic SERVER_URI=urn:plant:server2   # another server
+    make -f translate_default_nodesets.make core.owl.dynamic.urn_example_opcua-server.ttl
 
-`core.owl.ttl` stays the global, shareable version; `core.owl.dynamic.ttl` holds the Server
-object and everything else that is specific to one server, and imports `core.owl.ttl`. The
-instance examples (e.g. `pumpexample.owl.ttl`) are already translated completely with
+`core.owl.ttl` stays the global, shareable version; `core.owl.dynamic.<server>.ttl` holds the
+Server object and everything else that is specific to that server, and imports `core.owl.ttl`.
+E.g. loading `di.owl.ttl` with the dynamic DI files of two servers shows one (static) DI
+NamespaceMetadata object, which is a component of the `Namespaces` objects of both servers.
+The instance examples (e.g. `pumpexample.owl.ttl`) are already translated completely with
 `--serverUri` and get no separate dynamic file.
 
 Instance nodesets therefore have to be translated with `--serverUri`, otherwise their

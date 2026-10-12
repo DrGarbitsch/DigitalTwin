@@ -29,10 +29,11 @@ UARDF = Namespace('http://opcfoundation.org/rdf/uacore#')
 def main(full_file, static_file, dynamic_file):
     full, static, dynamic = Graph().parse(full_file), Graph().parse(static_file), Graph().parse(dynamic_file)
     ok = True
-    # the dynamic export has its own ontology header (<ontology>dynamic), which is not part of the full export
+    # the dynamic export has its own ontology header (<ontology> + base64url(svu=<server>)), which is not part
+    # of the full export
     own_headers = set(dynamic.subjects(RDF.type, OWL.Ontology)) - set(full.subjects(RDF.type, OWL.Ontology))
-    if len(own_headers) != 1 or not str(next(iter(own_headers))).endswith('dynamic'):
-        print(f'Dynamic export must have exactly one own ontology header <ontology>dynamic, found {own_headers}')
+    if len(own_headers) != 1:
+        print(f'Dynamic export must have exactly one own ontology header, found {own_headers}')
         ok = False
     for header in own_headers:
         dynamic.remove((header, None, None))
