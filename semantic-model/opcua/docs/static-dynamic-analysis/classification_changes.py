@@ -35,7 +35,7 @@ import analyze  # noqa: E402
 RULES = {
     'R1': 'R1 instance-with-Variables rule (static → dynamic)',
     'R2': 'R2 containment rule (static → dynamic)',
-    'R5': 'R5 Variable-less Object rule (dynamic → static)',
+    'R5': 'R5 type-system rule (dynamic → static)',
 }
 # core TypeDefinitions of the type system and of folders -> area of the nodes R5 makes static
 TYPE_AREAS = {'i=76': 'DataType encodings', 'i=72': 'type dictionaries and their descriptions',

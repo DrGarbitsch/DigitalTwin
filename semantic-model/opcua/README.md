@@ -113,8 +113,8 @@ options:
   --strict-classification
                         Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) and R4
                         (otherwise types and instance declarations are static, instances dynamic). Disables the
-                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 (Variable-less Object),
-                        see README.
+                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 (type-system rule), see
+                        README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
                         dynamic and dynamic -> static) to this TSV file.
@@ -169,31 +169,32 @@ Standard rules (OPC UA):
 Heuristic rules (default, disabled by `--strict-classification`):
 
 - **R1 instance-with-Variables rule.** An instance (an Object or Variable which is neither a
-  type nor an instance declaration) that has Variables is dynamic, together with its
-  Variables: adding Variables to an instance expresses the intention of server specific
-  data. It overrides R3, e.g. every NamespaceMetadata object, core's ServerConfiguration or
-  DI's `MaxInactiveLockTime` (a Variable of core's ServerCapabilities). R1 looks at the
-  direct Variables only; transitively it would make static entry points such as core's
-  `Objects` folder dynamic.
+  type nor an instance declaration) that has Variables, or whose TypeDefinition (or a
+  supertype) declares Variables, is dynamic, together with its Variables: Variables express
+  the intention of server specific data, also for an instance whose Variables the nodeset
+  does not contain (partial instance). It overrides R3, e.g. every NamespaceMetadata object,
+  core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
+  ServerCapabilities). R1 looks at the direct Variables (and those of the type) only;
+  transitively it would make static entry points such as core's `Objects` folder dynamic.
 - **R2 containment rule.** An Object below a dynamic instance (HasChild) is dynamic, also
   against R3, e.g. the folders `SecurityGroups` or `CertificateGroups` of the server
   specific objects. Methods are not affected.
-- **R5 Variable-less Object rule.** It refines R4 where R3 does not decide: an Object is only
-  dynamic if a Variable is in its HasChild subtree (Method arguments do not count) or is
-  declared by its TypeDefinition (or a supertype), or if its HasChild parent is dynamic;
-  otherwise it is static, e.g. DataType encodings, dictionary entries, entry folders. A
-  Method follows its parent, its arguments follow the Method, and the Variables of the type
-  dictionaries are static. Organizes does not count, so a static entry folder can organize
-  dynamic machines.
-- **Type system exception.** Instances of ModellingRuleType, DataTypeSystemType,
+- **R5 type-system rule.** Where R3 does not decide, the instances of the type system are
+  static instead of dynamic (R4): instances of ModellingRuleType, DataTypeSystemType,
   DataTypeDictionaryType, DataTypeDescriptionType, DataTypeEncodingType and
-  DictionaryEntryType (and their subtypes) are not made dynamic by R1 or R2 and are static by
-  R5: types refer to them (e.g. every ModellingRule has a NamingRule property, PADIM refers
-  to IRDI dictionary entries).
+  DictionaryEntryType (and their subtypes), e.g. DataType encodings and dictionary entries,
+  and the Variables of the type dictionaries. Types refer to them (every ModellingRule has a
+  NamingRule property, PADIM refers to IRDI dictionary entries), so R1 and R2 never make them
+  dynamic either.
 
-HasChild includes all its subtypes (HasComponent, HasProperty, HasOrderedComponent,
-HasAddIn, ...), also those of companion specifications, resolved via the ReferenceType
-hierarchy. `--classification-report <file>` writes the nodes which the heuristic rules
+All rules follow HasChild only, including all its subtypes (HasComponent, HasProperty,
+HasOrderedComponent, HasAddIn, ...), also those of companion specifications, resolved via the
+ReferenceType hierarchy. Organizes (hierarchical, but no HasChild), like every other reference
+which is not HasChild, never influences the classification: organizing a node does not make it
+part of the organizer, so a static entry folder can organize dynamic machines and a node
+organized by a dynamic instance keeps its own classification.
+
+`--classification-report <file>` writes the nodes which the heuristic rules
 classify differently than the standard rules (with the rule) as TSV. For the default
 specifications, all of them are listed in
 [docs/static-dynamic-analysis/classification-changes.md](./docs/static-dynamic-analysis/classification-changes.md),

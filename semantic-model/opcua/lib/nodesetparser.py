@@ -115,7 +115,7 @@ UARDF = utils.UARDF
 idtype_enum = {'i': 0, 's': 1, 'g': 2, 'b': 3}
 instance_tags = ('UAObject', 'UAVariable', 'UAMethod', 'UAView')
 type_tags = ('UAObjectType', 'UAVariableType', 'UADataType', 'UAReferenceType')
-# Type system exception: instances of these types (and their subtypes) belong to the type system or are global
+# Type system (rule R5): instances of these types (and their subtypes) belong to the type system or are global
 # definitions which types refer to (ModellingRules, DataType encodings, type dictionaries and their descriptions,
 # dictionary entries). The heuristic rules R1 and R2 do not make them dynamic, R5 makes them static; e.g. every
 # ModellingRule object has a NamingRule property.
@@ -1302,31 +1302,19 @@ Did you forget to import it?")
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           R4 default rule: otherwise types and instance declarations are static, instances dynamic.
         Heuristic rules (default), in this order:
-          R1 instance-with-Variables rule: an instance with Variables is dynamic together with its Variables, also
-             against R3 (instances_with_variables).
-          R2 containment rule: an Object below a dynamic instance (HasChild) or organized by it (Organizes) is
-             dynamic, also against R3.
-          R5 Variable-less Object rule (refines R4 where R3 does not decide): an Object is dynamic if a Variable is
-             in its HasChild subtree (Method arguments do not count) or declared by its TypeDefinition (or a
-             supertype), or if its HasChild parent or an organizer is dynamic; otherwise it is static. A Method
-             follows its parent, its arguments follow the Method, the Variables of the type dictionaries are static.
-        Type system exception: instances of heuristic_exception_types (and subtypes) are not made dynamic by R1/R2
-        and are static by R5.
+          R1 instance-with-Variables rule: an instance which has Variables, or whose TypeDefinition (or a
+             supertype) declares Variables, is dynamic together with its Variables, also against R3.
+          R2 containment rule: an Object below a dynamic instance (HasChild) is dynamic, also against R3.
+          R5 type-system rule (where R3 does not decide): instances of the type system (heuristic_exception_types
+             and their subtypes) and the Variables of the type dictionaries are static.
+        R1 and R2 never make instances of the type system dynamic. Only HasChild (and its subtypes) is considered:
+        Organizes (or any other reference which is not HasChild) never influences the classification.
         """
         formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
         if self.strict_classification:
             return {key: (static, static, None) for key, static in formal.items()}
         rule1 = self.instances_with_variables(xml_nodes)
         children = self.children_of_nodes(xml_nodes)
-        organizers = {}  # key -> keys of the nodes which organize it (Organizes in either direction)
-        for key, node in xml_nodes.items():
-            for ref in self.get_node_references(node):
-                if self.is_reference_of_type(ref, organizesId, forward=False):
-                    organizers.setdefault(key, set()).add(self.key_from_nodeid_string(ref.text))
-                elif self.is_reference_of_type(ref, organizesId):
-                    target = self.key_from_nodeid_string(ref.text)
-                    if target in xml_nodes:
-                        organizers.setdefault(target, set()).add(key)
         result = {}
         type_cache = {}
 
@@ -1374,19 +1362,20 @@ Did you forget to import it?")
             return parent in xml_nodes and parent not in seen and tag(parent) == 'UAVariable' and \
                 is_typesystem_variable(parent, set(seen) | {key})
 
+        # R1, extended to the TypeDefinition: an instance whose type (or a supertype) declares Variables is dynamic
+        # too, even if the nodeset does not contain its Variables (e.g. a partial instance)
+        for key, node in xml_nodes.items():
+            if key not in rule1 and tag(key) in ('UAObject', 'UAVariable') and not is_exception(key) and \
+                    not self.is_instance_declaration(key, xml_nodes) and \
+                    type_declares_variables(self.typedef_key(node)):
+                rule1[key] = 'R1: instance whose TypeDefinition declares Variables'
+
         def parent_static(parent, visiting):
             if parent is None:
                 return True
             if parent in xml_nodes:
                 return parent in visiting or classify(parent, visiting)[0]
             return self.is_foreign_static(parent)
-
-        def containers(key, parent):
-            """HasChild parent and organizers of a node: the nodes it is contained in."""
-            return ({parent} if parent is not None else set()) | organizers.get(key, set())
-
-        def dynamic_container(key, parent, visiting):
-            return next((c for c in sorted(containers(key, parent)) if not parent_static(c, visiting)), None)
 
         def classify(key, visiting=frozenset()):
             if key in result:
@@ -1402,25 +1391,14 @@ Did you forget to import it?")
             is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif static and is_object and not is_exception(key) and \
-                    not self.is_instance_declaration(key, xml_nodes) and \
-                    dynamic_container(key, parent, visiting) is not None:
-                container = dynamic_container(key, parent, visiting)
-                how = 'below' if container == parent else 'organized by'
-                static, reason = False, f'R2: Object {how} dynamic instance {self.node_label(container, xml_nodes)}'
+            elif static and is_object and parent is not None and not is_exception(key) and \
+                    not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
+                static, reason = False, f'R2: Object below dynamic instance {self.node_label(parent, xml_nodes)}'
             elif undecided and not static and tag(key) in instance_tags:
-                if is_object:
-                    if is_exception(key):
-                        static, reason = True, 'R5: instance of the type system exception'
-                    elif not has_variable_below(key, {key}) and dynamic_container(key, parent, visiting) is None:
-                        static, reason = True, 'R5: Object without Variables below and without dynamic parent'
-                elif tag(key) == 'UAMethod':
-                    if parent_static(parent, visiting):
-                        static, reason = True, 'R5: Method of a static parent'
-                elif is_typesystem_variable(key):
+                if is_object and is_exception(key):
+                    static, reason = True, 'R5: instance of the type system'
+                elif tag(key) == 'UAVariable' and is_typesystem_variable(key):
                     static, reason = True, 'R5: Variable of a type dictionary'
-                elif parent in xml_nodes and tag(parent) == 'UAMethod' and parent_static(parent, visiting):
-                    static, reason = True, 'R5: argument of a static Method'
             result[key] = (static, formal[key], reason if static != formal[key] else None)
             return result[key]
 

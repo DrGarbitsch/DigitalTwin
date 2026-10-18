@@ -303,32 +303,45 @@ class TestClassification(unittest.TestCase):
         self.assertIsNone(parser.node_iris[self.key(parser, 'Named', 'stringID')])
         self.assertEqual(len(parser.skipped_dynamic_nodes), 3)
 
-    def test_default_heuristic(self):
-        # the default rule is refined: the instance 5001 has a Variable and stays dynamic, the Object Named without
-        # Variables and without parent becomes static
+    def test_default_rule_without_metadata(self):
+        # without NamespaceMetadata the default rule R4 applies: the instance 5001 (with Variable) and the Object Named
+        # (without Variables) are dynamic; R5 only concerns the type system
         parser = self.make_parser()
         parser.classify_nodes()
-        self.assertNotIn(self.key(parser, '5001'), parser.static_nodes)
-        self.assertNotIn(self.key(parser, '5002'), parser.static_nodes)
+        for dynamic in ('5001', '5002'):
+            self.assertNotIn(self.key(parser, dynamic), parser.static_nodes)
         named = self.key(parser, 'Named', 'stringID')
-        self.assertIn(named, parser.static_nodes)
-        self.assertEqual(parser.heuristic_overrides[named],
-                         'R5: Object without Variables below and without dynamic parent')
+        self.assertNotIn(named, parser.static_nodes)
+        self.assertNotIn(named, parser.heuristic_overrides)
 
-    def test_default_heuristic_cases(self):
+    def test_heuristic_cases_without_metadata(self):
         parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES)
         parser.classify_nodes()
         self.assertIn(self.key(parser, '6500'), parser.haschild_keys)  # custom subtype of HasComponent
-        for static in ('6000', '6400', '6300', '6301'):  # encoding; Object with a Method; Method; its argument
-            self.assertIn(self.key(parser, static), parser.static_nodes, static)
-        for dynamic in ('6100', '6101', '6102', '6201', '6600', '6601', '6700'):  # 6700: its type has Variables
+        # R5: the encoding is static
+        self.assertIn(self.key(parser, '6000'), parser.static_nodes)
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6000')], 'R5: instance of the type system')
+        # R4: all other instances are dynamic, also the partial instance 6700 (R1 by its TypeDefinition, which is
+        # no change here, since R4 makes it dynamic anyway)
+        for dynamic in ('6100', '6101', '6102', '6201', '6400', '6300', '6301', '6600', '6601', '6700'):
             self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
-        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6301')], 'R5: argument of a static Method')
-        # strict: every instance is dynamic
+        # strict: the encoding is dynamic as well
         parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES, strict=True)
         parser.classify_nodes()
-        for dynamic in ('6000', '6400', '6300', '6301'):
-            self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
+        self.assertNotIn(self.key(parser, '6000'), parser.static_nodes)
+
+    def test_r1_by_typedefinition(self):
+        # the partial instance 6700 (its type TestType declares Variables, the nodeset contains none of them) is
+        # dynamic by R1, also against the NamespaceMetadata which declares it static
+        metadata = METADATA.replace('<String>1:5001</String>', '<String>1:7000</String>')
+        self.assertNotEqual(metadata, METADATA)
+        parser = self.make_parser(metadata=metadata + DEFAULT_HEURISTIC_NODES)
+        parser.classify_nodes()
+        partial = self.key(parser, '6700')
+        self.assertNotIn(partial, parser.static_nodes)
+        self.assertEqual(parser.heuristic_overrides[partial], 'R1: instance whose TypeDefinition declares Variables')
+        # an Object whose type declares no Variables stays static
+        self.assertIn(self.key(parser, '6400'), parser.static_nodes)
 
     def test_fallback_rule_with_server_uri(self):
         parser = self.make_parser(server_uri=SERVER)
@@ -370,8 +383,9 @@ class TestClassification(unittest.TestCase):
         self.assertTrue(parser.heuristic_overrides[self.key(parser, '4200')].startswith(
             'R2: Object below dynamic instance Instance'))
         self.assertIn(self.key(parser, '4300'), parser.static_nodes)
-        self.assertTrue(parser.heuristic_overrides[self.key(parser, '4400')].startswith(
-            'R2: Object organized by dynamic instance Instance'))
+        # Organizes does not influence the classification: the folder organized by 5001 stays static
+        self.assertIn(self.key(parser, '4400'), parser.static_nodes)
+        self.assertNotIn(self.key(parser, '4400'), parser.heuristic_overrides)
         # 5002 is outside of the ranges, dynamic anyway: no override
         self.assertNotIn(self.key(parser, '5002'), parser.heuristic_overrides)
         # types, instance declarations (1002 has the Variable 1003) and ModellingRules stay static

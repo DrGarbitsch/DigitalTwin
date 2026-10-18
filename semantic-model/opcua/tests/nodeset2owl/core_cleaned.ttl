@@ -4665,6 +4665,18 @@ opcua:aT0yNDI4MQ a uardf:DataType ;
     uardf:nodeId "i=24281" ;
     uardf:symbolicName "UserManagementDataType" .
 
+opcua:aT0yNDIyNw a uardf:Object ;
+    opcua:Organizes opcua:aT0yNDIyOA,
+        opcua:aT0yNDIyOQ,
+        opcua:aT0yNDIzMA ;
+    uardf:browseName "Communication" ;
+    uardf:displayName "Communication"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "Communication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24227" ;
+    uardf:symbolicName "Communication" .
+
 opcua:aT0yNQ a uardf:DataType ;
     uardf:browseName "DiagnosticInfo" ;
     uardf:definesType opcua:DiagnosticInfo ;
@@ -15227,6 +15239,16 @@ opcua:aT0xNjIzOQ a uardf:Method ;
     uardf:nodeId "i=16239" ;
     uardf:symbolicName "AddApplication" .
 
+opcua:aT0xNjM1NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjM1NQ ;
+    opcua:hasInputArguments opcua:aT0xNjM1NQ ;
+    uardf:browseName "Delete" ;
+    uardf:displayName "Delete"@en ;
+    uardf:name "Delete" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16354" ;
+    uardf:symbolicName "DeleteFileSystemObject" .
+
 opcua:aT0xNjM5MQ a uardf:Object ;
     uardf:browseName "Default JSON" ;
     uardf:displayName "Default JSON"@en ;
@@ -17109,6 +17131,53 @@ opcua:aT0yNDIyNA a uardf:DataType ;
     uardf:nodeId "i=24224" ;
     uardf:symbolicName "TsnListenerStatus" .
 
+opcua:aT0yNDIyOA a uardf:Object ;
+    uardf:browseName "MappingTables" ;
+    uardf:displayName "MappingTables"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "MappingTables" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24228" ;
+    uardf:symbolicName "MappingTables" .
+
+opcua:aT0yNDIyOQ a uardf:Object ;
+    uardf:browseName "NetworkInterfaces" ;
+    uardf:displayName "NetworkInterfaces"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "NetworkInterfaces" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24229" ;
+    uardf:symbolicName "NetworkInterfaces" .
+
+opcua:aT0yNDIzMA a uardf:Object ;
+    opcua:Organizes opcua:aT0yNDIzMQ,
+        opcua:aT0yNDIzMg ;
+    uardf:browseName "Streams" ;
+    uardf:displayName "Streams"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "Streams" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24230" ;
+    uardf:symbolicName "Streams" .
+
+opcua:aT0yNDIzMQ a uardf:Object ;
+    uardf:browseName "TalkerStreams" ;
+    uardf:displayName "TalkerStreams"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "TalkerStreams" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24231" ;
+    uardf:symbolicName "TalkerStreams" .
+
+opcua:aT0yNDIzMg a uardf:Object ;
+    uardf:browseName "ListenerStreams" ;
+    uardf:displayName "ListenerStreams"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "ListenerStreams" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24232" ;
+    uardf:symbolicName "ListenerStreams" .
+
 opcua:aT0yNDIzMw a uardf:ObjectType ;
     opcua:HasComponent opcua:aT0yNDIzNA ;
     opcua:hasNegotiationStatus opcua:aT0yNDIzNA ;
@@ -18728,6 +18797,9 @@ opcua:FieldMetaData a owl:Class ;
         opcua:Name,
         opcua:Properties,
         opcua:ValueRank .
+
+opcua:FileDirectoryType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
 
 opcua:FileTransferStateMachineType a owl:Class ;
     rdfs:subClassOf opcua:FiniteStateMachineType .
@@ -31136,6 +31208,18 @@ opcua:aT0xNjIzNQ a uardf:Variable ;
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
+opcua:aT0xNjM0OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjM0OQ,
+        opcua:aT0xNjM1MA ;
+    opcua:hasInputArguments opcua:aT0xNjM0OQ ;
+    opcua:hasOutputArguments opcua:aT0xNjM1MA ;
+    uardf:browseName "CreateDirectory" ;
+    uardf:displayName "CreateDirectory"@en ;
+    uardf:name "CreateDirectory" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16348" ;
+    uardf:symbolicName "CreateDirectory" .
+
 opcua:aT0xNjM0OQ a uardf:Variable ;
     uardf:browseName "InputArguments" ;
     uardf:displayName "InputArguments"@en ;
@@ -31163,6 +31247,18 @@ opcua:aT0xNjM1MA a uardf:Variable ;
     base:hasDatatype opcua:Argument ;
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"DirectoryNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
+
+opcua:aT0xNjM1MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjM1Mg,
+        opcua:aT0xNjM1Mw ;
+    opcua:hasInputArguments opcua:aT0xNjM1Mg ;
+    opcua:hasOutputArguments opcua:aT0xNjM1Mw ;
+    uardf:browseName "CreateFile" ;
+    uardf:displayName "CreateFile"@en ;
+    uardf:name "CreateFile" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16351" ;
+    uardf:symbolicName "CreateFile" .
 
 opcua:aT0xNjM1Mg a uardf:Variable ;
     uardf:browseName "InputArguments" ;
@@ -31205,6 +31301,18 @@ opcua:aT0xNjM1NQ a uardf:Variable ;
     base:hasDatatype opcua:Argument ;
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ObjectToDelete\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
+
+opcua:aT0xNjM1Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjM1Nw,
+        opcua:aT0xNjM1OA ;
+    opcua:hasInputArguments opcua:aT0xNjM1Nw ;
+    opcua:hasOutputArguments opcua:aT0xNjM1OA ;
+    uardf:browseName "MoveOrCopy" ;
+    uardf:displayName "MoveOrCopy"@en ;
+    uardf:name "MoveOrCopy" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16356" ;
+    uardf:symbolicName "MoveOrCopy" .
 
 opcua:aT0xNjM1Nw a uardf:Variable ;
     uardf:browseName "InputArguments" ;
@@ -49929,9 +50037,6 @@ opcua:Fields a owl:NamedIndividual,
         opcua:StructureField ;
     base:hasFieldName "Fields" .
 
-opcua:FileDirectoryType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
-
 opcua:Frame a owl:Class ;
     rdfs:subClassOf opcua:Structure .
 
@@ -54170,17 +54275,6 @@ opcua:aT0xNjI5OQ a uardf:Method ;
     uardf:nodeId "i=16299" ;
     uardf:parent opcua:aT0xNjI5NQ ;
     uardf:symbolicName "RemoveRole" .
-
-opcua:aT0xNjM1NA a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNjM1NQ ;
-    opcua:hasInputArguments opcua:aT0xNjM1NQ ;
-    uardf:browseName "Delete" ;
-    uardf:displayName "Delete"@en ;
-    uardf:name "Delete" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=16354" ;
-    uardf:parent opcua:aT0xNjMxNA ;
-    uardf:symbolicName "DeleteFileSystemObject" .
 
 opcua:aT0xNjMwOQ a uardf:VariableType ;
     opcua:HasProperty opcua:aT0xNjMxMg,
@@ -59294,62 +59388,6 @@ opcua:aT0xNjI5Ng a uardf:Method ;
     uardf:nodeId "i=16296" ;
     uardf:parent opcua:aT0xNjI5NQ ;
     uardf:symbolicName "AddRole" .
-
-opcua:aT0xNjM0OA a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNjM0OQ,
-        opcua:aT0xNjM1MA ;
-    opcua:hasInputArguments opcua:aT0xNjM0OQ ;
-    opcua:hasOutputArguments opcua:aT0xNjM1MA ;
-    uardf:browseName "CreateDirectory" ;
-    uardf:displayName "CreateDirectory"@en ;
-    uardf:name "CreateDirectory" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=16348" ;
-    uardf:parent opcua:aT0xNjMxNA ;
-    uardf:symbolicName "CreateDirectory" .
-
-opcua:aT0xNjM1MQ a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNjM1Mg,
-        opcua:aT0xNjM1Mw ;
-    opcua:hasInputArguments opcua:aT0xNjM1Mg ;
-    opcua:hasOutputArguments opcua:aT0xNjM1Mw ;
-    uardf:browseName "CreateFile" ;
-    uardf:displayName "CreateFile"@en ;
-    uardf:name "CreateFile" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=16351" ;
-    uardf:parent opcua:aT0xNjMxNA ;
-    uardf:symbolicName "CreateFile" .
-
-opcua:aT0xNjM1Ng a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNjM1Nw,
-        opcua:aT0xNjM1OA ;
-    opcua:hasInputArguments opcua:aT0xNjM1Nw ;
-    opcua:hasOutputArguments opcua:aT0xNjM1OA ;
-    uardf:browseName "MoveOrCopy" ;
-    uardf:displayName "MoveOrCopy"@en ;
-    uardf:name "MoveOrCopy" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=16356" ;
-    uardf:parent opcua:aT0xNjMxNA ;
-    uardf:symbolicName "MoveOrCopy" .
-
-opcua:aT0xNjMxNA a uardf:Object ;
-    opcua:HasComponent opcua:aT0xNjM0OA,
-        opcua:aT0xNjM1MQ,
-        opcua:aT0xNjM1NA,
-        opcua:aT0xNjM1Ng ;
-    opcua:hasCreateDirectory opcua:aT0xNjM0OA ;
-    opcua:hasCreateFile opcua:aT0xNjM1MQ ;
-    opcua:hasDelete opcua:aT0xNjM1NA ;
-    opcua:hasMoveOrCopy opcua:aT0xNjM1Ng ;
-    uardf:browseName "FileSystem" ;
-    uardf:displayName "FileSystem"@en ;
-    uardf:hasTypeDefinition opcua:FileDirectoryType ;
-    uardf:name "FileSystem" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=16314" ;
-    uardf:symbolicName "FileSystem" .
 
 opcua:aT0xNjU5OA a uardf:Method ;
     opcua:HasProperty opcua:aT0xNjU5OQ,
@@ -66837,9 +66875,6 @@ opcua:aT0yMTcy a uardf:VariableType ;
     uardf:symbolicName "SubscriptionDiagnosticsType" ;
     base:hasDatatype opcua:SubscriptionDiagnosticsDataType .
 
-opcua:FolderType a owl:Class ;
-    rdfs:subClassOf opcua:BaseObjectType .
-
 opcua:aT0xMjc4NA a uardf:Variable ;
     opcua:HasComponent opcua:aT0xMjc4NQ,
         opcua:aT0xMjc4Ng,
@@ -67071,6 +67106,9 @@ opcua:NodeAttributesMask a owl:Class ;
     rdfs:subClassOf opcua:Enumeration .
 
 opcua:AggregateFunctionType a owl:Class ;
+    rdfs:subClassOf opcua:BaseObjectType .
+
+opcua:FolderType a owl:Class ;
     rdfs:subClassOf opcua:BaseObjectType .
 
 opcua:aT0xMTUwOA a uardf:Object ;

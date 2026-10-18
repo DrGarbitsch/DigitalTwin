@@ -77,7 +77,7 @@ Schema/Opc.Ua.Types.xsd')
                         help='Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) '
                              'and R4 (otherwise types and instance declarations are static, instances dynamic). '
                              'Disables the heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 '
-                             '(Variable-less Object), see README.')
+                             '(type-system rule), see README.')
     parser.add_argument('--classification-report', required=False, default=None,
                         help='Write the nodes which the heuristics classify differently than the standard rules '
                              '(static -> dynamic and dynamic -> static) to this TSV file.')
