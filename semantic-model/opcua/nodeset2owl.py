@@ -73,6 +73,14 @@ Schema/Opc.Ua.Types.xsd')
                              'and dynamic nodes. Requires --serverUri. Together with the export without '
                              '--serverUri (static part) it composes the full export. The export gets its own '
                              'ontology IRI per server: <ontology> + base64url(svu=<serverUri>).')
+    parser.add_argument('--strict-classification', required=False, action='store_true',
+                        help='Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the '
+                             'nodeset, otherwise types and instance declarations are static and instances are '
+                             'dynamic. Disables the heuristic that an instance with Variables is dynamic together '
+                             'with its Variables.')
+    parser.add_argument('--classification-report', required=False, default=None,
+                        help='Write the nodes which only the instance-with-variables heuristic classifies dynamic '
+                             'to this TSV file.')
     parser.add_argument('--dynamic-imports', nargs='*', required=False, default=[],
                         help='With --dynamic-only: additional owl:imports of the dynamic export, which are not read '
                              'as inputs, e.g. the static export of the same nodeset and the dynamic exports of its '
@@ -137,6 +145,8 @@ if __name__ == '__main__':
                                   not args.import_indirect_dependencies)
     print("Parsing nodesets and build OWL graph ...")
     nodesetparser.parse()
+    if args.classification_report is not None:
+        nodesetparser.write_classification_report(args.classification_report)
     if not args.disable_semantic_bridge:
         print("Adding semantic relationships...")
         nodesetparser.add_semantic_bridge()

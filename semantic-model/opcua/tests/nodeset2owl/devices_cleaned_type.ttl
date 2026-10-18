@@ -176,17 +176,6 @@ devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MjQ2 a uardf:Variabl
     uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6246" ;
     uardf:symbolicName "UIElementType" .
 
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02Mzg3 a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;MaxInactiveLockTime" ;
-    uardf:description "Server-specific period of time in milliseconds until the Server will revoke a lock."@en ;
-    uardf:displayName "MaxInactiveLockTime"@en ;
-    uardf:name "MaxInactiveLockTime" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6387" ;
-    uardf:symbolicName "MaxInactiveLockTime" ;
-    base:hasDatatype opcua:Duration .
-
 devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02NDY3 a uardf:ReferenceType ;
     uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;ConnectsToParent" ;
     uardf:definesType devices:ConnectsToParent ;
@@ -507,9 +496,6 @@ devices:hasNotWaitingForPowerCycle a owl:ObjectProperty ;
 devices:hasNotWaitingForPowerCycleToWaitingForPowerCycle a owl:ObjectProperty ;
     rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
 
-devices:hasOnlineAccess a owl:ObjectProperty ;
-    rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
-
 devices:hasOpc.Ua.Di a owl:ObjectProperty ;
     rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
 
@@ -667,8 +653,7 @@ devices:hasWriteTimeout a owl:ObjectProperty ;
     rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
 
 opcua:aT04NQ opcua:Organizes devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT01MDAx,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDc4,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk0 .
+        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDc4 .
 
 opcua:aT05Mg devices:hasOpc.Ua.Di devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02NDIz ;
     opcua:HasComponent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02NDIz .
@@ -1397,30 +1382,6 @@ devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDI2 a opcua:BaseObj
     uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6026" ;
     uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xMDA0 ;
     uardf:symbolicName "ObjectIdentifier" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk0 a opcua:BaseObjectType,
-        uardf:Object ;
-    devices:hasOnlineAccess devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk1 ;
-    opcua:HasProperty devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk1 ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;DeviceTopology" ;
-    uardf:description "Starting point of the configured device topology."@en ;
-    uardf:displayName "DeviceTopology"@en ;
-    uardf:name "DeviceTopology" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6094" ;
-    uardf:symbolicName "DeviceTopology" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk1 a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;OnlineAccess" ;
-    uardf:description "Hint of whether the Server is currently able to communicate to Devices in the topology."@en ;
-    uardf:displayName "OnlineAccess"@en ;
-    uardf:name "OnlineAccess" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6095" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MDk0 ;
-    uardf:symbolicName "OnlineAccess" ;
-    base:hasDatatype opcua:Boolean .
 
 devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MQ a uardf:Method ;
     uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;Resume" ;
@@ -2858,130 +2819,6 @@ devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTA5OQ a opcua:Prope
     uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTA2Mw ;
     uardf:symbolicName "ComponentName" ;
     base:hasDatatype opcua:LocalizedText .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMg a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "NamespaceUri" ;
-    uardf:displayName "NamespaceUri"@en ;
-    uardf:name "NamespaceUri" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15002" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "NamespaceUri" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "http://opcfoundation.org/UA/DI/" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMw a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "NamespaceVersion" ;
-    uardf:displayName "NamespaceVersion"@en ;
-    uardf:name "NamespaceVersion" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15003" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "NamespaceVersion" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "1.04.0" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNA a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "NamespacePublicationDate" ;
-    uardf:displayName "NamespacePublicationDate"@en ;
-    uardf:name "NamespacePublicationDate" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15004" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "NamespacePublicationDate" ;
-    base:hasDatatype opcua:DateTime ;
-    base:hasValue "2022-11-03T00:00:00Z" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNQ a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "IsNamespaceSubset" ;
-    uardf:displayName "IsNamespaceSubset"@en ;
-    uardf:name "IsNamespaceSubset" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15005" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "IsNamespaceSubset" ;
-    base:hasDatatype opcua:Boolean ;
-    base:hasValue false .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNg a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "StaticNodeIdTypes" ;
-    uardf:displayName "StaticNodeIdTypes"@en ;
-    uardf:name "StaticNodeIdTypes" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15006" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "StaticNodeIdTypes" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:IdType ;
-    base:hasValueList ( 0 ) ;
-    base:hasValueRank 1 .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNw a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "StaticNumericNodeIdRange" ;
-    uardf:displayName "StaticNumericNodeIdRange"@en ;
-    uardf:name "StaticNumericNodeIdRange" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15007" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "StaticNumericNodeIdRange" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:NumericRange ;
-    base:hasValueList ( "1:2147483647" ) ;
-    base:hasValueRank 1 .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwOA a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "StaticStringNodeIdPattern" ;
-    uardf:displayName "StaticStringNodeIdPattern"@en ;
-    uardf:name "StaticStringNodeIdPattern" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15008" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "StaticStringNodeIdPattern" ;
-    base:hasDatatype opcua:String .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMQ a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "DefaultRolePermissions" ;
-    uardf:displayName "DefaultRolePermissions"@en ;
-    uardf:name "DefaultRolePermissions" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15031" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "DefaultRolePermissions" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:RolePermissionType ;
-    base:hasValueRank 1 .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMg a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "DefaultUserRolePermissions" ;
-    uardf:displayName "DefaultUserRolePermissions"@en ;
-    uardf:name "DefaultUserRolePermissions" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15032" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "DefaultUserRolePermissions" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:RolePermissionType ;
-    base:hasValueRank 1 .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMw a opcua:PropertyType,
-        uardf:Variable ;
-    uardf:browseName "DefaultAccessRestrictions" ;
-    uardf:displayName "DefaultAccessRestrictions"@en ;
-    uardf:name "DefaultAccessRestrictions" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15033" ;
-    uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ ;
-    uardf:symbolicName "DefaultAccessRestrictions" ;
-    base:hasDatatype opcua:AccessRestrictionType .
 
 devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzNg a opcua:PropertyType,
         uardf:Variable ;
@@ -5941,35 +5778,6 @@ devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02Mjk0 a devices:Locki
     uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=6294" ;
     uardf:parent devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT02MjQ3 ;
     uardf:symbolicName "Lock" .
-
-devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMQ a opcua:NamespaceMetadataType,
-        uardf:Object ;
-    opcua:HasProperty devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMg,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMw,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNA,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNQ,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNg,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNw,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwOA,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMQ,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMg,
-        devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMw ;
-    opcua:hasDefaultAccessRestrictions devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMw ;
-    opcua:hasDefaultRolePermissions devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMQ ;
-    opcua:hasDefaultUserRolePermissions devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAzMg ;
-    opcua:hasIsNamespaceSubset devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNQ ;
-    opcua:hasNamespacePublicationDate devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNA ;
-    opcua:hasNamespaceUri devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMg ;
-    opcua:hasNamespaceVersion devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwMw ;
-    opcua:hasStaticNodeIdTypes devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNg ;
-    opcua:hasStaticNumericNodeIdRange devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwNw ;
-    opcua:hasStaticStringNodeIdPattern devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0xNTAwOA ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/DI/;http://opcfoundation.org/UA/DI/" ;
-    uardf:displayName "http://opcfoundation.org/UA/DI/"@en ;
-    uardf:name "http://opcfoundation.org/UA/DI/" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/DI/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/DI/;i=15001" ;
-    uardf:symbolicName "OPCUADINamespaceMetadata" .
 
 devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0yNDk a uardf:ObjectType ;
     devices:hasError devices:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9ESS87aT0yNzU ;

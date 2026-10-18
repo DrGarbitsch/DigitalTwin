@@ -67203,42 +67203,6 @@ pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIxOQ a uardf:Var
     base:hasDatatype opcua:EUInformation ;
     base:hasValue "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=888\"}, \"xsd:Body\": {\"xsd:EUInformation\": {\"xsd:NamespaceUri\": \"http://www.opcfoundation.org/UA/units/un/cefact\", \"xsd:UnitId\": 4403510, \"xsd:DisplayName\": {\"xsd:Text\": \"mm/s\"}, \"xsd:Description\": {\"xsd:Text\": \"millimetre per second\"}}}}"^^rdf:JSON .
 
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMA a uardf:Variable ;
-    uardf:browseName "IsNamespaceSubset" ;
-    uardf:displayName "IsNamespaceSubset"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "IsNamespaceSubset" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13220" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "IsNamespaceSubset" ;
-    base:hasDatatype opcua:Boolean ;
-    base:hasValue false .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMQ a uardf:Variable ;
-    uardf:browseName "NamespacePublicationDate" ;
-    uardf:displayName "NamespacePublicationDate"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespacePublicationDate" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13221" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "NamespacePublicationDate" ;
-    base:hasDatatype opcua:DateTime ;
-    base:hasValue "2021-04-19T00:00:00Z" .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMg a uardf:Variable ;
-    uardf:browseName "NamespaceUri" ;
-    uardf:displayName "NamespaceUri"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespaceUri" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13222" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "NamespaceUri" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "http://opcfoundation.org/UA/Pumps/" .
-
 pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMw a uardf:Variable ;
     opcua:HasModellingRule opcua:aT04MA ;
     uardf:browseName "Definition" ;
@@ -71626,59 +71590,6 @@ pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3NQ a uardf:Var
     uardf:symbolicName "EngineeringUnits" ;
     base:hasDatatype opcua:EUInformation ;
     base:hasValue "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=888\"}, \"xsd:Body\": {\"xsd:EUInformation\": {\"xsd:NamespaceUri\": \"http://www.opcfoundation.org/UA/units/un/cefact\", \"xsd:UnitId\": 4405559, \"xsd:DisplayName\": {\"xsd:Text\": \"s\\u207b\\u00b9\"}, \"xsd:Description\": {\"xsd:Text\": \"reciprocal second\"}}}}"^^rdf:JSON .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Ng a uardf:Variable ;
-    uardf:browseName "NamespaceVersion" ;
-    uardf:displayName "NamespaceVersion"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespaceVersion" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13676" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "NamespaceVersion" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "1.0.0" .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Nw a uardf:Variable ;
-    uardf:browseName "StaticNodeIdTypes" ;
-    uardf:displayName "StaticNodeIdTypes"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNodeIdTypes" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13677" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "StaticNodeIdTypes" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:IdType ;
-    base:hasValueList ( 0 ) ;
-    base:hasValueRank 1 .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OA a uardf:Variable ;
-    uardf:browseName "StaticNumericNodeIdRange" ;
-    uardf:displayName "StaticNumericNodeIdRange"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNumericNodeIdRange" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13678" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "StaticNumericNodeIdRange" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:NumericRange ;
-    base:hasValueList ( "1:2147483647" ) ;
-    base:hasValueRank 1 .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OQ a uardf:Variable ;
-    uardf:browseName "StaticStringNodeIdPattern" ;
-    uardf:displayName "StaticStringNodeIdPattern"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticStringNodeIdPattern" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=13679" ;
-    uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 ;
-    uardf:symbolicName "StaticStringNodeIdPattern" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue """
-      """ .
 
 pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY4MA a uardf:Variable ;
     opcua:HasModellingRule opcua:aT04MA ;
@@ -137500,29 +137411,6 @@ pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM3 a uardf:Objec
     uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=5237" ;
     uardf:parent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM0 ;
     uardf:symbolicName "CleanValveRequest" .
-
-pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjM5 a uardf:Object ;
-    opcua:HasProperty pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMA,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMQ,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMg,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Ng,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Nw,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OA,
-        pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OQ ;
-    opcua:hasIsNamespaceSubset pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMA ;
-    opcua:hasNamespacePublicationDate pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMQ ;
-    opcua:hasNamespaceUri pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzIyMg ;
-    opcua:hasNamespaceVersion pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Ng ;
-    opcua:hasStaticNodeIdTypes pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3Nw ;
-    opcua:hasStaticNumericNodeIdRange pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OA ;
-    opcua:hasStaticStringNodeIdPattern pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xMzY3OQ ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/Pumps/;http://opcfoundation.org/UA/Pumps/" ;
-    uardf:displayName "http://opcfoundation.org/UA/Pumps/"@en ;
-    uardf:hasTypeDefinition opcua:NamespaceMetadataType ;
-    uardf:name "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Pumps/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Pumps/;i=5239" ;
-    uardf:symbolicName "http___opcfoundation_org_UA_Pumps_" .
 
 pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT01MjQ1 a uardf:Object ;
     opcua:HasComponent pumps:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9QdW1wcy87aT0xNDI0MQ,

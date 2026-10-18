@@ -112,6 +112,11 @@ UARDF = utils.UARDF
 idtype_enum = {'i': 0, 's': 1, 'g': 2, 'b': 3}
 instance_tags = ('UAObject', 'UAVariable', 'UAMethod', 'UAView')
 type_tags = ('UAObjectType', 'UAVariableType', 'UADataType', 'UAReferenceType')
+# TypeDefinitions of well-known instances which belong to the type system and are referenced by types
+# (ModellingRules, DataType encodings, dictionaries and descriptions). They are excluded from the
+# instance-with-variables heuristic, e.g. every ModellingRule object has a NamingRule property.
+heuristic_exception_types = {'77': 'ModellingRuleType', '75': 'DataTypeSystemType', '72': 'DataTypeDictionaryType',
+                             '69': 'DataTypeDescriptionType', '76': 'DataTypeEncodingType'}
 
 
 class NodesetParser:
@@ -142,6 +147,9 @@ class NodesetParser:
         self.server_uri = getattr(args, 'serverUri', None)
         self.default_locale = getattr(args, 'defaultLocale', 'en')
         self.enforce_opcua_type_semantic = getattr(args, 'enforce_opcua_type_semantic', False)
+        # strict: only NamespaceMetadata and the default rule decide, no instance-with-variables heuristic
+        self.strict_classification = getattr(args, 'strict_classification', False)
+        self.heuristic_overrides = {}  # key -> reason, nodes which only the heuristic classifies dynamic
         self.node_iris = {}  # (ns index, canonical nodeid) -> IRI, or None for not exported dynamic nodes
         self.expanded_nodeids = {}  # (ns index, canonical nodeid) -> canonical ExpandedNodeId string (encoded in IRI)
         self.skipped_dynamic_nodes = []
@@ -1104,6 +1112,87 @@ Did you forget to import it?")
                 return True
         return False
 
+    def get_typedefinition_id(self, node):
+        """Numeric identifier of the core TypeDefinition of an xml node, None if it has none in namespace 0."""
+        typedef = next((ref.text for ref in self.get_node_references(node)
+                        if self.is_reference_of_type(ref, hasTypeDefinitionId)), None)
+        if typedef is None:
+            return None
+        index, canonical = self.key_from_nodeid_string(typedef)
+        return canonical.split('=', 1)[1] if index == 0 and canonical.startswith('i=') else None
+
+    def variables_of_nodes(self, xml_nodes):
+        """Parent key -> keys of the Variables it aggregates (ParentNodeId, or HasComponent/HasProperty/
+        HasOrderedComponent in either direction). The parent may be a node of another nodeset."""
+        children = {}
+        aggregates = (hasComponentId, hasPropertyId, hasOrderedComponentId)
+        for key, node in xml_nodes.items():
+            if node.tag.endswith('}UAVariable'):
+                parent = self.get_parent_key(node)
+                if parent is not None:
+                    children.setdefault(parent, set()).add(key)
+            for ref in self.get_node_references(node):
+                if any(self.is_reference_of_type(ref, reftype) for reftype in aggregates):
+                    target = self.key_from_nodeid_string(ref.text)
+                    if target in xml_nodes and xml_nodes[target].tag.endswith('}UAVariable'):
+                        children.setdefault(key, set()).add(target)
+        return children
+
+    def is_foreign_instance(self, key):
+        """True if a node of another nodeset is an instance (no type, no instance declaration, no type system
+        node). Nodes which the static export of an imported namespace does not contain are dynamic instances."""
+        index, canonical = key
+        if index >= len(self.nodeIds) or index not in self.imported_namespace_indices:
+            return False  # nothing known about it
+        iri = self.nodeIds[index].get(canonical.split('=', 1)[1])
+        if iri is None:
+            return True
+        if not any((iri, RDF.type, UARDF[nodeclass]) in self.ig for nodeclass in ('Object', 'Variable')):
+            return False
+        typedef = self.ig.value(iri, UARDF['hasTypeDefinition'])
+        if typedef is not None and str(typedef) in {str(self.rdf_ns['opcua'][name])
+                                                    for name in heuristic_exception_types.values()}:
+            return False
+        node, visited = iri, set()
+        while node is not None and node not in visited:  # instance declaration: below a type or with rule
+            visited.add(node)
+            if (node, UARDF['definesType'], None) in self.ig or \
+                    (node, self.rdf_ns['opcua']['HasModellingRule'], None) in self.ig:
+                return False
+            node = self.ig.value(node, UARDF['parent'])
+        return True
+
+    def instances_with_variables(self, xml_nodes):
+        """Heuristic: an instance which has Variables is server specific, so the instance and its Variables are
+        dynamic (adding Variables to an instance expresses the intention of server specific data).
+
+        Instances are Objects and Variables which are neither types nor instance declarations; type system and
+        ModellingRule instances are excluded (heuristic_exception_types). The parent may be an instance of
+        another nodeset (e.g. DI's MaxInactiveLockTime below core's ServerCapabilities), then only its Variables
+        of this nodeset are classified. Returns key -> reason.
+        """
+        result = {}
+        for parent, variables in self.variables_of_nodes(xml_nodes).items():
+            node = xml_nodes.get(parent)
+            if node is not None:
+                if node.tag.split('}')[-1] not in ('UAObject', 'UAVariable') or \
+                        self.is_instance_declaration(parent, xml_nodes) or \
+                        self.get_typedefinition_id(node) in heuristic_exception_types:
+                    continue
+                _, browsename = self.getBrowsename(node)
+                parent_label = f'{browsename} (nsu={self.opcua_ns_raw[parent[0]]};{parent[1]})'
+                result.setdefault(parent, 'instance with Variables')
+            elif self.is_foreign_instance(parent):
+                parent_label = f'nsu={self.opcua_ns_raw[parent[0]]};{parent[1]}'
+            else:
+                continue
+            for variable in variables:
+                # a Variable of an instance belongs to the instance, even if it (wrongly) has a ModellingRule
+                if self.get_typedefinition_id(xml_nodes[variable]) in heuristic_exception_types:
+                    continue
+                result.setdefault(variable, f'Variable of instance {parent_label}')
+        return result
+
     def is_static_node(self, key, node, xml_nodes):
         index, canonical = key
         idt, identifier = canonical.split('=', 1)
@@ -1125,10 +1214,16 @@ Did you forget to import it?")
                 xml_nodes[self.key_from_nodeid_string(node.get('NodeId'))] = node
         self.scan_namespace_metadata(xml_nodes)
         self.static_nodes = set()
+        heuristic = {} if self.strict_classification else self.instances_with_variables(xml_nodes)
+        self.heuristic_overrides = {}
         for key, node in xml_nodes.items():
             index, canonical = key
             prefix = self.get_rdf_ns_from_ua_index(index)
-            if self.is_static_node(key, node, xml_nodes):
+            static = self.is_static_node(key, node, xml_nodes)
+            if static and key in heuristic:
+                static = False
+                self.heuristic_overrides[key] = heuristic[key]
+            if static:
                 self.static_nodes.add(key)
                 expanded_nodeid = utils.expanded_nodeid_string(canonical, self.opcua_ns_raw[index])
             elif self.server_uri is not None:
@@ -1143,6 +1238,27 @@ Did you forget to import it?")
                 self.skipped_dynamic_nodes.append((self.opcua_ns_raw[index], canonical, node.get('BrowseName')))
         dynamic_count = len(xml_nodes) - len(self.static_nodes)
         print(f"Identified {len(self.static_nodes)} static and {dynamic_count} dynamic nodes.")
+        if self.heuristic_overrides:
+            print(f"Heuristic: {len(self.heuristic_overrides)} node(s) which NamespaceMetadata or the default rule "
+                  "classify static are dynamic as instance with Variables or its Variable "
+                  "(--strict-classification disables it).")
+        self.xml_nodes = xml_nodes
+
+    def write_classification_report(self, filename):
+        """TSV of the nodes which the instance-with-variables heuristic classifies dynamic."""
+        with open(filename, 'w') as f:
+            f.write('NodeId\tBrowseName\tNodeClass\tTypeDefinition\tReason\n')
+
+            def order(item):
+                idt, identifier = item[0][1].split('=', 1)
+                return (item[0][0], idt, int(identifier) if idt == 'i' else 0, identifier)
+            for key, reason in sorted(self.heuristic_overrides.items(), key=order):
+                node = self.xml_nodes[key]
+                _, browsename = self.getBrowsename(node)
+                typedef = next((ref.text for ref in self.get_node_references(node)
+                                if self.is_reference_of_type(ref, hasTypeDefinitionId)), '')
+                f.write(f'nsu={self.opcua_ns_raw[key[0]]};{key[1]}\t{browsename}\t'
+                        f'{node.tag.split("}")[-1][2:]}\t{self.resolve_alias(typedef) if typedef else ""}\t{reason}\n')
         if self.skipped_dynamic_nodes:
             print(f"Warning: No server URI given (--serverUri). {len(self.skipped_dynamic_nodes)} dynamic node(s) "
                   "and references to them are not exported:")

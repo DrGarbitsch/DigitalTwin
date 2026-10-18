@@ -15,6 +15,8 @@
 #
 """Node identification: canonical ExpandedNodeId IRIs, static/dynamic classification, uardf: attributes."""
 
+import os
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
@@ -136,6 +138,23 @@ NODESET = """<?xml version="1.0" encoding="utf-8"?>
 </UANodeSet>
 """
 
+# Nodes for the instance-with-variables heuristic (all in the static range of METADATA): a ModellingRule object
+# with its NamingRule property (excepted) and a Variable below core's ServerCapabilities (another nodeset)
+HEURISTIC_NODES = """
+  <UAObject NodeId="ns=1;i=4000" BrowseName="1:MyRule">
+    <DisplayName>MyRule</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=77</Reference></References>
+  </UAObject>
+  <UAVariable NodeId="ns=1;i=4001" BrowseName="NamingRule" ParentNodeId="ns=1;i=4000" DataType="i=120">
+    <DisplayName>NamingRule</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
+  </UAVariable>
+  <UAVariable NodeId="ns=1;i=4100" BrowseName="1:MaxLockTime" ParentNodeId="i=2268" DataType="i=11">
+    <DisplayName>MaxLockTime</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
+  </UAVariable>
+"""
+
 # NamespaceMetadata: numeric ids 1..5001 and string ids starting with "Named" are static
 METADATA = """
   <UAObject NodeId="ns=1;i=9000" BrowseName="1:http://test.org/A/">
@@ -167,7 +186,7 @@ METADATA = """
 
 class TestClassification(unittest.TestCase):
 
-    def make_parser(self, metadata='', server_uri=None):
+    def make_parser(self, metadata='', server_uri=None, strict=False):
         with patch('lib.nodesetparser.NodesetParser.__init__', return_value=None):
             parser = NodesetParser(None, None, None, None, None, None)
         parser.xml_ns = {'opcua': 'http://opcfoundation.org/UA/2011/03/UANodeSet.xsd',
@@ -185,6 +204,8 @@ class TestClassification(unittest.TestCase):
         parser.server_uri = server_uri
         parser.default_locale = 'en'
         parser.enforce_opcua_type_semantic = False
+        parser.strict_classification = strict
+        parser.heuristic_overrides = {}
         parser.node_iris = {}
         parser.expanded_nodeids = {}
         parser.skipped_dynamic_nodes = []
@@ -223,7 +244,7 @@ class TestClassification(unittest.TestCase):
         self.assertEqual(parser.skipped_dynamic_nodes, [])
 
     def test_namespace_metadata_decides(self):
-        parser = self.make_parser(metadata=METADATA)
+        parser = self.make_parser(metadata=METADATA, strict=True)
         parser.classify_nodes()
         rule = parser.static_node_rules[TEST_NS]
         self.assertEqual(rule['types'], {0})
@@ -234,6 +255,41 @@ class TestClassification(unittest.TestCase):
         self.assertNotIn(self.key(parser, '5002'), parser.static_nodes)  # outside of the ranges
         # string: the pattern decides
         self.assertIn(self.key(parser, 'Named', 'stringID'), parser.static_nodes)
+
+    def test_heuristic_instance_with_variables(self):
+        # the instance 5001 has a Variable: instance and Variable are dynamic, although NamespaceMetadata says
+        # static; the same for the NamespaceMetadata object 9000 and its Variables
+        parser = self.make_parser(metadata=METADATA + HEURISTIC_NODES)
+        parser.imported_namespace_indices = {0}  # core is imported, its ServerCapabilities (i=2268) is dynamic
+        parser.classify_nodes()
+        for dynamic in ('5001', '9000', '9001', '9004', '4100'):
+            self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
+            self.assertIn(self.key(parser, dynamic), parser.heuristic_overrides, dynamic)
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '5001')], 'instance with Variables')
+        self.assertIn('Variable of instance nsu=http://opcfoundation.org/UA/;i=2268',
+                      parser.heuristic_overrides[self.key(parser, '4100')])
+        # 5002 is outside of the ranges, dynamic anyway: no override
+        self.assertNotIn(self.key(parser, '5002'), parser.heuristic_overrides)
+        # types, instance declarations (1002 has the Variable 1003) and ModellingRules stay static
+        for static in ('1001', '1002', '1003', '4000', '4001'):
+            self.assertIn(self.key(parser, static), parser.static_nodes, static)
+        # strict: only NamespaceMetadata decides
+        parser = self.make_parser(metadata=METADATA + HEURISTIC_NODES, strict=True)
+        parser.imported_namespace_indices = {0}
+        parser.classify_nodes()
+        for static in ('5001', '9000', '9001', '4100'):
+            self.assertIn(self.key(parser, static), parser.static_nodes, static)
+        self.assertEqual(parser.heuristic_overrides, {})
+
+    def test_classification_report(self):
+        parser = self.make_parser(metadata=METADATA)
+        parser.classify_nodes()
+        with tempfile.TemporaryDirectory() as tmp:
+            report = os.path.join(tmp, 'report.tsv')
+            parser.write_classification_report(report)
+            lines = open(report).read().splitlines()
+        self.assertEqual(lines[0], 'NodeId\tBrowseName\tNodeClass\tTypeDefinition\tReason')
+        self.assertIn(f'nsu={TEST_NS};i=5001\tInstance\tObject\tns=1;i=1001\tinstance with Variables', lines)
 
     def test_explicit_static_undecided(self):
         parser = self.make_parser()

@@ -1304,92 +1304,6 @@ machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMA a u
     base:hasDatatype opcua:QualifiedName ;
     base:hasValue "{\"xsd:NamespaceIndex\": 2, \"xsd:Name\": \"Identification\"}"^^rdf:JSON .
 
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMQ a uardf:Variable ;
-    uardf:browseName "IsNamespaceSubset" ;
-    uardf:displayName "IsNamespaceSubset"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "IsNamespaceSubset" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6031" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "IsNamespaceSubset" ;
-    base:hasDatatype opcua:Boolean ;
-    base:hasValue false .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMg a uardf:Variable ;
-    uardf:browseName "NamespacePublicationDate" ;
-    uardf:displayName "NamespacePublicationDate"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespacePublicationDate" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6032" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "NamespacePublicationDate" ;
-    base:hasDatatype opcua:DateTime ;
-    base:hasValue "2023-08-01T00:00:00Z" .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMw a uardf:Variable ;
-    uardf:browseName "NamespaceUri" ;
-    uardf:displayName "NamespaceUri"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespaceUri" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6033" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "NamespaceUri" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "http://opcfoundation.org/UA/Machinery/" .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNA a uardf:Variable ;
-    uardf:browseName "NamespaceVersion" ;
-    uardf:displayName "NamespaceVersion"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespaceVersion" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6034" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "NamespaceVersion" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "1.03.0" .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNQ a uardf:Variable ;
-    uardf:browseName "StaticNodeIdTypes" ;
-    uardf:displayName "StaticNodeIdTypes"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNodeIdTypes" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6035" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "StaticNodeIdTypes" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:IdType ;
-    base:hasValueList ( 0 ) ;
-    base:hasValueRank 1 .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNg a uardf:Variable ;
-    uardf:browseName "StaticNumericNodeIdRange" ;
-    uardf:displayName "StaticNumericNodeIdRange"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNumericNodeIdRange" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6036" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "StaticNumericNodeIdRange" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:NumericRange ;
-    base:hasValueRank 1 .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNw a uardf:Variable ;
-    uardf:browseName "StaticStringNodeIdPattern" ;
-    uardf:displayName "StaticStringNodeIdPattern"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticStringNodeIdPattern" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=6037" ;
-    uardf:parent machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ ;
-    uardf:symbolicName "StaticStringNodeIdPattern" ;
-    base:hasDatatype opcua:String .
-
 machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzOA a uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
     uardf:browseName "StateNumber" ;
@@ -2005,29 +1919,6 @@ machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9MTAwMw a u
     uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
     uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=1003" ;
     uardf:symbolicName "IMachineryItemVendorNameplateType" .
-
-machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwMQ a uardf:Object ;
-    opcua:HasProperty machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMQ,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMg,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMw,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNA,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNQ,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNg,
-        machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNw ;
-    opcua:hasIsNamespaceSubset machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMQ ;
-    opcua:hasNamespacePublicationDate machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMg ;
-    opcua:hasNamespaceUri machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzMw ;
-    opcua:hasNamespaceVersion machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNA ;
-    opcua:hasStaticNodeIdTypes machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNQ ;
-    opcua:hasStaticNumericNodeIdRange machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNg ;
-    opcua:hasStaticStringNodeIdPattern machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzNw ;
-    uardf:browseName "nsu=http://opcfoundation.org/UA/Machinery/;http://opcfoundation.org/UA/Machinery/" ;
-    uardf:displayName "http://opcfoundation.org/UA/Machinery/"@en ;
-    uardf:hasTypeDefinition opcua:NamespaceMetadataType ;
-    uardf:name "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/Machinery/" ;
-    uardf:nodeId "nsu=http://opcfoundation.org/UA/Machinery/;i=5001" ;
-    uardf:symbolicName "http___opcfoundation_org_UA_Machinery_" .
 
 machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NTAwNA a uardf:Object ;
     opcua:HasProperty machinery:bnN1PWh0dHA6Ly9vcGNmb3VuZGF0aW9uLm9yZy9VQS9NYWNoaW5lcnkvO2k9NjAzOA ;

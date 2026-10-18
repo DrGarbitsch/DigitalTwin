@@ -23,8 +23,8 @@ sd:hasTemperature a owl:ObjectProperty ;
 <http://test/StaticDynamic/hashttp%3A//test/StaticDynamic/> a owl:ObjectProperty ;
     rdfs:subPropertyOf uardf:semanticBridgeReferenceType .
 
-opcua:c3Z1PXVybjp0ZXN0OnNlcnZlcjtpPTExNzE1 opcua:HasComponent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA ;
-    <http://test/StaticDynamic/hashttp%3A//test/StaticDynamic/> sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA .
+opcua:c3Z1PXVybjp0ZXN0OnNlcnZlcjtpPTExNzE1 opcua:HasComponent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw ;
+    <http://test/StaticDynamic/hashttp%3A//test/StaticDynamic/> sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw .
 
 sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9MTAwMQ a uardf:ObjectType ;
     opcua:HasComponent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9MTAwMg ;
@@ -72,46 +72,6 @@ sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9MTAwMg a uardf:Variable ;
     uardf:symbolicName "Temperature" ;
     base:hasDatatype opcua:Double .
 
-sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMQ a uardf:Variable ;
-    uardf:browseName "NamespaceUri" ;
-    uardf:displayName "NamespaceUri"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "NamespaceUri" ;
-    uardf:namespaceUri "http://test/StaticDynamic/" ;
-    uardf:nodeId "nsu=http://test/StaticDynamic/;i=9001" ;
-    uardf:parent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA ;
-    uardf:symbolicName "NamespaceUri" ;
-    base:hasDatatype opcua:String ;
-    base:hasValue "http://test/StaticDynamic/" .
-
-sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMg a uardf:Variable ;
-    uardf:browseName "StaticNodeIdTypes" ;
-    uardf:displayName "StaticNodeIdTypes"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNodeIdTypes" ;
-    uardf:namespaceUri "http://test/StaticDynamic/" ;
-    uardf:nodeId "nsu=http://test/StaticDynamic/;i=9002" ;
-    uardf:parent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA ;
-    uardf:symbolicName "StaticNodeIdTypes" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:IdType ;
-    base:hasValueList ( 0 ) ;
-    base:hasValueRank 1 .
-
-sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMw a uardf:Variable ;
-    uardf:browseName "StaticNumericNodeIdRange" ;
-    uardf:displayName "StaticNumericNodeIdRange"@en ;
-    uardf:hasTypeDefinition opcua:PropertyType ;
-    uardf:name "StaticNumericNodeIdRange" ;
-    uardf:namespaceUri "http://test/StaticDynamic/" ;
-    uardf:nodeId "nsu=http://test/StaticDynamic/;i=9003" ;
-    uardf:parent sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA ;
-    uardf:symbolicName "StaticNumericNodeIdRange" ;
-    base:hasArrayDimensions ( 0 ) ;
-    base:hasDatatype opcua:NumericRange ;
-    base:hasValueList ( "1000:1999" "7000" "9000:9010" ) ;
-    base:hasValueRank 1 .
-
 sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAx a uardf:Object ;
     opcua:HasComponent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAy ;
     uardf:browseName "nsu=http://test/StaticDynamic/;Device1" ;
@@ -137,22 +97,66 @@ sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT01MDAy 
     base:hasDatatype opcua:Double ;
     base:hasValue 2.15e+01 .
 
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAx a uardf:Variable ;
+    uardf:browseName "NamespaceUri" ;
+    uardf:displayName "NamespaceUri"@en ;
+    uardf:hasTypeDefinition opcua:PropertyType ;
+    uardf:name "NamespaceUri" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=9001" ;
+    uardf:parent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "NamespaceUri" ;
+    base:hasDatatype opcua:String ;
+    base:hasValue "http://test/StaticDynamic/" .
+
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAy a uardf:Variable ;
+    uardf:browseName "StaticNodeIdTypes" ;
+    uardf:displayName "StaticNodeIdTypes"@en ;
+    uardf:hasTypeDefinition opcua:PropertyType ;
+    uardf:name "StaticNodeIdTypes" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=9002" ;
+    uardf:parent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "StaticNodeIdTypes" ;
+    base:hasArrayDimensions ( 0 ) ;
+    base:hasDatatype opcua:IdType ;
+    base:hasValueList ( 0 ) ;
+    base:hasValueRank 1 .
+
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAz a uardf:Variable ;
+    uardf:browseName "StaticNumericNodeIdRange" ;
+    uardf:displayName "StaticNumericNodeIdRange"@en ;
+    uardf:hasTypeDefinition opcua:PropertyType ;
+    uardf:name "StaticNumericNodeIdRange" ;
+    uardf:namespaceUri "http://test/StaticDynamic/" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=9003" ;
+    uardf:parent sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw ;
+    uardf:serverUri "urn:test:server" ;
+    uardf:symbolicName "StaticNumericNodeIdRange" ;
+    base:hasArrayDimensions ( 0 ) ;
+    base:hasDatatype opcua:NumericRange ;
+    base:hasValueList ( "1000:1999" "7000" "9000:9010" ) ;
+    base:hasValueRank 1 .
+
 sd:TestDeviceType a owl:Class ;
     rdfs:subClassOf opcua:BaseObjectType .
 
-sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMA a uardf:Object ;
-    opcua:HasProperty sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMQ,
-        sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMg,
-        sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMw ;
-    opcua:hasNamespaceUri sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMQ ;
-    opcua:hasStaticNodeIdTypes sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMg ;
-    opcua:hasStaticNumericNodeIdRange sd:bnN1PWh0dHA6Ly90ZXN0L1N0YXRpY0R5bmFtaWMvO2k9OTAwMw ;
+sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAw a uardf:Object ;
+    opcua:HasProperty sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAx,
+        sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAy,
+        sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAz ;
+    opcua:hasNamespaceUri sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAx ;
+    opcua:hasStaticNodeIdTypes sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAy ;
+    opcua:hasStaticNumericNodeIdRange sd:c3Z1PXVybjp0ZXN0OnNlcnZlcjtuc3U9aHR0cDovL3Rlc3QvU3RhdGljRHluYW1pYy87aT05MDAz ;
     uardf:browseName "nsu=http://test/StaticDynamic/;http://test/StaticDynamic/" ;
     uardf:displayName "http://test/StaticDynamic/"@en ;
     uardf:hasTypeDefinition opcua:NamespaceMetadataType ;
     uardf:name "http://test/StaticDynamic/" ;
     uardf:namespaceUri "http://test/StaticDynamic/" ;
-    uardf:nodeId "nsu=http://test/StaticDynamic/;i=9000" ;
+    uardf:nodeId "svu=urn:test:server;nsu=http://test/StaticDynamic/;i=9000" ;
     uardf:parent opcua:c3Z1PXVybjp0ZXN0OnNlcnZlcjtpPTExNzE1 ;
+    uardf:serverUri "urn:test:server" ;
     uardf:symbolicName "TestStaticDynamicNamespaceMetadata" .
 

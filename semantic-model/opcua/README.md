@@ -60,6 +60,7 @@ usage: nodeset2owl.py [-h] [-i [INPUTS ...]] [-o OUTPUT] [-n NAMESPACE] [-v VERS
                       [-burl BASEONTOLOGYURL] [--uardfOntology UARDFONTOLOGY] [-u OPCUANAMESPACE] -p PREFIX
                       [-t TYPESXSD] [--import-indirect-dependencies] [--disable-semantic-bridge]
                       [--enforce-opcua-type-semantic] [--defaultLocale DEFAULTLOCALE] [-s SERVERURI] [--dynamic-only]
+                      [--strict-classification] [--classification-report CLASSIFICATION_REPORT]
                       [--dynamic-imports [DYNAMIC_IMPORTS ...]]
                       nodeset2
 
@@ -109,6 +110,13 @@ options:
                         dynamic nodes. Requires --serverUri. Together with the export without --serverUri (static
                         part) it composes the full export. The export gets its own ontology IRI per server: <ontology>
                         + base64url(svu=<serverUri>).
+  --strict-classification
+                        Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the nodeset,
+                        otherwise types and instance declarations are static and instances are dynamic. Disables the
+                        heuristic that an instance with Variables is dynamic together with its Variables.
+  --classification-report CLASSIFICATION_REPORT
+                        Write the nodes which only the instance-with-variables heuristic classifies dynamic to this
+                        TSV file.
   --dynamic-imports [DYNAMIC_IMPORTS ...]
                         With --dynamic-only: additional owl:imports of the dynamic export, which are not read as
                         inputs, e.g. the static export of the same nodeset and the dynamic exports of its
@@ -145,14 +153,30 @@ declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output impor
 
 A node is *static* when it is the same in every server (types, instance declarations,
 well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
-machine). The decision is made per namespace by the `NamespaceMetadata` of the nodeset
-(StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern). Without it,
-the fallback rule applies: types and instance declarations are static, everything else
-is dynamic. An instance declaration is a node with a ModellingRule or a node whose parent
-(ParentNodeId, otherwise the inverse HasComponent/HasProperty) is a type or an instance
-declaration. The analysis in
+machine). nodeset2owl.py decides it with three rules, in this order:
+
+1. **Instances with Variables are dynamic (heuristic).** An instance (an Object or Variable
+   which is neither a type nor an instance declaration) that has Variables is dynamic,
+   together with its Variables: adding Variables to an instance expresses the intention of
+   server specific data. This overrides the NamespaceMetadata, e.g. every NamespaceMetadata
+   object, core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
+   ServerCapabilities). Excluded are the instances of the type system and the ModellingRules
+   (TypeDefinition ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType,
+   DataTypeDescriptionType, DataTypeEncodingType), which types refer to.
+2. **NamespaceMetadata.** The `NamespaceMetadata` of the nodeset decides per namespace
+   (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
+3. **Default.** If it does not decide, types and instance declarations are static and
+   instances are dynamic. An instance declaration is a node with a ModellingRule or a node
+   whose parent (ParentNodeId, otherwise the inverse HasComponent/HasProperty) is a type or
+   an instance declaration.
+
+`--strict-classification` disables the heuristic (1), so that only the standard decides
+(2, 3). `--classification-report <file>` writes the nodes which only the heuristic makes
+dynamic as TSV, the overview for the default specifications is in
+[docs/static-dynamic-analysis/heuristic-overrides.md](./docs/static-dynamic-analysis/heuristic-overrides.md).
+The analysis in
 [docs/static-variables-below-dynamic-nodes.md](./docs/static-variables-below-dynamic-nodes.md)
-shows where this classification is questionable.
+shows where the standard classification is questionable.
 
 Dynamic nodes are only exported with a server URI. Without `--serverUri`, nodeset2owl.py
 warns and leaves them and all references to them out; this is the *global* version of
