@@ -74,11 +74,10 @@ Schema/Opc.Ua.Types.xsd')
                              '--serverUri (static part) it composes the full export. The export gets its own '
                              'ontology IRI per server: <ontology> + base64url(svu=<serverUri>).')
     parser.add_argument('--strict-classification', required=False, action='store_true',
-                        help='Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the '
-                             'nodeset, otherwise types and instance declarations are static and instances are '
-                             'dynamic. Disables the heuristics: an instance with Variables is dynamic together with '
-                             'its Variables, and where the NamespaceMetadata does not decide, an Object without '
-                             'Variables below it and without dynamic parent is static.')
+                        help='Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) '
+                             'and R4 (otherwise types and instance declarations are static, instances dynamic). '
+                             'Disables the heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 '
+                             '(Variable-less Object), see README.')
     parser.add_argument('--classification-report', required=False, default=None,
                         help='Write the nodes which the heuristics classify differently than the standard rules '
                              '(static -> dynamic and dynamic -> static) to this TSV file.')

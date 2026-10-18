@@ -111,11 +111,10 @@ options:
                         part) it composes the full export. The export gets its own ontology IRI per server: <ontology>
                         + base64url(svu=<serverUri>).
   --strict-classification
-                        Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the nodeset,
-                        otherwise types and instance declarations are static and instances are dynamic. Disables the
-                        heuristics: an instance with Variables is dynamic together with its Variables, and where the
-                        NamespaceMetadata does not decide, an Object without Variables below it and without dynamic
-                        parent is static.
+                        Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) and R4
+                        (otherwise types and instance declarations are static, instances dynamic). Disables the
+                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 (Variable-less Object),
+                        see README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
                         dynamic and dynamic -> static) to this TSV file.
@@ -155,36 +154,52 @@ declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output impor
 
 A node is *static* when it is the same in every server (types, instance declarations,
 well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
-machine). nodeset2owl.py decides it with three rules, in this order:
+machine). nodeset2owl.py decides it with the following named rules. The first matching rule
+decides, in the order R1, R2, R3, R5, R4.
 
-1. **Instances with Variables are dynamic (heuristic).** An instance (an Object or Variable
-   which is neither a type nor an instance declaration) that has Variables is dynamic,
-   together with its Variables: adding Variables to an instance expresses the intention of
-   server specific data. This overrides the NamespaceMetadata, e.g. every NamespaceMetadata
-   object, core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
-   ServerCapabilities). Excluded are the instances of the type system and the ModellingRules
-   (TypeDefinition ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType,
-   DataTypeDescriptionType, DataTypeEncodingType), which types refer to.
-2. **NamespaceMetadata.** The `NamespaceMetadata` of the nodeset decides per namespace
-   (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
-3. **Default.** If it does not decide, types and instance declarations are static and
-   instances are dynamic. An instance declaration is a node with a ModellingRule or a node
-   whose HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type
-   or an instance declaration. The standard default is refined by a heuristic: an Object is
-   only dynamic if it has a Variable in its HasChild subtree or a dynamic HasChild parent,
-   otherwise it is static (DataType encodings, dictionary entries, entry folders); a Method
-   follows its parent, its arguments follow the Method, and the Variables of the type
-   dictionaries are static. Organizes does not count, so a static entry folder can organize
-   dynamic machines.
+Standard rules (OPC UA):
+
+- **R3 NamespaceMetadata rule.** The `NamespaceMetadata` of the nodeset decides per
+  namespace (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
+- **R4 default rule.** If R3 does not decide, types and instance declarations are static and
+  instances are dynamic. An instance declaration is a node with a ModellingRule or a node
+  whose HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type
+  or an instance declaration.
+
+Heuristic rules (default, disabled by `--strict-classification`):
+
+- **R1 instance-with-Variables rule.** An instance (an Object or Variable which is neither a
+  type nor an instance declaration) that has Variables is dynamic, together with its
+  Variables: adding Variables to an instance expresses the intention of server specific
+  data. It overrides R3, e.g. every NamespaceMetadata object, core's ServerConfiguration or
+  DI's `MaxInactiveLockTime` (a Variable of core's ServerCapabilities). R1 looks at the
+  direct Variables only; transitively it would make static entry points such as core's
+  `Objects` folder dynamic.
+- **R2 containment rule.** An Object below a dynamic instance (HasChild) is dynamic, also
+  against R3, e.g. the folders `SecurityGroups` or `CertificateGroups` of the server
+  specific objects. Methods are not affected.
+- **R5 Variable-less Object rule.** It refines R4 where R3 does not decide: an Object is only
+  dynamic if a Variable is in its HasChild subtree (Method arguments do not count) or is
+  declared by its TypeDefinition (or a supertype), or if its HasChild parent is dynamic;
+  otherwise it is static, e.g. DataType encodings, dictionary entries, entry folders. A
+  Method follows its parent, its arguments follow the Method, and the Variables of the type
+  dictionaries are static. Organizes does not count, so a static entry folder can organize
+  dynamic machines.
+- **Type system exception.** Instances of ModellingRuleType, DataTypeSystemType,
+  DataTypeDictionaryType, DataTypeDescriptionType, DataTypeEncodingType and
+  DictionaryEntryType (and their subtypes) are not made dynamic by R1 or R2 and are static by
+  R5: types refer to them (e.g. every ModellingRule has a NamingRule property, PADIM refers
+  to IRDI dictionary entries).
 
 HasChild includes all its subtypes (HasComponent, HasProperty, HasOrderedComponent,
 HasAddIn, ...), also those of companion specifications, resolved via the ReferenceType
-hierarchy. `--strict-classification` disables the heuristics, so that only the standard
-decides (2, 3). `--classification-report <file>` writes the nodes which the heuristics
-classify differently (static → dynamic and dynamic → static) as TSV, the overview for the
-default specifications is in
-[docs/static-dynamic-analysis/heuristic-overrides.md](./docs/static-dynamic-analysis/heuristic-overrides.md).
-The analysis in
+hierarchy. `--classification-report <file>` writes the nodes which the heuristic rules
+classify differently than the standard rules (with the rule) as TSV. For the default
+specifications, all of them are listed in
+[docs/static-dynamic-analysis/classification-changes.md](./docs/static-dynamic-analysis/classification-changes.md),
+the evaluation is in
+[docs/static-dynamic-analysis/heuristic-outliers.md](./docs/static-dynamic-analysis/heuristic-outliers.md),
+and the analysis in
 [docs/static-variables-below-dynamic-nodes.md](./docs/static-variables-below-dynamic-nodes.md)
 shows where the standard classification is questionable.
 

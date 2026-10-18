@@ -149,6 +149,19 @@ HEURISTIC_NODES = """
     <DisplayName>NamingRule</DisplayName>
     <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
   </UAVariable>
+  <UAObject NodeId="ns=1;i=4200" BrowseName="1:Folder" ParentNodeId="ns=1;i=5001">
+    <DisplayName>Folder</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=61</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=4300" BrowseName="1:Entry" ParentNodeId="ns=1;i=5001">
+    <DisplayName>Entry</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=17589</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=4400" BrowseName="1:OrganizedFolder">
+    <DisplayName>OrganizedFolder</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=61</Reference>
+      <Reference ReferenceType="i=35" IsForward="false">ns=1;i=5001</Reference></References>
+  </UAObject>
   <UAVariable NodeId="ns=1;i=4100" BrowseName="1:MaxLockTime" ParentNodeId="i=2268" DataType="i=11">
     <DisplayName>MaxLockTime</DisplayName>
     <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
@@ -299,7 +312,8 @@ class TestClassification(unittest.TestCase):
         self.assertNotIn(self.key(parser, '5002'), parser.static_nodes)
         named = self.key(parser, 'Named', 'stringID')
         self.assertIn(named, parser.static_nodes)
-        self.assertEqual(parser.heuristic_overrides[named], 'Object without Variables below and without dynamic parent')
+        self.assertEqual(parser.heuristic_overrides[named],
+                         'R5: Object without Variables below and without dynamic parent')
 
     def test_default_heuristic_cases(self):
         parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES)
@@ -309,7 +323,7 @@ class TestClassification(unittest.TestCase):
             self.assertIn(self.key(parser, static), parser.static_nodes, static)
         for dynamic in ('6100', '6101', '6102', '6201', '6600', '6601', '6700'):  # 6700: its type has Variables
             self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
-        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6301')], 'argument of a static Method')
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6301')], 'R5: argument of a static Method')
         # strict: every instance is dynamic
         parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES, strict=True)
         parser.classify_nodes()
@@ -348,9 +362,16 @@ class TestClassification(unittest.TestCase):
         for dynamic in ('5001', '9000', '9001', '9004', '4100'):
             self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
             self.assertIn(self.key(parser, dynamic), parser.heuristic_overrides, dynamic)
-        self.assertEqual(parser.heuristic_overrides[self.key(parser, '5001')], 'instance with Variables')
-        self.assertIn('Variable of instance nsu=http://opcfoundation.org/UA/;i=2268',
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '5001')], 'R1: instance with Variables')
+        self.assertIn('R1: Variable of instance nsu=http://opcfoundation.org/UA/;i=2268',
                       parser.heuristic_overrides[self.key(parser, '4100')])
+        # R2: the folder 4200 below the dynamic instance 5001 is dynamic, the dictionary entry 4300 is excepted
+        self.assertNotIn(self.key(parser, '4200'), parser.static_nodes)
+        self.assertTrue(parser.heuristic_overrides[self.key(parser, '4200')].startswith(
+            'R2: Object below dynamic instance Instance'))
+        self.assertIn(self.key(parser, '4300'), parser.static_nodes)
+        self.assertTrue(parser.heuristic_overrides[self.key(parser, '4400')].startswith(
+            'R2: Object organized by dynamic instance Instance'))
         # 5002 is outside of the ranges, dynamic anyway: no override
         self.assertNotIn(self.key(parser, '5002'), parser.heuristic_overrides)
         # types, instance declarations (1002 has the Variable 1003) and ModellingRules stay static
@@ -373,7 +394,7 @@ class TestClassification(unittest.TestCase):
             lines = open(report).read().splitlines()
         self.assertEqual(lines[0], 'NodeId\tBrowseName\tNodeClass\tTypeDefinition\tStandard\tClassification\tReason')
         self.assertIn(f'nsu={TEST_NS};i=5001\tInstance\tObject\tns=1;i=1001\tstatic\tdynamic\t'
-                      'instance with Variables', lines)
+                      'R1: instance with Variables', lines)
 
     def test_explicit_static_undecided(self):
         parser = self.make_parser()
