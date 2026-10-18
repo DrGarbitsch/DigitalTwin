@@ -76,11 +76,12 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('--strict-classification', required=False, action='store_true',
                         help='Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the '
                              'nodeset, otherwise types and instance declarations are static and instances are '
-                             'dynamic. Disables the heuristic that an instance with Variables is dynamic together '
-                             'with its Variables.')
+                             'dynamic. Disables the heuristics: an instance with Variables is dynamic together with '
+                             'its Variables, and where the NamespaceMetadata does not decide, an Object without '
+                             'Variables below it and without dynamic parent is static.')
     parser.add_argument('--classification-report', required=False, default=None,
-                        help='Write the nodes which only the instance-with-variables heuristic classifies dynamic '
-                             'to this TSV file.')
+                        help='Write the nodes which the heuristics classify differently than the standard rules '
+                             '(static -> dynamic and dynamic -> static) to this TSV file.')
     parser.add_argument('--dynamic-imports', nargs='*', required=False, default=[],
                         help='With --dynamic-only: additional owl:imports of the dynamic export, which are not read '
                              'as inputs, e.g. the static export of the same nodeset and the dynamic exports of its '

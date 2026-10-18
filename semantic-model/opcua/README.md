@@ -113,10 +113,12 @@ options:
   --strict-classification
                         Classify static/dynamic nodes strictly by the standard: the NamespaceMetadata of the nodeset,
                         otherwise types and instance declarations are static and instances are dynamic. Disables the
-                        heuristic that an instance with Variables is dynamic together with its Variables.
+                        heuristics: an instance with Variables is dynamic together with its Variables, and where the
+                        NamespaceMetadata does not decide, an Object without Variables below it and without dynamic
+                        parent is static.
   --classification-report CLASSIFICATION_REPORT
-                        Write the nodes which only the instance-with-variables heuristic classifies dynamic to this
-                        TSV file.
+                        Write the nodes which the heuristics classify differently than the standard rules (static ->
+                        dynamic and dynamic -> static) to this TSV file.
   --dynamic-imports [DYNAMIC_IMPORTS ...]
                         With --dynamic-only: additional owl:imports of the dynamic export, which are not read as
                         inputs, e.g. the static export of the same nodeset and the dynamic exports of its
@@ -167,12 +169,20 @@ machine). nodeset2owl.py decides it with three rules, in this order:
    (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
 3. **Default.** If it does not decide, types and instance declarations are static and
    instances are dynamic. An instance declaration is a node with a ModellingRule or a node
-   whose parent (ParentNodeId, otherwise the inverse HasComponent/HasProperty) is a type or
-   an instance declaration.
+   whose HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type
+   or an instance declaration. The standard default is refined by a heuristic: an Object is
+   only dynamic if it has a Variable in its HasChild subtree or a dynamic HasChild parent,
+   otherwise it is static (DataType encodings, dictionary entries, entry folders); a Method
+   follows its parent, its arguments follow the Method, and the Variables of the type
+   dictionaries are static. Organizes does not count, so a static entry folder can organize
+   dynamic machines.
 
-`--strict-classification` disables the heuristic (1), so that only the standard decides
-(2, 3). `--classification-report <file>` writes the nodes which only the heuristic makes
-dynamic as TSV, the overview for the default specifications is in
+HasChild includes all its subtypes (HasComponent, HasProperty, HasOrderedComponent,
+HasAddIn, ...), also those of companion specifications, resolved via the ReferenceType
+hierarchy. `--strict-classification` disables the heuristics, so that only the standard
+decides (2, 3). `--classification-report <file>` writes the nodes which the heuristics
+classify differently (static → dynamic and dynamic → static) as TSV, the overview for the
+default specifications is in
 [docs/static-dynamic-analysis/heuristic-overrides.md](./docs/static-dynamic-analysis/heuristic-overrides.md).
 The analysis in
 [docs/static-variables-below-dynamic-nodes.md](./docs/static-variables-below-dynamic-nodes.md)

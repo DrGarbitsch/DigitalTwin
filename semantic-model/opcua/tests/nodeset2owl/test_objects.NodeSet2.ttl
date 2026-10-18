@@ -45,6 +45,26 @@ opcua:aT0yMTE0NQ a uardf:ObjectType ;
     uardf:nodeId "i=21145" ;
     uardf:symbolicName "NetworkAddressType" .
 
+opcua:aT0zMDYy a uardf:Object ;
+    uardf:browseName "Default Binary" ;
+    uardf:description "The default binary encoding for a data type."@en ;
+    uardf:displayName "Default Binary"@en ;
+    uardf:hasTypeDefinition opcua:BaseObjectType ;
+    uardf:name "Default Binary" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=3062" ;
+    uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0zMDYz a uardf:Object ;
+    uardf:browseName "Default XML" ;
+    uardf:description "The default XML encoding for a data type."@en ;
+    uardf:displayName "Default XML"@en ;
+    uardf:hasTypeDefinition opcua:BaseObjectType ;
+    uardf:name "Default XML" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=3063" ;
+    uardf:symbolicName "DefaultXml" .
+
 opcua:aT0zMQ a uardf:ReferenceType ;
     uardf:browseName "References" ;
     uardf:definesType opcua:References ;
@@ -119,8 +139,6 @@ opcua:aT0xNDIwOQ opcua:HasComponent opcua:aT0xNDIyMQ ;
 opcua:Aggregates a owl:ObjectProperty ;
     rdfs:subPropertyOf opcua:HasChild .
 
-opcua:BaseObjectType a owl:Class .
-
 opcua:HasChild a owl:ObjectProperty ;
     rdfs:subPropertyOf opcua:HierarchicalReferences .
 
@@ -146,4 +164,6 @@ opcua:aT0xNDIyMQ a uardf:Object ;
     uardf:symbolicName "Address" .
 
 opcua:References a owl:ObjectProperty .
+
+opcua:BaseObjectType a owl:Class .
 

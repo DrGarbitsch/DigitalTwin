@@ -106,6 +106,9 @@ baseDataTypeId = '24'
 baseVariableType = '62'
 hasOrderedComponentId = '49'
 namespaceMetadataTypeId = '11616'
+hasChildId = '34'
+# HasChild and its subtypes of core, used until the reference type hierarchy is resolved (haschild_reference_types)
+core_haschild_ids = ('34', '44', '45', '46', '47', '49', '17604', '24136')
 
 UARDF = utils.UARDF
 # IdType enumeration (i=256) as used in NamespaceMetadataType.StaticNodeIdTypes
@@ -117,6 +120,8 @@ type_tags = ('UAObjectType', 'UAVariableType', 'UADataType', 'UAReferenceType')
 # instance-with-variables heuristic, e.g. every ModellingRule object has a NamingRule property.
 heuristic_exception_types = {'77': 'ModellingRuleType', '75': 'DataTypeSystemType', '72': 'DataTypeDictionaryType',
                              '69': 'DataTypeDescriptionType', '76': 'DataTypeEncodingType'}
+# Variables of the (legacy) type dictionaries: static by the default heuristic like the type system Objects
+typesystem_variable_types = ('72', '69')
 
 
 class NodesetParser:
@@ -1076,15 +1081,79 @@ Did you forget to import it?")
             return True
         return None
 
+    def haschild_reference_types(self):
+        """Keys of HasChild and all its subtypes: core's, the ones of the imported ontologies (rdfs:subPropertyOf
+        of the semantic bridge properties) and the ReferenceTypes of this nodeset (HasSubtype)."""
+        keys = {(0, f'i={i}') for i in core_haschild_ids}
+        if 'opcua' not in self.rdf_ns:
+            return keys
+        haschild = self.rdf_ns['opcua']['HasChild']
+        for node, prop in self.ig.subject_objects(UARDF['definesType']):
+            if (node, RDF.type, UARDF['ReferenceType']) not in self.ig or \
+                    haschild not in set(self.ig.transitive_objects(prop, RDFS.subPropertyOf)):
+                continue
+            nodeid = self.ig.value(node, UARDF['nodeId'])
+            if nodeid is None:
+                continue
+            _, nsu, idt, identifier = utils.parse_expanded_nodeid(nodeid)
+            index = self.namespace_index(nsu or self.opcua_ns_raw[0])
+            if index is not None:
+                keys.add((index, utils.canonical_nodeid(idt, identifier)))
+        supertypes = {}
+        for node in self.root:
+            if node.tag.endswith('}UAReferenceType'):
+                key = self.key_from_nodeid_string(node.get('NodeId'))
+                for ref in self.get_node_references(node):
+                    if self.is_reference_of_type(ref, hasSubtypeId, forward=False):
+                        supertypes[key] = self.key_from_nodeid_string(ref.text)
+        changed = True
+        while changed:
+            changed = False
+            for key, supertype in supertypes.items():
+                if key not in keys and supertype in keys:
+                    keys.add(key)
+                    changed = True
+        return keys
+
+    def namespace_index(self, namespace_uri):
+        normalized = str(utils.normalize_namespaceuri(namespace_uri))
+        for index, uri in enumerate(self.opcua_ns_raw):
+            if str(utils.normalize_namespaceuri(uri)) == normalized:
+                return index
+        return None
+
+    def is_haschild_reference(self, reference, forward=True):
+        """True if the reference is a HasChild (or subtype) reference in the given direction."""
+        if (reference.get('IsForward') != 'false') != forward:
+            return False
+        keys = getattr(self, 'haschild_keys', None) or {(0, f'i={i}') for i in core_haschild_ids}
+        return self.key_from_nodeid_string(reference.get('ReferenceType')) in keys
+
     def get_parent_key(self, node):
+        """HasChild parent of a node: ParentNodeId, otherwise the source of an inverse HasChild reference."""
         parent = node.get('ParentNodeId')
         if parent is not None:
             return self.key_from_nodeid_string(parent)
         for ref in self.get_node_references(node):
-            if any(self.is_reference_of_type(ref, reftype_id, forward=False)
-                   for reftype_id in (hasComponentId, hasPropertyId, hasOrderedComponentId)):
+            if self.is_haschild_reference(ref, forward=False) and \
+                    not self.is_reference_of_type(ref, hasSubtypeId, forward=False):
                 return self.key_from_nodeid_string(ref.text)
         return None
+
+    def children_of_nodes(self, xml_nodes):
+        """Parent key -> keys of its HasChild children of this nodeset (ParentNodeId or HasChild references in
+        either direction, without HasSubtype). The parent may be a node of another nodeset."""
+        children = {}
+        for key, node in xml_nodes.items():
+            parent = self.get_parent_key(node)
+            if parent is not None:
+                children.setdefault(parent, set()).add(key)
+            for ref in self.get_node_references(node):
+                if self.is_haschild_reference(ref) and not self.is_reference_of_type(ref, hasSubtypeId):
+                    target = self.key_from_nodeid_string(ref.text)
+                    if target in xml_nodes:
+                        children.setdefault(key, set()).add(target)
+        return children
 
     def is_type_node(self, key, xml_nodes):
         node = xml_nodes.get(key)
@@ -1122,21 +1191,14 @@ Did you forget to import it?")
         return canonical.split('=', 1)[1] if index == 0 and canonical.startswith('i=') else None
 
     def variables_of_nodes(self, xml_nodes):
-        """Parent key -> keys of the Variables it aggregates (ParentNodeId, or HasComponent/HasProperty/
-        HasOrderedComponent in either direction). The parent may be a node of another nodeset."""
-        children = {}
-        aggregates = (hasComponentId, hasPropertyId, hasOrderedComponentId)
-        for key, node in xml_nodes.items():
-            if node.tag.endswith('}UAVariable'):
-                parent = self.get_parent_key(node)
-                if parent is not None:
-                    children.setdefault(parent, set()).add(key)
-            for ref in self.get_node_references(node):
-                if any(self.is_reference_of_type(ref, reftype) for reftype in aggregates):
-                    target = self.key_from_nodeid_string(ref.text)
-                    if target in xml_nodes and xml_nodes[target].tag.endswith('}UAVariable'):
-                        children.setdefault(key, set()).add(target)
-        return children
+        """Parent key -> keys of its HasChild children which are Variables. The parent may be a node of another
+        nodeset."""
+        result = {}
+        for parent, children in self.children_of_nodes(xml_nodes).items():
+            variables = {c for c in children if xml_nodes[c].tag.endswith('}UAVariable')}
+            if variables:
+                result[parent] = variables
+        return result
 
     def is_foreign_instance(self, key):
         """True if a node of another nodeset is an instance (no type, no instance declaration, no type system
@@ -1193,6 +1255,164 @@ Did you forget to import it?")
                 result.setdefault(variable, f'Variable of instance {parent_label}')
         return result
 
+    def classify_with_heuristics(self, xml_nodes):
+        """key -> (static, formally static, reason of a difference).
+
+        Formal (standard) classification: NamespaceMetadata, otherwise types and instance declarations static and
+        instances dynamic (is_static_node). Unless strict_classification, two heuristics refine it:
+
+        1. An instance with Variables is dynamic together with its Variables, also against the NamespaceMetadata
+           (instances_with_variables).
+        2. Where the NamespaceMetadata does not decide, an instance is not dynamic per se: an Object (or View) is
+           dynamic if it has a Variable in its HasChild subtree (arguments of Methods do not count) or if its
+           HasChild parent is dynamic, otherwise static (e.g. DataType encodings, dictionary entries, entry
+           folders). A Method follows its HasChild parent, its arguments follow the Method. A Variable stays dynamic,
+           except the Variables of the
+           type dictionaries (DataTypeDictionaryType, DataTypeDescriptionType and their properties).
+        """
+        formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
+        if self.strict_classification:
+            return {key: (static, static, None) for key, static in formal.items()}
+        rule1 = self.instances_with_variables(xml_nodes)
+        children = self.children_of_nodes(xml_nodes)
+        result = {}
+
+        def tag(key):
+            return xml_nodes[key].tag.split('}')[-1]
+
+        type_cache = {}
+
+        def typedef_key(node):
+            typedef = next((ref.text for ref in self.get_node_references(node)
+                            if self.is_reference_of_type(ref, hasTypeDefinitionId)), None)
+            return self.key_from_nodeid_string(typedef) if typedef is not None else None
+
+        def type_declares_variables(key):
+            """True if the type (or a supertype) declares a Variable in its instance declaration tree."""
+            if key is None or (key[0] == 0 and key[1][2:] in heuristic_exception_types):
+                return False
+            if key not in type_cache:
+                type_cache[key] = False  # cycle guard
+                if key in xml_nodes:
+                    node = xml_nodes[key]
+                    supertype = next((self.key_from_nodeid_string(ref.text) for ref in self.get_node_references(node)
+                                      if self.is_reference_of_type(ref, hasSubtypeId, forward=False)), None)
+                    type_cache[key] = has_variable_below(key, {key}) or \
+                        type_declares_variables(supertype)
+                else:
+                    type_cache[key] = self.foreign_type_declares_variables(key)
+            return type_cache[key]
+
+        def has_variable_below(key, seen):
+            """True if a Variable is in the HasChild subtree (arguments of Methods do not count) or is declared by
+            the TypeDefinition of an Object of the subtree."""
+            if tag(key) in ('UAObject', 'UAView') and \
+                    type_declares_variables(typedef_key(xml_nodes[key])):
+                return True
+            for child in children.get(key, ()):
+                if child in seen:
+                    continue
+                seen.add(child)
+                if tag(child) == 'UAVariable':
+                    return True
+                if tag(child) != 'UAMethod' and has_variable_below(child, seen):
+                    return True
+            return False
+
+        def is_typesystem_variable(key, seen=()):
+            node = xml_nodes[key]
+            if self.get_typedefinition_id(node) in typesystem_variable_types:
+                return True
+            parent = self.get_parent_key(node)
+            return parent in xml_nodes and parent not in seen and tag(parent) == 'UAVariable' and \
+                is_typesystem_variable(parent, set(seen) | {key})
+
+        def parent_static(parent, visiting):
+            if parent is None:
+                return True
+            if parent in xml_nodes:
+                return parent not in visiting and classify(parent, visiting)[0]
+            return self.is_foreign_static(parent)
+
+        def classify(key, visiting=frozenset()):
+            if key in result:
+                return result[key]
+            node = xml_nodes[key]
+            static = formal[key]
+            reason = None
+            index, canonical = key
+            idt, identifier = canonical.split('=', 1)
+            undecided = self.explicit_static(self.opcua_ns[index], idt, identifier) is None
+            if key in rule1:
+                static, reason = False, rule1[key]
+            elif undecided and not static and tag(key) in instance_tags:
+                visiting = visiting | {key}
+                parent = self.get_parent_key(node)
+                if tag(key) in ('UAObject', 'UAView'):
+                    if not has_variable_below(key, {key}) and parent_static(parent, visiting):
+                        static, reason = True, 'Object without Variables below and without dynamic parent'
+                elif tag(key) == 'UAMethod':
+                    if parent_static(parent, visiting):
+                        static, reason = True, 'Method of a static parent'
+                elif is_typesystem_variable(key):
+                    static, reason = True, 'Variable of a type dictionary'
+                elif parent in xml_nodes and tag(parent) == 'UAMethod' and parent_static(parent, visiting):
+                    static, reason = True, 'argument of a static Method'
+            result[key] = (static, formal[key], reason if static != formal[key] else None)
+            return result[key]
+
+        for key in xml_nodes:
+            classify(key)
+        return result
+
+    def foreign_type_declares_variables(self, key, seen=None):
+        """True if a type of an imported ontology (or a supertype) declares a Variable in its instance declaration
+        tree (HasChild references of the type node and its declarations)."""
+        index, canonical = key
+        if index >= len(self.nodeIds):
+            return False
+        node = self.nodeIds[index].get(canonical.split('=', 1)[1])
+        if node is None:
+            return False
+        if not hasattr(self, '_haschild_properties'):
+            haschild = self.rdf_ns['opcua']['HasChild'] if 'opcua' in self.rdf_ns else None
+            self._haschild_properties = {p for p in set(self.ig.predicates())
+                                         if haschild is not None and p != self.rdf_ns['opcua']['HasSubtype'] and
+                                         haschild in set(self.ig.transitive_objects(p, RDFS.subPropertyOf))}
+        seen = seen if seen is not None else set()
+
+        def declares(n):
+            for p in self._haschild_properties:
+                for child in self.ig.objects(n, p):
+                    if child in seen:
+                        continue
+                    seen.add(child)
+                    if (child, RDF.type, UARDF['Variable']) in self.ig or \
+                            ((child, RDF.type, UARDF['Object']) in self.ig and declares(child)):
+                        return True
+            return False
+
+        while node is not None and node not in seen:
+            seen.add(node)
+            if declares(node):
+                return True
+            cls = self.ig.value(node, UARDF['definesType'])
+            supertype = next(iter(self.ig.objects(cls, RDFS.subClassOf)), None) if cls is not None else None
+            node = self.ig.value(predicate=UARDF['definesType'], object=supertype) if supertype is not None else None
+            if node is not None and str(self.ig.value(node, UARDF['nodeId'])) in \
+                    {f'i={i}' for i in heuristic_exception_types}:
+                return False
+        return False
+
+    def is_foreign_static(self, key):
+        """Classification of a node of another nodeset: static if its imported ontology exports it without server
+        URI or nothing is known about its namespace, dynamic if the static export of its namespace lacks it."""
+        index, canonical = key
+        if index >= len(self.nodeIds) or index not in self.imported_namespace_indices:
+            return True
+        iri = self.nodeIds[index].get(canonical.split('=', 1)[1])
+        return iri is not None and (iri, UARDF['serverUri'], None) not in self.ig
+
     def is_static_node(self, key, node, xml_nodes):
         index, canonical = key
         idt, identifier = canonical.split('=', 1)
@@ -1213,16 +1433,16 @@ Did you forget to import it?")
             if node.tag.split('}')[-1] in instance_tags + type_tags:
                 xml_nodes[self.key_from_nodeid_string(node.get('NodeId'))] = node
         self.scan_namespace_metadata(xml_nodes)
+        self.haschild_keys = self.haschild_reference_types()
         self.static_nodes = set()
-        heuristic = {} if self.strict_classification else self.instances_with_variables(xml_nodes)
         self.heuristic_overrides = {}
+        classification = self.classify_with_heuristics(xml_nodes)
         for key, node in xml_nodes.items():
             index, canonical = key
             prefix = self.get_rdf_ns_from_ua_index(index)
-            static = self.is_static_node(key, node, xml_nodes)
-            if static and key in heuristic:
-                static = False
-                self.heuristic_overrides[key] = heuristic[key]
+            static, formal, reason = classification[key]
+            if static != formal:
+                self.heuristic_overrides[key] = reason
             if static:
                 self.static_nodes.add(key)
                 expanded_nodeid = utils.expanded_nodeid_string(canonical, self.opcua_ns_raw[index])
@@ -1239,15 +1459,24 @@ Did you forget to import it?")
         dynamic_count = len(xml_nodes) - len(self.static_nodes)
         print(f"Identified {len(self.static_nodes)} static and {dynamic_count} dynamic nodes.")
         if self.heuristic_overrides:
-            print(f"Heuristic: {len(self.heuristic_overrides)} node(s) which NamespaceMetadata or the default rule "
-                  "classify static are dynamic as instance with Variables or its Variable "
-                  "(--strict-classification disables it).")
+            to_dynamic = sum(1 for k in self.heuristic_overrides if k not in self.static_nodes)
+            print(f"Heuristics: {len(self.heuristic_overrides)} node(s) classified differently than the standard "
+                  f"rules: {to_dynamic} static -> dynamic, {len(self.heuristic_overrides) - to_dynamic} dynamic -> "
+                  "static (--strict-classification disables the heuristics).")
         self.xml_nodes = xml_nodes
+        if self.skipped_dynamic_nodes:
+            print(f"Warning: No server URI given (--serverUri). {len(self.skipped_dynamic_nodes)} dynamic node(s) "
+                  "and references to them are not exported:")
+            for namespace_uri, canonical, browsename in self.skipped_dynamic_nodes[:20]:
+                print(f"  - nsu={namespace_uri};{canonical} ({browsename})")
+            if len(self.skipped_dynamic_nodes) > 20:
+                print(f"  ... and {len(self.skipped_dynamic_nodes) - 20} more")
 
     def write_classification_report(self, filename):
-        """TSV of the nodes which the instance-with-variables heuristic classifies dynamic."""
+        """TSV of the nodes which the heuristics classify differently than the standard rules (NamespaceMetadata,
+        otherwise types and instance declarations static, instances dynamic)."""
         with open(filename, 'w') as f:
-            f.write('NodeId\tBrowseName\tNodeClass\tTypeDefinition\tReason\n')
+            f.write('NodeId\tBrowseName\tNodeClass\tTypeDefinition\tStandard\tClassification\tReason\n')
 
             def order(item):
                 idt, identifier = item[0][1].split('=', 1)
@@ -1257,15 +1486,11 @@ Did you forget to import it?")
                 _, browsename = self.getBrowsename(node)
                 typedef = next((ref.text for ref in self.get_node_references(node)
                                 if self.is_reference_of_type(ref, hasTypeDefinitionId)), '')
+                classification = 'static' if key in self.static_nodes else 'dynamic'
+                standard = 'dynamic' if classification == 'static' else 'static'
                 f.write(f'nsu={self.opcua_ns_raw[key[0]]};{key[1]}\t{browsename}\t'
-                        f'{node.tag.split("}")[-1][2:]}\t{self.resolve_alias(typedef) if typedef else ""}\t{reason}\n')
-        if self.skipped_dynamic_nodes:
-            print(f"Warning: No server URI given (--serverUri). {len(self.skipped_dynamic_nodes)} dynamic node(s) "
-                  "and references to them are not exported:")
-            for namespace_uri, canonical, browsename in self.skipped_dynamic_nodes[:20]:
-                print(f"  - nsu={namespace_uri};{canonical} ({browsename})")
-            if len(self.skipped_dynamic_nodes) > 20:
-                print(f"  ... and {len(self.skipped_dynamic_nodes) - 20} more")
+                        f'{node.tag.split("}")[-1][2:]}\t{self.resolve_alias(typedef) if typedef else ""}\t'
+                        f'{standard}\t{classification}\t{reason}\n')
 
     def node_iri(self, index, identifier, idtype):
         """IRI of a node, None if it is a dynamic node which is not exported."""

@@ -188,9 +188,6 @@ opcua:HasModellingRule a owl:ObjectProperty ;
 opcua:HasProperty a owl:ObjectProperty ;
     rdfs:subPropertyOf opcua:Aggregates .
 
-opcua:ModellingRuleType a owl:Class ;
-    rdfs:subClassOf opcua:BaseObjectType .
-
 opcua:MyTestReference a owl:ObjectProperty ;
     rdfs:subPropertyOf opcua:HierarchicalReferences .
 
@@ -204,6 +201,7 @@ opcua:aT00NzEx a uardf:ObjectType ;
     opcua:HasAddIn opcua:aT00NzExMg ;
     opcua:HasComponent opcua:aT00NzExMg ;
     opcua:HasInterface opcua:aT01OA ;
+    opcua:HasModellingRule opcua:aT03OA ;
     opcua:HasProperty opcua:aT0xNjM2Mw ;
     opcua:Organizes opcua:aT00NzExMg ;
     opcua:hasMyObject opcua:aT00NzExMg ;
@@ -236,10 +234,24 @@ opcua:HasChild a owl:ObjectProperty ;
 opcua:HasComponent a owl:ObjectProperty ;
     rdfs:subPropertyOf opcua:Aggregates .
 
+opcua:ModellingRuleType a owl:Class ;
+    rdfs:subClassOf opcua:BaseObjectType .
+
 opcua:Number a owl:Class ;
     rdfs:subClassOf opcua:BaseDataType .
 
+opcua:aT03OA a uardf:Object ;
+    uardf:browseName "Mandatory" ;
+    uardf:description "Specifies that an instance with the attributes and references of the instance declaration must appear when a type is instantiated."@en ;
+    uardf:displayName "Mandatory"@en ;
+    uardf:hasTypeDefinition opcua:ModellingRuleType ;
+    uardf:name "Mandatory" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=78" ;
+    uardf:symbolicName "ModellingRule_Mandatory" .
+
 opcua:aT0xNjM2Mw a uardf:Variable ;
+    opcua:HasModellingRule opcua:aT03OA ;
     uardf:browseName "MyTestVar" ;
     uardf:displayName "My Test Variable"@en ;
     uardf:hasTypeDefinition opcua:BaseVariableType ;

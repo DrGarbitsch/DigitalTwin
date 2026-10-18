@@ -155,6 +155,63 @@ HEURISTIC_NODES = """
   </UAVariable>
 """
 
+# Nodes for the default heuristic (no NamespaceMetadata decides): an encoding, a Variable two levels below an
+# Object, an empty container of the dynamic instance 5001, a static Method with its argument, and a Variable below
+# an Object via a custom subtype of HasComponent, and an instance without children whose type declares Variables
+DEFAULT_HEURISTIC_NODES = """
+  <UAReferenceType NodeId="ns=1;i=6500" BrowseName="1:HasSpecialPart">
+    <DisplayName>HasSpecialPart</DisplayName>
+    <References><Reference ReferenceType="HasSubtype" IsForward="false">i=47</Reference></References>
+  </UAReferenceType>
+  <UAObject NodeId="ns=1;i=6000" BrowseName="Default Binary">
+    <DisplayName>Default Binary</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=76</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=6100" BrowseName="1:Machine">
+    <DisplayName>Machine</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="HasComponent">ns=1;i=6101</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=6101" BrowseName="1:Group">
+    <DisplayName>Group</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=58</Reference></References>
+  </UAObject>
+  <UAVariable NodeId="ns=1;i=6102" BrowseName="1:Value" ParentNodeId="ns=1;i=6101" DataType="i=11">
+    <DisplayName>Value</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=63</Reference></References>
+  </UAVariable>
+  <UAObject NodeId="ns=1;i=6201" BrowseName="1:EmptyContainer">
+    <DisplayName>EmptyContainer</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=61</Reference>
+      <Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=5001</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=6400" BrowseName="1:Service">
+    <DisplayName>Service</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=58</Reference></References>
+  </UAObject>
+  <UAMethod NodeId="ns=1;i=6300" BrowseName="1:Run" ParentNodeId="ns=1;i=6400">
+    <DisplayName>Run</DisplayName>
+    <References><Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=6400</Reference></References>
+  </UAMethod>
+  <UAVariable NodeId="ns=1;i=6301" BrowseName="InputArguments" ParentNodeId="ns=1;i=6300" DataType="i=296">
+    <DisplayName>InputArguments</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
+  </UAVariable>
+  <UAObject NodeId="ns=1;i=6600" BrowseName="1:Special">
+    <DisplayName>Special</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=58</Reference>
+      <Reference ReferenceType="ns=1;i=6500">ns=1;i=6601</Reference></References>
+  </UAObject>
+  <UAObject NodeId="ns=1;i=6700" BrowseName="1:PartialInstance">
+    <DisplayName>PartialInstance</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">ns=1;i=1001</Reference></References>
+  </UAObject>
+  <UAVariable NodeId="ns=1;i=6601" BrowseName="1:SpecialValue" DataType="i=11">
+    <DisplayName>SpecialValue</DisplayName>
+    <References><Reference ReferenceType="HasTypeDefinition">i=63</Reference></References>
+  </UAVariable>
+"""
+
 # NamespaceMetadata: numeric ids 1..5001 and string ids starting with "Named" are static
 METADATA = """
   <UAObject NodeId="ns=1;i=9000" BrowseName="1:http://test.org/A/">
@@ -219,7 +276,7 @@ class TestClassification(unittest.TestCase):
         return parser.node_key(1, identifier, BASE[idt])
 
     def test_fallback_rule_without_server_uri(self):
-        parser = self.make_parser()
+        parser = self.make_parser(strict=True)
         parser.classify_nodes()
         for static in ('1001', '1002', '1003'):
             key = self.key(parser, static)
@@ -232,6 +289,32 @@ class TestClassification(unittest.TestCase):
             self.assertIsNone(parser.node_iris[key])  # not exported without server URI
         self.assertIsNone(parser.node_iris[self.key(parser, 'Named', 'stringID')])
         self.assertEqual(len(parser.skipped_dynamic_nodes), 3)
+
+    def test_default_heuristic(self):
+        # the default rule is refined: the instance 5001 has a Variable and stays dynamic, the Object Named without
+        # Variables and without parent becomes static
+        parser = self.make_parser()
+        parser.classify_nodes()
+        self.assertNotIn(self.key(parser, '5001'), parser.static_nodes)
+        self.assertNotIn(self.key(parser, '5002'), parser.static_nodes)
+        named = self.key(parser, 'Named', 'stringID')
+        self.assertIn(named, parser.static_nodes)
+        self.assertEqual(parser.heuristic_overrides[named], 'Object without Variables below and without dynamic parent')
+
+    def test_default_heuristic_cases(self):
+        parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES)
+        parser.classify_nodes()
+        self.assertIn(self.key(parser, '6500'), parser.haschild_keys)  # custom subtype of HasComponent
+        for static in ('6000', '6400', '6300', '6301'):  # encoding; Object with a Method; Method; its argument
+            self.assertIn(self.key(parser, static), parser.static_nodes, static)
+        for dynamic in ('6100', '6101', '6102', '6201', '6600', '6601', '6700'):  # 6700: its type has Variables
+            self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6301')], 'argument of a static Method')
+        # strict: every instance is dynamic
+        parser = self.make_parser(metadata=DEFAULT_HEURISTIC_NODES, strict=True)
+        parser.classify_nodes()
+        for dynamic in ('6000', '6400', '6300', '6301'):
+            self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
 
     def test_fallback_rule_with_server_uri(self):
         parser = self.make_parser(server_uri=SERVER)
@@ -288,8 +371,9 @@ class TestClassification(unittest.TestCase):
             report = os.path.join(tmp, 'report.tsv')
             parser.write_classification_report(report)
             lines = open(report).read().splitlines()
-        self.assertEqual(lines[0], 'NodeId\tBrowseName\tNodeClass\tTypeDefinition\tReason')
-        self.assertIn(f'nsu={TEST_NS};i=5001\tInstance\tObject\tns=1;i=1001\tinstance with Variables', lines)
+        self.assertEqual(lines[0], 'NodeId\tBrowseName\tNodeClass\tTypeDefinition\tStandard\tClassification\tReason')
+        self.assertIn(f'nsu={TEST_NS};i=5001\tInstance\tObject\tns=1;i=1001\tstatic\tdynamic\t'
+                      'instance with Variables', lines)
 
     def test_explicit_static_undecided(self):
         parser = self.make_parser()
