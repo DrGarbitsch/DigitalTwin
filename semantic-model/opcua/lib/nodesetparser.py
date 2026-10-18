@@ -115,14 +115,14 @@ UARDF = utils.UARDF
 idtype_enum = {'i': 0, 's': 1, 'g': 2, 'b': 3}
 instance_tags = ('UAObject', 'UAVariable', 'UAMethod', 'UAView')
 type_tags = ('UAObjectType', 'UAVariableType', 'UADataType', 'UAReferenceType')
-# Type system (rule R5): instances of these types (and their subtypes) belong to the type system or are global
-# definitions which types refer to (ModellingRules, DataType encodings, type dictionaries and their descriptions,
-# dictionary entries). The heuristic rules R1 and R2 do not make them dynamic, R5 makes them static; e.g. every
-# ModellingRule object has a NamingRule property.
-heuristic_exception_types = {'77': 'ModellingRuleType', '75': 'DataTypeSystemType', '72': 'DataTypeDictionaryType',
-                             '69': 'DataTypeDescriptionType', '76': 'DataTypeEncodingType',
-                             '17589': 'DictionaryEntryType'}
-# Variables of the (legacy) type dictionaries: static by the default heuristic like the type system Objects
+# Definition types (rule R4): their instances are definitions rather than data, which types and data types refer to
+# by NodeId (HasEncoding, HasDictionaryEntry, HasModellingRule, HasDescription): DataType encodings, dictionary
+# entries, ModellingRules and the legacy type dictionaries. Where the NamespaceMetadata (R3) does not decide, R4 makes
+# them static; the heuristic rules R1 and R2 never make them dynamic (e.g. every ModellingRule has a NamingRule
+# property).
+definition_types = {'77': 'ModellingRuleType', '75': 'DataTypeSystemType', '72': 'DataTypeDictionaryType',
+                    '69': 'DataTypeDescriptionType', '76': 'DataTypeEncodingType', '17589': 'DictionaryEntryType'}
+# Variables of the (legacy) type dictionaries: definitions as well (R4)
 typesystem_variable_types = ('72', '69')
 
 
@@ -1203,7 +1203,7 @@ Did you forget to import it?")
         return result
 
     def is_foreign_instance(self, key):
-        """True if a node of another nodeset is an instance (no type, no instance declaration, no type system
+        """True if a node of another nodeset is an instance (no type, no instance declaration, no definition
         node). Nodes which the static export of an imported namespace does not contain are dynamic instances."""
         index, canonical = key
         if index >= len(self.nodeIds) or index not in self.imported_namespace_indices:
@@ -1215,7 +1215,7 @@ Did you forget to import it?")
             return False
         typedef = self.ig.value(iri, UARDF['hasTypeDefinition'])
         if typedef is not None and str(typedef) in {str(self.rdf_ns['opcua'][name])
-                                                    for name in heuristic_exception_types.values()}:
+                                                    for name in definition_types.values()}:
             return False
         node, visited = iri, set()
         while node is not None and node not in visited:  # instance declaration: below a type or with rule
@@ -1232,22 +1232,22 @@ Did you forget to import it?")
                         if self.is_reference_of_type(ref, hasTypeDefinitionId)), None)
         return self.key_from_nodeid_string(typedef) if typedef is not None else None
 
-    def is_exception_type(self, key, xml_nodes):
-        """True if the type (key) is or derives from a type of the type system exception (heuristic_exception_types),
+    def is_definition_type(self, key, xml_nodes):
+        """True if the type (key) is or derives from a definition type (definition_types),
         resolved via the supertypes of this nodeset (HasSubtype) and of the imported ontologies (rdfs:subClassOf)."""
-        cache = self.__dict__.setdefault('_exception_type_cache', {})
+        cache = self.__dict__.setdefault('_definition_type_cache', {})
         if key is None:
             return False
         if key not in cache:
             cache[key] = False  # cycle guard
             index, canonical = key
-            if index == 0 and canonical[2:] in heuristic_exception_types:
+            if index == 0 and canonical[2:] in definition_types:
                 cache[key] = True
             elif key in xml_nodes:
                 supertype = next((self.key_from_nodeid_string(ref.text)
                                   for ref in self.get_node_references(xml_nodes[key])
                                   if self.is_reference_of_type(ref, hasSubtypeId, forward=False)), None)
-                cache[key] = self.is_exception_type(supertype, xml_nodes)
+                cache[key] = self.is_definition_type(supertype, xml_nodes)
             elif index < len(self.nodeIds):
                 node = self.nodeIds[index].get(canonical.split('=', 1)[1])
                 cls = self.ig.value(node, UARDF['definesType']) if node is not None else None
@@ -1259,7 +1259,7 @@ Did you forget to import it?")
                     _, nsu, idt, identifier = utils.parse_expanded_nodeid(nodeid)
                     superindex = self.namespace_index(nsu or self.opcua_ns_raw[0])
                     if superindex is not None and \
-                            self.is_exception_type((superindex, utils.canonical_nodeid(idt, identifier)), xml_nodes):
+                            self.is_definition_type((superindex, utils.canonical_nodeid(idt, identifier)), xml_nodes):
                         cache[key] = True
         return cache[key]
 
@@ -1272,8 +1272,8 @@ Did you forget to import it?")
         """R1 (instance-with-Variables rule): an instance which has Variables is server specific, so the instance and
         its Variables are dynamic (adding Variables to an instance expresses the intention of server specific data).
 
-        Instances are Objects and Variables which are neither types nor instance declarations; instances of the type
-        system exception are excluded. The parent may be an instance of another nodeset (e.g. DI's
+        Instances are Objects and Variables which are neither types nor instance declarations; instances of the
+        definition types are excluded. The parent may be an instance of another nodeset (e.g. DI's
         MaxInactiveLockTime below core's ServerCapabilities), then only its Variables of this nodeset are classified.
         Returns key -> reason.
         """
@@ -1283,14 +1283,14 @@ Did you forget to import it?")
             if node is not None:
                 if node.tag.split('}')[-1] not in ('UAObject', 'UAVariable') or \
                         self.is_instance_declaration(parent, xml_nodes) or \
-                        self.is_exception_type(self.typedef_key(node), xml_nodes):
+                        self.is_definition_type(self.typedef_key(node), xml_nodes):
                     continue
                 result.setdefault(parent, 'R1: instance with Variables')
             elif not self.is_foreign_instance(parent):
                 continue
             for variable in variables:
                 # a Variable of an instance belongs to the instance, even if it (wrongly) has a ModellingRule
-                if self.is_exception_type(self.typedef_key(xml_nodes[variable]), xml_nodes):
+                if self.is_definition_type(self.typedef_key(xml_nodes[variable]), xml_nodes):
                     continue
                 result.setdefault(variable, f'R1: Variable of instance {self.node_label(parent, xml_nodes)}')
         return result
@@ -1298,16 +1298,16 @@ Did you forget to import it?")
     def classify_with_heuristics(self, xml_nodes):
         """key -> (static, formally static, reason of a difference).
 
-        Standard rules (--strict-classification):
+        The first matching rule decides, in the order R1 to R5. Standard rules (--strict-classification):
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
-          R4 default rule: otherwise types and instance declarations are static, instances dynamic.
-        Heuristic rules (default), in this order:
+          R5 default rule: otherwise types and instance declarations are static, instances dynamic.
+        Heuristic rules (default):
           R1 instance-with-Variables rule: an instance which has Variables, or whose TypeDefinition (or a
              supertype) declares Variables, is dynamic together with its Variables, also against R3.
           R2 containment rule: an Object below a dynamic instance (HasChild) is dynamic, also against R3.
-          R5 type-system rule (where R3 does not decide): instances of the type system (heuristic_exception_types
-             and their subtypes) and the Variables of the type dictionaries are static.
-        R1 and R2 never make instances of the type system dynamic. Only HasChild (and its subtypes) is considered:
+          R4 definition rule (where R3 does not decide): instances of the definition types (definition_types and
+             their subtypes) and the Variables of the type dictionaries are static.
+        R1 and R2 never make instances of the definition types dynamic. Only HasChild (and its subtypes) is considered:
         Organizes (or any other reference which is not HasChild) never influences the classification.
         """
         formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
@@ -1321,12 +1321,12 @@ Did you forget to import it?")
         def tag(key):
             return xml_nodes[key].tag.split('}')[-1]
 
-        def is_exception(key):
-            return self.is_exception_type(self.typedef_key(xml_nodes[key]), xml_nodes)
+        def is_definition(key):
+            return self.is_definition_type(self.typedef_key(xml_nodes[key]), xml_nodes)
 
         def type_declares_variables(key):
             """True if the type (or a supertype) declares a Variable in its instance declaration tree."""
-            if key is None or self.is_exception_type(key, xml_nodes):
+            if key is None or self.is_definition_type(key, xml_nodes):
                 return False
             if key not in type_cache:
                 type_cache[key] = False  # cycle guard
@@ -1365,7 +1365,7 @@ Did you forget to import it?")
         # R1, extended to the TypeDefinition: an instance whose type (or a supertype) declares Variables is dynamic
         # too, even if the nodeset does not contain its Variables (e.g. a partial instance)
         for key, node in xml_nodes.items():
-            if key not in rule1 and tag(key) in ('UAObject', 'UAVariable') and not is_exception(key) and \
+            if key not in rule1 and tag(key) in ('UAObject', 'UAVariable') and not is_definition(key) and \
                     not self.is_instance_declaration(key, xml_nodes) and \
                     type_declares_variables(self.typedef_key(node)):
                 rule1[key] = 'R1: instance whose TypeDefinition declares Variables'
@@ -1391,14 +1391,14 @@ Did you forget to import it?")
             is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif static and is_object and parent is not None and not is_exception(key) and \
+            elif static and is_object and parent is not None and not is_definition(key) and \
                     not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
                 static, reason = False, f'R2: Object below dynamic instance {self.node_label(parent, xml_nodes)}'
             elif undecided and not static and tag(key) in instance_tags:
-                if is_object and is_exception(key):
-                    static, reason = True, 'R5: instance of the type system'
+                if is_object and is_definition(key):
+                    static, reason = True, 'R4: instance of a definition type'
                 elif tag(key) == 'UAVariable' and is_typesystem_variable(key):
-                    static, reason = True, 'R5: Variable of a type dictionary'
+                    static, reason = True, 'R4: Variable of a type dictionary'
             result[key] = (static, formal[key], reason if static != formal[key] else None)
             return result[key]
 
@@ -1441,7 +1441,7 @@ Did you forget to import it?")
             supertype = next(iter(self.ig.objects(cls, RDFS.subClassOf)), None) if cls is not None else None
             node = self.ig.value(predicate=UARDF['definesType'], object=supertype) if supertype is not None else None
             if node is not None and str(self.ig.value(node, UARDF['nodeId'])) in \
-                    {f'i={i}' for i in heuristic_exception_types}:
+                    {f'i={i}' for i in definition_types}:
                 return False
         return False
 

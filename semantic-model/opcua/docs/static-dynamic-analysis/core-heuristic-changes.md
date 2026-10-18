@@ -18,7 +18,8 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
     declares no Variables: `Dictionaries`, `Resources`, `AuthorizationServices`, `DataSetClasses`,
     `AggregateFunctions`, `EventTypes`. Folders which are only organized by dynamic instances (`Communication` and
     below it) stay static: Organizes does not influence the classification.
-- R5 changes nothing in core, R3 decides every core node.
+- R4 changes nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
+  dictionaries static anyway).
 - **All but 8** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 8
   others are `HA Configuration` (`i=11202`) with its children and `FileSystem` (`i=16314`), which are not reachable
   at all (see below).

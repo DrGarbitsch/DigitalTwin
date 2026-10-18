@@ -111,9 +111,9 @@ options:
                         part) it composes the full export. The export gets its own ontology IRI per server: <ontology>
                         + base64url(svu=<serverUri>).
   --strict-classification
-                        Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) and R4
+                        Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) and R5
                         (otherwise types and instance declarations are static, instances dynamic). Disables the
-                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R5 (type-system rule), see
+                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R4 (definition rule), see
                         README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
@@ -154,38 +154,36 @@ declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output impor
 
 A node is *static* when it is the same in every server (types, instance declarations,
 well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
-machine). nodeset2owl.py decides it with the following named rules. The first matching rule
-decides, in the order R1, R2, R3, R5, R4.
+machine). nodeset2owl.py decides it with the following named rules; the first matching rule
+decides, in the order R1 to R5. R3 and R5 are the rules of the OPC UA standard, R1, R2 and R4
+are heuristics (default, disabled by `--strict-classification`).
 
-Standard rules (OPC UA):
-
-- **R3 NamespaceMetadata rule.** The `NamespaceMetadata` of the nodeset decides per
-  namespace (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
-- **R4 default rule.** If R3 does not decide, types and instance declarations are static and
+- **R1 instance-with-Variables rule** (heuristic). An instance (an Object or Variable which
+  is neither a type nor an instance declaration) that has Variables, or whose TypeDefinition
+  (or a supertype) declares Variables, is dynamic, together with its Variables: Variables
+  express the intention of server specific data, also for an instance whose Variables the
+  nodeset does not contain (partial instance). It overrides R3, e.g. every NamespaceMetadata
+  object, core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
+  ServerCapabilities). R1 looks at the direct Variables (and those of the type) only;
+  transitively it would make static entry points such as core's `Objects` folder dynamic.
+- **R2 containment rule** (heuristic). An Object below a dynamic instance (HasChild) is
+  dynamic, also against R3, e.g. the folders `Dictionaries` or `AggregateFunctions` of the
+  server specific objects. Methods are not affected.
+- **R3 NamespaceMetadata rule** (standard). The `NamespaceMetadata` of the nodeset decides
+  per namespace (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
+- **R4 definition rule** (heuristic). Instances which are definitions rather than data are
+  static: DataType encodings, dictionary entries, ModellingRules and the legacy type
+  dictionaries, i.e. instances of DataTypeEncodingType, DictionaryEntryType,
+  ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType
+  (and their subtypes), together with the Variables of the type dictionaries. Types and data
+  types refer to them by NodeId (HasEncoding, HasDictionaryEntry, HasModellingRule,
+  HasDescription), so they must be the same in every server. R4 does not overrule R3: it
+  applies where the NamespaceMetadata does not decide. R1 and R2 never make these instances
+  dynamic (e.g. every ModellingRule has a NamingRule property).
+- **R5 default rule** (standard). Otherwise types and instance declarations are static and
   instances are dynamic. An instance declaration is a node with a ModellingRule or a node
   whose HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type
   or an instance declaration.
-
-Heuristic rules (default, disabled by `--strict-classification`):
-
-- **R1 instance-with-Variables rule.** An instance (an Object or Variable which is neither a
-  type nor an instance declaration) that has Variables, or whose TypeDefinition (or a
-  supertype) declares Variables, is dynamic, together with its Variables: Variables express
-  the intention of server specific data, also for an instance whose Variables the nodeset
-  does not contain (partial instance). It overrides R3, e.g. every NamespaceMetadata object,
-  core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
-  ServerCapabilities). R1 looks at the direct Variables (and those of the type) only;
-  transitively it would make static entry points such as core's `Objects` folder dynamic.
-- **R2 containment rule.** An Object below a dynamic instance (HasChild) is dynamic, also
-  against R3, e.g. the folders `SecurityGroups` or `CertificateGroups` of the server
-  specific objects. Methods are not affected.
-- **R5 type-system rule.** Where R3 does not decide, the instances of the type system are
-  static instead of dynamic (R4): instances of ModellingRuleType, DataTypeSystemType,
-  DataTypeDictionaryType, DataTypeDescriptionType, DataTypeEncodingType and
-  DictionaryEntryType (and their subtypes), e.g. DataType encodings and dictionary entries,
-  and the Variables of the type dictionaries. Types refer to them (every ModellingRule has a
-  NamingRule property, PADIM refers to IRDI dictionary entries), so R1 and R2 never make them
-  dynamic either.
 
 All rules follow HasChild only, including all its subtypes (HasComponent, HasProperty,
 HasOrderedComponent, HasAddIn, ...), also those of companion specifications, resolved via the

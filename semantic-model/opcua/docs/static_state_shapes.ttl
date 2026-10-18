@@ -18,7 +18,7 @@ uaq:prefixes
                [ sh:prefix "base" ;
                  sh:namespace "https://industryfusion.github.io/contexts/ontology/v0/base/"^^xsd:anyURI ] .
 
-# R1: a static, readable Variable which is a real instance (not a template = instance declaration
+# SH1: a static, readable Variable which is a real instance (not a template = instance declaration
 # or part of a type definition) must have its value fixed by the specification.
 # Heuristic: "fixed by the specification" is approximated by "the nodeset defines a Value"
 # (base:hasValue / base:hasValueList). This misses server state shipped with a default value and
@@ -45,7 +45,7 @@ uaq:StaticStateNeedsSpecValue
         """ ;
     ] .
 
-# R2: a static real-instance Variable whose metadata says the value is meant to change.
+# SH2: a static real-instance Variable whose metadata says the value is meant to change.
 uaq:StaticButVolatile
     a sh:NodeShape ;
     sh:targetClass opcua:VariableNodeClass ;
@@ -67,7 +67,7 @@ uaq:StaticButVolatile
         """ ;
     ] .
 
-# R4: candidate list ("delinquents"): static Variables with a dynamic node somewhere above them in
+# SH4: candidate list ("delinquents"): static Variables with a dynamic node somewhere above them in
 # the hierarchy. Purely structural, no value heuristic. Such a variable is one global node but lives
 # inside server specific structure; each hit has to be checked (access level, treatment by the standard).
 uaq:StaticVariableUnderDynamic
