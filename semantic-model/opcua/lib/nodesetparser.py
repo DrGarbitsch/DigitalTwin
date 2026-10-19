@@ -154,7 +154,7 @@ class NodesetParser:
         self.server_uri = getattr(args, 'serverUri', None)
         self.default_locale = getattr(args, 'defaultLocale', 'en')
         self.enforce_opcua_type_semantic = getattr(args, 'enforce_opcua_type_semantic', False)
-        # strict: only NamespaceMetadata and the default rule decide, no instance-with-variables heuristic
+        # strict: only the standard rules R3 (NamespaceMetadata) and R5 (default fallback) decide
         self.strict_classification = getattr(args, 'strict_classification', False)
         self.heuristic_overrides = {}  # key -> reason, nodes which only the heuristic classifies dynamic
         self.node_iris = {}  # (ns index, canonical nodeid) -> IRI, or None for not exported dynamic nodes
@@ -1269,8 +1269,9 @@ Did you forget to import it?")
         return f'{self.getBrowsename(node)[1]} ({nodeid})' if node is not None else nodeid
 
     def instances_with_variables(self, xml_nodes):
-        """R1 (instance-with-Variables rule): an instance which has Variables is server specific, so the instance and
-        its Variables are dynamic (adding Variables to an instance expresses the intention of server specific data).
+        """R1 (instance-with-Variables override): an instance which has Variables is server specific, so the instance
+        and its Variables are dynamic (adding Variables to an instance expresses the intention of server specific
+        data).
 
         Instances are Objects and Variables which are neither types nor instance declarations; instances of the
         definition types are excluded. The parent may be an instance of another nodeset (e.g. DI's
@@ -1298,16 +1299,18 @@ Did you forget to import it?")
     def classify_with_heuristics(self, xml_nodes):
         """key -> (static, formally static, reason of a difference).
 
-        The first matching rule decides, in the order R1 to R5. Standard rules (--strict-classification):
+        The first matching rule decides, in the order R1 to R5:
+          overrides (heuristic, they overrule R3):
+          R1 instance-with-Variables override: an instance which has Variables is dynamic together with its
+             Variables, except definition nodes.
+          R2 containment override: an Object below a dynamic instance (HasChild) is dynamic, except definition nodes.
+          standard rule:
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
-          R5 default rule: otherwise types and instance declarations are static, instances dynamic.
-        Heuristic rules (default):
-          R1 instance-with-Variables rule: an instance which has Variables is dynamic together with its Variables,
-             also against R3.
-          R2 containment rule: an Object below a dynamic instance (HasChild) is dynamic, also against R3.
-          R4 definition rule (where R3 does not decide): instances of the definition types (definition_types and
-             their subtypes) and the Variables of the type dictionaries are static.
-        R1 and R2 never make instances of the definition types dynamic. Only HasChild (and its subtypes) is considered:
+          fallbacks (only where R3 does not decide):
+          R4 definition fallback (heuristic): definition nodes - instances of the definition types (definition_types
+             and their subtypes) and the Variables of the type dictionaries - are static.
+          R5 default fallback (standard): types and instance declarations are static, instances dynamic.
+        --strict-classification keeps the standard rules R3 and R5 only. Only HasChild (and its subtypes) is considered:
         Organizes (or any other reference which is not HasChild) never influences the classification.
         """
         formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
@@ -1356,9 +1359,9 @@ Did you forget to import it?")
                 static, reason = False, f'R2: Object below dynamic instance {self.node_label(parent, xml_nodes)}'
             elif undecided and not static and tag(key) in instance_tags:
                 if is_object and is_definition(key):
-                    static, reason = True, 'R4: instance of a definition type'
+                    static, reason = True, 'R4: definition node (fallback)'
                 elif tag(key) == 'UAVariable' and is_typesystem_variable(key):
-                    static, reason = True, 'R4: Variable of a type dictionary'
+                    static, reason = True, 'R4: Variable of a type dictionary (fallback)'
             result[key] = (static, formal[key], reason if static != formal[key] else None)
             return result[key]
 

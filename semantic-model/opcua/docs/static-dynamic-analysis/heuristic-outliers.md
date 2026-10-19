@@ -5,16 +5,17 @@ Evaluation of the static/dynamic classification of nodeset2owl.py on the 20 node
 
 ## The rules
 
-The first matching rule decides, in the order R1 to R5. R3 and R5 are the rules of the OPC UA standard
-(`--strict-classification`), R1, R2 and R4 the heuristic rules (default).
+The first matching rule decides, in the order R1 to R5. R1 and R2 are *overrides* (they overrule the
+NamespaceMetadata), R4 and R5 *fallbacks* (they only apply where the NamespaceMetadata does not decide). R3 and R5 are
+the rules of the OPC UA standard (`--strict-classification`), R1, R2 and R4 heuristics (default).
 
 | Rule | Name | Statement |
 |---|---|---|
-| R1 | instance-with-Variables rule (heuristic) | An instance which has (direct) Variables is dynamic together with its Variables, also against R3. |
-| R2 | containment rule (heuristic) | An Object below a dynamic instance (HasChild) is dynamic, also against R3. |
+| R1 | instance-with-Variables override (heuristic) | An instance which has (direct) Variables is dynamic together with its Variables. Definition nodes are excluded. |
+| R2 | containment override (heuristic) | An Object below a dynamic instance (HasChild) is dynamic. Methods and definition nodes are excluded. |
 | R3 | NamespaceMetadata rule (standard) | The NamespaceMetadata of the namespace decides. |
-| R4 | definition rule (heuristic) | Instances which are definitions rather than data are static: DataType encodings, dictionary entries, ModellingRules and the legacy type dictionaries (instances of DataTypeEncodingType, DictionaryEntryType, ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType and subtypes, with the Variables of the type dictionaries). Types refer to them by NodeId. R4 does not overrule R3; R1 and R2 never make them dynamic. |
-| R5 | default rule (standard) | Types and instance declarations are static, instances dynamic. |
+| R4 | definition fallback (heuristic) | Definition nodes, i.e. Objects and Variables which are definitions rather than data, are static: DataType encodings, dictionary entries, ModellingRules and the legacy type dictionaries (instances of DataTypeEncodingType, DictionaryEntryType, ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType and subtypes, with the Variables of the type dictionaries). Types refer to them by NodeId. Only where R3 does not decide. |
+| R5 | default fallback (standard) | Types and instance declarations are static, instances dynamic. |
 
 HasChild means HasChild and all its subtypes, resolved via the ReferenceType hierarchy (nodeset and imported
 ontologies). Organizes, like every other reference which is not HasChild, never influences the classification:
@@ -24,7 +25,7 @@ TypeDefinition are not considered either (see the limitations below).
 
 ## Differences to the standard classification
 
-| | R1 static → dynamic | R2 static → dynamic | R4 dynamic → static |
+| | R1 static → dynamic | R2 static → dynamic | R4 instead of R5: dynamic → static |
 |---|---|---|---|
 | core | 232 | 12 | 0 |
 | every other companion specification with NamespaceMetadata | 8–14 (its NamespaceMetadata object; DI also `OnlineAccess`, `MaxInactiveLockTime`; DEXPI also `DEXPISupplementaryData`) | 0 | 0 |

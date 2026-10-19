@@ -111,10 +111,10 @@ options:
                         part) it composes the full export. The export gets its own ontology IRI per server: <ontology>
                         + base64url(svu=<serverUri>).
   --strict-classification
-                        Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata) and R5
-                        (otherwise types and instance declarations are static, instances dynamic). Disables the
-                        heuristic rules R1 (instance-with-Variables), R2 (containment) and R4 (definition rule), see
-                        README.
+                        Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata rule) and
+                        R5 (default fallback: types and instance declarations static, instances dynamic). Disables the
+                        heuristic overrides R1 (instance-with-Variables), R2 (containment) and the heuristic fallback
+                        R4 (definition fallback), see README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
                         dynamic and dynamic -> static) to this TSV file.
@@ -155,36 +155,46 @@ declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output impor
 A node is *static* when it is the same in every server (types, instance declarations,
 well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
 machine). nodeset2owl.py decides it with the following named rules; the first matching rule
-decides, in the order R1 to R5. R3 and R5 are the rules of the OPC UA standard, R1, R2 and R4
-are heuristics (default, disabled by `--strict-classification`).
+decides, in the order R1 to R5. R1 and R2 are *overrides*, which overrule the NamespaceMetadata
+(R3); R4 and R5 are *fallbacks*, which only apply where the NamespaceMetadata does not decide.
+R3 and R5 are the rules of the OPC UA standard (`--strict-classification` keeps only these),
+R1, R2 and R4 are heuristics.
 
-- **R1 instance-with-Variables rule** (heuristic). An instance (an Object or Variable which
-  is neither a type nor an instance declaration) that has Variables is dynamic, together with
+Overrides (heuristic, they overrule R3):
+
+- **R1 instance-with-Variables override.** An instance (an Object or Variable which is
+  neither a type nor an instance declaration) that has Variables is dynamic, together with
   its Variables: adding Variables to an instance expresses the intention of server specific
-  data. It overrides R3, e.g. every NamespaceMetadata object, core's ServerConfiguration or
-  DI's `MaxInactiveLockTime` (a Variable of core's ServerCapabilities). R1 looks at the
-  direct Variables of the instance in the nodeset only: transitively it would make static
-  entry points such as core's `Objects` folder dynamic, and the Variables declared by the
+  data, e.g. every NamespaceMetadata object, core's ServerConfiguration or DI's
+  `MaxInactiveLockTime` (a Variable of core's ServerCapabilities). R1 looks at the direct
+  Variables of the instance in the nodeset only: transitively it would make static entry
+  points such as core's `Objects` folder dynamic, and the Variables declared by the
   TypeDefinition are not considered (an instance whose Variables the nodeset does not contain
-  keeps the classification of R3).
-- **R2 containment rule** (heuristic). An Object below a dynamic instance (HasChild) is
-  dynamic, also against R3, e.g. the folders `Dictionaries` or `AggregateFunctions` of the
-  server specific objects. Methods are not affected.
-- **R3 NamespaceMetadata rule** (standard). The `NamespaceMetadata` of the nodeset decides
-  per namespace (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
-- **R4 definition rule** (heuristic). Instances which are definitions rather than data are
-  static: DataType encodings, dictionary entries, ModellingRules and the legacy type
-  dictionaries, i.e. instances of DataTypeEncodingType, DictionaryEntryType,
-  ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType
-  (and their subtypes), together with the Variables of the type dictionaries. Types and data
-  types refer to them by NodeId (HasEncoding, HasDictionaryEntry, HasModellingRule,
-  HasDescription), so they must be the same in every server. R4 does not overrule R3: it
-  applies where the NamespaceMetadata does not decide. R1 and R2 never make these instances
-  dynamic (e.g. every ModellingRule has a NamingRule property).
-- **R5 default rule** (standard). Otherwise types and instance declarations are static and
-  instances are dynamic. An instance declaration is a node with a ModellingRule or a node
-  whose HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type
-  or an instance declaration.
+  keeps the classification of R3). Definition nodes (see R4) are excluded, e.g. every
+  ModellingRule has a NamingRule property.
+- **R2 containment override.** An Object below a dynamic instance (HasChild) is dynamic, e.g.
+  the folders `Dictionaries` or `AggregateFunctions` of the server specific objects. Methods
+  and definition nodes are excluded.
+
+Standard rule:
+
+- **R3 NamespaceMetadata rule.** The `NamespaceMetadata` of the nodeset decides per namespace
+  (StaticNodeIdTypes, StaticNumericNodeIdRange, StaticStringNodeIdPattern).
+
+Fallbacks (only where R3 does not decide):
+
+- **R4 definition fallback** (heuristic). Definition nodes are static: Objects and Variables
+  which are definitions rather than data – DataType encodings, dictionary entries,
+  ModellingRules and the legacy type dictionaries, i.e. instances of DataTypeEncodingType,
+  DictionaryEntryType, ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType,
+  DataTypeDescriptionType (and their subtypes), together with the Variables of the type
+  dictionaries. They are part of the information model, which refers to them by NodeId
+  (HasEncoding, HasDictionaryEntry, HasModellingRule, HasDescription), so they must be the
+  same in every server.
+- **R5 default fallback** (standard). Types and instance declarations are static, instances
+  are dynamic. An instance declaration is a node with a ModellingRule or a node whose
+  HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type or an
+  instance declaration.
 
 All rules follow HasChild only, including all its subtypes (HasComponent, HasProperty,
 HasOrderedComponent, HasAddIn, ...), also those of companion specifications, resolved via the

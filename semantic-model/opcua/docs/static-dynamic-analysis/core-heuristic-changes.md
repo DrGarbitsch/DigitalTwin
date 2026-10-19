@@ -9,16 +9,16 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
 
 - **244 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
   numeric ranges) classifies them static:
-  - **232 by R1** (instance-with-Variables rule): 46 instances with their Variables – ServerConfiguration and the
+  - **232 by R1** (instance-with-Variables override): 46 instances with their Variables – ServerConfiguration and the
     certificate management, the RoleSet roles, PubSub, the historian defaults, core's NamespaceMetadata,
     UserManagement, `Aliases`, `ProvisionableDevice`.
-  - **12 by R2** (containment rule): the folders which are components (HasChild) of dynamic instances:
+  - **12 by R2** (containment override): the folders which are components (HasChild) of dynamic instances:
     `CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
     `KeyPushTargets`, `Dictionaries`, `Resources`, `AuthorizationServices`, `KeyCredentialConfiguration`,
     `AggregateFunctions`, `EventTypes`. Folders which are only organized by dynamic instances (`TagVariables`,
     `Topics`, `Quantities`, `Communication` and below it) stay static: Organizes does not influence the
     classification.
-- R4 changes nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
+- The fallbacks R4 and R5 change nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
   dictionaries static anyway).
 - **All but 7** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 7
   others are `HA Configuration` (`i=11202`) and its children, which are not reachable at all (see below).
@@ -61,7 +61,7 @@ one for servers either, and did not verify it exhaustively). So the node is most
 **Consequence for the heuristic:** classifying the prototype as dynamic is wrong – with a server URI it would
 become `svu=<server>;i=11202`, a node which does not exist in that server. Proposal: apply the heuristic only to
 instances which are part of the AddressSpace (reachable via hierarchical references, i.e. with a parent); root-
-less instances are definitions and keep the classification of the NamespaceMetadata/default rule (static here).
+less instances are definitions and keep the classification of R3 (static here).
 In core this removes the 7 `HA Configuration` nodes from the list; the other unreferenced definitions have no
 Variables and are not affected anyway. Not implemented.
 

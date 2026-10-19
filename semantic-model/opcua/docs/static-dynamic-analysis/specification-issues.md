@@ -85,7 +85,7 @@ the Companion Specification template).
 **P1. Empty NamespaceMetadata.** The NamespaceMetadata object (`i=117`) has `StaticNodeIdTypes` (`i=358`),
 `StaticNumericNodeIdRange` (`i=359`) and `StaticStringNodeIdPattern` (`i=360`) without values, so it decides nothing:
 the DataType encodings (`i=69`, `i=70`, `i=74`, `i=76`–`i=84`), the type dictionaries (`i=195`–`i=198`) and their
-descriptions (`i=180`–`i=191`) are dynamic by the standard default rule, and the global model loses the `HasEncoding`
+descriptions (`i=180`–`i=191`) are dynamic by the standard default fallback (R5), and the global model loses the `HasEncoding`
 links of the PackML DataTypes (nodeset2owl.py makes these 28 nodes static, R4); the entry folder `PackMLObjects`
 (`i=72`) stays dynamic.
 *Request:* set `StaticNumericNodeIdRange` (e.g. `1:65535`, excluding the NamespaceMetadata object `i=117` and
@@ -94,7 +94,7 @@ links of the PackML DataTypes (nodeset2owl.py makes these 28 nodes static, R4); 
 ## ISA95 (`http://www.OPCFoundation.org/UA/2013/01/ISA95`, `Opc.ISA95.NodeSet2.xml`)
 
 **I1. No NamespaceMetadata.** The 8 DataType encodings and the type dictionaries with their descriptions (12 nodes) are
-dynamic by the standard default rule (nodeset2owl.py: static by R4).
+dynamic by the standard default fallback (nodeset2owl.py: static by the definition fallback R4).
 *Request:* add a NamespaceMetadata object with static ranges.
 
 **I2. ISA95-JobControl** (`http://opcfoundation.org/UA/ISA95-JOBCONTROL`): `StaticStringNodeIdPattern = "0"`, a
@@ -106,7 +106,7 @@ numeric). *Request:* remove or correct the pattern.
 **R1. Empty NamespaceMetadata.** The IRDI nodeset's NamespaceMetadata (`i=1000`) has `IsNamespaceSubset` (`i=1001`),
 `StaticNodeIdTypes` (`i=1005`), `StaticNumericNodeIdRange` (`i=1006`) and `StaticStringNodeIdPattern` (`i=1007`)
 without values: the 51 dictionary entries, global definitions which PADIM refers to (`HasDictionaryEntry`), are
-dynamic by the standard default rule (nodeset2owl.py: static by R4).
+dynamic by the standard default fallback (nodeset2owl.py: static by the definition fallback R4).
 *Request:* declare the string ids static (`StaticNodeIdTypes` = String, or a `StaticStringNodeIdPattern` such as
 `0112/.*`) and set `IsNamespaceSubset`.
 

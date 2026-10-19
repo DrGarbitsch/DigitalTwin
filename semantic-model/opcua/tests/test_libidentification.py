@@ -308,8 +308,8 @@ class TestClassification(unittest.TestCase):
         self.assertEqual(len(parser.skipped_dynamic_nodes), 3)
 
     def test_default_rule_without_metadata(self):
-        # without NamespaceMetadata the default rule R5 applies: the instance 5001 (with Variable) and the Object Named
-        # (without Variables) are dynamic; R4 only concerns the definition types
+        # without NamespaceMetadata the default fallback R5 applies: the instance 5001 (with Variable) and the Object
+        # Named (without Variables) are dynamic; R4 only concerns the definition types
         parser = self.make_parser()
         parser.classify_nodes()
         for dynamic in ('5001', '5002'):
@@ -324,7 +324,7 @@ class TestClassification(unittest.TestCase):
         self.assertIn(self.key(parser, '6500'), parser.haschild_keys)  # custom subtype of HasComponent
         # R4: the encoding is static
         self.assertIn(self.key(parser, '6000'), parser.static_nodes)
-        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6000')], 'R4: instance of a definition type')
+        self.assertEqual(parser.heuristic_overrides[self.key(parser, '6000')], 'R4: definition node (fallback)')
         # R5: all other instances are dynamic, also the partial instance 6700
         for dynamic in ('6100', '6101', '6102', '6201', '6400', '6300', '6301', '6600', '6601', '6700'):
             self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
