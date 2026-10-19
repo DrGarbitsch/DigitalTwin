@@ -8,7 +8,7 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 
 | Nodeset | R1 static → dynamic | R2 static → dynamic | R4 dynamic → static |
 |---|---|---|---|
-| core | 242 | 6 | 0 |
+| core | 232 | 12 | 0 |
 | dexpi | 11 | 0 | 0 |
 | di | 14 | 0 | 0 |
 | dictionary_irdi | 0 | 0 | 51 |
@@ -28,19 +28,17 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | pumpexample | 0 | 0 | 0 |
 | pumps | 8 | 0 | 0 |
 | tmc | 8 | 0 | 0 |
-| **Total** | **347** | **6** | **99** |
+| **Total** | **337** | **12** | **99** |
 
 ## core
 
-### R1 instance-with-Variables rule (static → dynamic): 242 node(s)
+### R1 instance-with-Variables rule (static → dynamic): 232 node(s)
 
-#### Objects/Aliases (4)
+#### Objects/Aliases (2)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
 | `i=23470` | Aliases | Object | `i=23456` | Root/Objects/Aliases | instance with Variables |
-| ↳ `i=23479` | TagVariables | Object | `i=23456` | Root/Objects/Aliases/TagVariables | instance whose TypeDefinition declares Variables |
-| ↳ `i=23488` | Topics | Object | `i=23456` | Root/Objects/Aliases/Topics | instance whose TypeDefinition declares Variables |
 | ↳ `i=32852` | LastChange | Variable | `i=68` | Root/Objects/Aliases/LastChange | Variable of instance Aliases |
 
 #### Objects/Server/DefaultHAConfiguration (17)
@@ -90,13 +88,11 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=16136` | DefaultAccessRestrictions | Variable | `i=68` | Root/Objects/Server/Namespaces/http://opcfoundation.org/UA//DefaultAccessRestrictions | Variable of instance http://opcfoundation.org/UA/ |
 | ↳ `i=32408` | ModelVersion | Variable | `i=68` | Root/Objects/Server/Namespaces/http://opcfoundation.org/UA//ModelVersion | Variable of instance http://opcfoundation.org/UA/ |
 
-#### Objects/Server/PublishSubscribe (79)
+#### Objects/Server/PublishSubscribe (75)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
 | `i=14443` | PublishSubscribe | Object | `i=14416` | Root/Objects/Server/PublishSubscribe | instance with Variables |
-| ↳ `i=15443` | SecurityGroups | Object | `i=15452` | Root/Objects/Server/PublishSubscribe/SecurityGroups | instance whose TypeDefinition declares Variables |
-| ↳ `i=17371` | PublishedDataSets | Object | `i=14477` | Root/Objects/Server/PublishSubscribe/PublishedDataSets | instance whose TypeDefinition declares Variables |
 | ↳ `i=17405` | Status | Object | `i=14643` | Root/Objects/Server/PublishSubscribe/Status | instance with Variables |
 | ↳ `i=17406` | State | Variable | `i=63` | Root/Objects/Server/PublishSubscribe/Status/State | Variable of instance Status |
 | ↳ `i=17409` | Diagnostics | Object | `i=19732` | Root/Objects/Server/PublishSubscribe/Diagnostics | instance with Variables |
@@ -145,7 +141,6 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=17464` | OperationalDataSetReaders | Variable | `i=63` | Root/Objects/Server/PublishSubscribe/Diagnostics/LiveValues/OperationalDataSetReaders | Variable of instance LiveValues |
 | ↳ `i=17466` | DiagnosticsLevel | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/Diagnostics/LiveValues/OperationalDataSetReaders/DiagnosticsLevel | Variable of instance OperationalDataSetReaders |
 | ↳ `i=17481` | SupportedTransportProfiles | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/SupportedTransportProfiles | Variable of instance PublishSubscribe |
-| ↳ `i=23658` | SubscribedDataSets | Object | `i=23795` | Root/Objects/Server/PublishSubscribe/SubscribedDataSets | instance whose TypeDefinition declares Variables |
 | ↳ `i=23678` | PubSubCapablities | Object | `i=23832` | Root/Objects/Server/PublishSubscribe/PubSubCapablities | instance with Variables |
 | ↳ `i=23679` | MaxPubSubConnections | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxPubSubConnections | Variable of instance PubSubCapablities |
 | ↳ `i=23680` | MaxWriterGroups | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxWriterGroups | Variable of instance PubSubCapablities |
@@ -153,7 +148,6 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=23682` | MaxDataSetWriters | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxDataSetWriters | Variable of instance PubSubCapablities |
 | ↳ `i=23683` | MaxDataSetReaders | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxDataSetReaders | Variable of instance PubSubCapablities |
 | ↳ `i=23684` | MaxFieldsPerDataSet | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxFieldsPerDataSet | Variable of instance PubSubCapablities |
-| ↳ `i=25440` | KeyPushTargets | Object | `i=25346` | Root/Objects/Server/PublishSubscribe/KeyPushTargets | instance whose TypeDefinition declares Variables |
 | ↳ `i=25451` | PubSubConfiguration | Object | `i=25482` | Root/Objects/Server/PublishSubscribe/PubSubConfiguration | instance with Variables |
 | ↳ `i=25452` | Size | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubConfiguration/Size | Variable of instance PubSubConfiguration |
 | ↳ `i=25453` | Writable | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubConfiguration/Writable | Variable of instance PubSubConfiguration |
@@ -173,12 +167,6 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=32841` | MaxPublishedDataSets | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxPublishedDataSets | Variable of instance PubSubCapablities |
 | ↳ `i=32842` | MaxStandaloneSubscribedDataSets | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/MaxStandaloneSubscribedDataSets | Variable of instance PubSubCapablities |
 | ↳ `i=32843` | SupportSecurityKeyServer | Variable | `i=68` | Root/Objects/Server/PublishSubscribe/PubSubCapablities/SupportSecurityKeyServer | Variable of instance PubSubCapablities |
-
-#### Objects/Server/Quantities (1)
-
-| NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
-|---|---|---|---|---|---|
-| `i=32530` | Quantities | Object | `i=32502` | Root/Objects/Server/Quantities | instance whose TypeDefinition declares Variables |
 
 #### Objects/Server/Resources (2)
 
@@ -268,7 +256,7 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=25608` | Endpoints | Variable | `i=68` | Root/Objects/Server/ServerCapabilities/RoleSet/SecurityKeyServerAccess/Endpoints | Variable of instance SecurityKeyServerAccess |
 | ↳ `i=25609` | CustomConfiguration | Variable | `i=68` | Root/Objects/Server/ServerCapabilities/RoleSet/SecurityKeyServerAccess/CustomConfiguration | Variable of instance SecurityKeyServerAccess |
 
-#### Objects/Server/ServerConfiguration (40)
+#### Objects/Server/ServerConfiguration (38)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
@@ -276,33 +264,7 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=12639` | SupportedPrivateKeyFormats | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/SupportedPrivateKeyFormats | Variable of instance ServerConfiguration |
 | ↳ `i=12640` | MaxTrustListSize | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/MaxTrustListSize | Variable of instance ServerConfiguration |
 | ↳ `i=12641` | MulticastDnsEnabled | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/MulticastDnsEnabled | Variable of instance ServerConfiguration |
-| ↳ `i=12642` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList | instance with Variables |
-| ↳ `i=12643` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/Size | Variable of instance TrustList |
-| ↳ `i=12646` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/OpenCount | Variable of instance TrustList |
-| ↳ `i=12662` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
 | ↳ `i=12710` | ServerCapabilities | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/ServerCapabilities | Variable of instance ServerConfiguration |
-| ↳ `i=14053` | CertificateGroups | Object | `i=13813` | Root/Objects/Server/ServerConfiguration/CertificateGroups | instance whose TypeDefinition declares Variables |
-| ↳ `i=14088` | DefaultHttpsGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup | instance with Variables |
-| ↳ `i=14089` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList | instance with Variables |
-| ↳ `i=14090` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/Size | Variable of instance TrustList |
-| ↳ `i=14091` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/Writable | Variable of instance TrustList |
-| ↳ `i=14092` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/UserWritable | Variable of instance TrustList |
-| ↳ `i=14093` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/OpenCount | Variable of instance TrustList |
-| ↳ `i=14110` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
-| ↳ `i=14121` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/CertificateTypes | Variable of instance DefaultHttpsGroup |
-| ↳ `i=14122` | DefaultUserTokenGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup | instance with Variables |
-| ↳ `i=14123` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList | instance with Variables |
-| ↳ `i=14124` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/Size | Variable of instance TrustList |
-| ↳ `i=14125` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/Writable | Variable of instance TrustList |
-| ↳ `i=14126` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/UserWritable | Variable of instance TrustList |
-| ↳ `i=14127` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/OpenCount | Variable of instance TrustList |
-| ↳ `i=14144` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
-| ↳ `i=14155` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/CertificateTypes | Variable of instance DefaultUserTokenGroup |
-| ↳ `i=14156` | DefaultApplicationGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup | instance with Variables |
-| ↳ `i=14157` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/Writable | Variable of instance TrustList |
-| ↳ `i=14158` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/UserWritable | Variable of instance TrustList |
-| ↳ `i=14161` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/CertificateTypes | Variable of instance DefaultApplicationGroup |
-| ↳ `i=18155` | KeyCredentialConfiguration | Object | `i=17496` | Root/Objects/Server/ServerConfiguration/KeyCredentialConfiguration | instance whose TypeDefinition declares Variables |
 | ↳ `i=23597` | HasSecureElement | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/HasSecureElement | Variable of instance ServerConfiguration |
 | ↳ `i=24290` | UserManagement | Object | `i=24264` | Root/Objects/Server/ServerConfiguration/UserManagement | instance with Variables |
 | ↳ `i=24291` | PasswordRestrictions | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/UserManagement/PasswordRestrictions | Variable of instance UserManagement |
@@ -312,8 +274,32 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=25706` | ApplicationUri | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/ApplicationUri | Variable of instance ServerConfiguration |
 | ↳ `i=25707` | ApplicationType | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/ApplicationType | Variable of instance ServerConfiguration |
 | ↳ `i=25725` | ProductUri | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/ProductUri | Variable of instance ServerConfiguration |
+| `i=14088` | DefaultHttpsGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup | instance with Variables |
+| ↳ `i=14089` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList | instance with Variables |
+| ↳ `i=14090` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/Size | Variable of instance TrustList |
+| ↳ `i=14091` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/Writable | Variable of instance TrustList |
+| ↳ `i=14092` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/UserWritable | Variable of instance TrustList |
+| ↳ `i=14093` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/OpenCount | Variable of instance TrustList |
+| ↳ `i=14110` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
+| ↳ `i=14121` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultHttpsGroup/CertificateTypes | Variable of instance DefaultHttpsGroup |
+| `i=14122` | DefaultUserTokenGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup | instance with Variables |
+| ↳ `i=14123` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList | instance with Variables |
+| ↳ `i=14124` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/Size | Variable of instance TrustList |
+| ↳ `i=14125` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/Writable | Variable of instance TrustList |
+| ↳ `i=14126` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/UserWritable | Variable of instance TrustList |
+| ↳ `i=14127` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/OpenCount | Variable of instance TrustList |
+| ↳ `i=14144` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
+| ↳ `i=14155` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultUserTokenGroup/CertificateTypes | Variable of instance DefaultUserTokenGroup |
+| `i=14156` | DefaultApplicationGroup | Object | `i=12555` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup | instance with Variables |
+| ↳ `i=12642` | TrustList | Object | `i=12522` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList | instance with Variables |
+| ↳ `i=12643` | Size | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/Size | Variable of instance TrustList |
+| ↳ `i=12646` | OpenCount | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/OpenCount | Variable of instance TrustList |
+| ↳ `i=12662` | LastUpdateTime | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/LastUpdateTime | Variable of instance TrustList |
+| ↳ `i=14157` | Writable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/Writable | Variable of instance TrustList |
+| ↳ `i=14158` | UserWritable | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/TrustList/UserWritable | Variable of instance TrustList |
+| ↳ `i=14161` | CertificateTypes | Variable | `i=68` | Root/Objects/Server/ServerConfiguration/CertificateGroups/DefaultApplicationGroup/CertificateTypes | Variable of instance DefaultApplicationGroup |
 
-#### not reachable from Root (prototypes) (8)
+#### not reachable from Root (prototypes) (7)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
@@ -324,9 +310,8 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 | ↳ `i=11206` | PercentDataGood | Variable | `i=68` | HA Configuration/AggregateConfiguration/PercentDataGood | Variable of instance AggregateConfiguration |
 | ↳ `i=11207` | UseSlopedExtrapolation | Variable | `i=68` | HA Configuration/AggregateConfiguration/UseSlopedExtrapolation | Variable of instance AggregateConfiguration |
 | ↳ `i=11208` | Stepped | Variable | `i=68` | HA Configuration/Stepped | Variable of instance HA Configuration |
-| `i=16314` | FileSystem | Object | `i=13353` | FileSystem | instance whose TypeDefinition declares Variables |
 
-### R2 containment rule (static → dynamic): 6 node(s)
+### R2 containment rule (static → dynamic): 12 node(s)
 
 #### Objects/Server/DefaultHAConfiguration (1)
 
@@ -346,11 +331,15 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 |---|---|---|---|---|---|
 | `i=17594` | Dictionaries | Object | `i=17591` | Root/Objects/Server/Dictionaries | Object below dynamic instance Server |
 
-#### Objects/Server/PublishSubscribe (1)
+#### Objects/Server/PublishSubscribe (5)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
+| `i=15443` | SecurityGroups | Object | `i=15452` | Root/Objects/Server/PublishSubscribe/SecurityGroups | Object below dynamic instance PublishSubscribe |
+| `i=17371` | PublishedDataSets | Object | `i=14477` | Root/Objects/Server/PublishSubscribe/PublishedDataSets | Object below dynamic instance PublishSubscribe |
+| `i=23658` | SubscribedDataSets | Object | `i=23795` | Root/Objects/Server/PublishSubscribe/SubscribedDataSets | Object below dynamic instance PublishSubscribe |
 | `i=23685` | DataSetClasses | Object | `i=61` | Root/Objects/Server/PublishSubscribe/DataSetClasses | Object below dynamic instance PublishSubscribe |
+| `i=25440` | KeyPushTargets | Object | `i=25346` | Root/Objects/Server/PublishSubscribe/KeyPushTargets | Object below dynamic instance PublishSubscribe |
 
 #### Objects/Server/Resources (1)
 
@@ -358,11 +347,13 @@ Grouping: nodeset → rule → area (the part of the AddressSpace, e.g. `Objects
 |---|---|---|---|---|---|
 | `i=24226` | Resources | Object | `i=61` | Root/Objects/Server/Resources | Object below dynamic instance Server |
 
-#### Objects/Server/ServerConfiguration (1)
+#### Objects/Server/ServerConfiguration (3)
 
 | NodeId | BrowseName | NodeClass | TypeDefinition | Browse path | Reason |
 |---|---|---|---|---|---|
+| `i=14053` | CertificateGroups | Object | `i=13813` | Root/Objects/Server/ServerConfiguration/CertificateGroups | Object below dynamic instance ServerConfiguration |
 | `i=17732` | AuthorizationServices | Object | `i=61` | Root/Objects/Server/ServerConfiguration/AuthorizationServices | Object below dynamic instance ServerConfiguration |
+| `i=18155` | KeyCredentialConfiguration | Object | `i=17496` | Root/Objects/Server/ServerConfiguration/KeyCredentialConfiguration | Object below dynamic instance ServerConfiguration |
 
 ## dexpi
 

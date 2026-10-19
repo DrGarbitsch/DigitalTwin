@@ -1302,8 +1302,8 @@ Did you forget to import it?")
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           R5 default rule: otherwise types and instance declarations are static, instances dynamic.
         Heuristic rules (default):
-          R1 instance-with-Variables rule: an instance which has Variables, or whose TypeDefinition (or a
-             supertype) declares Variables, is dynamic together with its Variables, also against R3.
+          R1 instance-with-Variables rule: an instance which has Variables is dynamic together with its Variables,
+             also against R3.
           R2 containment rule: an Object below a dynamic instance (HasChild) is dynamic, also against R3.
           R4 definition rule (where R3 does not decide): instances of the definition types (definition_types and
              their subtypes) and the Variables of the type dictionaries are static.
@@ -1314,45 +1314,13 @@ Did you forget to import it?")
         if self.strict_classification:
             return {key: (static, static, None) for key, static in formal.items()}
         rule1 = self.instances_with_variables(xml_nodes)
-        children = self.children_of_nodes(xml_nodes)
         result = {}
-        type_cache = {}
 
         def tag(key):
             return xml_nodes[key].tag.split('}')[-1]
 
         def is_definition(key):
             return self.is_definition_type(self.typedef_key(xml_nodes[key]), xml_nodes)
-
-        def type_declares_variables(key):
-            """True if the type (or a supertype) declares a Variable in its instance declaration tree."""
-            if key is None or self.is_definition_type(key, xml_nodes):
-                return False
-            if key not in type_cache:
-                type_cache[key] = False  # cycle guard
-                if key in xml_nodes:
-                    node = xml_nodes[key]
-                    supertype = next((self.key_from_nodeid_string(ref.text) for ref in self.get_node_references(node)
-                                      if self.is_reference_of_type(ref, hasSubtypeId, forward=False)), None)
-                    type_cache[key] = has_variable_below(key, {key}) or type_declares_variables(supertype)
-                else:
-                    type_cache[key] = self.foreign_type_declares_variables(key)
-            return type_cache[key]
-
-        def has_variable_below(key, seen):
-            """True if a Variable is in the HasChild subtree (arguments of Methods do not count) or is declared by
-            the TypeDefinition of an Object of the subtree."""
-            if tag(key) in ('UAObject', 'UAView') and type_declares_variables(self.typedef_key(xml_nodes[key])):
-                return True
-            for child in children.get(key, ()):
-                if child in seen:
-                    continue
-                seen.add(child)
-                if tag(child) == 'UAVariable':
-                    return True
-                if tag(child) != 'UAMethod' and has_variable_below(child, seen):
-                    return True
-            return False
 
         def is_typesystem_variable(key, seen=()):
             node = xml_nodes[key]
@@ -1361,14 +1329,6 @@ Did you forget to import it?")
             parent = self.get_parent_key(node)
             return parent in xml_nodes and parent not in seen and tag(parent) == 'UAVariable' and \
                 is_typesystem_variable(parent, set(seen) | {key})
-
-        # R1, extended to the TypeDefinition: an instance whose type (or a supertype) declares Variables is dynamic
-        # too, even if the nodeset does not contain its Variables (e.g. a partial instance)
-        for key, node in xml_nodes.items():
-            if key not in rule1 and tag(key) in ('UAObject', 'UAVariable') and not is_definition(key) and \
-                    not self.is_instance_declaration(key, xml_nodes) and \
-                    type_declares_variables(self.typedef_key(node)):
-                rule1[key] = 'R1: instance whose TypeDefinition declares Variables'
 
         def parent_static(parent, visiting):
             if parent is None:
@@ -1405,45 +1365,6 @@ Did you forget to import it?")
         for key in xml_nodes:
             classify(key)
         return result
-
-    def foreign_type_declares_variables(self, key, seen=None):
-        """True if a type of an imported ontology (or a supertype) declares a Variable in its instance declaration
-        tree (HasChild references of the type node and its declarations)."""
-        index, canonical = key
-        if index >= len(self.nodeIds):
-            return False
-        node = self.nodeIds[index].get(canonical.split('=', 1)[1])
-        if node is None:
-            return False
-        if not hasattr(self, '_haschild_properties'):
-            haschild = self.rdf_ns['opcua']['HasChild'] if 'opcua' in self.rdf_ns else None
-            self._haschild_properties = {p for p in set(self.ig.predicates())
-                                         if haschild is not None and p != self.rdf_ns['opcua']['HasSubtype'] and
-                                         haschild in set(self.ig.transitive_objects(p, RDFS.subPropertyOf))}
-        seen = seen if seen is not None else set()
-
-        def declares(n):
-            for p in self._haschild_properties:
-                for child in self.ig.objects(n, p):
-                    if child in seen:
-                        continue
-                    seen.add(child)
-                    if (child, RDF.type, UARDF['Variable']) in self.ig or \
-                            ((child, RDF.type, UARDF['Object']) in self.ig and declares(child)):
-                        return True
-            return False
-
-        while node is not None and node not in seen:
-            seen.add(node)
-            if declares(node):
-                return True
-            cls = self.ig.value(node, UARDF['definesType'])
-            supertype = next(iter(self.ig.objects(cls, RDFS.subClassOf)), None) if cls is not None else None
-            node = self.ig.value(predicate=UARDF['definesType'], object=supertype) if supertype is not None else None
-            if node is not None and str(self.ig.value(node, UARDF['nodeId'])) in \
-                    {f'i={i}' for i in definition_types}:
-                return False
-        return False
 
     def is_foreign_static(self, key):
         """Classification of a node of another nodeset: static if its imported ontology exports it without server

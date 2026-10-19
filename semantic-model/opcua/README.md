@@ -159,13 +159,14 @@ decides, in the order R1 to R5. R3 and R5 are the rules of the OPC UA standard, 
 are heuristics (default, disabled by `--strict-classification`).
 
 - **R1 instance-with-Variables rule** (heuristic). An instance (an Object or Variable which
-  is neither a type nor an instance declaration) that has Variables, or whose TypeDefinition
-  (or a supertype) declares Variables, is dynamic, together with its Variables: Variables
-  express the intention of server specific data, also for an instance whose Variables the
-  nodeset does not contain (partial instance). It overrides R3, e.g. every NamespaceMetadata
-  object, core's ServerConfiguration or DI's `MaxInactiveLockTime` (a Variable of core's
-  ServerCapabilities). R1 looks at the direct Variables (and those of the type) only;
-  transitively it would make static entry points such as core's `Objects` folder dynamic.
+  is neither a type nor an instance declaration) that has Variables is dynamic, together with
+  its Variables: adding Variables to an instance expresses the intention of server specific
+  data. It overrides R3, e.g. every NamespaceMetadata object, core's ServerConfiguration or
+  DI's `MaxInactiveLockTime` (a Variable of core's ServerCapabilities). R1 looks at the
+  direct Variables of the instance in the nodeset only: transitively it would make static
+  entry points such as core's `Objects` folder dynamic, and the Variables declared by the
+  TypeDefinition are not considered (an instance whose Variables the nodeset does not contain
+  keeps the classification of R3).
 - **R2 containment rule** (heuristic). An Object below a dynamic instance (HasChild) is
   dynamic, also against R3, e.g. the folders `Dictionaries` or `AggregateFunctions` of the
   server specific objects. Methods are not affected.

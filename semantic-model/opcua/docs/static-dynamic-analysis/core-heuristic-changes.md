@@ -7,22 +7,21 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
 
 ## Summary
 
-- **248 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
+- **244 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
   numeric ranges) classifies them static:
-  - **242 by R1** (instance-with-Variables rule): the instances with Variables and their Variables –
-    ServerConfiguration and the certificate management, the RoleSet roles, PubSub, the historian defaults, core's
-    NamespaceMetadata, UserManagement, `Aliases`, `ProvisionableDevice` – and 10 instances whose TypeDefinition
-    declares Variables: `CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`,
-    `KeyPushTargets`, `KeyCredentialConfiguration`, `TagVariables`, `Topics`, `Quantities`, `FileSystem`.
-  - **6 by R2** (containment rule): the folders which are components (HasChild) of dynamic instances and whose type
-    declares no Variables: `Dictionaries`, `Resources`, `AuthorizationServices`, `DataSetClasses`,
-    `AggregateFunctions`, `EventTypes`. Folders which are only organized by dynamic instances (`Communication` and
-    below it) stay static: Organizes does not influence the classification.
+  - **232 by R1** (instance-with-Variables rule): 46 instances with their Variables – ServerConfiguration and the
+    certificate management, the RoleSet roles, PubSub, the historian defaults, core's NamespaceMetadata,
+    UserManagement, `Aliases`, `ProvisionableDevice`.
+  - **12 by R2** (containment rule): the folders which are components (HasChild) of dynamic instances:
+    `CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
+    `KeyPushTargets`, `Dictionaries`, `Resources`, `AuthorizationServices`, `KeyCredentialConfiguration`,
+    `AggregateFunctions`, `EventTypes`. Folders which are only organized by dynamic instances (`TagVariables`,
+    `Topics`, `Quantities`, `Communication` and below it) stay static: Organizes does not influence the
+    classification.
 - R4 changes nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
   dictionaries static anyway).
-- **All but 8** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 8
-  others are `HA Configuration` (`i=11202`) with its children and `FileSystem` (`i=16314`), which are not reachable
-  at all (see below).
+- **All but 7** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 7
+  others are `HA Configuration` (`i=11202`) and its children, which are not reachable at all (see below).
 
 ## Finding: `HA Configuration` (`i=11202`) is a prototype, not an instance
 
@@ -59,13 +58,12 @@ functions. I found no rule in Part 3/5/6 that every node of a NodeSet must be re
 one for servers either, and did not verify it exhaustively). So the node is most likely compliant as a
 *definition*, but it is neither a static global instance nor a dynamic server instance.
 
-**Consequence for the heuristic:** classifying the prototype as dynamic is wrong (the same holds for
-`FileSystem` (`i=16314`), a root-less FileDirectoryType prototype, which R1 makes dynamic by its type) – with a server URI it would
+**Consequence for the heuristic:** classifying the prototype as dynamic is wrong – with a server URI it would
 become `svu=<server>;i=11202`, a node which does not exist in that server. Proposal: apply the heuristic only to
 instances which are part of the AddressSpace (reachable via hierarchical references, i.e. with a parent); root-
 less instances are definitions and keep the classification of the NamespaceMetadata/default rule (static here).
-In core this removes the 7 `HA Configuration` nodes and `FileSystem` from the list; the other unreferenced
-definitions have no Variables (nor types declaring Variables) and are not affected anyway. Not implemented.
+In core this removes the 7 `HA Configuration` nodes from the list; the other unreferenced definitions have no
+Variables and are not affected anyway. Not implemented.
 
 ## Appendix: core Objects/Variables without parent and incoming reference
 

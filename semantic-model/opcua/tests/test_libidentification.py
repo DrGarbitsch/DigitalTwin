@@ -321,8 +321,7 @@ class TestClassification(unittest.TestCase):
         # R4: the encoding is static
         self.assertIn(self.key(parser, '6000'), parser.static_nodes)
         self.assertEqual(parser.heuristic_overrides[self.key(parser, '6000')], 'R4: instance of a definition type')
-        # R5: all other instances are dynamic, also the partial instance 6700 (R1 by its TypeDefinition, which is
-        # no change here, since R5 makes it dynamic anyway)
+        # R5: all other instances are dynamic, also the partial instance 6700
         for dynamic in ('6100', '6101', '6102', '6201', '6400', '6300', '6301', '6600', '6601', '6700'):
             self.assertNotIn(self.key(parser, dynamic), parser.static_nodes, dynamic)
         # strict: the encoding is dynamic as well
@@ -330,18 +329,15 @@ class TestClassification(unittest.TestCase):
         parser.classify_nodes()
         self.assertNotIn(self.key(parser, '6000'), parser.static_nodes)
 
-    def test_r1_by_typedefinition(self):
-        # the partial instance 6700 (its type TestType declares Variables, the nodeset contains none of them) is
-        # dynamic by R1, also against the NamespaceMetadata which declares it static
+    def test_r1_ignores_typedefinition(self):
+        # R1 looks at the Variables of the instance only: the partial instance 6700 (its type TestType declares
+        # Variables, the nodeset contains none of them) stays static where the NamespaceMetadata declares it static
         metadata = METADATA.replace('<String>1:5001</String>', '<String>1:7000</String>')
         self.assertNotEqual(metadata, METADATA)
         parser = self.make_parser(metadata=metadata + DEFAULT_HEURISTIC_NODES)
         parser.classify_nodes()
-        partial = self.key(parser, '6700')
-        self.assertNotIn(partial, parser.static_nodes)
-        self.assertEqual(parser.heuristic_overrides[partial], 'R1: instance whose TypeDefinition declares Variables')
-        # an Object whose type declares no Variables stays static
-        self.assertIn(self.key(parser, '6400'), parser.static_nodes)
+        self.assertIn(self.key(parser, '6700'), parser.static_nodes)
+        self.assertNotIn(self.key(parser, '6700'), parser.heuristic_overrides)
 
     def test_fallback_rule_with_server_uri(self):
         parser = self.make_parser(server_uri=SERVER)
