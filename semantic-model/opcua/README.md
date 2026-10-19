@@ -199,6 +199,8 @@ specifications, all of them are listed in
 [docs/static-dynamic-analysis/classification-changes.md](./docs/static-dynamic-analysis/classification-changes.md),
 the evaluation is in
 [docs/static-dynamic-analysis/heuristic-outliers.md](./docs/static-dynamic-analysis/heuristic-outliers.md),
+the change requests to the specification owners in
+[docs/static-dynamic-analysis/specification-issues.md](./docs/static-dynamic-analysis/specification-issues.md),
 and the analysis in
 [docs/static-variables-below-dynamic-nodes.md](./docs/static-variables-below-dynamic-nodes.md)
 shows where the standard classification is questionable.

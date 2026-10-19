@@ -162,6 +162,10 @@ HEURISTIC_NODES = """
     <References><Reference ReferenceType="HasTypeDefinition">i=61</Reference>
       <Reference ReferenceType="i=35" IsForward="false">ns=1;i=5001</Reference></References>
   </UAObject>
+  <UAMethod NodeId="ns=1;i=4500" BrowseName="1:Reset" ParentNodeId="ns=1;i=5001">
+    <DisplayName>Reset</DisplayName>
+    <References><Reference ReferenceType="HasComponent" IsForward="false">ns=1;i=5001</Reference></References>
+  </UAMethod>
   <UAVariable NodeId="ns=1;i=4100" BrowseName="1:MaxLockTime" ParentNodeId="i=2268" DataType="i=11">
     <DisplayName>MaxLockTime</DisplayName>
     <References><Reference ReferenceType="HasTypeDefinition">i=68</Reference></References>
@@ -329,6 +333,14 @@ class TestClassification(unittest.TestCase):
         parser.classify_nodes()
         self.assertNotIn(self.key(parser, '6000'), parser.static_nodes)
 
+    def test_r4_does_not_overrule_r3(self):
+        # the encoding 6000 is outside of the static ranges of METADATA: R3 decides (dynamic), R4 does not apply
+        parser = self.make_parser(metadata=METADATA + DEFAULT_HEURISTIC_NODES)
+        parser.classify_nodes()
+        encoding = self.key(parser, '6000')
+        self.assertNotIn(encoding, parser.static_nodes)
+        self.assertNotIn(encoding, parser.heuristic_overrides)
+
     def test_r1_ignores_typedefinition(self):
         # R1 looks at the Variables of the instance only: the partial instance 6700 (its type TestType declares
         # Variables, the nodeset contains none of them) stays static where the NamespaceMetadata declares it static
@@ -379,6 +391,8 @@ class TestClassification(unittest.TestCase):
         self.assertTrue(parser.heuristic_overrides[self.key(parser, '4200')].startswith(
             'R2: Object below dynamic instance Instance'))
         self.assertIn(self.key(parser, '4300'), parser.static_nodes)
+        # R2 does not affect Methods: the Method of the dynamic instance 5001 keeps the classification of R3
+        self.assertIn(self.key(parser, '4500'), parser.static_nodes)
         # Organizes does not influence the classification: the folder organized by 5001 stays static
         self.assertIn(self.key(parser, '4400'), parser.static_nodes)
         self.assertNotIn(self.key(parser, '4400'), parser.heuristic_overrides)

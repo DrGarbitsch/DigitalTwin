@@ -90,3 +90,22 @@ definition types, Variables without fixed value, containment), not every semanti
 Not fixed: the root-less core prototype `HA Configuration` (`i=11202`) is made dynamic by R1 (see [core-heuristic-changes.md](core-heuristic-changes.md)). Not covered by R4: `PackMLObjects`
 (`i=72`), an entry folder without NamespaceMetadata decision, stays dynamic (R5) until PackML fills its
 `StaticNumericNodeIdRange`.
+
+## Implementation and verification
+
+| Rule | Implementation (`lib/nodesetparser.py`) | Unit tests (`tests/test_libidentification.py`) |
+|---|---|---|
+| R1 | `instances_with_variables` (direct HasChild Variables, also of instances of other nodesets) | `test_heuristic_instance_with_variables`, `test_r1_ignores_typedefinition` |
+| R2 | `classify_with_heuristics` (HasChild parent dynamic; Objects only, no Methods) | `test_heuristic_instance_with_variables` (folder `4200`, Method `4500`, organized folder `4400`) |
+| R3 | `scan_namespace_metadata`, `explicit_static` | `test_namespace_metadata_decides`, `test_explicit_static_undecided` |
+| R4 | `definition_types`, `is_definition_type` (with subtypes), only where R3 does not decide | `test_heuristic_cases_without_metadata`, `test_r4_does_not_overrule_r3`, dictionary entry `4300` |
+| R5 | `is_static_node`, `is_instance_declaration` | `test_fallback_rule_without_server_uri`, `test_default_rule_without_metadata` |
+| strict | `--strict-classification` | `test_heuristic_instance_with_variables`, `test_heuristic_cases_without_metadata` |
+
+HasChild is resolved via the ReferenceType hierarchy (`haschild_reference_types`; a custom subtype of HasComponent is
+tested), Organizes is never followed. End to end, the final classification of the 20 default nodesets was compared with
+an independent build under the standard rules: the nodes whose classification differs are exactly the 448 nodes of the
+classification reports, in every nodeset.
+
+The change requests to the specification owners which would make the heuristic overrides unnecessary are collected in
+[specification-issues.md](specification-issues.md).
