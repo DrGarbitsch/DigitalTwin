@@ -25,7 +25,6 @@ from semforge.validate.orchestrator import validate_graphs
 from semforge.validate.results import Result
 
 
-
 def _entity(*instances, **extra):
     return [dict({'id': 'urn:e:1', 'type': 'E', 'hasX': list(instances)}, **extra)]
 

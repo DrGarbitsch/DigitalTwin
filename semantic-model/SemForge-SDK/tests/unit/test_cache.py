@@ -155,6 +155,17 @@ def test_a_remote_context_is_downloaded_once(tmp_path):
     assert first == second and downloads == [url]
 
 
+def test_the_context_cache_is_never_committed(tmp_path):
+    from semforge.package import context
+
+    url = 'https://example.org/test-context-ignored.jsonld'
+    context._fetched.pop(url, None)
+    context.fetch_context(url, str(tmp_path / 'contexts'),
+                          download=lambda u: {'@context': {}})
+    ignore = (tmp_path / 'contexts' / '.gitignore').read_text().splitlines()
+    assert '*' in ignore
+
+
 def test_an_unreachable_context_falls_back_rather_than_failing(tmp_path):
     from semforge.package import context
 

@@ -247,6 +247,10 @@ def fetch_context(url, cache_dir=None, download=None):
         return None
     if cached:
         os.makedirs(cache_dir, exist_ok=True)
+        ignore = os.path.join(cache_dir, '.gitignore')
+        if not os.path.exists(ignore):
+            with open(ignore, 'w', encoding='utf-8') as handle:
+                handle.write('# Fetched @context documents: derived, never committed.\n*\n')
         with open(cached, 'wb') as handle:
             handle.write(raw)
     _fetched[url] = document
