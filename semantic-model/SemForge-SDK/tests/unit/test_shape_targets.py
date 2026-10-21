@@ -231,11 +231,14 @@ def test_a_conditional_shape_applies_before_any_data_reaches_it(tmp_path):
     with open(f'{root}/model/main.jsonld', 'w') as handle:
         handle.write('[]')
     page = build_type_page(load(root), machine)
-    also = {a['shapeName'].split(':')[-1]: a for a in page['alsoCheckedBy']}
+    from semforge.cooked.shapes import base_name
+
+    also = {base_name(a['shapeName'].split(':')[-1]): a for a in page['alsoCheckedBy']}
     assert also['HotShape']['condition'] == 'only when it has hasTemperature'
     assert also['HotShape']['reached'] == 0
     state = next(r for r in page['attributes'] if r['label'] == 'hasState')
-    assert any(c.get('via', '').endswith('HotShape') for c in state['contributions'])
+    assert any(c.get('via', '').endswith(made['iri'].rsplit('/', 1)[-1])
+               for c in state['contributions'])
     # Conditional: listed, not merged -- the row still says what always holds.
     assert state['presence'] == 'required · one'
 

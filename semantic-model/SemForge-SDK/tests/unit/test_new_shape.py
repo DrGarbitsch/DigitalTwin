@@ -6,6 +6,7 @@ and its type page's + Attribute had nowhere to write. `add_shape` writes
 whatever has an attribute, or whatever a relationship points at.
 """
 
+import re
 import pytest
 from rdflib import Graph, URIRef
 from rdflib.namespace import SH
@@ -53,11 +54,13 @@ def test_each_target_kind_is_written(fresh, kind, target, predicate):
         after = handle.read()
     assert after.startswith(before), 'appended; the rest of the file untouched'
     assert (URIRef(made['iri']), predicate, None) in _graph(root)
-    assert made['iri'].rsplit('/', 1)[-1] == 'NewShape'
+    # Named, with a random part: the name is a label, the IRI the identity.
+    assert re.fullmatch(r'NewShape-[0-9a-f]{8}', made['iri'].rsplit('/', 1)[-1])
     # In the namespace the package's other shapes use.
     assert made['iri'].startswith(
         next(str(s) for s in _graph(root).subjects(SH.targetClass, None)).rsplit('/', 1)[0])
-    assert 'NewShape' in [r['label'].split(':')[-1] for r in build_shapes(load(root))]
+    assert made['iri'].rsplit('/', 1)[-1] in [
+        r['label'].split(':')[-1] for r in build_shapes(load(root))]
     assert not validate_package(load(root), strict=False).violations
 
 

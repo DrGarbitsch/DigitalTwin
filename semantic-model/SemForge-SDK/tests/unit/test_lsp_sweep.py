@@ -330,7 +330,8 @@ def test_more_writes_data_tests_merge_override_removal(wire):
 
     # Shapes: a second shape on the same type, merged into the first.
     sweep = wire.ok('semforge/shapes', {'detail': 'full'})
-    first = next(r['shape'] for r in sweep['roots'] if r['label'].endswith('SweepShape'))
+    # A new shape carries a random part: SweepShape-3f9a1c2e.
+    first = next(r['shape'] for r in sweep['roots'] if '/SweepShape-' in r['shape'])
     second = wire.ok('semforge/addShape', {'name': 'SweepTwoShape', 'targetKind': 'class',
                                            'target': ENT + 'Watercutter'})
     plan = wire.ok('semforge/mergePlan', {'shape': second['iri']})
@@ -365,34 +366,39 @@ def test_renames_on_the_wire(wire):
     assert plan['suite']['free'] and plan['asserts']
     done = wire.ok('semforge/renameShape', {'shape': shape, 'name': 'SweepRenamedShape',
                                             'suite': True})
-    assert 'iffBaseShacl:SweepRenamedShape' in wire.read('shacl.ttl')
+    # The shape had no random part: the rename gives it one, and keeps it.
+    renamed = done['newName']
+    assert renamed.startswith('SweepRenamedShape-')
+    assert f'iffBaseShacl:{renamed}' in wire.read('shacl.ttl')
     assert 'StateOnCutterShape' not in wire.read('shacl.ttl')
     examples = os.path.join(wire.kms, 'examples')
-    assert os.path.isdir(os.path.join(examples, done['suiteMoved']))
-    case = wire.ok('semforge/renameCase', {'case': 'test_SweepRenamedShape/bad/filter-off.jsonld',
+    folder = done['suiteMoved']
+    assert folder == f'test_{renamed}' and os.path.isdir(os.path.join(examples, folder))
+    case = wire.ok('semforge/renameCase', {'case': f'{folder}/bad/filter-off.jsonld',
                                            'name': 'sweep-off'})
     assert os.path.exists(case['file'])
-    suite = wire.ok('semforge/renameSuite', {'suite': 'test_SweepRenamedShape', 'name': 'sweep'})
+    suite = wire.ok('semforge/renameSuite', {'suite': folder, 'name': 'sweep'})
     assert os.path.isdir(suite['folder'])
-    # And back.
-    wire.ok('semforge/renameSuite', {'suite': 'sweep', 'name': 'test_SweepRenamedShape'})
-    wire.ok('semforge/renameCase', {'case': 'test_SweepRenamedShape/bad/sweep-off.jsonld',
+    # And back -- to its name; the random part stays.
+    wire.ok('semforge/renameSuite', {'suite': 'sweep', 'name': folder})
+    wire.ok('semforge/renameCase', {'case': f'{folder}/bad/sweep-off.jsonld',
                                     'name': 'filter-off'})
-    wire.ok('semforge/renameShape', {'shape': done['newIri'], 'name': 'StateOnCutterShape',
-                                     'suite': True})
-    assert 'iffBaseShacl:StateOnCutterShape' in wire.read('shacl.ttl')
-    assert os.path.isdir(os.path.join(examples, 'test_StateOnCutterShape'))
+    back = wire.ok('semforge/renameShape', {'shape': done['newIri'], 'name': 'StateOnCutterShape',
+                                            'suite': True})
+    assert back['newName'] == 'StateOnCutterShape' + renamed[len('SweepRenamedShape'):]
+    assert f'iffBaseShacl:{back["newName"]}' in wire.read('shacl.ttl')
+    assert os.path.isdir(os.path.join(examples, f'test_{back["newName"]}'))
 
 
 def test_delete_on_the_wire(wire):
     """Delete… as the extension sends it, on the shape this sweep made --
     last, since nothing after it may need that shape."""
     sweep = wire.ok('semforge/shapes', {'detail': 'full'})
-    shape = next(r['shape'] for r in sweep['roots'] if r['label'].endswith('SweepShape'))
+    shape = next(r['shape'] for r in sweep['roots'] if '/SweepShape-' in r['shape'])
     plan = wire.ok('semforge/deleteShapePlan', {'shape': shape})
     assert plan['cases'] == []
     done = wire.ok('semforge/deleteShape', {'shape': shape, 'asserts': True, 'cases': True})
     assert done['casesRemoved'] == []
-    assert 'SweepShape a sh:NodeShape' not in wire.read('shacl.ttl')
+    assert f'{shape.rsplit("/", 1)[-1]} a sh:NodeShape' not in wire.read('shacl.ttl')
     again = wire.ask('semforge/deleteShapePlan', {'shape': shape})
     assert not again['ok'] and 'not a node shape' in again['error']

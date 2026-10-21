@@ -143,8 +143,8 @@ def _breakers(row):
     elif low >= 1:
         out['MinCountConstraintComponent'] = ('missing: the attribute is left out', 'omit')
     elif int(_number(value.get('sh:minCount', 0)) or 0) >= 1:
-        out['MinCountConstraintComponent'] = ('no value: the attribute carries none',
-                                              'novalue')
+        out[_slot(row) + 'MinCountConstraintComponent'] = (
+            'no value: the attribute carries none', 'novalue')
     if high is not None:
         out['MaxCountConstraintComponent'] = (
             f'more than {high}: {high + 1} instances, each its own datasetId', 'more')
@@ -166,11 +166,11 @@ def _breakers(row):
     kind = value.get('sh:nodeKind')
     if kind == 'sh:IRI' and row['kind'] == 'Relationship':
         # A Relationship's `object` is read as an IRI whatever it says.
-        out['NodeKindConstraintComponent'] = (
+        out[_slot(row) + 'NodeKindConstraintComponent'] = (
             'not an IRI: a Relationship always points at one, so break it by hand',
             None)
     elif kind in ('sh:IRI', 'sh:Literal'):
-        out['NodeKindConstraintComponent'] = (
+        out[_slot(row) + 'NodeKindConstraintComponent'] = (
             'a text where an IRI is expected' if kind == 'sh:IRI'
             else 'an IRI where a literal is expected', 'nodekind')
     elif attribute.get('sh:nodeKind'):
@@ -192,10 +192,19 @@ def _breakers(row):
 UNIT_KEY = '.unitCode/'
 
 
+def _slot(row):
+    """The key prefix of a constraint on the attribute's VALUE that its node
+    could carry too (MinCount, MaxCount, NodeKind): such a constraint is named
+    hasX.hasValue -- hasX.hasObject for a Relationship -- so an attribute's
+    sh:minCount and its value's are two references (validate.normalise.LAYERED)."""
+    return '.hasObject/' if row.get('kind') == 'Relationship' else '.hasValue/'
+
+
 def _ref(row, key):
-    """The constraint a breaker makes fire: Shape/attribute/Component, or
-    Shape/attribute.unitCode/Component for one of its unit."""
-    if key.startswith(UNIT_KEY):
+    """The constraint a breaker makes fire: Shape/attribute/Component, or --
+    for a key starting with "." -- Shape/attribute.unitCode/Component (its unit)
+    or Shape/attribute.hasValue/Component (its value)."""
+    if key.startswith('.'):
         return f'{row["shapeName"]}/{row["label"]}{key}'
     return f'{row["shapeName"]}/{row["label"]}/{key}'
 
@@ -242,7 +251,8 @@ def attribute_test_options(package, entity_type, path):
         if constraint not in known:
             continue
         options.append({'purpose': constraint,
-                        'label': 'fires: ' + ('unit ' if key.startswith(UNIT_KEY) else '')
+                        'label': 'fires: ' + ('unit ' if key.startswith(UNIT_KEY) else
+                                              'value ' if key.startswith('.') else '')
                         + component.replace('ConstraintComponent', ''),
                         'detail': words + ('' if how else ' — you edit the data'),
                         'automatic': bool(how), 'name': _suggested(row['label'], how)})

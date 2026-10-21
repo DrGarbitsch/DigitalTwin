@@ -1512,6 +1512,17 @@ only under a condition is listed beneath the row but not merged into it.
 Clicking the presence or value of the combined row asks **which shape** to
 change; each shape's own line — `↳` and its name — has its own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
 
+**A shape's name has a random part.** The shape's IRI is its identity, and a
+bare `MachineShape` reads like a description — it gets renamed, merged or
+reused as if it meant "the Machine's shape". So every shape the editor names
+carries a random part: **New shape…** writes `PumpShape-3f9a1c2e`, and a
+**Rename…** changes the name and keeps the part (a shape that has none yet gets
+one, derived from its IRI). A name another shape is already read as — the
+same without its random part — is refused. A constraint is addressed by the
+shape, the path and the type, all of the path: an attribute's own
+`sh:minCount` and its value's are `hasTemperature/MinCount…` and
+`hasTemperature.hasValue/MinCount…`.
+
 **Rename….** A shape's name is written in more places than its declaration,
 and a rename that misses one leaves a package that reads as validated and is
 not. **Rename…** (right-click a shape in Shapes or Types, or the shape page's

@@ -95,7 +95,7 @@ async function renameShape(clientHolder, session, node, bench, preset) {
   // F2 in the .ttl already asked for the name in its own box.
   const name = preset !== undefined ? preset : await vscode.window.showInputBox({
     title: `Rename ${old}`, value: old, valueSelection: [0, old.length],
-    prompt: 'Its new name, in the same namespace. Every reference, assert and residue follows.',
+    prompt: 'Its new name, in the same namespace; its random part (-3f9a1c2e) stays. Every reference, assert and residue follows.',
     validateInput: (text) => text.trim() === old ? 'that is its name' : validName(text)
   });
   if (!name || name.trim() === old) {

@@ -26,6 +26,23 @@ VALUE_PATHS = set(PAYLOAD_PATHS)
 # attribute with a unit would share.
 UNIT_CODE = 'https://uri.etsi.org/ngsi-ld/unitCode'
 UNIT_SUFFIX = '.unitCode'
+# The constraint types an attribute node and its value can BOTH carry. On the
+# value they are named with the value's path -- hasTemperature.hasValue -- or
+# an attribute's sh:minCount and its value's would be one reference. Every
+# other value constraint (datatype, ranges, class, list) exists only on the
+# value, so it keeps the attribute's name.
+LAYERED = {'MinCountConstraintComponent', 'MaxCountConstraintComponent',
+           'NodeKindConstraintComponent'}
+
+
+def layered(attribute, path, component):
+    """`attribute`, or `attribute.hasValue` for a constraint on the value that
+    the attribute node could carry too (LAYERED)."""
+    if attribute and path is not None and str(path) in VALUE_PATHS and \
+            str(component).rsplit('#', 1)[-1] in LAYERED:
+        return f'{attribute}.{local(path)}'
+    return attribute
+
 
 # Edges carrying no name of their own: they say how a value is stored, not
 # which attribute it belongs to. The climb steps over them, including the

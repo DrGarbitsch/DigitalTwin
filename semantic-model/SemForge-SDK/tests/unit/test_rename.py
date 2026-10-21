@@ -44,37 +44,37 @@ def _read(path):
 # --- a shape --------------------------------------------------------------------------
 
 def test_the_plan_says_everything_that_names_the_shape(kms):
-    plan = rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape')
+    plan = rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
     assert plan['name'] == 'iffBaseShacl:StateOnCutterShape'
-    assert plan['newCurie'] == 'iffBaseShacl:CutterRunningShape'
-    assert plan['newIri'] == BASE + 'CutterRunningShape'
+    assert plan['newCurie'] == 'iffBaseShacl:CutterRunningShape-c0ffee12'
+    assert plan['newIri'] == BASE + 'CutterRunningShape-c0ffee12'
     assert [os.path.basename(f['file']) for f in plan['files']] == ['shacl.ttl']
     assert plan['asserts'] == [{'case': 'test_StateOnCutterShape/bad/filter-off.jsonld',
                                 'count': 1}]
     assert plan['suite'] == {'from': 'test_StateOnCutterShape',
-                             'to': 'test_CutterRunningShape', 'free': True}
+                             'to': 'test_CutterRunningShape-c0ffee12', 'free': True}
 
 
 def test_a_renamed_shape_tests_exactly_as_before(kms):
     before = _semforge('test', str(kms))
     assert before.returncode == 0, before.stdout[-600:]
     text = _read(kms / 'shacl.ttl')
-    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape', suite=True)
-    assert done['asserts'] == 1 and done['suiteMoved'] == 'test_CutterRunningShape'
+    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12', suite=True)
+    assert done['asserts'] == 1 and done['suiteMoved'] == 'test_CutterRunningShape-c0ffee12'
     after = _semforge('test', str(kms))
     assert after.returncode == 0, after.stdout[-600:]
     # Byte-exact: the one name changed, nothing else in the file.
-    expected = text.replace('iffBaseShacl:StateOnCutterShape', 'iffBaseShacl:CutterRunningShape')
+    expected = text.replace('iffBaseShacl:StateOnCutterShape', 'iffBaseShacl:CutterRunningShape-c0ffee12')
     assert _read(kms / 'shacl.ttl') == expected
-    assert (kms / 'examples' / 'test_CutterRunningShape' / 'bad' / 'filter-off.jsonld').exists()
+    assert (kms / 'examples' / 'test_CutterRunningShape-c0ffee12' / 'bad' / 'filter-off.jsonld').exists()
     assert not (kms / 'examples' / 'test_StateOnCutterShape').exists()
-    asserts = _read(kms / 'examples' / 'test_CutterRunningShape' / 'bad' / 'expectations.yaml')
-    assert 'iffBaseShacl:CutterRunningShape/SPARQLConstraintComponent' in asserts
+    asserts = _read(kms / 'examples' / 'test_CutterRunningShape-c0ffee12' / 'bad' / 'expectations.yaml')
+    assert 'iffBaseShacl:CutterRunningShape-c0ffee12/SPARQLConstraintComponent' in asserts
     assert 'iffBaseShacl:StateOnCutterShape/' not in asserts
 
 
 def test_the_suite_keeps_its_name_unless_asked(kms):
-    rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape')
+    rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
     assert (kms / 'examples' / 'test_StateOnCutterShape').is_dir()
     assert _semforge('test', str(kms)).returncode == 0
 
@@ -86,19 +86,19 @@ def test_references_from_other_shapes_and_queries_follow(kms):
         '    sh:targetNode <urn:nothing:1> ;\n'
         '    sh:node <' + CUTTER + '> ;\n'
         '    sh:sparql [ sh:select """SELECT $this WHERE { $this a iffBaseShacl:StateOnCutterShape }""" ] .\n'))
-    plan = rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape')
+    plan = rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
     assert plan['files'][0]['references'] == 3 and plan['files'][0]['inQueries'] == 1
-    rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape')
+    rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
     text = _read(shacl)
-    assert 'sh:node <' + BASE + 'CutterRunningShape> ;' in text, 'an <IRI> stays one'
-    assert '$this a iffBaseShacl:CutterRunningShape }' in text
+    assert 'sh:node <' + BASE + 'CutterRunningShape-c0ffee12> ;' in text, 'an <IRI> stays one'
+    assert '$this a iffBaseShacl:CutterRunningShape-c0ffee12 }' in text
     assert 'StateOnCutterShape' not in text
 
 
 def test_pinned_residues_that_held_are_pinned_again(kms):
     accepted = _semforge('accept', str(kms))
     assert accepted.returncode == 0, accepted.stderr
-    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape', suite=True)
+    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12', suite=True)
     assert done['repinned'], 'the digest names the shape: its cases changed residue'
     assert all(p.startswith('test_') for p in done['repinned'])
     after = _semforge('test', str(kms))
@@ -111,7 +111,7 @@ def test_a_case_failing_before_is_left_failing(kms):
     text = _read(yaml)
     pinned = text.split('residue: ', 1)[1].split('\n', 1)[0]
     yaml.write_text(text.replace(pinned, 'sha256:' + '0' * 64, 1))
-    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape')
+    done = rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
     assert 'test_StateOnCutterShape/good/filter-on.jsonld' not in done['repinned']
     assert 'sha256:' + '0' * 64 in _read(yaml), 'what it said is kept'
 
@@ -129,14 +129,13 @@ def test_a_rewrite_that_changes_more_than_the_name_writes_nothing(kms):
 
     with mock.patch.object(rename, '_renamed_text', lossy), \
             pytest.raises(PackageError, match='more than its name'):
-        rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape', suite=True)
+        rename_shape(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12', suite=True)
     assert _read(kms / 'shacl.ttl') == text
     assert (kms / 'examples' / 'test_StateOnCutterShape').is_dir()
 
 
 @pytest.mark.parametrize('name, said', [
     ('FilterShape', 'already a shape'),
-    ('StateOnCutterShape', 'already its name'),
     ('2Shape', 'not a shape name'),
     ('Bad Name', 'not a shape name'),
     ('Ends.', 'not a shape name'),
@@ -151,7 +150,7 @@ def test_a_shape_that_is_a_class_is_not_renamed(kms):
     shacl.write_text(_read(shacl) +
                      f'\n<{CUTTER}> a <http://www.w3.org/2000/01/rdf-schema#Class> .\n')
     with pytest.raises(PackageError, match='also a class'):
-        rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape')
+        rename_plan(load(str(kms)), CUTTER, 'CutterRunningShape-c0ffee12')
 
 
 def test_only_a_shape_is_renamed(kms):
@@ -250,23 +249,23 @@ def test_the_server_renames_and_re_reads(kms):
     uri = f'file://{kms}/shacl.ttl'
     with mock.patch.object(server, '_publish'):
         plan = server.rename_shape_plan_feature(mock.MagicMock(), {
-            'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape'})
+            'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape-c0ffee12'})
         assert plan['ok'] and plan['suite']['free']
         refused = server.rename_shape_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'name': 'FilterShape'})
         assert not refused['ok'] and 'already a shape' in refused['error']
         done = server.rename_shape_feature(mock.MagicMock(), {
-            'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape', 'suite': True})
+            'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape-c0ffee12', 'suite': True})
         assert done['ok'] and done['suiteMoved']
         case = server.rename_case_feature(mock.MagicMock(), {
-            'uri': uri, 'case': 'test_CutterRunningShape/bad/filter-off.jsonld', 'name': 'off'})
+            'uri': uri, 'case': 'test_CutterRunningShape-c0ffee12/bad/filter-off.jsonld', 'name': 'off'})
         assert case['ok'], case
         suite = server.rename_suite_feature(mock.MagicMock(), {
-            'uri': uri, 'suite': 'test_CutterRunningShape', 'name': 'cutter'})
+            'uri': uri, 'suite': 'test_CutterRunningShape-c0ffee12', 'name': 'cutter'})
         assert suite['ok'], suite
         # The package is read again: the next request sees the new names.
         again = server.rename_shape_plan_feature(mock.MagicMock(), {
-            'uri': uri, 'shape': BASE + 'CutterRunningShape', 'name': 'StateOnCutterShape'})
+            'uri': uri, 'shape': BASE + 'CutterRunningShape-c0ffee12', 'name': 'StateOnCutterShape'})
         assert again['ok'] and again['suite'] is None
 
 
@@ -275,15 +274,15 @@ def test_the_server_renames_and_re_reads(kms):
 DRIVE = os.path.join(os.path.dirname(__file__), '..', 'harness', 'drive.js')
 SRC = os.path.join(os.path.dirname(__file__), '..', '..', 'vscode', 'src')
 PLAN = {'ok': True, 'shape': CUTTER, 'name': 'iffBaseShacl:StateOnCutterShape',
-        'oldName': 'StateOnCutterShape', 'newName': 'CutterRunningShape',
-        'newIri': BASE + 'CutterRunningShape', 'newCurie': 'iffBaseShacl:CutterRunningShape',
+        'oldName': 'StateOnCutterShape', 'newName': 'CutterRunningShape-c0ffee12',
+        'newIri': BASE + 'CutterRunningShape-c0ffee12', 'newCurie': 'iffBaseShacl:CutterRunningShape-c0ffee12',
         'files': [{'file': '/pkg/shacl.ttl', 'references': 2, 'inQueries': 1}],
         'asserts': [{'case': 'test_StateOnCutterShape/bad/filter-off.jsonld', 'count': 1}],
         'residues': ['test_StateOnCutterShape/good/filter-on.jsonld'],
-        'suite': {'from': 'test_StateOnCutterShape', 'to': 'test_CutterRunningShape',
+        'suite': {'from': 'test_StateOnCutterShape', 'to': 'test_CutterRunningShape-c0ffee12',
                   'free': True}}
-DONE = dict(PLAN, asserts=1, repinned=['test_CutterRunningShape/good/filter-on.jsonld'],
-            suiteMoved='test_CutterRunningShape', files=['/pkg/shacl.ttl'])
+DONE = dict(PLAN, asserts=1, repinned=['test_CutterRunningShape-c0ffee12/good/filter-on.jsonld'],
+            suiteMoved='test_CutterRunningShape-c0ffee12', files=['/pkg/shacl.ttl'])
 
 
 def _drive(tmp_path, scenario):
@@ -308,7 +307,7 @@ def _rename(tmp_path, answer, **scenario):
     return _drive(tmp_path, dict({
         'command': 'semforge.renameShape',
         'node': {'raw': {'kind': 'shape', 'shape': CUTTER}, 'packageUri': 'file:///pkg/shacl.ttl'},
-        'inputs': ['CutterRunningShape'], 'answer': answer,
+        'inputs': ['CutterRunningShape-c0ffee12'], 'answer': answer,
         'replies': {'semforge/renameShapePlan': PLAN, 'semforge/renameShape': DONE}},
         **scenario))
 
@@ -317,11 +316,11 @@ def test_rename_shape_says_the_plan_before_writing(tmp_path):
     seen = _rename(tmp_path, None)
     said = seen['warnings'][0]
     assert said.startswith('Rename iffBaseShacl:StateOnCutterShape to '
-                           'iffBaseShacl:CutterRunningShape?')
+                           'iffBaseShacl:CutterRunningShape-c0ffee12?')
     for part in ('shacl.ttl: 2 reference(s), 1 of them in a SPARQL query',
                  '1 assert(s) in 1 test case(s) name it',
                  '1 case(s) pin a residue',
-                 'test_StateOnCutterShape can be renamed to test_CutterRunningShape too'):
+                 'test_StateOnCutterShape can be renamed to test_CutterRunningShape-c0ffee12 too'):
         assert part in said, part
     assert _asked(seen, 'semforge/renameShape') == [], 'dismissed: nothing written'
 
@@ -329,11 +328,11 @@ def test_rename_shape_says_the_plan_before_writing(tmp_path):
 def test_rename_shape_with_its_suite(tmp_path):
     seen = _rename(tmp_path, 'Rename it and test_StateOnCutterShape')
     assert _asked(seen, 'semforge/renameShape') == [{
-        'uri': 'file:///pkg/shacl.ttl', 'shape': CUTTER, 'name': 'CutterRunningShape',
+        'uri': 'file:///pkg/shacl.ttl', 'shape': CUTTER, 'name': 'CutterRunningShape-c0ffee12',
         'suite': True}]
     opened = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.openShapePage']
-    assert opened[0][0]['raw']['shape'] == BASE + 'CutterRunningShape'
-    assert any('StateOnCutterShape is now CutterRunningShape' in i and
+    assert opened[0][0]['raw']['shape'] == BASE + 'CutterRunningShape-c0ffee12'
+    assert any('StateOnCutterShape is now CutterRunningShape-c0ffee12' in i and
                '1 residue(s) pinned again' in i for i in seen['info'])
 
 

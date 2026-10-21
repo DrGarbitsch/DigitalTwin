@@ -259,7 +259,11 @@ def _expectation_checks(package):
             if constraint in known:
                 continue
             shape = constraint.split('/')[0]
-            near = sorted(k for k in known if k.startswith(shape + '/'))
+            # What the shape does declare -- of the same constraint type first:
+            # the likeliest meant.
+            kind = constraint.rsplit('/', 1)[-1]
+            near = sorted((k for k in known if k.startswith(shape + '/')),
+                          key=lambda k: (not k.endswith('/' + kind), k))
             meant = suggestion(constraint, known)
             hint = (f' {shape} declares: {", ".join(near[:4])}'
                     + (' …' if len(near) > 4 else '')) if near else \

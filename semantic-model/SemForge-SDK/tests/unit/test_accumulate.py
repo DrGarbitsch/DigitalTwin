@@ -102,5 +102,9 @@ def test_the_user_s_two_machine_shapes(tmp_path):
     row = pressure[0]
     assert row['presence'] == 'required · one'
     assert row['value'] == 'number · ≥ 0 and < 100'
-    by_shape = {c['shapeName'].split(':')[-1]: c['noEffect'] for c in row['contributions']}
+    from semforge.cooked.shapes import base_name
+
+    # By the name a reader reads: a new shape carries a random part.
+    by_shape = {base_name(c['shapeName'].split(':')[-1]): c['noEffect']
+                for c in row['contributions']}
     assert by_shape['MachineShape2'] == ['sh:maxExclusive 200']

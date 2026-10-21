@@ -147,8 +147,10 @@ def test_a_shape_with_its_own_settings_is_not_merged(two_machine_shapes):
     root, _, first, second = two_machine_shapes
     with open(f'{root}/shacl.ttl') as handle:
         text = handle.read()
-    text = text.replace('myModelShacl:MachineShape2 a sh:NodeShape ;',
-                        'myModelShacl:MachineShape2 a sh:NodeShape ;\n    sh:severity sh:Warning ;')
+    name = f'myModelShacl:{second.rsplit("/", 1)[-1]}'     # with its random part
+    assert f'{name} a sh:NodeShape ;' in text
+    text = text.replace(f'{name} a sh:NodeShape ;',
+                        f'{name} a sh:NodeShape ;\n    sh:severity sh:Warning ;')
     with open(f'{root}/shacl.ttl', 'w') as handle:
         handle.write(text)
     with pytest.raises(PackageError, match='sh:severity'):

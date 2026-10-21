@@ -8,12 +8,15 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { PACKAGE_URI, WORKSPACE, semforge, row, until, answering, read } = require('./helpers');
+const { PACKAGE_URI, WORKSPACE, semforge, row, until, answering, read,
+  restoreShapeName } = require('./helpers');
 
 const BASE = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/';
 const EXAMPLES = path.join(WORKSPACE, 'examples');
 const FROM = 'FilterShape';
-const TO = 'FilterCheckShape';
+const TYPED = 'FilterCheckShape';
+// What Rename… made of it: the typed name with a random part.
+let TO;
 
 /** Every assert in every expectations.yaml naming `name`'s constraints. */
 function asserts(name) {
@@ -53,7 +56,7 @@ describe('Rename…', () => {
       before = await summary(api);
       const named = asserts(FROM);
       assert.ok(named > 0, 'the shape has asserts to carry along');
-      const session = answering([{ kind: 'input', value: TO },
+      const session = answering([{ kind: 'input', value: TYPED },
         { kind: 'warning', button: `Rename it and test_${FROM}` }]);
       let done;
       try {
@@ -63,6 +66,8 @@ describe('Rename…', () => {
         session.restore();
       }
       assert.ok(done && done.ok, JSON.stringify(done));
+      TO = done.newName;
+      assert.ok(new RegExp(`^${TYPED}-[0-9a-f]{8}$`).test(TO), TO);
       const shacl = read('shacl.ttl');
       assert.ok(shacl.includes(`iffBaseShacl:${TO}`));
       assert.ok(!new RegExp(`iffBaseShacl:${FROM}\\b`).test(shacl));
@@ -115,8 +120,7 @@ describe('Rename…', () => {
     await client.sendRequest('semforge/renameCase', { uri: PACKAGE_URI,
       case: `test_${TO}/${path.basename(path.dirname(moved))}/renamed-case.jsonld`,
       name: old });
-    await client.sendRequest('semforge/renameShape', { uri: PACKAGE_URI, shape: BASE + TO,
-      name: FROM, suite: true });
+    await restoreShapeName(api, TO, FROM, true);
     assert.ok(fs.existsSync(path.join(EXAMPLES, `test_${FROM}`, path.basename(path.dirname(moved)),
       old)));
     assert.strictEqual(await summary(api, (suites) => suites.includes(`test_${FROM}`)), before);

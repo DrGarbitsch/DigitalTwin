@@ -183,7 +183,7 @@ async function newShape(clientHolder, session, node, options) {
   const { kind, target, label } = chosen;
   const name = await vscode.window.showInputBox({
     title: 'New shape: its name',
-    prompt: 'Letters, digits, "_" and "-"; it goes in the namespace of the other shapes',
+    prompt: 'Letters, digits, "_" and "-"; a random part is added (PumpShape-3f9a1c2e) -- the IRI is the identity, the name only a label',
     value: suggestedName(kind, target, label),
     validateInput: (text) => (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(text.trim())
       ? undefined : 'letters, digits, "_", "-" and ".", starting with a letter')

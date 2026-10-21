@@ -7,9 +7,9 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
-const { PACKAGE_URI, WORKSPACE, semforge, row, until, answering, read } = require('./helpers');
+const { WORKSPACE, semforge, row, until, answering, read,
+  restoreShapeName } = require('./helpers');
 
-const BASE = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/';
 const EXAMPLES = path.join(WORKSPACE, 'examples');
 const SHACL = path.join(WORKSPACE, 'shacl.ttl');
 
@@ -37,11 +37,9 @@ async function typeRename(from, to) {
   return doc;
 }
 
-async function renameBack(api, from, to, suite) {
-  const done = await api.clientHolder.client.sendRequest('semforge/renameShape',
-    { uri: PACKAGE_URI, shape: BASE + from, name: to, suite });
-  assert.ok(done.ok, JSON.stringify(done));
-}
+// Undone by hand: Rename… would keep a random part, the suites after expect
+// the corpus as it was.
+const renameBack = restoreShapeName;
 
 describe('A shape renamed by typing', () => {
   it('is noticed on save, and its asserts and suite are carried along', async () => {
@@ -113,11 +111,14 @@ describe('A shape renamed by typing', () => {
     } finally {
       session.restore();
     }
-    assert.ok(read('shacl.ttl').includes('iffBaseShacl:WorkpieceF2Shape a'));
-    assert.ok(fs.existsSync(path.join(EXAMPLES, 'test_WorkpieceF2Shape')), 'its suite went along');
-    assert.ok(read('examples/test_WorkpieceF2Shape/bad/expectations.yaml')
-      .includes('iffBaseShacl:WorkpieceF2Shape/hasHeight'));
+    // Rename… named it with a random part: WorkpieceF2Shape-3f9a1c2e.
+    const renamed = read('shacl.ttl').match(/iffBaseShacl:(WorkpieceF2Shape-[0-9a-f]{8}) a/);
+    assert.ok(renamed, 'renamed, with its random part');
+    const name = renamed[1];
+    assert.ok(fs.existsSync(path.join(EXAMPLES, `test_${name}`)), 'its suite went along');
+    assert.ok(read(`examples/test_${name}/bad/expectations.yaml`)
+      .includes(`iffBaseShacl:${name}/hasHeight`));
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-    await renameBack(api, 'WorkpieceF2Shape', 'WorkpieceShape', true);
+    await renameBack(api, name, 'WorkpieceShape', true);
   });
 });

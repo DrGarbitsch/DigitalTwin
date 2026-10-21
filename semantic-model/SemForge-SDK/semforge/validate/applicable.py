@@ -23,7 +23,7 @@ example forever, which is what the coverage report exists to surface.
 from rdflib import BNode, URIRef
 from rdflib.namespace import OWL, RDF, RDFS, SH
 
-from .normalise import UNIT_CODE, UNIT_SUFFIX, inverse_predicate, local
+from .normalise import UNIT_CODE, UNIT_SUFFIX, inverse_predicate, layered, local
 
 from ..ngsild.kinds import PAYLOAD_PATHS  # noqa: E402
 
@@ -121,7 +121,7 @@ def _constraints_of(node, shapes_graph):
                    if (node, parameter, None) in shapes_graph})
 
 
-def _walk(node, shapes_graph, attribute, seen):
+def _walk(node, shapes_graph, attribute, seen, value_path=None):
     """(attribute, component) pairs under a shape node, recursively.
 
     `attribute` is the NGSI-LD attribute a constraint is attributed to. A nested
@@ -133,7 +133,8 @@ def _walk(node, shapes_graph, attribute, seen):
         return []
     seen.add(node)
 
-    pairs = [(attribute, component) for component in _constraints_of(node, shapes_graph)]
+    pairs = [(layered(attribute, value_path, component), component)
+             for component in _constraints_of(node, shapes_graph)]
 
     for child in shapes_graph.objects(node, SH.property):
         path = shapes_graph.value(child, SH.path)
@@ -152,7 +153,8 @@ def _walk(node, shapes_graph, attribute, seen):
             predicate = inverse_predicate(path, shapes_graph) \
                 if isinstance(path, BNode) else None
             child_attribute = local(predicate) if predicate is not None else attribute
-        pairs.extend(_walk(child, shapes_graph, child_attribute, seen))
+        on_value = path if isinstance(path, URIRef) and str(path) in NGSILD_VALUE_PATHS else None
+        pairs.extend(_walk(child, shapes_graph, child_attribute, seen, on_value))
     return pairs
 
 

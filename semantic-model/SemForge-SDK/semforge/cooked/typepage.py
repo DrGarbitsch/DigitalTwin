@@ -372,7 +372,9 @@ def _coverage(cases):
     out = {}
     for entry in coverage([(example, report) for example, _, report in cases]):
         parts = entry.constraint.split('/')
-        key = (parts[0], parts[1] if len(parts) == 3 else '')
+        # hasX.hasValue and hasX.unitCode are hasX's own: its value's and its
+        # unit's constraints count toward the attribute's row.
+        key = (parts[0], parts[1].split('.')[0] if len(parts) == 3 else '')
         status = ('both ways' if entry.has_firing and entry.has_conforming
                   else 'fires only' if entry.has_firing else 'never fired')
         rank = {'never fired': 0, 'fires only': 1, 'both ways': 2}

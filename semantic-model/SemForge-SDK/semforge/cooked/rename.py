@@ -93,6 +93,20 @@ def rename_plan(package, shape, new_name):
         raise PackageError(f'{shape} is not a node shape of this package')
     new_name = _valid_name(new_name, 'shape')
     old_name = local(iri)
+    # The random part stays across a rename -- the name changes, the marker
+    # that it is an identifier does not. A shape without one gets one,
+    # derived from its IRI so the plan and the rename agree on it.
+    import uuid
+
+    from .shapes import base_name, identity_suffix, same_name, with_identity
+
+    taken = same_name(package, new_name, but=iri)
+    if taken is not None:
+        raise PackageError(f'{base_name(new_name)} is already a shape of this package '
+                           f'({curie(package.shapes, taken)})')
+
+    new_name = with_identity(new_name, identity_suffix(old_name) or
+                             f'-{uuid.uuid5(uuid.NAMESPACE_URL, str(iri)).hex[:8]}')
     if new_name == old_name:
         raise PackageError(f'{old_name} is already its name')
     namespace = str(iri)[:-len(old_name)]
@@ -170,6 +184,8 @@ def rename_shape(package, shape, new_name, suite=False):
     from .merge import _rename_asserts
 
     done = rename_plan(package, shape, new_name)
+    # The plan's name: the one asked for, with its identity suffix.
+    new_name = done['newName']
     iri, new_iri = done['shape'], done['newIri']
     held = _held(package, done['residues'])
 

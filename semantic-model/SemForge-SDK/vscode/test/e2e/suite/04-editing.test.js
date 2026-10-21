@@ -176,7 +176,7 @@ describe('a new subtype, then its first own attribute', () => {
     assert.match(shapes, new RegExp(`sh:path \\S*${picked.option.label}`));
     await until(() => {
       const page = api.pages.type.page;
-      return page.ownShape.endsWith('WatercutterShape') &&
+      return /WatercutterShape-[0-9a-f]{8}$/.test(page.ownShape) &&
         page.attributes.some((attribute) => attribute.label === picked.option.label &&
           !attribute.inherited);
     }, 'the type page to show it as its own');

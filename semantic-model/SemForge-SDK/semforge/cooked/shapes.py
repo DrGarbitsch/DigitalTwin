@@ -14,7 +14,7 @@ from rdflib import URIRef
 from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from ..errors import PackageError
-from ..validate.normalise import curie
+from ..validate.normalise import curie, local
 from ..validate.shapes import every_node_shape
 
 NGSILD_OBJECT = 'https://uri.etsi.org/ngsi-ld/hasObject'
@@ -147,6 +147,47 @@ def _target_iri(package, kind, target):
     raise PackageError(f'{kind} is not a target the editor writes')
 
 
+# A shape's IRI is its identity, and a name alone reads like a description:
+# MachineShape looks like it means "the Machine's shape" and will be renamed,
+# merged or reused as if it did. So every shape the editor names carries a
+# random part -- MachineShape-3f9a1c2e -- that says "this is an identifier".
+IDENTITY = re.compile(r'-[0-9a-f]{8}$')
+
+
+def identity_suffix(name):
+    """The random part of a shape's name (-3f9a1c2e), or ''."""
+    found = IDENTITY.search(str(name or ''))
+    return found.group(0) if found else ''
+
+
+def base_name(name):
+    """A shape's name without its random part: what a reader reads."""
+    suffix = identity_suffix(name)
+    return str(name)[:-len(suffix)] if suffix else str(name)
+
+
+def same_name(package, name, but=None):
+    """A node shape of the package read as `name` -- its name without the
+    random part -- other than `but`, or None. Two shapes both read as
+    MachineShape mislead exactly as a name without one does."""
+    from ..validate.shapes import every_node_shape
+
+    wanted = base_name(name)
+    return next((shape for shape in every_node_shape(package.shapes)
+                 if shape != but and base_name(local(shape)) == wanted), None)
+
+
+def with_identity(name, keep=''):
+    """`name` with a random part: the one it already has, else `keep`, else a
+    new one."""
+    import uuid
+
+    name = str(name or '').strip()
+    if identity_suffix(name):
+        return name
+    return name + (keep or f'-{uuid.uuid4().hex[:8]}')
+
+
 def add_shape(package, name, kind, target, namespace=None):
     """Write a new node shape: `ns:Name a sh:NodeShape ; sh:target… X .`
 
@@ -163,6 +204,10 @@ def add_shape(package, name, kind, target, namespace=None):
     if not re.match(NAME, name):
         raise PackageError(f'"{name}" is not a usable name: letters, digits, "_", '
                            f'"-" and ".", starting with a letter')
+    if same_name(package, name) is not None:
+        raise PackageError(f'{curie(package.shapes, same_name(package, name))} already exists '
+                           f'-- a shape read as {base_name(name)}')
+    name = with_identity(name)
     if kind not in TARGET_PREDICATES:
         raise PackageError(f'{kind} is not a target the editor writes')
     space = _resolve_namespace(package, namespace) if namespace \

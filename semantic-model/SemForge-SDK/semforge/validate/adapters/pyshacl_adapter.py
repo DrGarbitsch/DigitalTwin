@@ -65,6 +65,7 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
 
         resource, attribute = normalise.attribute_name(
             focus, path, data, shapes, report)
+        attribute = normalise.layered(attribute, path, component)
         if resource is None:
             # Cannot be attributed to an entity. Never silently dropped: it is
             # reported as NOT_EVALUATED so it still appears in the report.
