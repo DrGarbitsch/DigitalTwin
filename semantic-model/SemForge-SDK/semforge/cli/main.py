@@ -182,13 +182,21 @@ def export_command(path, out_dir, target, mode, profile_name, no_check):
                    'package can be exported. Nothing was written.', err=True)
         sys.exit(2)
 
-    written = export_package(package, out_dir, EmissionMode(mode))
+    from ..target.export import AmbiguousInstances
+
+    try:
+        written = export_package(package, out_dir, EmissionMode(mode))
+    except AmbiguousInstances as exc:
+        click.echo(f'ERROR: {exc} Nothing was written.', err=True)
+        sys.exit(2)
     for role in ('knowledge', 'shapes', 'model', 'context'):
         if role in written:
             click.echo(f'{role:>10}  {written[role]}')
     if written.get('context_url'):
         click.echo(f'{"@context":>10}  {written["context_url"]} '
                    f'({written.get("retargeted", 0)} entity/entities retargeted)')
+    for place in written.get('node_kinds_where', []):
+        click.echo(f'{"nodeKind":>10}  sh:BlankNode added: {place}')
     if written.get('collapsed'):
         click.echo(f'{"collapsed":>10}  {written["collapsed"]} attribute '
                    f'instance(s) to the latest observedAt')

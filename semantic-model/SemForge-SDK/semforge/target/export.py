@@ -29,7 +29,7 @@ import shutil
 from enum import Enum
 
 
-def complete_node_kinds(text):
+def complete_node_kinds(text, where=None):
     """Add the `sh:nodeKind sh:BlankNode` the NGSI-LD encoding implies.
 
     An attribute IS a blank node carrying hasValue/hasObject, so stating it on
@@ -49,19 +49,26 @@ def complete_node_kinds(text):
       wrong rather than missing.
 
     Returns (text, added). Adding nothing returns the input unchanged, so a
-    package that already states them exports byte-identically.
+    package that already states them exports byte-identically. `where`, a list,
+    receives each place it added one -- "shape › attribute path" -- so the
+    export can say exactly which shapes it changed.
+
+    Its contract, pinned by test_node_kind.py: the added constraint changes no
+    verdict on NGSI-LD data, where an attribute IS a blank node -- the corpus
+    validates identically with and without it.
     """
     from ..cooked.tree import IMPLIED_NODE_KIND, VALUE_PATHS, \
         forward_attribute_path
     from ..rdfio import add_parameter, property_blocks
     from ..rdfio.turtle_index import TurtleIndex
 
-    def gather(block, is_value, out):
+    def gather(block, is_value, out, owner, chain):
+        chain = chain + [block.path]
         if (not is_value and forward_attribute_path(block.path)
                 and 'sh:nodeKind' not in block.parameters):
-            out.append(block)
+            out.append((block, owner, chain))
         for child in block.children:
-            gather(child, child.path in VALUE_PATHS, out)
+            gather(child, child.path in VALUE_PATHS, out, owner, chain)
 
     added = 0
     while True:
@@ -69,12 +76,14 @@ def complete_node_kinds(text):
         targets = []
         for block in index.blocks:
             for group in property_blocks(text, block):
-                gather(group, False, targets)
+                gather(group, False, targets, block.raw_subject, [])
         if not targets:
             break
         # Rightmost first: an insertion shifts every offset after it.
-        target = max(targets, key=lambda b: b.start)
+        target, owner, chain = max(targets, key=lambda t: t[0].start)
         text = add_parameter(text, target, 'sh:nodeKind', IMPLIED_NODE_KIND)
+        if where is not None:
+            where.insert(0, f'{owner} › {" / ".join(chain)}')
         added += 1
         if added > 500:
             raise RuntimeError('node-kind completion did not converge')
@@ -86,29 +95,74 @@ class EmissionMode(Enum):
     BROKER = 'broker'
 
 
-def _observed_at(instance):
-    return instance.get('observedAt', '') if isinstance(instance, dict) else ''
+# Keys of an entity or an attribute instance that are not attributes.
+NOT_ATTRIBUTES = {'id', '@id', 'type', '@type', '@context', 'value', 'object', 'valueList',
+                  'objectList', 'json', 'languageMap', 'vocab', 'observedAt', 'datasetId',
+                  'unitCode', 'createdAt', 'modifiedAt', 'instanceId'}
+
+
+class AmbiguousInstances(ValueError):
+    """Instances of one (attribute, datasetId) tied for the latest: the broker
+    keeps one, and nothing says which."""
+
+    def __init__(self, ties):
+        self.ties = ties
+        super().__init__(
+            'several instances tie for the latest of their datasetId -- the same '
+            'observedAt, or none -- so there is no one instance to send: '
+            + '; '.join(ties) + '. Give each its own time or its own datasetId.')
 
 
 def collapse_for_broker(entities):
-    """Keep one instance per (attribute, datasetId): the latest observedAt."""
-    collapsed = 0
-    for entity in entities:
-        for key, value in list(entity.items()):
-            if key in ('id', 'type', '@context') or not isinstance(value, list):
+    """Keep one instance per (attribute, datasetId): the one validation reads.
+
+    That is the platform's rule (ngsild/timestamps.py): the latest point in
+    time, an instance without observedAt -- or with one that does not parse --
+    counting as now. Sub-attributes are collapsed the same way. Instances tied
+    for the latest (the same time, or several unstamped) are one update written
+    twice: validation counts them, the broker would keep one of them -- so they
+    are refused (AmbiguousInstances), never guessed. Returns how many
+    instances were dropped.
+    """
+    from ..ngsild.timestamps import key as moment
+
+    collapsed, ties = 0, []
+
+    def walk(holder, owner, trail):
+        nonlocal collapsed
+        for name, value in list(holder.items()):
+            if name in NOT_ATTRIBUTES or not isinstance(value, (list, dict)):
                 continue
-            groups = {}
-            for instance in value:
-                dataset = instance.get('datasetId', '@none') \
-                    if isinstance(instance, dict) else '@none'
-                groups.setdefault(dataset, []).append(instance)
-            kept = []
-            for _, instances in groups.items():
-                if len(instances) > 1 and any(_observed_at(i) for i in instances):
-                    collapsed += len(instances) - 1
-                    instances = [max(instances, key=_observed_at)]
-                kept.extend(instances)
-            entity[key] = kept
+            instances = value if isinstance(value, list) else [value]
+            if isinstance(value, list):
+                groups = {}
+                for instance in instances:
+                    dataset = instance.get('datasetId', '@none') \
+                        if isinstance(instance, dict) else '@none'
+                    groups.setdefault(str(dataset), []).append(instance)
+                kept = []
+                for dataset, members in groups.items():
+                    stamped = [m for m in members if isinstance(m, dict)]
+                    if len(stamped) > 1:
+                        latest = max(moment(m) for m in stamped)
+                        winners = [m for m in stamped if moment(m) == latest]
+                        if len(winners) > 1:
+                            ties.append(f'{owner} {"/".join(trail + [name])} '
+                                        f'({"default" if dataset == "@none" else dataset})')
+                        collapsed += len(members) - 1
+                        members = [winners[-1]]
+                    kept.extend(members)
+                holder[name] = kept
+                instances = kept
+            for instance in instances:
+                if isinstance(instance, dict):
+                    walk(instance, owner, trail + [name])
+
+    for entity in entities:
+        if isinstance(entity, dict):
+            walk(entity, str(entity.get('id') or entity.get('@id') or ''), [])
+    if ties:
+        raise AmbiguousInstances(ties)
     return collapsed
 
 
@@ -126,8 +180,18 @@ def export(package, out_dir, mode=EmissionMode.COMPILE, target_context=None):
     declaring both.
     """
     mode = mode if isinstance(mode, EmissionMode) else EmissionMode(mode)
-    os.makedirs(out_dir, exist_ok=True)
     written = {}
+
+    # The model first: a broker export that cannot be made (AmbiguousInstances)
+    # must write nothing at all, not half an output.
+    entities = []
+    for source_path in package.files('model'):
+        with open(source_path, encoding='utf-8') as handle:
+            document = json.load(handle)
+        entities.extend(document if isinstance(document, list) else [document])
+    if mode is EmissionMode.BROKER:
+        written['collapsed'] = collapse_for_broker(entities)
+    os.makedirs(out_dir, exist_ok=True)
 
     # A role may be several files. They are concatenated into the single
     # artifact the target expects -- shacl2flink reads one shapes file -- rather
@@ -141,22 +205,18 @@ def export(package, out_dir, mode=EmissionMode.COMPILE, target_context=None):
                 parts.append(source.read())
         text = '\n'.join(parts) if len(parts) > 1 else parts[0]
         if role == 'shapes':
-            text, added = complete_node_kinds(text)
+            places = []
+            text, added = complete_node_kinds(text, places)
             if added:
+                # Every shape it changed, by name: the export adds a SHACL
+                # constraint, so it says where.
                 written['node_kinds_added'] = added
+                written['node_kinds_where'] = places
         with open(destination, 'w', encoding='utf-8') as handle:
             handle.write(text)
         written[role] = destination
         if len(parts) > 1:
             written.setdefault('merged', {})[role] = len(parts)
-
-    entities = []
-    for source_path in package.files('model'):
-        with open(source_path, encoding='utf-8') as handle:
-            document = json.load(handle)
-        entities.extend(document if isinstance(document, list) else [document])
-    if mode is EmissionMode.BROKER:
-        written['collapsed'] = collapse_for_broker(entities)
 
     from ..package.context import context_config
 

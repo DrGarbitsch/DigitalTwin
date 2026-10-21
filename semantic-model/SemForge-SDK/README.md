@@ -79,32 +79,24 @@ flags constraints no example ever makes fire — the signal a passing test run
 cannot give you, because a constraint that cannot fire looks exactly like one
 that is satisfied.
 
-It also carries the **cooked view**: a tree of entity types, attributes and
-constraints, where editing a Core parameter rewrites just that value in
-`shacl.ttl`. Cooked and raw are one state — the edit is a raw edit — so
-comments survive and validation follows immediately.
+It also carries the **cooked view** — the trees and the pages for entity
+types, shapes, test cases, the main-model and the vocabulary — where every
+edit rewrites just the text it changes, so comments survive and validation
+follows immediately. [vscode/README.md](./vscode/README.md) describes it.
 
-`--cross-check sqlite` runs the package through shacl2flink's SQLite build and
-compares. It needs `requirements-crosscheck.txt` and the `sqlite3` CLI, and it
-is a courtesy check: its findings are bug reports for the compiler, never
-reasons to hold up a package whose pyshacl verdict is clean.
+### What is implemented, and what is not
 
-What is **not** yet true, stated rather than implied:
-
-- Constraints are referenced structurally (`shape/attribute/Component`), not by
-  a declared frozen `semforge:id`. A structural reference changes when the path
-  changes, which is the rename a regression report exists to explain
-  (`architecture.md` section 5.4).
-- Nothing yet derives `proposed` constraints from examples: the tier exists and
-  is enforced, but no importer populates it.
-- Constraints are still referenced structurally. The declared, frozen
-  `semforge:id` of `architecture.md` section 5.4 is not implemented, so a
-  reference changes when a path changes — the rename a regression report exists
-  to explain.
-- Cooked mode does not exist. The write layer is there (`semforge.rdfio`) and
-  the editor is raw-only; no structured UI uses it.
-- The mixed per-variable data view is refused rather than evaluated
-  (`SF-CAP-005`). Supporting it needs the algebra work in H2 step 4.
+| Area | State | Notes |
+| --- | --- | --- |
+| Packages, validation (pyshacl), rules, data views | implemented | the per-variable *mixed* view is refused (`SF-CAP-005`); it needs the algebra of H2 step 4 |
+| Test cases, expectations, residue, coverage, regression diff | implemented | |
+| Cooked editing (types, shapes, attributes, constraints, cases, vocabulary) | implemented | in the VS Code extension; the write layer is `semforge.rdfio` |
+| NGSI-LD instances: `datasetId`, `observedAt` series, `unitCode` | implemented | only the latest observation per `datasetId` is validated, an unstamped one counting as now — the platform's rule |
+| Export | implemented | `compile` keeps every observation; `broker` keeps the one validated per `datasetId` and **refuses** a tie (two unstamped, or the same time) rather than guessing. The `sh:nodeKind sh:BlankNode` it adds to attribute shapes is listed shape by shape, and pinned to change no verdict (`test_export_contract.py`) |
+| Target profile (shacl2flink) | implemented, copied | a hand-kept copy of the compiler's facts; `test_profile_drift.py` reads shacl2flink's source and fails when they drift. A descriptor shacl2flink publishes is planned |
+| `--cross-check sqlite` | **approximate** | runs the package through shacl2flink's SQLite build and compares (resource, attribute, component) with counts. Two constraints of one component on one attribute share a key, so a disagreement between them can hide; what the compiler is known not to compile (units, `sh:node`'s inlining, types outside the profile) is reported as *expected*. A courtesy check: its findings are bug reports for the compiler, never reasons to hold up a package whose pyshacl verdict is clean. It needs `requirements-crosscheck.txt` and the `sqlite3` CLI |
+| Stable constraint identity | **planned** | constraints are referenced structurally (`shape/attribute/Component`), not by a declared, frozen `semforge:id` (`architecture.md` section 5.4). Rename… carries asserts and residue along inside a package, but a reference still changes when a path changes, across versions and in runtime alerts |
+| Proposed constraints from examples | **planned** | the `proposed` tier exists and is enforced; no importer populates it |
 
 ## Scope
 

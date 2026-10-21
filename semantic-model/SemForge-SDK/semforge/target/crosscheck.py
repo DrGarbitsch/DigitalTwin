@@ -158,11 +158,78 @@ def _oracle_rows(workdir):
     return rows
 
 
+def expected_gap(key, profile=None):
+    """Whether a result only pyshacl reports is one the compiler is KNOWN not
+    to produce: an attribute's unit (hasX.unitCode -- shacl2flink compiles a
+    nested property only with a payload of its own), a constraint type
+    outside the target profile, or sh:node -- which the compiler inlines, so
+    it reports the referenced shape's constraints instead. Those are not
+    compiler bugs."""
+    from .profile import builtin_profile
+
+    profile = profile or builtin_profile()
+    _, attribute, component = key
+    # The key carries the compiler's name (min/max count are one Count).
+    compiled = profile.components | {ALIASES.get(c, c) for c in profile.components}
+    return str(attribute or '').endswith('.unitCode') or \
+        component == 'NodeConstraintComponent' or component not in compiled
+
+
+def compare(oracle_rows, violations):
+    """Diagnostics for the difference between the compiled SQL's alerts and
+    pyshacl's violations.
+
+    APPROXIMATE, by construction: a result is keyed (resource, attribute,
+    component), so two constraints of one component on one attribute -- an
+    attribute's sh:minCount and its value's -- share a key. Counts are kept
+    (a multiset, not a set), so two such results against one are still a
+    difference; which of the two constraints disagreed is not knowable
+    until both sides carry a stable constraint id (README, Status).
+    """
+    from collections import Counter
+
+    oracle = Counter()
+    for resource, event, severity in oracle_rows:
+        if str(severity).lower() == 'ok':
+            continue
+        component, name = parse_event(str(event))
+        oracle[(str(resource), name, ALIASES.get(component, component))] += 1
+    ours = Counter((r.resource, r.attribute, ALIASES.get(r.component, r.component))
+                   for r in violations)
+
+    def times(n):
+        return f' ({n} times)' if n > 1 else ''
+
+    found = []
+    for key, n in sorted((oracle - ours).items()):
+        found.append(Diagnostic(
+            code='SF-XCHK-MISSED', category='divergence', severity='warning',
+            subject=key[0],
+            message=(f'the compiled SQL reports {key[2]}({key[1]}) on {key[0]}{times(n)} '
+                     f'and pyshacl does not')))
+    for key, n in sorted((ours - oracle).items()):
+        if expected_gap(key):
+            found.append(Diagnostic(
+                code='SF-XCHK-EXPECTED', category='divergence', severity='info',
+                subject=key[0],
+                message=(f'pyshacl reports {key[2]}({key[1]}) on {key[0]}{times(n)}; the '
+                         f'compiler is known not to compile it (a unit, or outside the '
+                         f'shacl2flink profile) -- expected, not a compiler bug')))
+            continue
+        found.append(Diagnostic(
+            code='SF-XCHK-EXTRA', category='divergence', severity='warning',
+            subject=key[0],
+            message=(f'pyshacl reports {key[2]}({key[1]}) on {key[0]}{times(n)} and '
+                     f'the compiled SQL does not')))
+    return found
+
+
 def cross_check(package, report, shacl2flink_dir, python_exe=None, workdir=None):
     """Compare the compiled SQLite build against the pyshacl report.
 
     Returns a list of Diagnostics, all category 'divergence' except a single
-    'unavailable' note when the check could not run.
+    'unavailable' note when the check could not run. An approximate
+    diagnostic, not a proof of equivalence: see compare().
     """
     python_exe = python_exe or sys.executable
     ok, reason = available(shacl2flink_dir, python_exe)
@@ -182,30 +249,7 @@ def cross_check(package, report, shacl2flink_dir, python_exe=None, workdir=None)
                                severity='warning',
                                message=f'SQLite cross-check could not run: {exc}')]
 
-        oracle = set()
-        for resource, event, severity in rows:
-            if str(severity).lower() == 'ok':
-                continue
-            component, name = parse_event(str(event))
-            oracle.add((str(resource), name, ALIASES.get(component, component)))
-
-        ours = {(r.resource, r.attribute,
-                 ALIASES.get(r.component, r.component)) for r in report.violations}
-
-        found = []
-        for key in sorted(oracle - ours):
-            found.append(Diagnostic(
-                code='SF-XCHK-MISSED', category='divergence', severity='warning',
-                subject=key[0],
-                message=(f'the compiled SQL reports {key[2]}({key[1]}) on {key[0]} '
-                         f'and pyshacl does not')))
-        for key in sorted(ours - oracle):
-            found.append(Diagnostic(
-                code='SF-XCHK-EXTRA', category='divergence', severity='warning',
-                subject=key[0],
-                message=(f'pyshacl reports {key[2]}({key[1]}) on {key[0]} and '
-                         f'the compiled SQL does not')))
-        return found
+        return compare(rows, report.violations)
     finally:
         if temporary:
             shutil.rmtree(workdir, ignore_errors=True)

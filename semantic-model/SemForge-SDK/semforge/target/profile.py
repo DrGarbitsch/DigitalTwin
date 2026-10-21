@@ -62,6 +62,8 @@ def builtin_profile(name='shacl2flink'):
             'InConstraintComponent', 'HasValueConstraintComponent',
             'NodeConstraintComponent', 'OrConstraintComponent',
             'AndConstraintComponent', 'NotConstraintComponent',
+            # Compiled as a connective -- but not inside a value shape (below).
+            'XoneConstraintComponent',
             'SPARQLConstraintComponent',
         },
         # "sh:xone inside the value shape of ngsi-ld:hasValue is not supported.
