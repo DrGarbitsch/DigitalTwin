@@ -100,28 +100,59 @@ def _dom(tmp_path, after):
     return run.stdout
 
 
-OPEN_ALL = '''
+# Graph; on A open hasPort (-> B) and hasState.hasDriver (-> C); on B open
+# hasOwner, which points back at A.
+WALK = '''
 document.querySelector('[data-view=graph]').click();
-function openAll() {
-  document.querySelectorAll('#graph details.gnode').forEach(function (d) { d.open = true; });
+function toggleOn(card, rel) {
+  card.querySelector('.attr[data-rel="' + rel + '"] [data-reltoggle]').click();
 }
-openAll(); setTimeout(openAll, 50); setTimeout(openAll, 100); setTimeout(openAll, 150);
+setTimeout(function () {
+  var a = document.querySelector('#graph details.tcard[data-id="urn:a"]');
+  toggleOn(a, 'urn:b');
+  toggleOn(a, 'urn:c');
+  var b = a.querySelector('details.tcard[data-id="urn:b"]');
+  toggleOn(b, 'urn:a');
+  REBUILD
+}, 30);
 '''
 
 
-def test_the_graph_starts_where_nothing_points_and_ends_a_cycle_with_a_jump(tmp_path):
-    dom = _dom(tmp_path, OPEN_ALL)
-    graph = dom[dom.index('id="graph"'):dom.index('id="cardview"')]
+def _graph(dom):
+    return dom[dom.index('id="graph"'):dom.index('id="cardview"')]
+
+
+def _cards(graph, entity):
+    """How many tree cards show this entity in full (each holds a copy of its card)."""
+    return len(re.findall(r'<details class="tcard[^"]*" data-id="' + re.escape(entity) + '"', graph))
+
+
+def test_a_path_opens_card_by_card_and_a_cycle_ends_in_a_reference(tmp_path):
+    graph = _graph(_dom(tmp_path, WALK.replace('REBUILD', '')))
     # urn:a and urn:b point at each other, urn:a at urn:c: everything is pointed
     # at, so the cycle is entered at its first entity -- one root, not three.
     assert '0 root(s): the entities nothing points at · 1 more where a cycle has no way in' \
         in graph
+    # Each entity's card, in full, once: B and C under A, A not again under B.
+    assert _cards(graph, 'urn:a') == 1
+    assert _cards(graph, 'urn:b') == 1 and _cards(graph, 'urn:c') == 1
     assert graph.index('data-id="urn:a"') < graph.index('data-id="urn:b"')
-    # urn:b points back at urn:a, which is open above: a jump, not another urn:a.
-    assert 'data-jump="urn:a"' in graph
-    assert graph.count('data-id="urn:a"') == 1
-    assert 'urn:gone (not in this page)' in graph
-    assert 'hasState.hasDriver →' in graph
+    assert 'data-goto="urn:a"' in graph and 'is open elsewhere on this page' in graph
+    # The relationship inside a sub-attribute opened too, named by its row.
+    assert 'hasDriver →' in graph
+    # A target not on the page cannot be opened, and says why.
+    assert 'urn:gone is not on this page' in graph
+    # The row names what the card below is: type and id.
+    assert 'ex:Port urn:b' in graph
+
+
+def test_the_open_branches_come_back_when_the_view_is_drawn_again(tmp_path):
+    rebuild = ('document.querySelector("[data-view=cards]").click();'
+               'document.querySelector("[data-view=graph]").click();')
+    graph = _graph(_dom(tmp_path, WALK.replace('REBUILD', rebuild)))
+    assert _cards(graph, 'urn:a') == 1
+    assert _cards(graph, 'urn:b') == 1 and _cards(graph, 'urn:c') == 1
+    assert 'data-goto="urn:a"' in graph
 
 
 def test_a_filter_hides_the_cards_and_roots_the_graph(tmp_path):

@@ -73,8 +73,10 @@ function attributeRows(rows, file, depth, at) {
     const menu = here !== undefined && (row.node || row.attributeNode)
       ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
         'the rule">⋯</button>' : '';
+    const rel = row.kind === 'Relationship' && row.value && !row.superseded
+      ? ` data-rel="${escape(row.value)}" data-relname="${escape(row.name)}"` : '';
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}` +
-      `${row.superseded ? ' superseded' : ''}">` +
+      `${row.superseded ? ' superseded' : ''}"${rel}>` +
       `<span class="name">${open(row.display || row.name, file, row.line, row.term)}</span>` +
       `<span class="value">${value}` +
       `${row.unitText ? ` <span class="unit" title="unitCode ${escape(row.unitCode)}">${escape(row.unitText)}</span>` : ''}` +
@@ -315,19 +317,27 @@ function renderCasePage(page, options) {
        padding: 1px 4px; max-width: 22em; }
   .card[hidden], #cardview[hidden], .graph[hidden] { display: none; }
   .graph .roots { margin-bottom: 6px; }
-  .gnode > summary { cursor: pointer; overflow-wrap: anywhere; padding: 1px 0; }
-  .gnode.leaf > summary { list-style: none; }
-  .gnode.leaf > summary::-webkit-details-marker { display: none; }
-  .gnode.bad > summary .gtype { color: var(--vscode-errorForeground, #f14c4c); }
   .gid { font-family: var(--vscode-editor-font-family); font-size: 0.88em;
          color: var(--vscode-descriptionForeground); margin-left: 6px; }
   .gtype { font-weight: 600; }
-  .gnode .children { margin: 2px 0 4px 6px; padding-left: 14px;
-       border-left: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
-  .edge { overflow-wrap: anywhere; }
-  .edge > .rel { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-right: 4px; }
-  .showcard { margin-left: 8px; font-size: 0.86em; }
-  .back { font-style: italic; }
+  .tcard { margin: 6px 0; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35));
+           border-radius: 4px; }
+  .tcard.bad { border-color: var(--vscode-errorForeground, #f14c4c); }
+  .tcard > summary { padding: 4px 10px; cursor: pointer; overflow-wrap: anywhere; }
+  .tcard > summary .acts { display: inline-flex; margin-left: 8px; }
+  .tcard.bad > summary .gtype, .badmark { color: var(--vscode-errorForeground, #f14c4c); }
+  .badmark { margin-left: 6px; }
+  .tcard > .card { border: none; padding: 2px 10px 8px; }
+  .via { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-right: 6px; }
+  .nested { margin: 2px 0 6px 4px; padding-left: 10px;
+            border-left: 2px solid var(--vscode-textLink-foreground, #3794ff); }
+  .reltoggle { display: inline-block; width: 1.1em; text-decoration: none; }
+  .reltoggle.missing { color: var(--vscode-descriptionForeground); cursor: default; }
+  .tref { font-style: italic; }
+  .trail { position: sticky; top: 0; z-index: 2; padding: 4px 0 6px; margin-bottom: 4px;
+           background: var(--vscode-editor-background); overflow-wrap: anywhere; font-size: 0.92em;
+           border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
+  .trail .sep { color: var(--vscode-descriptionForeground); }
   .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
 </style></head><body data-page="${escape(page.file || page.case || '')}">
 <div class="crumbs">${crumbs}</div>
@@ -388,7 +398,8 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   const pageKey = (document.body && document.body.dataset.page) || '';
   const saved = (vscode.getState() || {})[pageKey] || {};
   const ui = { view: saved.view || 'cards', type: saved.type || '', attr: saved.attr || '',
-               id: saved.id || '', open: !!saved.open };
+               id: saved.id || '', open: !!saved.open,
+               tree: saved.tree || { roots: {}, rels: {} }, scroll: saved.scroll || 0 };
   const ftype = document.getElementById('ftype');
   const fattr = document.getElementById('fattr');
   const fid = document.getElementById('fid');
@@ -454,64 +465,195 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   function shortId(id) {
     return id.length > 42 ? id.slice(0, 14) + '…' + id.slice(-20) : id;
   }
-  function nodeFor(e, trail) {
-    const d = el('details', 'gnode' + (e.bad ? ' bad' : '') + (e.rels.length ? '' : ' leaf'));
-    d.dataset.id = e.id;
-    d.trail = trail.concat([e.id]);
-    // The type says what it is; the id, long in OPC UA, is shortened to its
-    // start and its end -- where those ids differ -- and given whole on hover.
-    const summary = el('summary');
+
+  // --- The entity graph: a tree of cards. ------------------------------------
+  // Each entity is its own card, copied from the cards view: the same rows,
+  // links and edits (a row is addressed by its card, so a copy edits the
+  // original). A relationship row opens the card it points at right under it.
+  // An entity is open in full once; asked for again, it is a line that jumps
+  // to it -- which is also where a cycle ends.
+  const shown = new Map();
+  function present(node) { return !!node && document.body.contains(node); }
+  function header(e, via) {
+    const summary = el('summary', 'thead');
     summary.title = e.id;
+    if (via) { summary.append(el('span', 'via', via + ' →')); }
     summary.append(el('span', 'gtype', e.type || '(no type)'));
     summary.append(el('span', 'gid', shortId(e.id)));
-    if (e.rels.length) { summary.append(el('span', 'dim', ' (' + e.rels.length + ')')); }
-    const show = el('a', 'showcard', 'card ↗');
-    show.href = '#';
-    show.title = 'Show its card';
-    show.dataset.showcard = e.card;
-    summary.append(show);
-    d.append(summary);
+    if (e.bad) { summary.append(el('span', 'badmark', '✗')); }
+    return summary;
+  }
+  function treeCard(e, via, key) {
+    const d = el('details', 'tcard' + (e.bad ? ' bad' : ''));
+    d.dataset.id = e.id;
+    d.dataset.via = via || '';
+    d.dataset.key = key;
+    d.append(header(e, via));
     return d;
   }
-  // A branch is drawn when it is opened, so a large package stays quick.
-  // An entity already open above on the same branch is not opened again:
-  // a jump back to it ends what would otherwise be a cycle.
-  function expand(d) {
-    if (d.drawn) { return; }
-    d.drawn = true;
+  function relKey(card, row) {
+    return card.dataset.id + '|' + row.dataset.relname + '|' + row.dataset.rel;
+  }
+  // The body is built when the card is first opened -- it must be on the page
+  // already, so that "is it shown?" sees everything above it.
+  function fill(d) {
+    if (d.filled) { return; }
+    d.filled = true;
     const e = byId.get(d.dataset.id);
-    const list = el('div', 'children');
-    e.rels.forEach(function (r) {
-      const line = el('div', 'edge');
-      line.append(el('span', 'rel', r.name + ' →'));
-      const target = byId.get(r.target);
-      if (!target) {
-        const missing = el('span', 'dim', shortId(r.target) + ' (not in this page)');
-        missing.title = r.target;
-        line.append(missing);
-      } else if (d.trail.indexOf(r.target) >= 0) {
-        const back = el('a', 'back', '↩ ' + ((byId.get(r.target) || {}).type || '') + ' ' + shortId(r.target));
-        back.href = '#';
-        back.title = 'Already open above on this branch: jump to it';
-        back.dataset.jump = r.target;
-        line.append(back);
-      } else {
-        line.append(nodeFor(target, d.trail));
+    const source = cardview.querySelector('.card[data-card="' + e.card + '"]');
+    const body = source ? source.cloneNode(true) : el('div', 'dim', '(no card)');
+    body.removeAttribute('id');
+    body.hidden = false;
+    body.classList.remove('focus');
+    const title = body.querySelector('.title');
+    if (title) {
+      const acts = title.querySelector('.acts');
+      title.remove();
+      if (acts) { d.querySelector('summary').append(acts); }
+    }
+    body.querySelectorAll('.attr[data-rel]').forEach(function (row) {
+      const target = byId.get(row.dataset.rel);
+      const toggle = el('a', 'reltoggle' + (target ? '' : ' missing'), target ? '▸' : '·');
+      toggle.href = '#';
+      toggle.title = target ? 'Open its ' + (target.type || 'entity') + ' here'
+        : row.dataset.rel + ' is not on this page';
+      if (target) { toggle.dataset.reltoggle = '1'; }
+      (row.querySelector('.name') || row).prepend(toggle);
+      // The card it points at opens right here: its type and a short id say
+      // enough on the row (the whole id stays on hover).
+      const value = row.querySelector('.value');
+      const idNode = value && Array.from(value.querySelectorAll('a')).concat(Array.from(value.childNodes))
+        .find(function (n) { return n.textContent.trim() === row.dataset.rel; });
+      if (idNode) {
+        const text = (target && target.type ? target.type + ' ' : '') + shortId(row.dataset.rel);
+        if (idNode.nodeType === 3) {
+          const span = el('span', '', text);
+          span.title = row.dataset.rel;
+          idNode.replaceWith(span);
+        } else {
+          idNode.textContent = text;
+          idNode.title = row.dataset.rel;
+        }
       }
-      list.append(line);
     });
-    d.append(list);
+    d.append(body);
+    shown.set(e.id, d);
+    body.querySelectorAll('.attr[data-rel]').forEach(function (row) {
+      if (ui.tree.rels[relKey(d, row)] && byId.has(row.dataset.rel)) { openRel(row, false); }
+    });
+  }
+  function release(node) {
+    [node].concat(Array.from(node.querySelectorAll('.tcard'))).forEach(function (c) {
+      if (shown.get(c.dataset.id) === c) { shown.delete(c.dataset.id); }
+    });
+  }
+  function openRel(row, record) {
+    const card = row.closest('.tcard');
+    const toggle = row.querySelector('.reltoggle');
+    const next = row.nextElementSibling;
+    const key = relKey(card, row);
+    if (next && next.classList.contains('nested')) {
+      release(next);
+      next.remove();
+      delete ui.tree.rels[key];
+      toggle.textContent = '▸';
+      remember();
+      return;
+    }
+    const target = byId.get(row.dataset.rel);
+    const holder = el('div', 'nested');
+    row.after(holder);
+    toggle.textContent = '▾';
+    ui.tree.rels[key] = true;
+    const existing = shown.get(target.id);
+    if (present(existing)) {
+      const ref = el('a', 'tref', '↩ ' + (target.type || '') + ' ' + shortId(target.id) +
+        ' is open elsewhere on this page — go there');
+      ref.href = '#';
+      ref.title = target.id;
+      ref.dataset.goto = target.id;
+      holder.append(ref);
+    } else {
+      const child = treeCard(target, row.dataset.relname, key);
+      holder.append(child);
+      child.open = true;
+      fill(child);
+    }
+    if (record !== false) { remember(); }
+  }
+  function goTo(id) {
+    const card = shown.get(id);
+    if (!present(card)) { return; }
+    let up = card;
+    while (up) { up.open = true; up = up.parentElement ? up.parentElement.closest('.tcard') : null; }
+    flash(card.querySelector('summary'));
   }
   function drawGraph() {
     graph.textContent = '';
+    shown.clear();
+    const trail = el('div', 'trail');
+    trail.id = 'trail';
+    trail.hidden = true;
+    graph.append(trail);
     const found = roots();
     const count = found.free.length;
     graph.append(el('div', 'roots dim', filtering()
       ? count + ' matching entit' + (count === 1 ? 'y' : 'ies') + ' as roots'
       : count + ' root(s): the entities nothing points at' + (found.cyclic.length
         ? ' · ' + found.cyclic.length + ' more where a cycle has no way in' : '')));
-    found.free.concat(found.cyclic).forEach(function (e) { graph.append(nodeFor(e, [])); });
+    const all = found.free.concat(found.cyclic);
+    all.forEach(function (e) {
+      const d = treeCard(e, '', 'root|' + e.id);
+      graph.append(d);
+      const wanted = ui.tree.roots[e.id];
+      if (wanted === undefined ? all.length <= 3 : wanted) {
+        d.open = true;
+        fill(d);
+      }
+    });
+    if (ui.scroll) { window.scrollTo(0, ui.scroll); }
+    follow();
   }
+  // The path to the card at the top of the view, kept in sight.
+  function follow() {
+    const trail = document.getElementById('trail');
+    if (!trail || graph.hidden) { return; }
+    // Hidden, the trail measures nothing: what has scrolled past the top counts.
+    const limit = (trail.hidden ? 0 : trail.getBoundingClientRect().bottom) + 6;
+    let current = null;
+    graph.querySelectorAll('.tcard').forEach(function (c) {
+      if (c.offsetParent !== null && c.querySelector('summary').getBoundingClientRect().top <= limit) {
+        current = c;
+      }
+    });
+    trail.textContent = '';
+    trail.hidden = !current;
+    if (!current) { return; }
+    const chain = [];
+    for (let c = current; c; c = c.parentElement ? c.parentElement.closest('.tcard') : null) {
+      chain.unshift(c);
+    }
+    chain.forEach(function (c, i) {
+      if (i) { trail.append(el('span', 'sep', ' › ' + c.dataset.via + ' › ')); }
+      const e = byId.get(c.dataset.id) || { id: c.dataset.id };
+      const crumb = el('a', 'crumb', e.type || shortId(e.id));
+      crumb.href = '#';
+      crumb.title = e.id;
+      crumb.dataset.goto = e.id;
+      trail.append(crumb);
+    });
+  }
+  let pending = false;
+  window.addEventListener('scroll', function () {
+    if (pending || ui.view !== 'graph') { return; }
+    pending = true;
+    requestAnimationFrame(function () {
+      pending = false;
+      follow();
+      ui.scroll = window.scrollY;
+      remember();
+    });
+  });
   function setView(view) {
     ui.view = view === 'graph' ? 'graph' : 'cards';
     remember();
@@ -527,24 +669,6 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     node.classList.add('flash');
     setTimeout(function () { node.classList.remove('flash'); }, 1200);
   }
-  function showCard(at) {
-    const card = document.querySelector('.card[data-card="' + at + '"]');
-    if (!card) { return; }
-    if (card.hidden) {
-      ui.type = ''; ui.attr = ''; ui.id = '';
-      ftype.value = ''; fattr.value = ''; fid.value = '';
-      applyFilter();
-    }
-    setView('cards');
-    flash(card);
-  }
-  function jumpBack(link) {
-    let node = link.closest('details.gnode');
-    while (node && node.dataset.id !== link.dataset.jump) {
-      node = node.parentElement ? node.parentElement.closest('details.gnode') : null;
-    }
-    if (node) { flash(node.querySelector('summary')); }
-  }
   if (filterBox && graph && cardview) {
     ftype.value = ui.type;
     fattr.value = ui.attr;
@@ -555,7 +679,14 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     fid.addEventListener('input', function () { ui.id = fid.value; remember(); applyFilter(); });
     filterBox.addEventListener('toggle', function () { ui.open = filterBox.open; remember(); });
     graph.addEventListener('toggle', function (event) {
-      if (event.target.open && event.target.classList.contains('gnode')) { expand(event.target); }
+      const card = event.target;
+      if (!card.classList || !card.classList.contains('tcard')) { return; }
+      if (card.open) { fill(card); }
+      if (card.dataset.key.indexOf('root|') === 0) {
+        ui.tree.roots[card.dataset.id] = card.open;
+        remember();
+      }
+      follow();
     }, true);
     setView(ui.view);
     applyFilter();
@@ -624,10 +755,10 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   document.addEventListener('click', (event) => {
     const view = event.target.closest('[data-view]');
     if (view) { event.preventDefault(); setView(view.dataset.view); return; }
-    const showcard = event.target.closest('[data-showcard]');
-    if (showcard) { event.preventDefault(); event.stopPropagation(); showCard(showcard.dataset.showcard); return; }
-    const jump = event.target.closest('[data-jump]');
-    if (jump) { event.preventDefault(); jumpBack(jump); return; }
+    const reltoggle = event.target.closest('[data-reltoggle]');
+    if (reltoggle) { event.preventDefault(); event.stopPropagation(); openRel(reltoggle.closest('.attr')); return; }
+    const goto = event.target.closest('[data-goto]');
+    if (goto) { event.preventDefault(); goTo(goto.dataset.goto); return; }
     if (event.target.closest('[data-clearfilter]')) {
       event.preventDefault();
       ui.type = ''; ui.attr = ''; ui.id = '';
