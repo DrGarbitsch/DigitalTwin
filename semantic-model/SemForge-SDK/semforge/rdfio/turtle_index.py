@@ -215,9 +215,47 @@ class TurtleIndex:
         return len(self.blocks)
 
 
-def index_file(path):
+INDEX_FORMAT = 1
+
+
+def _seed(source, blocks):
+    """Put known blocks where TurtleIndex(source) will find them."""
+    _PARSED[source] = (blocks, {block.subject: block for block in blocks})
+    if len(_PARSED) > _PARSED_LIMIT:
+        _PARSED.popitem(last=False)
+
+
+def index_file(path, cache_root=None):
+    """The index of a Turtle file. With `cache_root` (the package), built once
+    per content and kept in `.semforge/cache/index/` (rdfio/derived.py).
+
+    The first page of the OPC UA pump package spent 1.8 s indexing 12.8 MB of
+    ontology text to say where each attribute is declared; read back, the
+    statements of every file take milliseconds.
+    """
     with open(path, encoding='utf-8') as handle:
-        return TurtleIndex(handle.read(), path=path)
+        source = handle.read()
+    if cache_root is not None and source not in _PARSED:
+        from .derived import cache_dir, entry_name, read_entry, write_entry
+
+        directory = cache_dir(cache_root, 'index')
+        slug, name = entry_name(path, source.encode('utf-8'))
+        stored = read_entry(directory, name)
+        blocks = None
+        if isinstance(stored, dict) and stored.get('format') == INDEX_FORMAT:
+            try:
+                blocks = [Block(*row) for row in stored['blocks']]
+            except (KeyError, TypeError):
+                blocks = None
+        if blocks is None:
+            blocks = _parse(source)
+            write_entry(directory, slug, name,
+                        {'format': INDEX_FORMAT,
+                         'blocks': [[b.subject, b.raw_subject, b.start, b.end,
+                                     b.start_line, b.end_line] for b in blocks]},
+                        'Turtle statement index')
+        _seed(source, blocks)
+    return TurtleIndex(source, path=path)
 
 
 class PackageIndex:
@@ -234,11 +272,11 @@ class PackageIndex:
     files is legal Turtle and the writer has to know it is not the whole story.
     """
 
-    def __init__(self, paths):
+    def __init__(self, paths, cache_root=None):
         self.paths = list(paths)
         self.indexes = {}
         for path in self.paths:
-            self.indexes[path] = index_file(path)
+            self.indexes[path] = index_file(path, cache_root)
 
     def block_for(self, subject):
         """(path, block) for a subject, or (None, None)."""

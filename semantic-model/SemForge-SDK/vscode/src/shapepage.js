@@ -20,7 +20,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape, attributeRows: typeRows, EDITS, verdictNote } = require('./typepage');
+const { escape, attributeRows: typeRows, EDITS, verdictNote, showLoading } = require('./typepage');
 const { pickTarget } = require('./shapes');
 
 function chip(text, tone, title) {
@@ -342,6 +342,9 @@ class ShapePages {
     if (!this.panel || !this.current) {
       return;
     }
+    const target = `${this.current.packageUri}#${this.current.shape}`;
+    const loaded = showLoading(this.panel, String(this.current.shape).split(/[/#:]/).pop(),
+      this.shown !== target);
     let page;
     try {
       page = await this.clientHolder.client.sendRequest('semforge/shapePage',
@@ -349,6 +352,8 @@ class ShapePages {
     } catch (error) {
       page = { ok: false, error: error.message || String(error) };
     }
+    loaded();
+    this.shown = target;
     if (!this.panel) {
       return;
     }

@@ -453,6 +453,27 @@ ${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
 </body></html>`;
 }
 
+/**
+ * "Loading …" in a panel while the server answers -- but only after 150 ms,
+ * so a quick answer does not flicker, and only when the panel is switching to
+ * something else: a refresh of what is on screen keeps it (and its scroll).
+ * Returns the function that cancels it.
+ */
+function showLoading(panel, what, switching) {
+  if (!panel || !switching) {
+    return () => {};
+  }
+  const timer = setTimeout(() => {
+    if (panel.webview) {
+      panel.webview.html = `<!DOCTYPE html><html><head><meta charset="utf-8">` +
+        `<meta http-equiv="Content-Security-Policy" content="default-src 'none';"></head>` +
+        `<body style="font-family:var(--vscode-font-family);color:var(--vscode-descriptionForeground);` +
+        `padding:20px"><p>⟳ Loading ${escape(what)}…</p></body></html>`;
+    }
+  }, 150);
+  return () => clearTimeout(timer);
+}
+
 function renderMessage(title, message) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none';">
@@ -509,6 +530,8 @@ class TypePages {
       return;
     }
     const { packageUri, entityType } = this.current;
+    const target = `${packageUri}#${entityType}`;
+    const loaded = showLoading(this.panel, entityType.split(/[/#:]/).pop(), this.shown !== target);
     let page;
     try {
       page = await this.clientHolder.client.sendRequest('semforge/typePage',
@@ -516,6 +539,8 @@ class TypePages {
     } catch (error) {
       page = { ok: false, error: error.message || String(error) };
     }
+    loaded();
+    this.shown = target;
     if (!this.panel) {
       return;                          // closed while the server answered
     }
@@ -1237,5 +1262,5 @@ function register(context, clientHolder, session) {
   return pages;
 }
 
-module.exports = { register, renderTypePage, verdictNote, TypePages, typeOf, focusOf, focusIndex, escape,
+module.exports = { register, renderTypePage, verdictNote, showLoading, TypePages, typeOf, focusOf, focusIndex, escape,
   attributeRows, EDITS };

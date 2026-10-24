@@ -1717,7 +1717,16 @@ Parsed Turtle is kept too, in `.semforge/cache/graphs/`: each `.ttl` is
 parsed once per content and read back as a term table afterwards — the same
 triples and prefixes, in less than half the time (the OPC UA pump package loads
 in 3 s instead of 7.4 s; 7.3 MB of cache for 12.8 MB of Turtle). An edit
-replaces that file's entry; **Delete cache…** removes it with the views.
+replaces that file's entry; **Delete cache…** removes it with the views. The
+statement index each file needs for "where is this declared" is kept the same
+way (`.semforge/cache/index/`).
+
+The first time anything asks about a package — the views, a page, an opened
+file — the server loads it, indexes it and starts its validation in the
+background, so the first click finds it ready (0.4 s on the pump package). A
+click that comes earlier waits for that work rather than doing it twice, and a
+page that is still waiting says *⟳ Loading …* instead of staying blank or
+showing the page before.
 
 **Validation runs in the background.** A page answers with what it shows —
 attributes, shapes, cases, cards — at once, and says *⟳ evaluating…* where a

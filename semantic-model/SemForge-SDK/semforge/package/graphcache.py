@@ -19,13 +19,12 @@ rdflib building its indexes, which no format avoids.
   per file.
 """
 
-import hashlib
-import json
 import os
-import re
 
 import rdflib
 from rdflib import BNode, Literal, URIRef
+
+from ..rdfio.derived import entry_name, read_entry, write_entry
 
 FORMAT = 2
 GRAPHS = os.path.join('.semforge', 'cache', 'graphs')
@@ -33,12 +32,6 @@ GRAPHS = os.path.join('.semforge', 'cache', 'graphs')
 
 def graphs_dir(package_path):
     return os.path.join(package_path, GRAPHS)
-
-
-def _entry_name(path, data):
-    slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', os.path.abspath(path))[-80:]
-    digest = hashlib.sha256(data).hexdigest()[:32]
-    return slug, f'{slug}.{digest}.json'
 
 
 def _out(term):
@@ -55,10 +48,8 @@ def _declared_prefixes(text):
     return list(_prefixes(text)[0].items())
 
 
-def _read(entry, graph):
-    with open(entry, encoding='utf-8') as handle:
-        stored = json.load(handle)
-    if stored.get('format') != FORMAT or stored.get('rdflib') != rdflib.__version__:
+def _read(stored, graph):
+    if not isinstance(stored, dict) or stored.get('format') != FORMAT or stored.get('rdflib') != rdflib.__version__:
         return False
     # Every distinct term once, then each triple as three indexes into them.
     # Blank nodes come back fresh, one per label, as from a parse.
@@ -79,20 +70,7 @@ def _read(entry, graph):
     return True
 
 
-def _write(directory, slug, name, graph_of_file, prefixes):
-    os.makedirs(directory, exist_ok=True)
-    ignore = os.path.join(directory, '.gitignore')
-    if not os.path.exists(ignore):
-        with open(ignore, 'w', encoding='utf-8') as handle:
-            handle.write('# Parsed Turtle, kept: derived, never committed.\n*\n')
-    for old in os.listdir(directory):              # one version per file
-        if old.startswith(slug + '.') and old != name:
-            try:
-                os.remove(os.path.join(directory, old))
-            except OSError:
-                pass
-    # The server and its validation worker may write the same entry at once.
-    temporary = os.path.join(directory, f'{name}.{os.getpid()}.tmp')
+def _payload(graph_of_file, prefixes):
     index, terms, flat = {}, [], []
     for triple in graph_of_file:
         for term in triple:
@@ -101,10 +79,8 @@ def _write(directory, slug, name, graph_of_file, prefixes):
                 position = index[term] = len(terms)
                 terms.append(_out(term))
             flat.append(position)
-    with open(temporary, 'w', encoding='utf-8') as handle:
-        json.dump({'format': FORMAT, 'rdflib': rdflib.__version__, 'prefixes': prefixes,
-                   'terms': terms, 'triples': flat}, handle, separators=(',', ':'))
-    os.replace(temporary, os.path.join(directory, name))
+    return {'format': FORMAT, 'rdflib': rdflib.__version__, 'prefixes': prefixes,
+            'terms': terms, 'triples': flat}
 
 
 def parse_turtle(graph, path, package_path):
@@ -115,13 +91,13 @@ def parse_turtle(graph, path, package_path):
     with open(path, 'rb') as handle:
         data = handle.read()
     directory = graphs_dir(package_path)
-    slug, name = _entry_name(path, data)
-    entry = os.path.join(directory, name)
-    if os.path.exists(entry):
+    slug, name = entry_name(path, data)
+    stored = read_entry(directory, name)
+    if stored is not None:
         try:
-            if _read(entry, graph):
+            if _read(stored, graph):
                 return graph
-        except (OSError, ValueError, KeyError, TypeError, IndexError):
+        except (KeyError, TypeError, IndexError, ValueError):
             pass                                   # torn or foreign: parse again
 
     parsed = Graph()
@@ -130,8 +106,5 @@ def parse_turtle(graph, path, package_path):
     for prefix, namespace in prefixes:
         graph.bind(prefix, namespace)
     graph.addN((s, p, o, graph) for s, p, o in parsed)
-    try:
-        _write(directory, slug, name, parsed, prefixes)
-    except OSError:
-        pass                                       # a read-only package still loads
+    write_entry(directory, slug, name, _payload(parsed, prefixes), 'Parsed Turtle, kept')
     return graph

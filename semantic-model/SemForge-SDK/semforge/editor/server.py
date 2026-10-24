@@ -84,6 +84,7 @@ def _findings(root):
 
     # What needs no validation now; what does when the background run is done
     # (_notify_verdicts publishes again). Cached apart, so neither waits.
+    _warm(root)
     verdicts, state = _verdicts_for(root)
     ready = state.state == 'ready'
 
@@ -565,6 +566,7 @@ def _view(root, key, compute, params=None):
     from .cache import cached
     from .slim import SLIM
 
+    _warm(root)
     payload, hit = cached(root, key, compute)
     payload = dict(payload, cached=hit)
     if params is not None and _field(params, 'detail') == 'summary' \
@@ -596,6 +598,43 @@ def _package_for(root):
             _stamps[root] = stamp
             _watch_renames(root, _packages[root])
         return _packages[root]
+
+
+# --- warm-up: what the first click needs, done before it ------------------------
+
+_warmed = {}             # root -> the fingerprint it was warmed at
+_warm_lock = threading.Lock()
+
+
+def _warm(root):
+    """Load the package, index its files and start its validation -- in the
+    background, once per package version, as soon as anything asks about it.
+
+    The views come from the disk cache without loading the package, so the
+    first click used to pay the load (2.6 s on the OPC UA pumps) and the text
+    index (1.8 s) itself. Started by the first request instead, both are
+    usually done before anyone clicks; a click that comes earlier waits for
+    them rather than doing them twice (both are locked).
+    """
+    from .cache import fingerprint
+
+    stamp = fingerprint(root)
+    with _warm_lock:
+        if _warmed.get(root) == stamp:
+            return
+        _warmed[root] = stamp
+    threading.Thread(target=_warm_up, args=(root,), daemon=True,
+                     name=f'semforge-warm:{os.path.basename(root)}').start()
+
+
+def _warm_up(root):
+    try:
+        package = _package_for(root)
+        for role in ('knowledge', 'shapes'):
+            package.index(role)
+        _service().get(root)
+    except Exception:                              # noqa: BLE001 -- a head start, never a failure
+        pass
 
 
 # --- verdicts: validation in the background (editor/verdicts.py) -----------------
@@ -638,6 +677,7 @@ def _verdict_page(root, key, build):
     """
     from ..cooked.typepage import PENDING
 
+    _warm(root)
     verdicts, state = _verdicts_for(root)
     if state.state == 'ready':
         page = _view(root, key, lambda: {'page': build(verdicts)})

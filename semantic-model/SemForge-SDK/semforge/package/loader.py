@@ -28,6 +28,7 @@ Loading is read-only and executes no code from the package.
 """
 
 import os
+import threading
 from dataclasses import dataclass, field
 
 from rdflib import Graph
@@ -54,6 +55,9 @@ FOLDERS = {
 # whether it is that grouping or simply a directory of instance documents.
 MODEL_FOLDER = 'model'
 MODEL_SUFFIXES = ('.jsonld', '.json')
+
+
+_INDEX_LOCK = threading.RLock()
 
 
 @dataclass
@@ -95,12 +99,18 @@ class Package:
         return examples_root(self.path)
 
     def index(self, role):
-        """A locator over every Turtle file of a role."""
+        """A locator over every Turtle file of a role.
+
+        Built once, under a lock: the editor warms it in the background while a
+        click may already ask for it, and two builds would only double the wait.
+        """
         from ..rdfio import PackageIndex
 
         key = f'_index_{role}'
         if not hasattr(self, key):
-            setattr(self, key, PackageIndex(self.files(role)))
+            with _INDEX_LOCK:
+                if not hasattr(self, key):
+                    setattr(self, key, PackageIndex(self.files(role), cache_root=self.path))
         return getattr(self, key)
 
 

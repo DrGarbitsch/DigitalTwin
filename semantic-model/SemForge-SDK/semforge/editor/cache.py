@@ -148,9 +148,11 @@ def clear(root, contexts=False):
     from ..package.context import _fetched, user_context_cache
 
     from ..package.graphcache import graphs_dir
+    from ..rdfio.derived import cache_dir
 
     freed = 0
-    targets = [views_dir(root), graphs_dir(root)] + ([user_context_cache()] if contexts else [])
+    targets = [views_dir(root), graphs_dir(root), cache_dir(root, 'index')] + (
+        [user_context_cache()] if contexts else [])
     for directory in targets:
         if not os.path.isdir(directory):
             continue

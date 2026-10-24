@@ -430,6 +430,10 @@ const client = {
     if (reply && reply.__reject) {
       return Promise.reject(new Error(reply.__reject));
     }
+    // A slow server: { __delay: ms, reply } answers after ms.
+    if (reply && reply.__delay) {
+      return new Promise((resolve) => setTimeout(() => resolve(reply.reply), reply.__delay));
+    }
     return Promise.resolve(reply);
   },
   start: noop,

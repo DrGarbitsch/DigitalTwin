@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape, verdictNote } = require('./typepage');
+const { escape, verdictNote, showLoading } = require('./typepage');
 
 function chip(text, tone, title) {
   return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
@@ -424,6 +424,9 @@ class CasePages {
     if (!this.panel || !this.current) {
       return;
     }
+    const target = `${this.current.packageUri}#${this.current.caseFile}`;
+    const loaded = showLoading(this.panel, this.current.caseFile === MODEL ? 'the main-model'
+      : String(this.current.caseFile).split('/').pop(), this.shown !== target);
     let page;
     try {
       page = this.current.caseFile === MODEL
@@ -434,6 +437,8 @@ class CasePages {
     } catch (error) {
       page = { ok: false, error: error.message || String(error) };
     }
+    loaded();
+    this.shown = target;
     if (!this.panel) {
       return;
     }
