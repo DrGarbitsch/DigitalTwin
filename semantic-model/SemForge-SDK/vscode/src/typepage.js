@@ -413,7 +413,7 @@ function renderTypePage(page, options) {
   details.fold > summary { cursor: pointer; font-size: 0.78em; font-weight: 600; letter-spacing: .08em;
                            text-transform: uppercase; color: var(--vscode-descriptionForeground); }
   details.fold .rule { grid-template-columns: auto 1fr auto; }
-</style></head><body>
+${BUSY_CSS}</style></head><body>
 <div class="crumbs">${crumbs}<b>${escape(page.label)}</b> · <span class="mono">${escape(page.term)}</span>${
   subtypes.length ? ` <span class="sep">·</span> subtypes: ${subtypes.map((name) =>
     `<a href="#" data-type="${escape(name)}">${escape(name)}</a>`).join(', ')}` : ''}</div>
@@ -447,6 +447,7 @@ ${also.map((a) => `<div class="rule"><span class="kind">shape</span>` +
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${BUSY_SCRIPT}
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {
@@ -495,6 +496,45 @@ function showLoading(panel, what, switching) {
   }, 150);
   return () => clearTimeout(timer);
 }
+
+/**
+ * "⟳ updating…" on what a click changes, from the click until the extension
+ * is done with it (it then says `idle`, or redraws the page). An edit takes a
+ * moment -- the file is written, the package read again -- and a page that
+ * shows nothing meanwhile looks frozen. Navigation is not marked: only what
+ * writes (field actions, menus, Assert it, + Attribute …).
+ */
+const BUSY_SCRIPT = `
+  const BUSY_TARGETS = '[data-action],[data-edit],[data-assert],[data-dropassert],' +
+    '[data-retarget],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu],[data-newcase]';
+  function markBusy(node) {
+    const holder = node.closest('tr, .attr, .claim, .card, .rule, .case, .file, h1') || node;
+    if (holder.classList.contains('busy')) { return; }
+    holder.classList.add('busy');
+    const note = document.createElement('span');
+    note.className = 'updating';
+    note.textContent = '⟳ updating…';
+    (holder.matches('tr') ? (holder.lastElementChild || holder) : holder).append(note);
+  }
+  function clearBusy() {
+    document.querySelectorAll('.busy').forEach(function (n) { n.classList.remove('busy'); });
+    document.querySelectorAll('.updating').forEach(function (n) { n.remove(); });
+  }
+  document.addEventListener('click', function (event) {
+    const target = event.target.closest(BUSY_TARGETS);
+    if (target) { markBusy(target); }
+  }, true);
+  window.addEventListener('message', function (event) {
+    if (event.data && event.data.command === 'idle') { clearBusy(); }
+  });
+`;
+
+const BUSY_CSS = `
+  .busy { opacity: 0.55; transition: opacity 0.15s; }
+  .updating { color: var(--vscode-textLink-foreground, #3794ff); font-size: 0.86em; margin-left: 8px;
+              white-space: nowrap; opacity: 1; }
+  .busy .updating { opacity: 1; }
+`;
 
 function renderMessage(title, message) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
@@ -595,6 +635,13 @@ class TypePages {
       await this.handle(message);
     } finally {
       this.busy -= 1;
+      if (this.panel && !this.busy) {
+        try {
+          this.panel.webview.postMessage({ command: 'idle' });
+        } catch (error) {
+          // Closed meanwhile: nothing left to tell.
+        }
+      }
       this.flushRefresh();
     }
   }
@@ -1315,5 +1362,5 @@ function register(context, clientHolder, session) {
   return pages;
 }
 
-module.exports = { register, renderTypePage, verdictNote, showLoading, TypePages, typeOf, focusOf, focusIndex, escape,
+module.exports = { register, renderTypePage, verdictNote, showLoading, BUSY_SCRIPT, BUSY_CSS, TypePages, typeOf, focusOf, focusIndex, escape,
   attributeRows, EDITS };

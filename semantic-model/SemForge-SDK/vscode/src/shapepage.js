@@ -36,7 +36,8 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape, attributeRows: typeRows, EDITS, verdictNote, showLoading } = require('./typepage');
+const { escape, attributeRows: typeRows, EDITS, verdictNote, showLoading, BUSY_SCRIPT,
+  BUSY_CSS } = require('./typepage');
 const { pickTarget } = require('./shapes');
 
 function chip(text, tone, title) {
@@ -276,7 +277,7 @@ function renderShapePage(page, options) {
   td.acts button { padding: 0 8px; }
   td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
-</style></head><body>
+${BUSY_CSS}</style></head><body>
 <div class="crumbs">Shapes › <span class="mono">${escape(page.name)}</span></div>
 <div class="head"><h1>${escape(page.label)}</h1>
   <div class="acts">${primary}<button data-action="pageMenu" title="Open in .ttl, the type page, + Target, Rename…, Merge into…, Delete…, Refresh">⋯</button></div></div>
@@ -300,6 +301,7 @@ ${testedBy(page, cases)}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${BUSY_SCRIPT}
   document.addEventListener('click', (event) => {
     const target = event.target.closest('[data-open],[data-type],[data-shape],[data-case],[data-model],[data-newcase],[data-action],[data-refresh]');
     if (!target) { return; }
@@ -407,6 +409,13 @@ class ShapePages {
       await this.handle(message);
     } finally {
       this.busy -= 1;
+      if (this.panel && !this.busy) {
+        try {
+          this.panel.webview.postMessage({ command: 'idle' });
+        } catch (error) {
+          // Closed meanwhile: nothing left to tell.
+        }
+      }
       this.flushRefresh();
     }
   }

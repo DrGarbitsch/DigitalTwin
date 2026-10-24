@@ -56,6 +56,10 @@ class Verdicts:
     model: Report
     cases: dict = field(default_factory=dict)   # example path -> Report
     seconds: float = 0.0
+    # The editor's diagnostics for this version, {file: [EditorFinding as a
+    # dict]} (editor/analysis.py): computed here, with the verdicts, so no edit
+    # request waits for them -- they were 5 s of every edit on the OPC UA pumps.
+    findings: dict = None
 
 
 # --- JSON, both ways -------------------------------------------------------------
@@ -80,12 +84,14 @@ def _report_in(data):
 
 def to_json(verdicts):
     return {'stamp': verdicts.stamp, 'seconds': verdicts.seconds,
+            'findings': verdicts.findings,
             'model': _report_out(verdicts.model),
             'cases': {path: _report_out(r) for path, r in verdicts.cases.items()}}
 
 
 def from_json(data):
     return Verdicts(stamp=data['stamp'], seconds=data.get('seconds', 0.0),
+                    findings=data.get('findings'),
                     model=_report_in(data['model']),
                     cases={path: _report_in(r) for path, r in data['cases'].items()})
 

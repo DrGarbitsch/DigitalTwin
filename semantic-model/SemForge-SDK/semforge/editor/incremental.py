@@ -419,6 +419,19 @@ def _keys(verdicts):
     return of(verdicts.model), {p: of(r) for p, r in verdicts.cases.items()}
 
 
+def findings(root, package, verdicts):
+    """The editor's diagnostics for a validated version, as JSON-ready dicts."""
+    from dataclasses import asdict
+
+    from .analysis import analyse
+
+    try:
+        found, _ = analyse(root, package=package, verdicts=verdicts)
+    except Exception:                              # noqa: BLE001 -- a broken package still validates
+        return {}
+    return {path: [asdict(f) for f in items] for path, items in found.items()}
+
+
 class Session:
     """run(root, stamp): verdicts for a package version, incremental when it can.
 
@@ -459,6 +472,7 @@ class Session:
             prints = None
         if verdicts is None:
             verdicts = compute(package, stamp)
+        verdicts.findings = findings(root, package, verdicts)
         self._last[root] = Snapshot(stamp=stamp, package=package, verdicts=verdicts,
                                     digests=digests, knowledge=kept, prints=prints)
         return verdicts

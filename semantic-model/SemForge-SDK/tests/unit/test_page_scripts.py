@@ -129,6 +129,8 @@ def test_a_click_on_a_time_opens_the_picker_and_set_sends_it():
     assert 'posted: [{"command":"editing","open":true},' \
         '{"command":"stamp","at":"0.0.0","value":"2026-03-04T05:06:07.890Z"},' \
         '{"command":"editing","open":false}]' in out.stdout
+    # What the time is written to says so until the page is drawn again.
+    assert 'row: attr busy | ⟳ updating…' in out.stdout
 
 
 def test_the_vocabulary_page_script_parses(tmp_path, kms):

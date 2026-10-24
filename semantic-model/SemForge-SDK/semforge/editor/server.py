@@ -34,7 +34,7 @@ from lsprotocol import types
 from pygls.lsp.server import LanguageServer
 
 from .. import __version__
-from .analysis import (analyse, definition_at, hover_at, package_root,
+from .analysis import (definition_at, hover_at, package_root,
                        references_at)
 from ..validate import validate_package
 
@@ -90,26 +90,19 @@ def _token_at(document, position):
 
 
 def _findings(root):
-    """{file: [EditorFinding]}, from the disk cache while nothing changed."""
-    from dataclasses import asdict
+    """{file: [EditorFinding]}: what the validation worker found, never computed here.
 
+    The diagnostics are worked out with the verdicts (editor/incremental.py),
+    in the background. Here they are only read: the last ones the worker
+    finished, while it works on the next -- they arrive with
+    `_notify_verdicts`, which publishes again. Computed on this thread they
+    held every edit request, and the whole editor, for 5 s on the OPC UA pumps.
+    """
     from .analysis import EditorFinding
-    from .cache import cached
 
-    from ..cooked.typepage import PENDING
-
-    # What needs no validation now; what does when the background run is done
-    # (_notify_verdicts publishes again). Cached apart, so neither waits.
     _warm(root)
-    verdicts, state = _verdicts_for(root)
-    ready = state.state == 'ready'
-
-    def compute():
-        findings, _ = analyse(root, package=_package_for(root),
-                              verdicts=verdicts if ready else PENDING)
-        return {path: [asdict(f) for f in items] for path, items in findings.items()}
-
-    stored, _ = cached(root, 'diagnostics' if ready else 'diagnostics-structure', compute)
+    verdicts, _ = _verdicts_for(root)
+    stored = (verdicts.findings if verdicts is not None else None) or {}
     return {path: [EditorFinding(**f) for f in items]
             for path, items in stored.items()}
 
@@ -610,10 +603,49 @@ def _package_for(root):
     with _load_lock:
         stamp = fingerprint(root)
         if _stamps.get(root) != stamp or root not in _packages:
-            _packages[root] = load(root)
+            _packages[root] = load(root, reuse=_reusable(root))
             _stamps[root] = stamp
+            _previous[root] = (_packages[root], _role_stamps(_packages[root]))
             _watch_renames(root, _packages[root])
         return _packages[root]
+
+
+# The last package loaded, with its knowledge and shapes files as (path, mtime,
+# size): kept even when an edit drops the loaded package, so the reload after
+# a one-line change to a case reuses the 217,582 knowledge triples of the OPC UA
+# pumps instead of reading them again (2.9 s on every edit).
+_previous = {}
+
+
+def _role_stamps(package):
+    stamps = {}
+    for role in ('knowledge', 'shapes'):
+        try:
+            stamps[role] = [(path, os.stat(path).st_mtime_ns, os.stat(path).st_size)
+                            for path in package.files(role)]
+        except OSError:
+            stamps[role] = None
+    return stamps
+
+
+def _reusable(root):
+    """{role: (documents, graph)} of the last load whose files are untouched."""
+    held = _previous.get(root)
+    if held is None:
+        return None
+    package, stamps = held
+    reuse = {}
+    for role, before in stamps.items():
+        if before is None:
+            continue
+        try:
+            now = [(path, os.stat(path).st_mtime_ns, os.stat(path).st_size)
+                   for path, _, _ in before]
+        except OSError:
+            continue
+        if now == before:
+            reuse[role] = ([path for path, _, _ in before], getattr(package, role))
+    return reuse
 
 
 # --- warm-up: what the first click needs, done before it ------------------------

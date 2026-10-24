@@ -41,7 +41,12 @@ const at = html.match(/data-stamp="([^"]+)"/)[1];
 
 function element(tag) {
   const el = { tag, children: [], listeners: {}, dataset: {}, value: '', className: '',
-    classList: { contains: (c) => el.className.split(' ').includes(c) },
+    classList: {
+      contains: (c) => el.className.split(' ').includes(c),
+      add: (c) => { if (!el.classList.contains(c)) { el.className = (el.className + ' ' + c).trim(); } },
+      remove: (c) => { el.className = el.className.split(' ').filter((x) => x !== c).join(' '); }
+    },
+    matches: () => false,
     append: (...kids) => { el.children.push(...kids); },
     addEventListener: (type, fn) => { el.listeners[type] = fn; },
     remove: () => { el.removed = true; },
@@ -80,3 +85,4 @@ input.value = '2026-03-04T05:06:07.890';
 box.children.find((c) => c.textContent === 'Set').listeners.click(
   { preventDefault: () => {}, stopPropagation: () => {} });
 console.log('posted:', JSON.stringify(posted));
+console.log('row:', row.className, '|', row.children.map((c) => c.textContent).join(' '));

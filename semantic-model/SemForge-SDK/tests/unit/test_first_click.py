@@ -169,3 +169,71 @@ def test_results_wait_for_an_open_edit():
 def test_a_quick_page_does_not_flicker(tmp_path):
     seen = _open(tmp_path, PAGE)
     assert not any('Loading' in h for h in seen['webviews'][0]['html'])
+
+
+# --- what is being changed says so ----------------------------------------------------
+
+def test_a_click_that_writes_marks_its_claim_until_the_extension_is_done(tmp_path):
+    """'Assert it' marks its claim "⟳ updating…"; the extension's idle clears it."""
+    import glob
+    import re
+
+    chrome = next((c for c in [os.environ.get('SEMFORGE_CHROME', '')] + sorted(glob.glob(
+        os.path.expanduser('~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome')))
+        if c and os.path.exists(c)), None)
+    if chrome is None:
+        pytest.skip('no headless Chromium (set SEMFORGE_CHROME)')
+    node = shutil.which('node')
+    if node is None:
+        pytest.skip('node is not installed')
+    page = {'kind': 'case', 'name': 'too-high', 'case': 'c.jsonld', 'expect': 'invalid',
+            'group': '', 'suite': '', 'description': '', 'passed': True, 'failures': [],
+            'claims': [], 'residuePinned': False, 'file': '/pkg/c.jsonld', 'expectations': '',
+            'verdicts': {'state': 'ready'},
+            'summary': {'entities': 0, 'violations': 1, 'includes': 0},
+            'unasserted': [{'constraint': 'ex:S/hasHeight/MaxInclusiveConstraintComponent',
+                            'resource': 'urn:w:1',
+                            'explained': {'text': 'too high', 'shape': 'ex:S'}}],
+            'files': []}
+    json_path = tmp_path / 'page.json'
+    json_path.write_text(json.dumps(page))
+
+    def dom(after):
+        script = tmp_path / 'after.js'
+        script.write_text(after)
+        out = tmp_path / 'page.html'
+        run = subprocess.run([node, os.path.join(SDK, 'tests', 'harness', 'render_casepage.js'),
+                              SRC, str(json_path), str(out), str(script)],
+                             capture_output=True, text=True, timeout=60)
+        assert run.returncode == 0, run.stderr[-1500:]
+        return subprocess.run([chrome, '--headless=new', '--no-sandbox', '--disable-gpu',
+                               '--virtual-time-budget=2000', '--dump-dom', 'file://' + str(out)],
+                              capture_output=True, text=True, timeout=120).stdout
+
+    clicked = dom('document.querySelector("[data-assert]").click();')
+    claim = re.search(r'<div class="claim(?: [^"]*)?"', clicked).group(0)
+    assert 'busy' in claim and '<span class="updating">⟳ updating…</span>' in clicked
+
+    done = dom('document.querySelector("[data-assert]").click();'
+               'window.postMessage({ command: "idle" }, "*");')
+    assert '<span class="updating">' not in done and 'busy' not in re.search(
+        r'<div class="claim(?: [^"]*)?"', done).group(0)
+
+
+def test_diagnostics_are_never_worked_out_on_the_server_thread(tmp_path, corpus_path,
+                                                               monkeypatch):
+    """They come from the validation worker, with the verdicts."""
+    from semforge.editor import analysis, server
+
+    root = str(tmp_path / 'pkg')
+    shutil.copytree(corpus_path, root, ignore=shutil.ignore_patterns('.semforge'))
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('diagnostics computed on the server thread')
+
+    server._findings(root)                      # starts the worker; nothing yet
+    server._service().wait(root, timeout=120)
+    monkeypatch.setattr(analysis, 'analyse', forbidden)
+    findings = server._findings(root)
+    kinds = {f.kind for items in findings.values() for f in items}
+    assert 'unexercised' in kinds, kinds

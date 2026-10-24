@@ -358,7 +358,28 @@ def _resolve_term(match, prefixes, base):
     return _resolve(match.group('curie'), prefixes, base)
 
 
+_TERMS = OrderedDict()          # source text -> its terms, most recent last
+
+
 def terms(source):
+    """Every term in a Turtle file, in order, comments excluded -- a tuple.
+
+    Kept per distinct text: the diagnostics scan every knowledge file for the
+    terms it uses, and on the OPC UA pump package (12.8 MB) that was 3.4 s of
+    every edit, for files the edit had not touched.
+    """
+    found = _TERMS.get(source)
+    if found is None:
+        found = tuple(_scan_terms(source))
+        _TERMS[source] = found
+        if len(_TERMS) > _PARSED_LIMIT:
+            _TERMS.popitem(last=False)
+    else:
+        _TERMS.move_to_end(source)
+    return found
+
+
+def _scan_terms(source):
     """Every term in a Turtle file, in order, comments excluded.
 
     Strings are scanned too, because that is where a SPARQL constraint names the

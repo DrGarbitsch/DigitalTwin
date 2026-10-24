@@ -29,7 +29,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape, verdictNote, showLoading } = require('./typepage');
+const { escape, verdictNote, showLoading, BUSY_SCRIPT, BUSY_CSS } = require('./typepage');
 
 function chip(text, tone, title) {
   return `<span class="chip ${tone || ''}" title="${escape(title || text)}">` +
@@ -355,7 +355,7 @@ function renderCasePage(page, options) {
            border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .trail .sep { color: var(--vscode-descriptionForeground); }
   .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
-</style></head><body data-page="${escape(page.file || page.case || '')}">
+${BUSY_CSS}</style></head><body data-page="${escape(page.file || page.case || '')}">
 <div class="crumbs">${crumbs}</div>
 <h1>${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
@@ -405,6 +405,7 @@ ${files.map((file, f) => `<div class="file"><div class="head">
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${BUSY_SCRIPT}
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
 
@@ -736,6 +737,7 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     const send = (value) => {
       vscode.postMessage({ command: 'stamp', at: link.dataset.stamp, value });
       close();
+      markBusy(row);
     };
     const button = (label, title, act) => {
       const b = document.createElement('button');
@@ -911,6 +913,13 @@ class CasePages {
       await this.handle(message);
     } finally {
       this.busy -= 1;
+      if (this.panel && !this.busy) {
+        try {
+          this.panel.webview.postMessage({ command: 'idle' });
+        } catch (error) {
+          // Closed meanwhile: nothing left to tell.
+        }
+      }
       this.flushRefresh();
     }
   }
