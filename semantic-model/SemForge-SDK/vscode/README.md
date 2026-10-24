@@ -482,7 +482,7 @@ view says which source applies, and the Problems panel says when it matters:
 applies).
 
 In this repo the shared local copy is
-[`semantic-model/ontology/ngsild.ttl`](../../ontology/ngsild.ttl), and the kms
+[`semantic-model/ontology/ngsild.ttl`](https://github.com/IndustryFusion/DigitalTwin/blob/main/semantic-model/ontology/ngsild.ttl), and the kms
 points at it. The official
 [`ngsild.ttl`](https://industryfusion.github.io/contexts/staging/ontology/v0/ngsild.ttl)
 declares only `Property` and `Relationship`, while the kms uses **ten** NGSI-LD
