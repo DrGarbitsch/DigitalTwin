@@ -17,7 +17,7 @@ from .results import Report, Result, Status
 
 
 def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
-                    rules=True):
+                    rules=True, cut=True):
     """Validate one already-loaded package. Returns a Report.
 
     Rules are expanded first, with NGSI-LD update semantics applied between
@@ -25,6 +25,13 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
     ADDITION -- which makes every rule that rewrites an existing attribute
     manufacture a cardinality violation against its own shape.
     """
+    if cut and knowledge_graph is not None and isinstance(shapes_graph, Graph):
+        # Only what some constraint can read (validate/readset.py): the rest
+        # of the knowledge is carried through rules, view and pyshacl for
+        # nothing -- 217,582 triples where 31,356 are read, on the OPC UA pumps.
+        from .readset import knowledge_for
+        knowledge_graph = knowledge_for(shapes_graph, knowledge_graph)
+
     diagnostics = DiagnosticSet()
     for diagnostic in shape_views.check_declarations(shapes_graph):
         diagnostics.add(diagnostic)

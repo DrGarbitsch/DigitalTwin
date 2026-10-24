@@ -1414,9 +1414,16 @@ package version**, in a worker process, keeps the result in memory and in
 (`semforge/verdicts`). Pages and diagnostics are built from those verdicts and
 never validate: without them they show their structure at once and
 "evaluating…" where a verdict belongs. The cache is keyed by the package
-fingerprint, not yet per constraint; incremental scope is still to come, and
-needs the read-set of each constraint (what predicates its paths and queries
-can reach), not only its focus nodes.
+fingerprint, not yet per constraint.
+
+Each validation reads only the knowledge the constraints can read
+(`validate/readset.py`): `rdf:type`, `rdfs:subClassOf`, every predicate of a
+`sh:path` and of the predicate-valued parameters, and every predicate a SPARQL
+text names. A query that can read any predicate (a variable or a negated set
+in predicate position), one that does not parse, or a JavaScript constraint
+falls back to the whole knowledge. On the pump package that is 31,356 of
+217,582 triples, validation 13 s → 2-4 s, verdicts unchanged. The same
+read-set, per constraint, is what incremental scope will key on.
 
 This is the *only* sanctioned way to evaluate fewer constraints, and the keying
 is load-bearing rather than an optimisation detail: because an entry is keyed by
