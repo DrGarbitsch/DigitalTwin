@@ -37,6 +37,11 @@ RESERVED = {'id', 'type', '@id', '@type', '@context', 'value', 'object',
             'createdAt', 'modifiedAt', 'instanceId', 'previousValue',
             'languageMap', 'vocab', 'entity'}
 
+# An attribute's payload, not more attributes: a JsonProperty's `json` is
+# opaque (@json) -- OPC UA ExtensionObjects arrive as {"xsd:TypeId": …} and
+# were reported key by key -- and a structured `value` is the value.
+PAYLOAD = {'json', 'value', 'valueList', 'languageMap'}
+
 
 @dataclass
 class Undeclared:
@@ -71,7 +76,8 @@ def _keys(path):
             for key, inner in value.items():
                 if key not in RESERVED and not key.startswith('@'):
                     found.append((key, index.get(tuple(trail + [key])) or 1))
-                walk(inner, trail + [key])
+                if key not in PAYLOAD:
+                    walk(inner, trail + [key])
         elif isinstance(value, list):
             for position, inner in enumerate(value):
                 walk(inner, trail + [position])

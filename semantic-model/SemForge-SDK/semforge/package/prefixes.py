@@ -62,11 +62,35 @@ STANDARD = {
 }
 
 
+_read = {}      # path -> ((mtime_ns, size), value)
+
+
+def _cached(path, read):
+    """`read(path)`, once per version of the file.
+
+    The editor asks for the prefix table once per term it names -- 5,600 times
+    in one check of a large package, each re-parsing semforge.yaml and the
+    context. Keyed on the file's mtime and size, so an edit is seen at once.
+    A copy is returned: callers may change what they get.
+    """
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return {}
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    hit = _read.get(path)
+    if hit is None or hit[0] != stamp:
+        hit = (stamp, read(path))
+        _read[path] = hit
+    return dict(hit[1])
+
+
 def context_prefixes(package_path, filename='context.jsonld'):
     """{prefix: namespace} declared by the package's JSON-LD context."""
-    path = os.path.join(package_path, filename)
-    if not os.path.exists(path):
-        return {}
+    return _cached(os.path.join(package_path, filename), _context_prefixes)
+
+
+def _context_prefixes(path):
     with open(path, encoding='utf-8') as handle:
         document = json.load(handle)
     entries = document.get('@context', document)
@@ -87,9 +111,10 @@ def context_prefixes(package_path, filename='context.jsonld'):
 
 def declared_prefixes(package_path):
     """`namespaces:` from semforge.yaml, which overrides the context."""
-    config = os.path.join(package_path, 'semforge.yaml')
-    if not os.path.exists(config):
-        return {}
+    return _cached(os.path.join(package_path, 'semforge.yaml'), _declared_prefixes)
+
+
+def _declared_prefixes(config):
     from ruamel.yaml import YAML
 
     with open(config) as handle:

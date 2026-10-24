@@ -26,6 +26,7 @@ remains the authority on what they mean.
 """
 
 import bisect
+from collections import OrderedDict
 import re
 from dataclasses import dataclass
 
@@ -143,29 +144,62 @@ def _prefixes(text):
     return found, base
 
 
+_PARSED = OrderedDict()        # source text -> its blocks, most recent last
+_PARSED_LIMIT = 32
+
+
+def _blocks(source):
+    """(blocks, {subject: block}) of a text, parsed once per distinct text.
+
+    One `semforge check` indexed the same ontologies sixteen times: every
+    caller builds its own index from the text it just read. Blocks are frozen
+    and no caller changes the list, so equal texts share one.
+    """
+    found = _PARSED.get(source)
+    if found is None:
+        blocks = _parse(source)
+        found = (blocks, {block.subject: block for block in blocks})
+        _PARSED[source] = found
+        if len(_PARSED) > _PARSED_LIMIT:
+            _PARSED.popitem(last=False)
+    else:
+        _PARSED.move_to_end(source)
+    return found
+
+
+def _parse(source):
+    prefixes, base = _prefixes(source)
+    blocks = []
+    # Line numbers counted forward from the previous statement: counting from
+    # the start of the file for each one was quadratic -- 34 s for one 8.6 MB
+    # ontology.
+    line, counted = 1, 0
+    for start, end in _statement_spans(source):
+        line += source.count('\n', counted, start)
+        counted = start
+        chunk = source[start:end]
+        if DIRECTIVE.match(chunk):
+            continue
+        match = SUBJECT.match(chunk)
+        if not match:
+            continue
+        raw = match.group(0).strip()
+        blocks.append(Block(
+            subject=_resolve(raw, prefixes, base),
+            raw_subject=raw,
+            start=start, end=end,
+            start_line=line,
+            end_line=line + chunk.count('\n')))
+    return blocks
+
+
 class TurtleIndex:
     """Statement spans of one Turtle file, addressable by subject IRI."""
 
     def __init__(self, source, path=''):
         self.source = source
         self.path = path
-        prefixes, base = _prefixes(source)
-        self.blocks = []
-        for start, end in _statement_spans(source):
-            chunk = source[start:end]
-            if DIRECTIVE.match(chunk):
-                continue
-            match = SUBJECT.match(chunk)
-            if not match:
-                continue
-            raw = match.group(0).strip()
-            self.blocks.append(Block(
-                subject=_resolve(raw, prefixes, base),
-                raw_subject=raw,
-                start=start, end=end,
-                start_line=source.count('\n', 0, start) + 1,
-                end_line=source.count('\n', 0, end) + 1))
-        self._by_subject = {block.subject: block for block in self.blocks}
+        self.blocks, self._by_subject = _blocks(source)
 
     def block_for(self, subject):
         return self._by_subject.get(str(subject))
