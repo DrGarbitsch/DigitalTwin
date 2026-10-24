@@ -1065,6 +1065,20 @@ that order:
 Ids, attributes and files link to their line; an entity's type opens the
 type page.
 
+**Cards or graph, and a filter.** Above the entities, *Cards | Graph* switches
+between the cards and the **entity graph**: a tree that starts at the entities
+nothing points at and opens along their relationships — a relationship inside
+a sub-attribute too, named by its path (`hasState.hasDriver`). Each node
+shows its type and its id, shortened to its start and end (the whole id on
+hover), and *card ↗* goes to its card. An entity already open above on the
+same branch is not opened again: **↩** jumps back to it, which is where a
+cycle ends. A cycle nothing points into is entered at its first entity, so
+every entity can be reached; a target that is not on the page says so.
+*Filter* (closed until opened) narrows by type, by an attribute the entity
+has, or by what its id contains: the cards that do not match are hidden, and
+in the graph the matching entities become the roots. The view, the filter and
+whether it is open are remembered per page.
+
 **Editing on the page.** The data is edited where you read it, through the
 same commands as the Instances view (so the same pickers: a known attribute, the
 values the shape allows):

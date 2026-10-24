@@ -105,7 +105,10 @@ function card(entity, focused, at) {
   const add = entity.node && at !== undefined
     ? `<button class="mini" data-addattr="${at}" title="Add an attribute to ${escape(entity.id)}">` +
       '+ Attribute</button>' : '';
-  return `<div class="card${bad ? ' bad' : ''}${focused ? ' focus" id="focus' : ''}">` +
+  const names = (entity.attributes || []).map((row) => row.name).join('|');
+  return `<div class="card${bad ? ' bad' : ''}${focused ? ' focus" id="focus' : ''}"` +
+    ` data-card="${at === undefined ? '' : at}" data-id="${escape(entity.id || '')}"` +
+    ` data-type="${escape(entity.type || '')}" data-attrs="${escape(names)}">` +
     `<div class="title">${open(entity.id || '(no id)', entity.file, entity.line)}` +
     `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
       ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}` +
@@ -148,7 +151,51 @@ function claimRow(claim, unasserted, index, at) {
     `${actions}</div>`;
 }
 
+/**
+ * Every entity of the page with its relationships -- what the entity graph is
+ * drawn from. A relationship nested in a sub-attribute counts too, named by
+ * its path (hasState.hasXXXWorkpiece). Targets are matched by id as written.
+ */
+function entityIndex(files) {
+  const out = [];
+  const relationships = (rows, prefix, into) => (rows || []).forEach((row) => {
+    const name = prefix ? `${prefix}.${row.name}` : row.name;
+    if (row.kind === 'Relationship' && row.value && !row.superseded) {
+      into.push({ name, target: row.value });
+    }
+    relationships(row.children, name, into);
+  });
+  files.forEach((file, f) => file.cards.forEach((card, j) => {
+    const rels = [];
+    relationships(card.attributes, '', rels);
+    out.push({ id: card.id || '', type: card.type || '', card: `${f}.${j}`, rels,
+      bad: !!(card.violations.length || anyViolation(card.attributes)) });
+  }));
+  return out;
+}
+
+/** Cards | Graph, and the filter -- closed until asked for. */
+function entityBar(entities) {
+  const types = [...new Set(entities.map((e) => e.type).filter(Boolean))].sort();
+  const attrs = [...new Set(entities.flatMap((e) => e.attrs || []))].sort();
+  const options = (list) => list.map((v) => `<option value="${escape(v)}">${escape(v)}</option>`).join('');
+  return `<div class="entitybar">
+  <span class="views"><button class="mini on" data-view="cards" title="Every entity as a card">Cards</button><button class="mini" data-view="graph" title="From the entities nothing points at, along their relationships">Graph</button></span>
+  <details class="filter" id="filter"><summary>Filter</summary>
+    <label>Type <select id="ftype"><option value="">any</option>${options(types)}</select></label>
+    <label>Has attribute <select id="fattr"><option value="">any</option>${options(attrs)}</select></label>
+    <label>Id contains <input id="fid" type="search" spellcheck="false"></label>
+    <button class="mini" data-clearfilter="1">Clear</button>
+  </details>
+  <span class="dim" id="fcount"></span>
+</div>
+<div class="graph" id="graph" hidden></div>`;
+}
+
 function renderCasePage(page, options) {
+  const entities = entityIndex(page.files || []).map((e, i) => Object.assign(e, {
+    attrs: (((page.files || []).flatMap((f) => f.cards))[i].attributes || []).map((r) => r.name)
+  }));
   const nonce = (options && options.nonce) || '';
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
   const claims = page.claims || [];
@@ -255,7 +302,34 @@ function renderCasePage(page, options) {
   .card .title .acts, .file .head .acts { margin-left: auto; }
   .problem { grid-column: 1 / -1; color: var(--vscode-errorForeground, #f14c4c);
              border-left: 2px solid currentColor; padding-left: 8px; font-size: 0.92em; }
-</style></head><body>
+  .entitybar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin: 0 0 10px; }
+  .views button { margin-left: 0; border-radius: 0; }
+  .views button.on { background: var(--vscode-button-background, #0e639c);
+                     color: var(--vscode-button-foreground, #fff); }
+  .filter summary { cursor: pointer; color: var(--vscode-textLink-foreground); }
+  .filter[open] { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+  .filter[open] summary { flex-basis: 100%; }
+  .filter label { display: inline-flex; gap: 6px; align-items: baseline; }
+  .filter select, .filter input { font: inherit; color: var(--vscode-input-foreground);
+       background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent);
+       padding: 1px 4px; max-width: 22em; }
+  .card[hidden], #cardview[hidden], .graph[hidden] { display: none; }
+  .graph .roots { margin-bottom: 6px; }
+  .gnode > summary { cursor: pointer; overflow-wrap: anywhere; padding: 1px 0; }
+  .gnode.leaf > summary { list-style: none; }
+  .gnode.leaf > summary::-webkit-details-marker { display: none; }
+  .gnode.bad > summary .gtype { color: var(--vscode-errorForeground, #f14c4c); }
+  .gid { font-family: var(--vscode-editor-font-family); font-size: 0.88em;
+         color: var(--vscode-descriptionForeground); margin-left: 6px; }
+  .gtype { font-weight: 600; }
+  .gnode .children { margin: 2px 0 4px 6px; padding-left: 14px;
+       border-left: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
+  .edge { overflow-wrap: anywhere; }
+  .edge > .rel { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-right: 4px; }
+  .showcard { margin-left: 8px; font-size: 0.86em; }
+  .back { font-style: italic; }
+  .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
+</style></head><body data-page="${escape(page.file || page.case || '')}">
 <div class="crumbs">${crumbs}</div>
 <h1>${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
@@ -290,6 +364,9 @@ ${claims.length || unasserted.length
       ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}`}
 
 <h2>${model ? 'Entities' : 'Data'}</h2>
+${entityBar(entities)}
+<script type="application/json" id="entities">${JSON.stringify(entities).replace(/</g, '\\u003c')}</script>
+<div id="cardview">
 ${files.map((file, f) => `<div class="file"><div class="head">
   ${chip(file.role === 'case' ? 'this case' : file.role === 'model' ? 'model' : 'included')}
   ${open(file.relative, file.path, 1)}
@@ -298,11 +375,191 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   <span class="acts"><button class="mini" data-addentity="${f}" title="Add an entity to this file">` +
   `+ Entity</button></span>
 </div><div class="cards">${file.cards.map((c, j) => card(c, mark(c), `${f}.${j}`)).join('')}</div></div>`).join('')}
+</div>
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
+
+  // --- Cards | Graph, and the filter. Kept per page across refreshes. -------
+  const ENTITIES = JSON.parse((document.getElementById('entities') || {}).textContent || '[]');
+  const byId = new Map(ENTITIES.map(function (e) { return [e.id, e]; }));
+  const pageKey = (document.body && document.body.dataset.page) || '';
+  const saved = (vscode.getState() || {})[pageKey] || {};
+  const ui = { view: saved.view || 'cards', type: saved.type || '', attr: saved.attr || '',
+               id: saved.id || '', open: !!saved.open };
+  const ftype = document.getElementById('ftype');
+  const fattr = document.getElementById('fattr');
+  const fid = document.getElementById('fid');
+  const filterBox = document.getElementById('filter');
+  const graph = document.getElementById('graph');
+  const cardview = document.getElementById('cardview');
+  function remember() {
+    const all = vscode.getState() || {};
+    all[pageKey] = ui;
+    vscode.setState(all);
+  }
+  function filtering() { return !!(ui.type || ui.attr || ui.id); }
+  function matches(e) {
+    if (ui.type && e.type !== ui.type) { return false; }
+    if (ui.attr && (e.attrs || []).indexOf(ui.attr) < 0) { return false; }
+    if (ui.id && e.id.toLowerCase().indexOf(ui.id.toLowerCase()) < 0) { return false; }
+    return true;
+  }
+  function applyFilter() {
+    let shown = 0;
+    document.querySelectorAll('.card[data-card]').forEach(function (card) {
+      const ok = matches({ id: card.dataset.id || '', type: card.dataset.type || '',
+                           attrs: (card.dataset.attrs || '').split('|') });
+      card.hidden = !ok;
+      if (ok) { shown += 1; }
+    });
+    document.getElementById('fcount').textContent = filtering()
+      ? shown + ' of ' + ENTITIES.length + ' shown' : '';
+    if (ui.view === 'graph') { drawGraph(); }
+  }
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) { node.className = cls; }
+    if (text !== undefined) { node.textContent = text; }
+    return node;
+  }
+  // The roots: what nothing points at -- or, while filtering, what matches.
+  // A cycle nothing points into (a pump and its port naming each other) has
+  // no such entity: the first of it, in page order, is entered instead, until
+  // every entity can be reached from some root.
+  function roots() {
+    if (filtering()) { return { free: ENTITIES.filter(matches), cyclic: [] }; }
+    const pointed = new Set();
+    ENTITIES.forEach(function (e) { e.rels.forEach(function (r) { pointed.add(r.target); }); });
+    const free = ENTITIES.filter(function (e) { return !pointed.has(e.id); });
+    const reached = new Set();
+    function reach(e) {
+      const todo = [e];
+      while (todo.length) {
+        const next = todo.pop();
+        if (reached.has(next.id)) { continue; }
+        reached.add(next.id);
+        next.rels.forEach(function (r) { if (byId.has(r.target)) { todo.push(byId.get(r.target)); } });
+      }
+    }
+    free.forEach(reach);
+    const cyclic = [];
+    ENTITIES.forEach(function (e) {
+      if (!reached.has(e.id)) { cyclic.push(e); reach(e); }
+    });
+    return { free: free, cyclic: cyclic };
+  }
+  function shortId(id) {
+    return id.length > 42 ? id.slice(0, 14) + '…' + id.slice(-20) : id;
+  }
+  function nodeFor(e, trail) {
+    const d = el('details', 'gnode' + (e.bad ? ' bad' : '') + (e.rels.length ? '' : ' leaf'));
+    d.dataset.id = e.id;
+    d.trail = trail.concat([e.id]);
+    // The type says what it is; the id, long in OPC UA, is shortened to its
+    // start and its end -- where those ids differ -- and given whole on hover.
+    const summary = el('summary');
+    summary.title = e.id;
+    summary.append(el('span', 'gtype', e.type || '(no type)'));
+    summary.append(el('span', 'gid', shortId(e.id)));
+    if (e.rels.length) { summary.append(el('span', 'dim', ' (' + e.rels.length + ')')); }
+    const show = el('a', 'showcard', 'card ↗');
+    show.href = '#';
+    show.title = 'Show its card';
+    show.dataset.showcard = e.card;
+    summary.append(show);
+    d.append(summary);
+    return d;
+  }
+  // A branch is drawn when it is opened, so a large package stays quick.
+  // An entity already open above on the same branch is not opened again:
+  // a jump back to it ends what would otherwise be a cycle.
+  function expand(d) {
+    if (d.drawn) { return; }
+    d.drawn = true;
+    const e = byId.get(d.dataset.id);
+    const list = el('div', 'children');
+    e.rels.forEach(function (r) {
+      const line = el('div', 'edge');
+      line.append(el('span', 'rel', r.name + ' →'));
+      const target = byId.get(r.target);
+      if (!target) {
+        const missing = el('span', 'dim', shortId(r.target) + ' (not in this page)');
+        missing.title = r.target;
+        line.append(missing);
+      } else if (d.trail.indexOf(r.target) >= 0) {
+        const back = el('a', 'back', '↩ ' + ((byId.get(r.target) || {}).type || '') + ' ' + shortId(r.target));
+        back.href = '#';
+        back.title = 'Already open above on this branch: jump to it';
+        back.dataset.jump = r.target;
+        line.append(back);
+      } else {
+        line.append(nodeFor(target, d.trail));
+      }
+      list.append(line);
+    });
+    d.append(list);
+  }
+  function drawGraph() {
+    graph.textContent = '';
+    const found = roots();
+    const count = found.free.length;
+    graph.append(el('div', 'roots dim', filtering()
+      ? count + ' matching entit' + (count === 1 ? 'y' : 'ies') + ' as roots'
+      : count + ' root(s): the entities nothing points at' + (found.cyclic.length
+        ? ' · ' + found.cyclic.length + ' more where a cycle has no way in' : '')));
+    found.free.concat(found.cyclic).forEach(function (e) { graph.append(nodeFor(e, [])); });
+  }
+  function setView(view) {
+    ui.view = view === 'graph' ? 'graph' : 'cards';
+    remember();
+    cardview.hidden = ui.view !== 'cards';
+    graph.hidden = ui.view !== 'graph';
+    document.querySelectorAll('[data-view]').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.view === ui.view);
+    });
+    if (ui.view === 'graph') { drawGraph(); }
+  }
+  function flash(node) {
+    node.scrollIntoView({ block: 'center' });
+    node.classList.add('flash');
+    setTimeout(function () { node.classList.remove('flash'); }, 1200);
+  }
+  function showCard(at) {
+    const card = document.querySelector('.card[data-card="' + at + '"]');
+    if (!card) { return; }
+    if (card.hidden) {
+      ui.type = ''; ui.attr = ''; ui.id = '';
+      ftype.value = ''; fattr.value = ''; fid.value = '';
+      applyFilter();
+    }
+    setView('cards');
+    flash(card);
+  }
+  function jumpBack(link) {
+    let node = link.closest('details.gnode');
+    while (node && node.dataset.id !== link.dataset.jump) {
+      node = node.parentElement ? node.parentElement.closest('details.gnode') : null;
+    }
+    if (node) { flash(node.querySelector('summary')); }
+  }
+  if (filterBox && graph && cardview) {
+    ftype.value = ui.type;
+    fattr.value = ui.attr;
+    fid.value = ui.id;
+    filterBox.open = ui.open;
+    ftype.addEventListener('change', function () { ui.type = ftype.value; remember(); applyFilter(); });
+    fattr.addEventListener('change', function () { ui.attr = fattr.value; remember(); applyFilter(); });
+    fid.addEventListener('input', function () { ui.id = fid.value; remember(); applyFilter(); });
+    filterBox.addEventListener('toggle', function () { ui.open = filterBox.open; remember(); });
+    graph.addEventListener('toggle', function (event) {
+      if (event.target.open && event.target.classList.contains('gnode')) { expand(event.target); }
+    }, true);
+    setView(ui.view);
+    applyFilter();
+  }
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.
   const utc = (iso) => (iso || new Date().toISOString()).replace(/Z$/, '').slice(0, 23);
@@ -365,6 +622,20 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     input.focus();
   }
   document.addEventListener('click', (event) => {
+    const view = event.target.closest('[data-view]');
+    if (view) { event.preventDefault(); setView(view.dataset.view); return; }
+    const showcard = event.target.closest('[data-showcard]');
+    if (showcard) { event.preventDefault(); event.stopPropagation(); showCard(showcard.dataset.showcard); return; }
+    const jump = event.target.closest('[data-jump]');
+    if (jump) { event.preventDefault(); jumpBack(jump); return; }
+    if (event.target.closest('[data-clearfilter]')) {
+      event.preventDefault();
+      ui.type = ''; ui.attr = ''; ui.id = '';
+      ftype.value = ''; fattr.value = ''; fid.value = '';
+      remember();
+      applyFilter();
+      return;
+    }
     const history = event.target.closest('[data-history]');
     if (history) {
       event.preventDefault();
