@@ -180,7 +180,7 @@ def _bare(node):
     return {k: v for k, v in node.items() if k != 'children'}
 
 
-def _tree_entities(package):
+def _tree_entities(package, verdicts=None):
     """{(entity id, absolute file): its Tests-tree row} over every case and
     the model -- the rows Add Attribute, Edit Value and the rest act on, so
     the page edits through the same commands the tree does."""
@@ -195,7 +195,7 @@ def _tree_entities(package):
         for child in node.get('children', []):
             walk(child)
 
-    for root in build_suite(package):
+    for root in build_suite(package, verdicts=verdicts):
         walk(_serialise_example(root))
     return found
 
@@ -244,14 +244,14 @@ def _display(rows, names, symbols):
         _display(row.get('children') or [], names, symbols)
 
 
-def attach_editing(package, files):
+def attach_editing(package, files, verdicts=None):
     """Every card and row of these files, joined to its Tests-tree row."""
     from .examples import dataset_names
     from .units import units
 
     names = dataset_names(package)
     symbols = {u['code']: u['symbol'] or u['code'] for u in units(package)}
-    entities = _tree_entities(package)
+    entities = _tree_entities(package, verdicts)
     for file in files:
         for card in file['cards']:
             _display(card.get('attributes') or [], names, symbols)
@@ -262,15 +262,42 @@ def attach_editing(package, files):
             _attach(card['attributes'], node)
 
 
-def build_model_page(package):
+def _model_report(package, verdicts):
+    """The main model's report: from `verdicts`, None while PENDING, else validated."""
+    from ..validate import validate_package
+    from .typepage import PENDING
+
+    if verdicts is PENDING:
+        return None
+    if verdicts is not None:
+        return verdicts.model
+    return validate_package(package, strict=False)
+
+
+def _case_report(package, example, verdicts):
+    """One case's report: from `verdicts` (None while PENDING, or for a case
+    they do not cover yet), else validated here."""
+    from ..expect.store import compose
+    from ..validate.orchestrator import validate_graphs
+    from .typepage import PENDING
+
+    if verdicts is PENDING:
+        return None
+    if verdicts is not None:
+        return verdicts.cases.get(example.path)
+    return validate_graphs(compose(package, example), package.shapes,
+                           package.knowledge, strict=False)
+
+
+def build_model_page(package, verdicts=None):
     """The model data -- main.jsonld or the model files -- as cards, each
     entity with what is wrong with it, edited like a case. No claims: the
-    model declares nothing and cannot fail; its violations are information."""
-    from ..validate import validate_package
-
-    report = validate_package(package, strict=False)
+    model declares nothing and cannot fail; its violations are information.
+    `verdicts` as for build_type_page."""
+    report = _model_report(package, verdicts)
+    pending = report is None
     violations = {}
-    for result in report.violations:
+    for result in ([] if pending else report.violations):
         violations.setdefault((str(result.resource), result.attribute or None),
                               []).append(_explain(result))
     files = []
@@ -285,7 +312,7 @@ def build_model_page(package):
         for (resource, attribute) in list(violations):
             if resource == card['id']:
                 card['violations'].extend(violations.pop((resource, attribute)))
-    attach_editing(package, files)
+    attach_editing(package, files, verdicts)
     return {
         'kind': 'model', 'name': 'Main', 'case': '', 'expect': '', 'group': '',
         'suite': '',
@@ -295,7 +322,8 @@ def build_model_page(package):
         'residuePinned': False, 'file': files[0]['path'] if files else '',
         'expectations': '', 'files': files,
         'summary': {'entities': sum(len(f['cards']) for f in files),
-                    'violations': len(report.violations), 'includes': 0},
+                    'violations': None if pending else len(report.violations),
+                    'includes': 0},
     }
 
 
@@ -312,18 +340,22 @@ def _explain(result):
             'component': component, 'detail': result.message or ''}
 
 
-def build_case_page(package, case):
-    """The payload the test case page renders. Reads only."""
+def build_case_page(package, case, verdicts=None):
+    """The payload the test case page renders. Reads only. `verdicts` as for
+    build_type_page; while this case has none, its claims say so (holds:
+    None) rather than failing."""
     from ..expect.runner import constraint_ref, evaluate
-    from ..expect.store import compose, examples_root, load_expectations
+    from ..expect.store import examples_root, load_expectations
     from ..sanity import known_constraints
-    from ..validate.orchestrator import validate_graphs
+    from ..validate.results import Report
 
     example = _find_case(package, case)
-    report = validate_graphs(compose(package, example), package.shapes,
-                             package.knowledge, strict=False)
+    report = _case_report(package, example, verdicts)
+    pending = report is None
+    if pending:
+        report = Report()
     known = known_constraints(package)
-    outcome = evaluate(example, report, known)
+    outcome = None if pending else evaluate(example, report, known)
 
     fired = {}
     for result in report.violations:
@@ -342,7 +374,7 @@ def build_case_page(package, case):
         hit = fired.get(key) if key[0] else next(
             (r for (resource, ref), r in fired.items() if ref == key[1]), None)
         claim = {'constraint': key[1], 'resource': key[0],
-                 'holds': hit is not None,
+                 'holds': None if pending else hit is not None,
                  'explained': _explain(hit) if hit else None}
         if key[1] not in known:
             # Named a shape that is gone -- most often a rename typed into
@@ -401,17 +433,18 @@ def build_case_page(package, case):
             (holder['violations'] if holder else card['violations']).extend(found)
 
     expectations_file = example.source
-    attach_editing(package, files)
+    attach_editing(package, files, verdicts)
     return {
         'case': example.path, 'name': os.path.basename(example.path),
         'description': example.description, 'expect': example.expect,
         'group': example.group, 'suite': example.suite,
-        'passed': outcome.passed, 'failures': list(outcome.failures),
+        'passed': None if pending else outcome.passed,
+        'failures': [] if pending else list(outcome.failures),
         'claims': claims, 'unasserted': unasserted,
         'residuePinned': bool(example.residue),
         'file': os.path.abspath(own), 'expectations': expectations_file,
         'files': files,
         'summary': {'entities': sum(len(f['cards']) for f in files),
-                    'violations': len(report.violations),
+                    'violations': None if pending else len(report.violations),
                     'includes': len(example.include)},
     }

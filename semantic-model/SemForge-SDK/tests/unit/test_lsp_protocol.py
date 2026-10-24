@@ -141,12 +141,18 @@ def test_references_cross_from_a_shape_to_the_ontology_and_the_data(session):
     assert len(without) == len(every) - 1
 
 
+def _published_with_findings(session):
+    """Diagnostics come twice: what needs no validation at once, then -- when
+    the background validation is done -- again with what it found."""
+    return session.wait_for(
+        lambda m: m.get('method') == 'textDocument/publishDiagnostics'
+        and m['params']['diagnostics'])
+
+
 def test_opening_a_shapes_file_publishes_diagnostics(session):
-    published = session.wait_for(
-        lambda m: m.get('method') == 'textDocument/publishDiagnostics')
+    published = _published_with_findings(session)
     assert published, 'no diagnostics arrived'
     diagnostics = published[0]['params']['diagnostics']
-    assert diagnostics
     assert all(d['range']['start']['line'] >= 0 for d in diagnostics)
 
 
@@ -165,7 +171,9 @@ def test_the_server_starts_from_a_directory_that_is_not_the_sdk(session):
 
 def test_the_diagnostics_carry_the_semforge_source_and_a_kind(session):
     published = session.wait_for(
-        lambda m: m.get('method') == 'textDocument/publishDiagnostics')
+        lambda m: m.get('method') == 'textDocument/publishDiagnostics'
+        and any('unexercised' in d['source'] for d in m['params']['diagnostics']))
+    assert published, 'the validation findings were never published'
     sources = {d['source'] for d in published[0]['params']['diagnostics']}
     assert sources
     assert all(s.startswith('semforge (') for s in sources)
@@ -532,12 +540,24 @@ def test_the_type_page_arrives_over_the_protocol_and_is_cached(session):
                                  'entityType': 'iffBaseEntities:Filter'}})
         return session.wait_for(lambda m: m.get('id') == request_id)[0]['result']
 
+    # Answered at once, whether or not the package is validated yet: the
+    # structure is there either way, and the verdicts say where they are.
+    before = len(session.messages)
     first = ask(61)
     assert first['ok'], first.get('error')
     assert first['label'] == 'Filter'
     assert {a['label'] for a in first['attributes']} >= {'hasStrength', 'hasCartridge'}
-    second = ask(62)
-    assert second['cached'] and second['attributes'] == first['attributes']
+    assert first['verdicts']['state'] in ('evaluating', 'ready')
+    if first['verdicts']['state'] == 'evaluating':
+        # The background validation says when it is done.
+        done = session.wait_for(lambda m: m.get('method') == 'semforge/verdicts'
+                                and m['params']['state'] == 'ready'
+                                and session.messages.index(m) >= before)
+        assert done, 'no semforge/verdicts notification'
+    ready = ask(62)
+    assert ready['verdicts']['state'] == 'ready'
+    again = ask(63)
+    assert again['cached'] and again['attributes'] == ready['attributes']
 
 
 def test_value_choices_arrive_over_the_protocol(session):

@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape } = require('./typepage');
+const { escape, verdictNote } = require('./typepage');
 
 function chip(text, tone, title) {
   return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
@@ -128,6 +128,7 @@ function claimRow(claim, unasserted, index, at) {
     'is not what the case means it to be.')
     : claim.stale ? chip('names no shape', 'bad', 'No shape declares this constraint: the ' +
       'shape was renamed or removed. It can never fire.')
+    : claim.holds === null ? chip('evaluating…', 'dim', 'The package is being validated')
     : claim.holds ? chip('holds', 'ok') : chip('does not hold', 'bad');
   const parts = claim.constraint.split('/');
   const actions = unasserted
@@ -247,15 +248,18 @@ function renderCasePage(page, options) {
 <div class="crumbs">${crumbs}</div>
 <h1>${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
+${verdictNote(page.verdicts || { state: 'ready' })
+    ? `<p class="lede">${verdictNote(page.verdicts)}</p>` : ''}
 ${model ? `<div class="chips">
   ${chip(`${(page.summary || {}).entities || 0} entities`)}
-  ${(page.summary || {}).violations
+  ${(page.summary || {}).violations === null ? ''
+    : (page.summary || {}).violations
     ? chip(`${page.summary.violations} violation(s)`, 'warn',
       'The model declares nothing and cannot fail: these are information.')
     : chip('all valid', 'ok')}
 </div>` : `<div class="chips">
   ${chip(`expects ${page.expect}`)}
-  ${page.passed ? chip('passes', 'ok') : chip('fails', 'bad')}
+  ${page.passed === null ? '' : page.passed ? chip('passes', 'ok') : chip('fails', 'bad')}
   ${page.residuePinned ? chip('residue pinned', '', 'Everything else that fires is pinned by digest') : ''}
   ${chip(`${(page.summary || {}).entities || 0} entities`)}
 </div>`}
@@ -655,6 +659,14 @@ class CasePages {
       this.render();
     }
   }
+
+  /** The background validation finished: a page still waiting for it asks again. */
+  verdictsArrived() {
+    const state = this.page && this.page.verdicts && this.page.verdicts.state;
+    if (state && state !== 'ready') {
+      this.refresh();
+    }
+  }
 }
 
 /** Every declared case, from the Model tree's payload, for the palette. */
@@ -710,6 +722,9 @@ function register(context, clientHolder, session) {
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );
+  if (clientHolder.onVerdicts) {
+    context.subscriptions.push(clientHolder.onVerdicts(() => pages.verdictsArrived()));
+  }
   return pages;
 }
 

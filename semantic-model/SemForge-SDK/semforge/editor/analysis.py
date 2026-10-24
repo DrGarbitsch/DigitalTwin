@@ -65,7 +65,7 @@ def package_root(path):
     return find(path)[0]
 
 
-def analyse(root, profile_name='shacl2flink'):
+def analyse(root, profile_name='shacl2flink', package=None, verdicts=None):
     """Findings for a package, keyed by absolute file path.
 
     Returns (findings, package). A finding about a shape lands on the file that
@@ -73,8 +73,15 @@ def analyse(root, profile_name='shacl2flink'):
     finding on the first file would annotate a document that has nothing to do
     with it. A violation is attributed to the shape that raised it rather than
     to the data, so the author sees it against the constraint they are editing.
+
+    `package` is the loaded package when the caller has one. `verdicts` as for
+    build_type_page (cooked/typepage.py): with PENDING the findings that need
+    a validation ("fires", "unexercised") are left out -- the editor publishes
+    the rest at once and these when the background validation is done.
     """
-    package = load(root)
+    from ..cooked.typepage import PENDING
+
+    package = package if package is not None else load(root)
     index = package.index('shapes')
     findings = {os.path.abspath(path): [] for path in index.paths}
     primary = os.path.abspath(package.sources['shapes'])
@@ -175,7 +182,9 @@ def analyse(root, profile_name='shacl2flink'):
                     data={'code': 'undeclared-key', 'declare': finding.subject,
                           'subject': finding.subject})
 
-    report = validate_package(package, strict=False)
+    if verdicts is PENDING:
+        return findings, package
+    report = verdicts.model if verdicts is not None else validate_package(package, strict=False)
 
     fires = {}
     for result in report.violations:

@@ -1713,6 +1713,16 @@ design. Measured on the kms: a cold start takes about 4.6 s to have all four
 views ready, a reload with nothing changed about 1.6 s (most of it starting
 Python).
 
+**Validation runs in the background.** A page answers with what it shows —
+attributes, shapes, cases, cards — at once, and says *⟳ evaluating…* where a
+verdict belongs: the coverage chips, the instances' ✓/✗, a case's pass or
+fail, the Problems panel's "fires here". The package is validated once per
+version, in a separate process, and every open page fills in when it is done;
+after an edit a page shows the last results, marked as such, until the new ones
+are in. The verdicts are cached with the views (`verdicts.json`), so reopening
+an unchanged package validates nothing. On the OPC UA pump package a class
+page went from 15 s to 0.4 s, the main-model page from 30 s to 0.03 s.
+
 The other half of the old wait was the network: every JSON-LD document names
 the NGSI-LD core `@context` by URL, and rdflib downloaded it again on every
 parse — 44 times for one Knowledge-view build. It is now fetched once per

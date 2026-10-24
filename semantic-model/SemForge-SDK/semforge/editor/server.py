@@ -9,8 +9,10 @@ go-to-definition, find-references, document symbols. Operations with no natural 
 go on a dedicated channel instead; none are needed yet.
 """
 
+import asyncio
 import os
 import re
+import threading
 
 from lsprotocol import types
 from pygls.lsp.server import LanguageServer
@@ -76,16 +78,21 @@ def _findings(root):
     from dataclasses import asdict
 
     from .analysis import EditorFinding
-    from .cache import cached, fingerprint
+    from .cache import cached
+
+    from ..cooked.typepage import PENDING
+
+    # What needs no validation now; what does when the background run is done
+    # (_notify_verdicts publishes again). Cached apart, so neither waits.
+    verdicts, state = _verdicts_for(root)
+    ready = state.state == 'ready'
 
     def compute():
-        stamp = fingerprint(root)
-        findings, package = analyse(root)
-        _packages[root], _stamps[root] = package, stamp
-        _watch_renames(root, package)              # a reload like any other
+        findings, _ = analyse(root, package=_package_for(root),
+                              verdicts=verdicts if ready else PENDING)
         return {path: [asdict(f) for f in items] for path, items in findings.items()}
 
-    stored, _ = cached(root, 'diagnostics', compute)
+    stored, _ = cached(root, 'diagnostics' if ready else 'diagnostics-structure', compute)
     return {path: [EditorFinding(**f) for f in items]
             for path, items in stored.items()}
 
@@ -567,22 +574,99 @@ def _view(root, key, compute, params=None):
     return payload
 
 
+_load_lock = threading.Lock()
+
+
 def _package_for(root):
     """The loaded package, reloaded whenever its files changed.
 
     Keyed on the same fingerprint the disk cache uses: a checkout or an edit
     in another editor changes it just as the server's own writes do, and a
     view must never be computed from a package that is no longer on disk.
+    Locked: the verdict worker loads from its own thread, and two loads of one
+    package at once would only double the wait.
     """
     from ..package import load
     from .cache import fingerprint
 
-    stamp = fingerprint(root)
-    if _stamps.get(root) != stamp or root not in _packages:
-        _packages[root] = load(root)
-        _stamps[root] = stamp
-        _watch_renames(root, _packages[root])
-    return _packages[root]
+    with _load_lock:
+        stamp = fingerprint(root)
+        if _stamps.get(root) != stamp or root not in _packages:
+            _packages[root] = load(root)
+            _stamps[root] = stamp
+            _watch_renames(root, _packages[root])
+        return _packages[root]
+
+
+# --- verdicts: validation in the background (editor/verdicts.py) -----------------
+
+_verdict_service = None
+_loop = None             # the server's event loop, for the worker's notifications
+
+
+def _service():
+    global _verdict_service
+    if _verdict_service is None:
+        from .cache import fingerprint
+        from .verdicts import ProcessRunner, VerdictService
+        _verdict_service = VerdictService(fingerprint, ProcessRunner(), _notify_verdicts)
+    return _verdict_service
+
+
+def _verdicts_for(root):
+    """(Verdicts or None, State) for a package -- never waits for a validation.
+
+    Called from request handlers, which run on the event loop: that is where
+    the loop is taken from, so the worker thread can hand its notification
+    back to it rather than write to the client from a second thread.
+    """
+    global _loop
+    try:
+        _loop = asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    return _service().get(root)
+
+
+def _verdict_page(root, key, build):
+    """A page that shows verdicts, answered without waiting for them.
+
+    `build(verdicts)` makes the payload. With current verdicts the page is
+    cached like any view; otherwise it is built from the last known ones
+    (stale) or none (PENDING) and not cached -- the `semforge/verdicts`
+    notification brings the client back for the real one.
+    """
+    from ..cooked.typepage import PENDING
+
+    verdicts, state = _verdicts_for(root)
+    if state.state == 'ready':
+        page = _view(root, key, lambda: {'page': build(verdicts)})
+        payload, cached = page['page'], page['cached']
+    else:
+        payload = build(verdicts if verdicts is not None else PENDING)
+        cached = False
+    return dict(payload, ok=True, root=root, cached=cached, verdicts=state.as_dict())
+
+
+def _notify_verdicts(root, state):
+    """The worker finished (or must start over): tell the client, on the loop."""
+    from .verdicts import NOTIFICATION
+
+    if _loop is None or _loop.is_closed():
+        return
+    _loop.call_soon_threadsafe(server.protocol.notify, NOTIFICATION,
+                               dict(state.as_dict(), root=root))
+    if state.state == 'ready':
+        _loop.call_soon_threadsafe(_republish, root)
+
+
+def _republish(root):
+    """The verdicts are in: the package's diagnostics again, now with them."""
+    for uri in list(server.workspace.text_documents):
+        path = _uri_to_path(uri)
+        if path and package_root(path) == root:
+            _publish(server, uri)
+            return
 
 
 # A shape renamed by typing in the .ttl leaves its asserts behind. Between two
@@ -743,11 +827,25 @@ def model(ls, params):
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
     if root is None:
         return {'roots': [], 'error': 'not a SemForge package'}
+    from ..cooked.typepage import PENDING
+    from .slim import SLIM
+
+    def build(verdicts):
+        return {'root': root,
+                'roots': [_serialise_example(n)
+                          for n in build_suite(_package_for(root), verdicts=verdicts)]}
+
     try:
-        return _view(root, 'model', lambda: {
-            'root': root,
-            'roots': [_serialise_example(n)
-                      for n in build_suite(_package_for(root))]}, params)
+        verdicts, state = _verdicts_for(root)
+        if state.state == 'ready':
+            payload = _view(root, 'model', lambda: build(verdicts), params)
+        else:
+            # Not cached: the tree comes back for the verdicts when they are in.
+            payload = dict(build(verdicts if verdicts is not None else PENDING), cached=False)
+            if _field(params, 'detail') == 'summary' and 'model' in SLIM:
+                payload['roots'] = SLIM['model'](payload['roots'], payload)
+                payload['detail'] = 'summary'
+        return dict(payload, verdicts=state.as_dict())
     except Exception as exc:                       # noqa: BLE001
         return {'roots': [], 'error': str(exc)}
 
@@ -1610,9 +1708,8 @@ def type_page_feature(ls, params):
     entity_type = str(_field(params, 'entityType', '') or '')
     key = 'type-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', entity_type)[-120:]
     try:
-        page = _view(root, key, lambda: {
-            'page': build_type_page(_package_for(root), entity_type)})
-        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+        return _verdict_page(root, key, lambda verdicts: build_type_page(
+            _package_for(root), entity_type, verdicts))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 
@@ -1628,9 +1725,8 @@ def shape_page_feature(ls, params):
     shape = str(_field(params, 'shape', '') or '')
     key = 'shape-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', shape)[-120:]
     try:
-        page = _view(root, key, lambda: {
-            'page': build_shape_page(_package_for(root), shape)})
-        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+        return _verdict_page(root, key, lambda verdicts: build_shape_page(
+            _package_for(root), shape, verdicts))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 
@@ -2010,8 +2106,8 @@ def model_page_feature(ls, params):
     if root is None:
         return {'ok': False, 'error': 'not a SemForge package'}
     try:
-        page = _view(root, 'model-page', lambda: {'page': build_model_page(_package_for(root))})
-        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+        return _verdict_page(root, 'model-page', lambda verdicts: build_model_page(
+            _package_for(root), verdicts))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 
@@ -2441,9 +2537,8 @@ def case_page_feature(ls, params):
     case = str(_field(params, 'case', '') or '')
     key = 'case-' + re.sub(r'[^A-Za-z0-9_.-]+', '_', case)[-120:]
     try:
-        page = _view(root, key, lambda: {
-            'page': build_case_page(_package_for(root), case)})
-        return dict(page['page'], ok=True, root=root, cached=page['cached'])
+        return _verdict_page(root, key, lambda verdicts: build_case_page(
+            _package_for(root), case, verdicts))
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 

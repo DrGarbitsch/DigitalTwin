@@ -44,6 +44,10 @@ const { showLocation } = require('./reveal');
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
 const clientHolder = { client: undefined };
+// The server validates in the background and says when it is done
+// (`semforge/verdicts`); pages showing "evaluating…" ask again then.
+const verdictsDone = new vscode.EventEmitter();
+clientHolder.onVerdicts = verdictsDone.event;
 let client;
 let lastResolved;
 
@@ -217,6 +221,7 @@ function startClient(context) {
   if (typeof client.onNotification === 'function') {
     client.onNotification('semforge/shapeRenamed',
       (notice) => rename.offerFollow(clientHolder, notice));
+    client.onNotification('semforge/verdicts', (notice) => verdictsDone.fire(notice));
   }
   client.start();
   clientHolder.client = client;

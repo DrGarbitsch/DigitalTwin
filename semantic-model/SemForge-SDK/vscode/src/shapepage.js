@@ -20,7 +20,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape, attributeRows: typeRows, EDITS } = require('./typepage');
+const { escape, attributeRows: typeRows, EDITS, verdictNote } = require('./typepage');
 const { pickTarget } = require('./shapes');
 
 function chip(text, tone, title) {
@@ -103,7 +103,9 @@ function appliesTo(page) {
     : users.length ? `no target of its own — what ${users.map((u) =>
       shapeLink(u.name, u.iri)).join(', ')} reach through <span class="mono">sh:node</span>`
       : '<span class="warn-text">nothing: no target, and no shape uses it</span>';
-  const nodes = reach.nodes.map((n) => `<span class="node${n.violations.length ? ' bad' : ''}" ` +
+  const nodes = reach.nodes.map((n) => n.violations === null
+    ? `<span class="node" title="evaluating…"><span class="mono">${escape(n.id)}</span> …</span>` :
+    `<span class="node${n.violations.length ? ' bad' : ''}" ` +
     `title="${escape(n.violations.length ? n.violations.join('\n') : 'valid')}">` +
     `<span class="mono">${escape(n.id)}</span> ${n.violations.length
       ? `✗ ${n.violations.length}` : '✓'}</span>`).join('') +
@@ -133,13 +135,15 @@ function appliesTo(page) {
 function testedBy(page, cases) {
   const rows = cases.slice().sort((a, b) => (b.fired ? 1 : 0) - (a.fired ? 1 : 0))
     .map((c) => `<div class="case">` +
-      chip(c.fired ? 'fires' : 'holds', c.fired ? 'ok' : '',
-        c.fired ? `reports it ${c.fired}× here` : 'evaluated here, conforming') +
+      (c.fired === null ? chip('evaluating…', 'dim', 'The package is being validated') :
+        chip(c.fired ? 'fires' : 'holds', c.fired ? 'ok' : '',
+          c.fired ? `reports it ${c.fired}× here` : 'evaluated here, conforming')) +
       `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
       `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
       `<span class="dim">${c.firedOn && c.firedOn.length
         ? `on ${escape(c.firedOn.join(', '))}` : ''}</span>` +
-      (c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')) + '</div>').join('');
+      (c.passed === null ? '' : c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')) +
+      '</div>').join('');
   return rows || '<p class="empty">No test case reaches it: nothing proves it can fire.</p>';
 }
 
@@ -151,7 +155,10 @@ function renderShapePage(page, options) {
   const checks = page.checks || [];
   const cases = page.exercisedBy || [];
   const status = [
-    summary.violations
+    verdictNote(page.verdicts || { state: 'ready' }),
+    summary.violations === null
+      ? (summary.reached ? `<span class="dim">${summary.reached} in the main-model</span>` : '')
+      : summary.violations
       ? `<span class="bad-text">${summary.violations} violation(s) in the main-model</span>`
       : summary.reached ? `<span class="ok-text">${summary.reached} in the main-model, all valid</span>`
         : '<span class="dim">reaches nothing in the main-model</span>',
@@ -570,6 +577,14 @@ class ShapePages {
       this.render();
     }
   }
+
+  /** The background validation finished: a page still waiting for it asks again. */
+  verdictsArrived() {
+    const state = this.page && this.page.verdicts && this.page.verdicts.state;
+    if (state && state !== 'ready') {
+      this.refresh();
+    }
+  }
 }
 
 async function pickShape(client, packageUri) {
@@ -598,6 +613,9 @@ function register(context, clientHolder, session) {
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );
+  if (clientHolder.onVerdicts) {
+    context.subscriptions.push(clientHolder.onVerdicts(() => pages.verdictsArrived()));
+  }
   return pages;
 }
 

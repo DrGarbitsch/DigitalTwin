@@ -29,7 +29,7 @@ function escape(value) {
 }
 
 const TESTED_CLASS = {
-  'both ways': 'ok', 'fires only': 'warn', 'never fired': 'warn', untested: ''
+  'both ways': 'ok', 'fires only': 'warn', 'never fired': 'warn', untested: '', evaluating: 'dim'
 };
 
 function chip(text, tone, title) {
@@ -246,7 +246,11 @@ function ruleRows(rules) {
 
 /** Who has this type: the model's entities, then the test cases. */
 function instanceRows(page) {
-  const model = (page.instances || []).map((i) => `<div class="inst">` +
+  const model = (page.instances || []).map((i) => i.violations === null ? `<div class="inst">` +
+    '<span class="dim">…</span>' +
+    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
+    `<span class="dim">main-model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
+    '<span class="dim">evaluating…</span></div>' : `<div class="inst">` +
     `<span class="${i.violations.length ? 'bad-text' : 'ok-text'}">${i.violations.length ? '✗' : '✓'}</span>` +
     `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
     `<span class="dim">main-model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
@@ -254,7 +258,8 @@ function instanceRows(page) {
       chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ') +
       '</a>' : '<span class="dim">valid</span>'}</span></div>`).join('');
   const cases = (page.exercisedBy || []).map((c) => `<div class="inst">` +
-    `<span class="${c.passed ? 'ok-text' : 'bad-text'}">${c.passed ? '✓' : '✗'}</span>` +
+    (c.passed === null ? '<span class="dim">…</span>'
+      : `<span class="${c.passed ? 'ok-text' : 'bad-text'}">${c.passed ? '✓' : '✗'}</span>`) +
     `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
     `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
     `<span class="dim">${escape(c.expect)}</span>` +
@@ -262,6 +267,23 @@ function instanceRows(page) {
   return (model || '<p class="empty">No entity of this type in the main-model.</p>') +
     (cases || '<p class="empty">No test case has an entity of this type: nothing proves ' +
       'its constraints can fire.</p>');
+}
+
+/**
+ * Where the validation is: the page is answered at once, and what the
+ * validator concludes follows (editor/verdicts.py). Empty when it is current.
+ */
+function verdictNote(verdicts) {
+  if (verdicts.state === 'evaluating') {
+    return `<span class="dim" title="The package is being validated in the background; this page ` +
+      `updates when it is done">⟳ ${verdicts.stale ? 'showing the last results, re-evaluating…'
+        : 'evaluating…'}</span>`;
+  }
+  if (verdicts.state === 'failed') {
+    return `<span class="bad-text" title="${escape(verdicts.error || '')}">validation failed` +
+      `${verdicts.stale ? ' (showing the last results)' : ''}</span>`;
+  }
+  return '';
 }
 
 function renderTypePage(page, options) {
@@ -274,8 +296,12 @@ function renderTypePage(page, options) {
   const rules = page.rules || [];
   const subtypes = page.subtypes || [];
   const also = page.alsoCheckedBy || [];
+  const verdicts = page.verdicts || { state: 'ready' };
   const status = [
-    summary.instances
+    verdictNote(verdicts),
+    summary.instances && summary.instancesViolating === null
+      ? `<span class="dim">${summary.instances} in the main-model</span>`
+      : summary.instances
       ? (summary.instancesViolating
         ? `<span class="bad-text">${summary.instancesViolating} of ${summary.instances} in the main-model violate</span>`
         : `<span class="ok-text">${summary.instances} in the main-model, all valid</span>`)
@@ -597,6 +623,14 @@ class TypePages {
   refresh() {
     if (this.panel && this.panel.visible) {
       this.render();
+    }
+  }
+
+  /** The background validation finished: a page still waiting for it asks again. */
+  verdictsArrived() {
+    const state = this.page && this.page.verdicts && this.page.verdicts.state;
+    if (state && state !== 'ready') {
+      this.refresh();
     }
   }
 }
@@ -1197,8 +1231,11 @@ function register(context, clientHolder, session) {
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );
+  if (clientHolder.onVerdicts) {
+    context.subscriptions.push(clientHolder.onVerdicts(() => pages.verdictsArrived()));
+  }
   return pages;
 }
 
-module.exports = { register, renderTypePage, TypePages, typeOf, focusOf, focusIndex, escape,
+module.exports = { register, renderTypePage, verdictNote, TypePages, typeOf, focusOf, focusIndex, escape,
   attributeRows, EDITS };

@@ -1404,6 +1404,20 @@ invalidates only examples whose data touches its path) and a result cache keyed
 by `(package content hash, adapter version, constraint ID)`. The cache lives in
 `.semforge/cache/` and is never authoritative — `semforge test` in CI runs cold.
 
+*As built.* For a long time neither existed: every page validated the whole
+package inside its own request, on the server's one thread, and only the
+rendered page was cached — fine at the kms's 100 ms, 15 s per click on the OPC
+UA pump package (1710 constraints, 12.8 MB of knowledge). Now
+`editor/verdicts.py` validates the main model and every case **once per
+package version**, in a worker process, keeps the result in memory and in
+`.semforge/cache/views/verdicts.json`, and notifies the client
+(`semforge/verdicts`). Pages and diagnostics are built from those verdicts and
+never validate: without them they show their structure at once and
+"evaluating…" where a verdict belongs. The cache is keyed by the package
+fingerprint, not yet per constraint; incremental scope is still to come, and
+needs the read-set of each constraint (what predicates its paths and queries
+can reach), not only its focus nodes.
+
 This is the *only* sanctioned way to evaluate fewer constraints, and the keying
 is load-bearing rather than an optimisation detail: because an entry is keyed by
 the constraint that produced it, adding or editing a constraint invalidates

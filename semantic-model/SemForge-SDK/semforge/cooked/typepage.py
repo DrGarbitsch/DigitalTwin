@@ -347,8 +347,12 @@ def _rules(package, shape_nodes, coverage):
 
 # --- the data ----------------------------------------------------------------------
 
-def _cases(package):
-    """[(example, graph, report)] for every declared case."""
+def _cases(package, verdicts=None):
+    """[(example, graph, report)] for every declared case.
+
+    The report comes from `verdicts` (editor/verdicts.py), None while they are
+    being computed; without `verdicts` at all each case is validated here.
+    """
     from ..expect.store import compose, load_expectations
     from ..validate.orchestrator import validate_graphs
 
@@ -358,12 +362,34 @@ def _cases(package):
             graph = compose(package, example)
         except PackageError:
             continue
-        out.append((example, graph, validate_graphs(
-            graph, package.shapes, package.knowledge, strict=False)))
+        if verdicts is PENDING:
+            report = None
+        elif verdicts is not None:
+            report = verdicts.cases.get(example.path)
+        else:
+            report = validate_graphs(graph, package.shapes, package.knowledge, strict=False)
+        out.append((example, graph, report))
     return out
 
 
+class _Evaluating(dict):
+    """Coverage while the verdicts are computed: every row says so."""
+
+    def get(self, key, default=None):
+        return 'evaluating'
+
+
+# Passed as `verdicts` to build a page before any are known.
+PENDING = object()
+
+
 def _coverage(cases):
+    if any(report is None for _, _, report in cases):
+        return _Evaluating()
+    return _known_coverage(cases)
+
+
+def _known_coverage(cases):
     """{(shape CURIE, attribute local name or ''): 'both ways' | 'fires only'
     | 'never fired'} across every case, per attribute rather than per
     parameter: the page asks whether an attribute's constraints are tested."""
@@ -476,8 +502,13 @@ def _applies(package, shape, family, declared):
     return None
 
 
-def build_type_page(package, entity_type):
-    """The payload the entity type page renders. Reads only."""
+def build_type_page(package, entity_type, verdicts=None):
+    """The payload the entity type page renders. Reads only.
+
+    `verdicts` (editor/verdicts.py) carries the validation of the main model and
+    every case; PENDING builds the page without them -- the structure at once,
+    "evaluating" where a verdict belongs. Without it, validated here.
+    """
     from ..expect.runner import constraint_ref, run_tests
     from ..sanity import known_constraints
     from ..validate import validate_package
@@ -489,16 +520,22 @@ def build_type_page(package, entity_type):
     root = next((r for r in build_tree(package) if r.target_class == entry.iri), None)
     shape_nodes = root.children if root is not None else []
 
-    cases = _cases(package)
+    cases = _cases(package, verdicts)
     coverage = _coverage(cases)
     kind_of = {a.iri: a.kind for a in attribute_terms(package) if a.kind}
 
     # What is wrong in the MAIN model, per (shape, attribute), for this type.
-    report = validate_package(package, strict=False)
+    if verdicts is PENDING:
+        report = None
+    elif verdicts is not None:
+        report = verdicts.model
+    else:
+        report = validate_package(package, strict=False)
+    pending = report is None
     model_types = {str(s): {str(o) for o in package.model.objects(s, RDF.type)}
                    for s in set(package.model.subjects(RDF.type, None))}
     violated = {}
-    for violation in report.violations:
+    for violation in ([] if pending else report.violations):
         if model_types.get(str(violation.resource), set()) & family:
             shape = violation.shape_curie or _short(violation.shape)
             violated.setdefault((shape, violation.attribute or ''), []).append(
@@ -511,9 +548,11 @@ def build_type_page(package, entity_type):
                 attributes += _attribute_rows(package, child, kind_of, 0,
                                               coverage, violated)
 
-    outcomes = {o.example: o for o in run_tests(
-        [(example, report) for example, _, report in cases],
-        known_constraints(package))}
+    cases_pending = any(r is None for _, _, r in cases)
+    outcomes = {} if cases_pending else {
+        o.example: o for o in run_tests(
+            [(example, report) for example, _, report in cases],
+            known_constraints(package))}
     exercised = []
     for example, graph, case_report in cases:
         typed = sorted({str(s) for s, o in graph.subject_objects(RDF.type)
@@ -524,15 +563,17 @@ def build_type_page(package, entity_type):
         exercised.append({
             'case': example.path, 'description': example.description,
             'expect': example.expect, 'entities': typed,
-            'passed': bool(outcome and outcome.passed),
+            'passed': None if cases_pending else bool(outcome and outcome.passed),
             'file': os.path.join(_examples_root(package), example.path)})
 
     instances = []
     for subject, types in sorted(model_types.items()):
         if types & family:
-            problems = [v for v in report.violations if str(v.resource) == subject]
+            problems = [] if pending else [v for v in report.violations
+                                           if str(v.resource) == subject]
             instances.append({'id': subject, 'type': _short(next(iter(types & family))),
-                              'violations': [f'{constraint_ref(v)}' for v in problems]})
+                              'violations': None if pending else
+                              [f'{constraint_ref(v)}' for v in problems]})
 
     rules = _rules(package, shape_nodes, coverage)
 
@@ -581,9 +622,10 @@ def build_type_page(package, entity_type):
         'exercisedBy': exercised, 'instances': instances,
         'summary': {
             'cases': len(exercised),
-            'casesFailing': sum(1 for e in exercised if not e['passed']),
+            'casesFailing': sum(1 for e in exercised if e['passed'] is False),
             'instances': len(instances),
-            'instancesViolating': sum(1 for i in instances if i['violations']),
+            'instancesViolating': None if pending else
+            sum(1 for i in instances if i['violations']),
             'neverFired': sum(1 for a in attributes if a['tested'] == 'never fired')
             + sum(1 for r in rules if r['tested'] == 'never fired'),
         },

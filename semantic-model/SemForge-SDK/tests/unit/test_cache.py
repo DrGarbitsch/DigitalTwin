@@ -199,22 +199,33 @@ def test_a_second_server_serves_the_views_from_disk(root):
                        'params': {'processId': os.getpid(), 'rootUri': 'file://' + root,
                                   'capabilities': {}}})
             assert live.wait_for(lambda m: m.get('id') == 1)
-            out = {}
-            for number, method in enumerate(('semforge/knowledge', 'semforge/model',
-                                             'semforge/tree', 'semforge/project'), 10):
+
+            def ask(number, method):
                 live.send({'jsonrpc': '2.0', 'id': number, 'method': method,
                            'params': {'uri': 'file://' + os.path.join(root, 'shacl.ttl')}})
                 reply = live.wait_for(lambda m, n=number: m.get('id') == n)[0]['result']
                 assert not reply.get('error'), reply.get('error')
-                out[method] = reply
+                return reply
+
+            # The Model tree carries verdicts, validated in the background and
+            # cached only once they are in: wait for them, as a user would.
+            if ask(9, 'semforge/model')['verdicts']['state'] != 'ready':
+                assert live.wait_for(lambda m: m.get('method') == 'semforge/verdicts'
+                                     and m['params']['state'] == 'ready', seconds=120)
+            out = {}
+            for number, method in enumerate(('semforge/knowledge', 'semforge/model',
+                                             'semforge/tree', 'semforge/project'), 10):
+                out[method] = ask(number, method)
             return out
         finally:
             live.close()
 
     first = views()
     second = views()
-    assert not any(r['cached'] for r in first.values())
+    assert not any(r['cached'] for method, r in first.items() if method != 'semforge/model')
     assert all(r['cached'] for r in second.values())
+    assert second['semforge/model']['verdicts']['state'] == 'ready', \
+        'the second server reads the verdicts from disk rather than validating'
     assert second['semforge/knowledge']['roots'] == first['semforge/knowledge']['roots']
     labels = [r['label'] for r in second['semforge/project']['roots']]
     assert labels[-1] == 'Cache', 'the project view shows the cache'

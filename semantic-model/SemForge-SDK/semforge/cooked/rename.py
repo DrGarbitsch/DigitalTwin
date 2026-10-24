@@ -365,8 +365,6 @@ def rename_suite(package, suite, new_name):
 
 # --- a rename typed into the .ttl ------------------------------------------------------
 
-THIS = URIRef('urn:semforge:this-shape')
-
 
 def shape_prints(package):
     """{shape IRI: fingerprint of what it says}, its own name left out.
@@ -378,25 +376,32 @@ def shape_prints(package):
     import hashlib
 
     from rdflib import BNode
-    from rdflib.compare import to_canonical_graph
 
     graph = package.shapes
+
+    # A shape is a tree of blank nodes (property shapes, lists), so writing
+    # each node as its sorted (predicate, object) pairs, blank nodes nested,
+    # names it up to blank node labels -- in linear time. rdflib's
+    # to_canonical_graph solves general graph isomorphism instead: 79 s for
+    # the OPC UA pump shapes, on every load of the package.
+    def text(node, shape, path):
+        if node == shape:
+            return '<this>'
+        if not isinstance(node, BNode):
+            return node.n3()
+        if node in path:
+            return '<cycle>'
+        inner = sorted(f'{p.n3()} {text(o, shape, path | {node})}'
+                       for p, o in graph.predicate_objects(node))
+        return '[' + ' ; '.join(inner) + ']'
+
     out = {}
     for shape in set(graph.subjects(RDF.type, SH.NodeShape)):
         if not isinstance(shape, URIRef):
             continue
-        own = Graph()
-        seen, todo = {shape}, [shape]
-        while todo:
-            node = todo.pop()
-            for predicate, obj in graph.predicate_objects(node):
-                own.add((THIS if node == shape else node, predicate,
-                         THIS if obj == shape else obj))
-                if isinstance(obj, BNode) and obj not in seen:
-                    seen.add(obj)
-                    todo.append(obj)
-        text = '\n'.join(sorted(to_canonical_graph(own).serialize(format='nt').splitlines()))
-        out[str(shape)] = hashlib.sha256(text.encode('utf-8')).hexdigest()
+        body = '\n'.join(sorted(f'{p.n3()} {text(o, shape, frozenset())}'
+                                for p, o in graph.predicate_objects(shape)))
+        out[str(shape)] = hashlib.sha256(body.encode('utf-8')).hexdigest()
     return out
 
 

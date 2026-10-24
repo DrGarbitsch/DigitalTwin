@@ -250,7 +250,7 @@ def _attribute_node(name, value, entity, path, findings):
     return node
 
 
-def build_suite(package, expectations=None):
+def build_suite(package, expectations=None, verdicts=None):
     """Every declared example as its own root, with what it is for and how it did.
 
     The package's own model-instance is included as a root too. It is not a
@@ -261,9 +261,15 @@ def build_suite(package, expectations=None):
     that declares them. Editing a subobject in place would change every case
     that includes it, which is a decision to take deliberately in that file
     rather than a side effect of editing one example.
+
+    `verdicts` as for build_type_page (cooked/typepage.py): with PENDING, or
+    for a case they do not cover yet, the case says "evaluating…" instead of
+    passing or failing; without it, every case is validated here.
     """
     from ..expect.store import compose, load_expectations
     from ..validate.orchestrator import validate_graphs
+    from ..validate.results import Report
+    from .typepage import PENDING
 
     expectations = expectations or load_expectations(package.path)
     notes = _identity_notes(package)
@@ -277,13 +283,21 @@ def build_suite(package, expectations=None):
     for example in expectations.examples:
         try:
             graph = compose(package, example)
-            report = validate_graphs(graph, package.shapes, package.knowledge,
-                                     strict=False)
+            if verdicts is PENDING:
+                report = None
+            elif verdicts is not None:
+                report = verdicts.cases.get(example.path)
+            else:
+                report = validate_graphs(graph, package.shapes, package.knowledge,
+                                         strict=False)
         except Exception as exc:                   # noqa: BLE001
             node = ExampleNode(kind='example', label=example.path,
                                detail=f'error: {exc}', severity='violation')
         else:
-            node = _example_root(package, example, report, notes, shared)
+            node = _example_root(package, example, report or Report(), notes, shared)
+            if report is None:
+                node.severity = ''
+                node.detail = 'evaluating…'
 
         target = by_suite.setdefault(example.suite, []) if example.suite \
             else loose
@@ -314,7 +328,7 @@ def build_suite(package, expectations=None):
     cases.children = roots
     cases.severity = 'violation' if any(n.severity for n in roots) else ''
 
-    documents = _model_roots(package, notes)
+    documents = _model_roots(package, notes, verdicts)
     main = ExampleNode(
         kind='group', label='Main',
         detail=' · '.join(p for p in (
@@ -418,7 +432,7 @@ def _example_root(package, example, report, notes=None, shared=None):
     return node
 
 
-def _model_roots(package, notes=None):
+def _model_roots(package, notes=None, verdicts=None):
     """The model instance, as one root per document.
 
     It is the scratchpad, not a test: violations here are how somebody finds out
@@ -429,8 +443,15 @@ def _model_roots(package, notes=None):
     import os
 
     from ..validate import validate_package
+    from ..validate.results import Report
+    from .typepage import PENDING
 
-    report = validate_package(package, strict=False)
+    if verdicts is PENDING:
+        report = Report()
+    elif verdicts is not None:
+        report = verdicts.model
+    else:
+        report = validate_package(package, strict=False)
     roots = []
     documents = package.files('model')
     for document in documents:

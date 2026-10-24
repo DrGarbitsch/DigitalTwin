@@ -376,7 +376,11 @@ class ModelTreeProvider {
       this.message(`SemForge: ${result.error}`);
       return [];
     }
-    this.message(undefined);
+    // Validated in the background: the tree is here already, and says so
+    // until the verdicts are in (they bring it back, see register).
+    this.verdictState = result.verdicts ? result.verdicts.state : 'ready';
+    this.message(this.verdictState === 'evaluating'
+      ? '⟳ Validating in the background — results follow.' : undefined);
     this.parents = new Map();
     // Kept so a row can be found without the view having expanded to it: the
     // knowledge view asks for an entity by id, and that entity usually sits
@@ -972,7 +976,12 @@ function register(context, clientHolder, session, onChanged) {
   provider.refresh(session.uri);
   context.subscriptions.push(
     session.onDidChange((uri) => provider.setPackage(uri)),
-    vscode.workspace.onDidSaveTextDocument(() => provider.refresh())
+    vscode.workspace.onDidSaveTextDocument(() => provider.refresh()),
+    ...(clientHolder.onVerdicts ? [clientHolder.onVerdicts(() => {
+      if (provider.verdictState && provider.verdictState !== 'ready') {
+        provider.refresh();
+      }
+    })] : [])
   );
 
   context.subscriptions.push(

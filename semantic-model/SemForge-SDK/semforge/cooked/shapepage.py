@@ -18,7 +18,7 @@ from rdflib.namespace import RDF, RDFS, SH
 from ..errors import PackageError
 from ..validate.normalise import curie, local
 from .shapes import is_rule_only, target_short, targets, used_by
-from .typepage import (_attribute_rows, _cases, _coverage, _examples_root,
+from .typepage import (PENDING, _attribute_rows, _cases, _coverage, _examples_root,
                        _rules, _short)
 
 # The nodes a page lists by name; past this it says how many more.
@@ -114,8 +114,12 @@ def _checks(package, shape):
     return out
 
 
-def build_shape_page(package, shape):
-    """The payload the shape page renders. Reads only."""
+def build_shape_page(package, shape, verdicts=None):
+    """The payload the shape page renders. Reads only.
+
+    `verdicts` as for build_type_page: PENDING builds the structure with
+    "evaluating" where a verdict belongs; without it, validated here.
+    """
     from ..expect.runner import run_tests
     from ..sanity import known_constraints
     from ..validate import validate_package
@@ -128,12 +132,18 @@ def build_shape_page(package, shape):
     declared = targets(package, shape)
     users = used_by(package, shape)
 
-    cases = _cases(package)
+    cases = _cases(package, verdicts)
     coverage = _coverage(cases)
     kind_of = {a.iri: a.kind for a in attribute_terms(package) if a.kind}
 
-    report = validate_package(package, strict=False)
-    mine = [v for v in report.violations if str(v.shape) == str(shape)]
+    if verdicts is PENDING:
+        report = None
+    elif verdicts is not None:
+        report = verdicts.model
+    else:
+        report = validate_package(package, strict=False)
+    pending = report is None
+    mine = [] if pending else [v for v in report.violations if str(v.shape) == str(shape)]
     violated = {}
     for violation in mine:
         violated.setdefault((name, violation.attribute or ''), []).append(
@@ -150,7 +160,8 @@ def build_shape_page(package, shape):
     reached = sorted(_reach(package, shape, package.model))
     known = {entry.iri: entry.label for entry in entity_types(package)[0]}
     types = _types_of(package.model, reached)
-    outcomes = {o.example: o for o in run_tests(
+    cases_pending = any(r is None for _, _, r in cases)
+    outcomes = {} if cases_pending else {o.example: o for o in run_tests(
         [(example, case_report) for example, _, case_report in cases],
         known_constraints(package))}
     exercised = []
@@ -159,14 +170,15 @@ def build_shape_page(package, shape):
         if not nodes:
             continue
         types |= _types_of(graph, nodes)
-        firing = [v for v in case_report.violations if str(v.shape) == str(shape)]
-        fired = len(firing)
+        firing = [] if case_report is None else \
+            [v for v in case_report.violations if str(v.shape) == str(shape)]
+        fired = None if case_report is None else len(firing)
         outcome = outcomes.get(example.path)
         exercised.append({
             'case': example.path, 'description': example.description,
             'expect': example.expect, 'entities': sorted(nodes)[:LISTED],
             'fired': fired, 'firedOn': sorted({str(v.resource) for v in firing}),
-            'passed': bool(outcome and outcome.passed),
+            'passed': None if cases_pending else bool(outcome and outcome.passed),
             'file': os.path.join(_examples_root(package), example.path)})
 
     problems = {}
@@ -202,14 +214,15 @@ def build_shape_page(package, shape):
                          else {'iri': t, 'label': _short(t), 'page': False}
                          for t in types], key=lambda t: t['label'].lower()),
         'reach': {'model': len(reached),
-                  'nodes': [{'id': n, 'violations': problems.get(n, [])}
+                  'nodes': [{'id': n, 'violations': None if pending else problems.get(n, [])}
                             for n in reached[:LISTED]],
                   'more': max(0, len(reached) - LISTED)},
         'exercisedBy': exercised,
         'summary': {
-            'reached': len(reached), 'violations': len(mine),
+            'reached': len(reached), 'violations': None if pending else len(mine),
             'cases': len(exercised),
-            'casesFailing': sum(1 for e in exercised if not e['passed']),
-            'neverFired': not fired_anywhere and bool(attributes or rules),
+            'casesFailing': sum(1 for e in exercised if e['passed'] is False),
+            'neverFired': None if cases_pending
+            else not fired_anywhere and bool(attributes or rules),
         },
     }
