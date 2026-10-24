@@ -1425,6 +1425,11 @@ falls back to the whole knowledge. On the pump package that is 31,356 of
 217,582 triples, validation 13 s → 2-4 s, verdicts unchanged. The same
 read-set, per constraint, is what incremental scope will key on.
 
+Loading is cached below that (`package/graphcache.py`): each Turtle file is
+parsed once per content (sha256, with the rdflib version) and read back from a
+JSON term table, prefixes included, blank nodes fresh — the pump package loads
+in 3 s instead of 7.4 s. What remains is rdflib building its indexes.
+
 This is the *only* sanctioned way to evaluate fewer constraints, and the keying
 is load-bearing rather than an optimisation detail: because an entry is keyed by
 the constraint that produced it, adding or editing a constraint invalidates

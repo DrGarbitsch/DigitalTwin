@@ -1713,6 +1713,12 @@ design. Measured on the kms: a cold start takes about 4.6 s to have all four
 views ready, a reload with nothing changed about 1.6 s (most of it starting
 Python).
 
+Parsed Turtle is kept too, in `.semforge/cache/graphs/`: each `.ttl` is
+parsed once per content and read back as a term table afterwards — the same
+triples and prefixes, in less than half the time (the OPC UA pump package loads
+in 3 s instead of 7.4 s; 7.3 MB of cache for 12.8 MB of Turtle). An edit
+replaces that file's entry; **Delete cache…** removes it with the views.
+
 **Validation runs in the background.** A page answers with what it shows —
 attributes, shapes, cases, cards — at once, and says *⟳ evaluating…* where a
 verdict belongs: the coverage chips, the instances' ✓/✗, a case's pass or

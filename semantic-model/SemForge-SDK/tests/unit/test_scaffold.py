@@ -195,9 +195,12 @@ def test_new_and_init_produce_the_same_package(tmp_path):
     CliRunner().invoke(cli, ['init', str(second), '--name', 'twinned'])
 
     def layout(root):
+        # .semforge/ holds what loading derives (parsed graphs, views), not
+        # the package: its entries name the package's own path.
         return sorted(
             os.path.relpath(os.path.join(base, name), root)
-            for base, _, names in os.walk(root) for name in names)
+            for base, _, names in os.walk(root) for name in names
+            if '.semforge' not in os.path.relpath(base, root).split(os.sep))
 
     assert layout(str(tmp_path / 'twinned')) == layout(str(second))
 

@@ -225,10 +225,13 @@ def load(path):
         # The package still loads: a vocabulary that is offline, missing or
         # fails its hash is reported (ngsild-unavailable), not fatal.
         package.vocabulary_error = str(exc).strip() or type(exc).__name__
+    # Parsed once per content, then read back from .semforge/cache/graphs
+    # (package/graphcache.py): the same triples and prefixes, in half the time.
+    from .graphcache import parse_turtle
     for document in documents['knowledge']:
-        package.knowledge.parse(document, format='turtle')
+        parse_turtle(package.knowledge, document, path)
     for document in documents['shapes']:
-        package.shapes.parse(document, format='turtle')
+        parse_turtle(package.shapes, document, path)
 
     # The model names the PUBLISHED context on disk; loading answers it from the
     # local copy. Editing the file to point at a local path would make the
