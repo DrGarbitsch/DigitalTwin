@@ -16,7 +16,7 @@ const { showLocation } = require('./reveal');
 const { escape, verdictNote, showLoading } = require('./typepage');
 
 function chip(text, tone, title) {
-  return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
+  return `<span class="chip ${tone || ''}" title="${escape(title || text)}">` +
     `${escape(text)}</span>`;
 }
 
@@ -211,6 +211,8 @@ function renderCasePage(page, options) {
   .chips, .bar { display: flex; flex-wrap: wrap; gap: 6px; }
   .bar { margin-top: 10px; gap: 8px; }
   .chip { font-size: 0.86em; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+          display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+          vertical-align: bottom; box-sizing: border-box;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
@@ -229,18 +231,27 @@ function renderCasePage(page, options) {
   .file .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 8px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .card { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 4px;
-          padding: 10px 12px; display: grid; gap: 4px; align-content: start; }
+          padding: 10px 12px; display: grid; gap: 4px; align-content: start;
+          min-width: 0; overflow-wrap: anywhere; }
   .card.bad { border-color: var(--vscode-errorForeground, #f14c4c); }
   .card.focus { box-shadow: 0 0 0 2px var(--vscode-focusBorder, #0078d4);
                 background: var(--vscode-editor-selectionHighlightBackground, transparent); }
   .attr.depth1 { padding-left: 16px; } .attr.depth2 { padding-left: 32px; }
   .attr.depth3 { padding-left: 48px; } .attr.depth4 { padding-left: 64px; }
   .card .title { font-weight: 600; margin-bottom: 4px; }
-  .attr { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: 2px 12px; }
+  /* A name takes what it needs; the value keeps at least 6em; only a name
+     longer than what is left wraps. */
+  .attr { display: grid; grid-template-columns: minmax(6em, max-content) minmax(6em, 1fr);
+          gap: 2px 12px; }
+  .attr > * { min-width: 0; }
+  /* A name breaks only when it cannot fit at all: "anywhere" would make its
+     smallest width one letter, and the grid would break short names too. */
+  .attr > .name { overflow-wrap: break-word; }
   .attr .value { font-family: var(--vscode-editor-font-family); font-size: 0.92em;
                  overflow-wrap: anywhere; }
   button.mini { padding: 0 6px; font-size: 0.86em; margin-left: 4px; }
   .card .title { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+  .card .title > * { min-width: 0; }
   .card .title .acts, .file .head .acts { margin-left: auto; }
   .problem { grid-column: 1 / -1; color: var(--vscode-errorForeground, #f14c4c);
              border-left: 2px solid currentColor; padding-left: 8px; font-size: 0.92em; }

@@ -24,7 +24,7 @@ const { escape, attributeRows: typeRows, EDITS, verdictNote, showLoading } = req
 const { pickTarget } = require('./shapes');
 
 function chip(text, tone, title) {
-  return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
+  return `<span class="chip ${tone || ''}" title="${escape(title || text)}">` +
     `${escape(text)}</span>`;
 }
 
@@ -204,6 +204,8 @@ function renderShapePage(page, options) {
   .sechead h2 { font-size: 0.78em; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
                 color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
   .chip { font-size: 0.84em; padding: 0 8px; border-radius: 999px; white-space: nowrap;
+          display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+          vertical-align: bottom; box-sizing: border-box;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
@@ -232,11 +234,14 @@ function renderShapePage(page, options) {
               font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .line { margin: 4px 0; }
   .nodes { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0; }
+  .node { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .node.bad { color: var(--vscode-errorForeground, #f14c4c); }
   .fold { margin-top: 6px; }
   .target { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline;
             padding: 4px 0; }
-  .case { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: baseline;
+  .case > *, .target > * { min-width: 0; overflow-wrap: anywhere; }
+  .case { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 10px;
+          align-items: baseline;
           padding: 4px 0; }
   .table { overflow-x: auto; margin-top: 6px;
            border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }

@@ -33,7 +33,7 @@ const TESTED_CLASS = {
 };
 
 function chip(text, tone, title) {
-  return `<span class="chip ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
+  return `<span class="chip ${tone || ''}" title="${escape(title || text)}">` +
     `${escape(text)}</span>`;
 }
 
@@ -341,6 +341,8 @@ function renderTypePage(page, options) {
                 color: var(--vscode-descriptionForeground); margin: 0; flex: 1 1 auto; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { font-size: 0.86em; padding: 0 8px; border-radius: 999px; white-space: nowrap;
+          display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+          vertical-align: bottom; box-sizing: border-box;
           border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .chip.ok { color: var(--vscode-testing-iconPassed, #388a34); border-color: currentColor; }
   .chip.bad { color: var(--vscode-errorForeground, #f14c4c); border-color: currentColor; }
@@ -380,7 +382,9 @@ function renderTypePage(page, options) {
   .rule .acts { display: flex; gap: 4px; }
   .rule .acts button, td.acts button { padding: 0 8px; }
   div.group { font-size: 0.86em; color: var(--vscode-descriptionForeground); margin: 8px 0 0; }
-  .inst { display: grid; grid-template-columns: 1.2em minmax(12em, auto) auto 1fr; gap: 10px;
+  .inst > * { min-width: 0; overflow-wrap: anywhere; }
+  .inst { display: grid; grid-template-columns: 1.2em minmax(12em, 2fr) minmax(0, auto) minmax(0, 3fr);
+          gap: 10px;
           align-items: baseline; padding: 3px 0; }
   .empty { color: var(--vscode-descriptionForeground); font-style: italic; margin: 4px 0; }
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
