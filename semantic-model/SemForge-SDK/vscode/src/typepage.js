@@ -464,11 +464,13 @@ function showLoading(panel, what, switching) {
     return () => {};
   }
   const timer = setTimeout(() => {
-    if (panel.webview) {
+    try {
       panel.webview.html = `<!DOCTYPE html><html><head><meta charset="utf-8">` +
         `<meta http-equiv="Content-Security-Policy" content="default-src 'none';"></head>` +
         `<body style="font-family:var(--vscode-font-family);color:var(--vscode-descriptionForeground);` +
         `padding:20px"><p>⟳ Loading ${escape(what)}…</p></body></html>`;
+    } catch (error) {
+      // Closed within the 150 ms: there is nothing left to say it to.
     }
   }, 150);
   return () => clearTimeout(timer);

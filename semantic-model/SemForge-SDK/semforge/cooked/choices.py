@@ -291,6 +291,10 @@ class AttributeTerm:
     # of node carries it is rdfs:domain's, and that is `carrier_kind`.
     parents: tuple = ()
     carrier_kind: str = ''    # Property | Relationship | ... when it nests
+    # Every kind that may carry it: `base:boundBy` is declared on both, and
+    # picking one -- whichever the graph yielded first -- made "may it nest
+    # here?" a coin toss. carrier_kind says them all, joined with "or".
+    carrier_kinds: tuple = ()
     # Is this an NGSI-LD attribute at all? knowledge.ttl also declares the
     # ontology's own relations -- `base:bindsFirmware`, `material:contains` --
     # which are never keys in a document and which no shape should constrain.
@@ -420,11 +424,13 @@ def attribute_terms(package):
                 else 'Property'
         comment = next((str(t) for t in package.knowledge.objects(iri, RDFS.label)),
                        '')
-        carrier_kind = next((sub_domains[str(d)] for d in domains
-                             if str(d) in sub_domains), '')
+        carrier_kinds = tuple(sorted({sub_domains[str(d)] for d in domains
+                                      if str(d) in sub_domains}))
+        carrier_kind = ' or '.join(carrier_kinds)
         found.append(AttributeTerm(
             iri=str(iri), term=model_term(package, iri), label=local(iri),
-            kind=kind, carrier_kind=carrier_kind, ngsild=is_ngsild,
+            kind=kind, carrier_kind=carrier_kind, carrier_kinds=carrier_kinds,
+            ngsild=is_ngsild,
             domain=model_term(package, domains[0]) if domains else '',
             domain_iri=str(domains[0]) if domains else '',
             domains=tuple(model_term(package, d) for d in domains),
@@ -488,7 +494,7 @@ def sub_attributes_for(package, parent):
     placed = [entry for entry in declared if carrier.term in entry.parents]
     seen = {entry.iri for entry in placed}
     allowed = [entry for entry in declared
-               if entry.carrier_kind and entry.carrier_kind == carrier.kind
+               if carrier.kind and carrier.kind in entry.carrier_kinds
                and entry.iri not in seen]
     return placed + allowed
 

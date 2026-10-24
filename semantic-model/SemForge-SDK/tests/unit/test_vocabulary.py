@@ -207,6 +207,23 @@ def test_a_sub_attribute_is_not_offered_as_an_entity_attribute(package):
     assert 'iffBaseEntities:hasXXXWorkpiece' not in offered
 
 
+def test_an_attribute_declared_on_both_kinds_nests_in_either(package):
+    """base:boundBy has rdfs:domain ngsild:Property AND ngsild:Relationship.
+
+    Taking the first domain the graph yielded offered it under one kind or the
+    other at random -- which showed only once loading stopped yielding the
+    triples in the same order every time.
+    """
+    from semforge.cooked.choices import attribute_terms, sub_attributes_for
+
+    bound = next(e for e in attribute_terms(package) if e.label == 'boundBy')
+    assert bound.carrier_kinds == ('Property', 'Relationship')
+    assert bound.carrier_kind == 'Property or Relationship'
+    on_property = {e.label for e in sub_attributes_for(package, 'iffBaseEntities:hasState')}
+    on_relationship = {e.label for e in sub_attributes_for(package, 'iffBaseEntities:hasFilter')}
+    assert 'boundBy' in on_property and 'boundBy' in on_relationship
+
+
 def test_the_sub_attributes_of_an_attribute_can_be_asked_for(package):
     """Which is the question a nested picker asks.
 
@@ -220,7 +237,8 @@ def test_the_sub_attributes_of_an_attribute_can_be_asked_for(package):
     assert found[0].kind == 'Property'
     assert found[0].parents == ('iffBaseEntities:hasFilter',)
     # hasFilter is a Relationship, so only things declared to hang off one.
-    assert all(entry.carrier_kind in ('Relationship', '') for entry in found)
+    assert all(not entry.carrier_kinds or 'Relationship' in entry.carrier_kinds
+               for entry in found)
 
     on_state = sub_attributes_for(package, 'iffBaseEntities:hasState')
     assert 'iffBaseEntities:hasXXXWorkpiece' in {e.term for e in on_state}
@@ -292,7 +310,7 @@ def test_placed_sub_attributes_come_before_merely_allowed_ones(package):
     found = sub_attributes_for(package, 'iffBaseEntities:hasState')
     assert found[0].term == 'iffBaseEntities:hasXXXWorkpiece'
     assert found[0].parents == ('iffBaseEntities:hasState',)
-    assert any(entry.parents == () and entry.carrier_kind == 'Property'
+    assert any(entry.parents == () and 'Property' in entry.carrier_kinds
                for entry in found[1:]), [e.term for e in found]
 
 

@@ -50,10 +50,17 @@ def _changed_lines(before, after):
 
 
 def _value_layer(root, shape, attribute):
+    """The attribute's value layer -- the nested shape on hasValue/hasObject.
+
+    Not just any nested sh:property: hasState also nests its sub-attribute
+    hasXXXWorkpiece, and graph.value() picks one of several arbitrarily.
+    """
     graph = load(root).shapes
     for group in graph.objects(URIRef(shape), SH.property):
         if (group, SH.path, URIRef(attribute)) in graph:
-            return graph, graph.value(group, SH.property)
+            for nested in graph.objects(group, SH.property):
+                if str(graph.value(nested, SH.path)).startswith(NGSILD):
+                    return graph, nested
     raise AssertionError(f'{attribute} not on {shape}')
 
 
