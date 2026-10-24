@@ -130,6 +130,26 @@ def test_a_slow_page_says_it_is_loading(tmp_path):
     assert 'evaluating' in html[-1] and 'Loading' not in html[-1]
 
 
+def test_results_wait_for_an_open_edit():
+    """Results arriving while an edit is open never redraw the page under it.
+
+    Driven on the type, shape and case pages: during a picker of the
+    extension's and during the page's own editor the redraw waits, and comes
+    once when the edit ends; with nothing open it comes at once; a page whose
+    results are final is not redrawn.
+    """
+    node = shutil.which('node')
+    if node is None:
+        pytest.skip('node is not installed')
+    out = subprocess.run([node, os.path.join(SDK, 'tests', 'harness', 'defer.js'), SRC],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr[-1500:]
+    seen = json.loads(out.stdout.strip().splitlines()[-1])
+    for page in ('type', 'shape', 'case'):
+        assert seen[page] == {'duringPicker': 0, 'afterPicker': 1, 'duringEditor': 1,
+                              'afterEditor': 2, 'idle': 3, 'final': 3}, (page, seen[page])
+
+
 def test_a_quick_page_does_not_flicker(tmp_path):
     seen = _open(tmp_path, PAGE)
     assert not any('Loading' in h for h in seen['webviews'][0]['html'])

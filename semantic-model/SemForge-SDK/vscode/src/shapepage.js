@@ -339,6 +339,7 @@ class ShapePages {
   }
 
   async render() {
+    this.editing = false;      // a redraw closes any editor the page had open
     if (!this.panel || !this.current) {
       return;
     }
@@ -368,7 +369,44 @@ class ShapePages {
       { nonce: crypto.randomBytes(16).toString('base64') });
   }
 
+  /**
+   * Every message from the page, one edit at a time as far as refreshing goes:
+   * results that arrive while an edit is under way -- a picker of the
+   * extension's, or the page's own editor (`editing`) -- wait for it to end,
+   * so the page is never redrawn under someone's hands.
+   */
   async receive(message) {
+    if (message && message.command === 'editing') {
+      this.editing = !!message.open;
+      this.flushRefresh();
+      return;
+    }
+    this.busy = (this.busy || 0) + 1;
+    try {
+      await this.handle(message);
+    } finally {
+      this.busy -= 1;
+      this.flushRefresh();
+    }
+  }
+
+  /** The background validation finished: a page still waiting for it asks again. */
+  verdictsArrived() {
+    const state = this.page && this.page.verdicts && this.page.verdicts.state;
+    if (state && state !== 'ready') {
+      this.refreshPending = true;
+      this.flushRefresh();
+    }
+  }
+
+  flushRefresh() {
+    if (this.refreshPending && !this.busy && !this.editing) {
+      this.refreshPending = false;
+      this.refresh();
+    }
+  }
+
+  async handle(message) {
     if (!message || !this.current) {
       return;
     }
@@ -583,13 +621,6 @@ class ShapePages {
     }
   }
 
-  /** The background validation finished: a page still waiting for it asks again. */
-  verdictsArrived() {
-    const state = this.page && this.page.verdicts && this.page.verdicts.state;
-    if (state && state !== 'ready') {
-      this.refresh();
-    }
-  }
 }
 
 async function pickShape(client, packageUri) {

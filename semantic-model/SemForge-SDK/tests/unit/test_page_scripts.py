@@ -108,8 +108,11 @@ def test_a_click_on_a_time_opens_the_picker_and_set_sends_it():
     assert out.returncode == 0, out.stdout + out.stderr
     assert 'picker: div stampedit | datetime-local 2026-01-01T00:00:00.000 | ' \
         'Set | Now | Just after the latest | Remove | ×' in out.stdout
-    assert 'posted: [{"command":"stamp","at":"0.0.0","value":"2026-03-04T05:06:07.890Z"}]' \
-        in out.stdout
+    # The picker says when it opens and closes, so results arriving meanwhile
+    # wait for it instead of redrawing the page under it.
+    assert 'posted: [{"command":"editing","open":true},' \
+        '{"command":"stamp","at":"0.0.0","value":"2026-03-04T05:06:07.890Z"},' \
+        '{"command":"editing","open":false}]' in out.stdout
 
 
 def test_the_vocabulary_page_script_parses(tmp_path, kms):

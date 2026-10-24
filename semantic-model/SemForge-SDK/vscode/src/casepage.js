@@ -300,8 +300,14 @@ ${files.map((file, f) => `<div class="file"><div class="head">
   function stampEditor(link) {
     const row = link.closest('.attr') || link;
     const open = row.nextElementSibling;
-    if (open && open.classList.contains('stampedit')) { open.remove(); return; }
+    if (open && open.classList.contains('stampedit')) {
+      open.remove();
+      vscode.postMessage({ command: 'editing', open: false });
+      return;
+    }
     const box = document.createElement('div');
+    // Said to the extension, so results arriving meanwhile wait for it.
+    const close = () => { box.remove(); vscode.postMessage({ command: 'editing', open: false }); };
     box.className = 'stampedit';
     const zone = document.createElement('span');
     zone.className = 'zone';
@@ -314,7 +320,7 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     box.append(zone, input);
     const send = (value) => {
       vscode.postMessage({ command: 'stamp', at: link.dataset.stamp, value });
-      box.remove();
+      close();
     };
     const button = (label, title, act) => {
       const b = document.createElement('button');
@@ -331,7 +337,7 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     };
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); set(); }
-      if (event.key === 'Escape') { event.preventDefault(); box.remove(); }
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
     });
     button('Set', 'Write this time as its observedAt (Enter)', set);
     button('Now', 'The time it is now', () => send(new Date().toISOString()));
@@ -342,8 +348,9 @@ ${files.map((file, f) => `<div class="file"><div class="head">
     if (link.dataset.current) {
       button('Remove', 'No observedAt: it then counts as now, as on the platform', () => send(''));
     }
-    button('×', 'Close (Esc)', () => box.remove());
+    button('×', 'Close (Esc)', close);
     row.after(box);
+    vscode.postMessage({ command: 'editing', open: true });
     input.focus();
   }
   document.addEventListener('click', (event) => {
@@ -421,6 +428,7 @@ class CasePages {
   }
 
   async render() {
+    this.editing = false;      // a redraw closes any editor the page had open
     if (!this.panel || !this.current) {
       return;
     }
@@ -457,7 +465,44 @@ class CasePages {
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }
 
+  /**
+   * Every message from the page, one edit at a time as far as refreshing goes:
+   * results that arrive while an edit is under way -- a picker of the
+   * extension's, or the page's own editor (`editing`) -- wait for it to end,
+   * so the page is never redrawn under someone's hands.
+   */
   async receive(message) {
+    if (message && message.command === 'editing') {
+      this.editing = !!message.open;
+      this.flushRefresh();
+      return;
+    }
+    this.busy = (this.busy || 0) + 1;
+    try {
+      await this.handle(message);
+    } finally {
+      this.busy -= 1;
+      this.flushRefresh();
+    }
+  }
+
+  /** The background validation finished: a page still waiting for it asks again. */
+  verdictsArrived() {
+    const state = this.page && this.page.verdicts && this.page.verdicts.state;
+    if (state && state !== 'ready') {
+      this.refreshPending = true;
+      this.flushRefresh();
+    }
+  }
+
+  flushRefresh() {
+    if (this.refreshPending && !this.busy && !this.editing) {
+      this.refreshPending = false;
+      this.refresh();
+    }
+  }
+
+  async handle(message) {
     if (!message || !this.current) {
       return;
     }
@@ -665,13 +710,6 @@ class CasePages {
     }
   }
 
-  /** The background validation finished: a page still waiting for it asks again. */
-  verdictsArrived() {
-    const state = this.page && this.page.verdicts && this.page.verdicts.state;
-    if (state && state !== 'ready') {
-      this.refresh();
-    }
-  }
 }
 
 /** Every declared case, from the Model tree's payload, for the palette. */

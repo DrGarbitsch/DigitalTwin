@@ -1734,7 +1734,9 @@ verdict belongs: the coverage chips, the instances' ✓/✗, a case's pass or
 fail, the Problems panel's "fires here". The package is validated once per
 version, in a separate process, and every open page fills in when it is done;
 after an edit a page shows the last results, marked as such, until the new ones
-are in. The verdicts are cached with the views (`verdicts.json`), so reopening
+are in. A page stays editable while it evaluates: results that arrive while an
+edit is open (a picker, the timestamp editor) wait until it is done, so the
+page is never redrawn under your hands. The verdicts are cached with the views (`verdicts.json`), so reopening
 an unchanged package validates nothing. On the OPC UA pump package a class
 page went from 15 s to 0.4 s, the main-model page from 30 s to 0.03 s.
 
