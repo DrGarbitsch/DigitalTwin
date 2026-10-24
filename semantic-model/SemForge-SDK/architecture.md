@@ -1425,6 +1425,19 @@ falls back to the whole knowledge. On the pump package that is 31,356 of
 217,582 triples, validation 13 s → 2-4 s, verdicts unchanged. The same
 read-set, per constraint, is what incremental scope will key on.
 
+After an edit only what it can change is evaluated again
+(`editor/incremental.py`): the validation worker keeps its last run and
+compares file digests. A changed shape is evaluated again together with every
+shape whose tree names it, on the main model and every case, and its results
+replace the old ones; a changed case or include, the cases built from it; a
+changed main model, the main model; changed knowledge, nothing unless a
+changed statement holds a predicate the read-set contains. Rules, the context,
+`semforge.yaml` or a file nobody can classify mean everything. Unchanged
+knowledge and shapes graphs are reused as loaded, and a package without
+`sh:rule` skips the rules pass. `SEMFORGE_VERIFY_INCREMENTAL=1` validates
+everything as well and reports any difference. On the pump package a shape
+edit takes 5 s instead of 8, verdicts identical.
+
 Loading is cached below that (`package/graphcache.py`): each Turtle file is
 parsed once per content (sha256, with the rdflib version) and read back from a
 JSON term table, prefixes included, blank nodes fresh — the pump package loads

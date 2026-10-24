@@ -202,8 +202,15 @@ def _documents_for(path, role, names):
     return []
 
 
-def load(path):
-    """Load a package directory. Raises PackageError naming what is missing."""
+def load(path, reuse=None):
+    """Load a package directory. Raises PackageError naming what is missing.
+
+    `reuse` -- {role: (documents, graph)} from an earlier load -- takes that
+    role's graph as it is when the role is made of the same documents and the
+    caller knows none of them changed (editor/incremental.py): the OPC UA pump
+    knowledge is 217,582 triples that an edit to a shape leaves alone. The
+    graph is shared, so nothing may write to it -- nothing does.
+    """
     if not os.path.isdir(path):
         raise PackageError(f'not a package directory: {path}')
 
@@ -238,10 +245,13 @@ def load(path):
     # Parsed once per content, then read back from .semforge/cache/graphs
     # (package/graphcache.py): the same triples and prefixes, in half the time.
     from .graphcache import parse_turtle
-    for document in documents['knowledge']:
-        parse_turtle(package.knowledge, document, path)
-    for document in documents['shapes']:
-        parse_turtle(package.shapes, document, path)
+    for role in ('knowledge', 'shapes'):
+        kept = (reuse or {}).get(role)
+        if kept is not None and list(kept[0]) == list(documents[role]):
+            setattr(package, role, kept[1])
+            continue
+        for document in documents[role]:
+            parse_turtle(getattr(package, role), document, path)
 
     # The model names the PUBLISHED context on disk; loading answers it from the
     # local copy. Editing the file to point at a local path would make the

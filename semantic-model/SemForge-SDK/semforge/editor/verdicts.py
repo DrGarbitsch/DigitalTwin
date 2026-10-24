@@ -80,19 +80,21 @@ def compute(package, stamp):
     """Validate the main model and every declared case of a loaded package."""
     from ..errors import PackageError
     from ..expect.store import compose, load_expectations
-    from ..validate import validate_package
     from ..validate.orchestrator import validate_graphs
+    from ..validate.readset import knowledge_for
 
     started = time.time()
-    model = validate_package(package, strict=False)
+    # Cut once for every graph of this run (validate/readset.py), not per graph.
+    knowledge = knowledge_for(package.shapes, package.knowledge)
+    model = validate_graphs(package.model, package.shapes, knowledge, strict=False, cut=False)
     cases = {}
     for example in load_expectations(package.path).examples:
         try:
             graph = compose(package, example)
         except PackageError:
             continue
-        cases[example.path] = validate_graphs(graph, package.shapes, package.knowledge,
-                                              strict=False)
+        cases[example.path] = validate_graphs(graph, package.shapes, knowledge,
+                                              strict=False, cut=False)
     return Verdicts(stamp=stamp, model=model, cases=cases,
                     seconds=round(time.time() - started, 2))
 
@@ -100,21 +102,26 @@ def compute(package, stamp):
 # --- where they are computed -----------------------------------------------------
 
 def in_process(load):
-    """run(root, stamp) on this process's own loaded package: the CLI, tests."""
-    return lambda root, stamp: compute(load(root), stamp)
+    """run(root, stamp) in this process: the CLI, tests. Incremental between
+    runs, like the worker (editor/incremental.py)."""
+    from .incremental import Session
+
+    return Session(load).run
 
 
-_worker_packages = {}    # in the worker process: root -> (stamp, package)
+_worker_session = None   # in the worker process: the last run of each package
 
 
 def _compute_in_worker(root, stamp):
-    """Runs in the worker process. Keeps the package it loaded, per version."""
+    """Runs in the worker process. Keeps the last run, so an edit is validated
+    against it rather than from scratch (editor/incremental.py)."""
+    global _worker_session
     from ..package import load
+    from .incremental import Session
 
-    held = _worker_packages.get(root)
-    if held is None or held[0] != stamp:
-        _worker_packages[root] = held = (stamp, load(root))
-    return to_json(compute(held[1], stamp))
+    if _worker_session is None:
+        _worker_session = Session(load)
+    return to_json(_worker_session.run(root, stamp))
 
 
 class ProcessRunner:

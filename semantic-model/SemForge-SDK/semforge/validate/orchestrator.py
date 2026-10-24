@@ -5,7 +5,7 @@ shape that reads its current state cannot share a run. They are partitioned by
 declared view and merged afterwards.
 """
 
-from rdflib import Graph
+from rdflib import Graph, URIRef
 
 from ..errors import Diagnostic, DiagnosticSet
 from ..ngsild import DataView, build_view
@@ -17,8 +17,12 @@ from .results import Report, Result, Status
 
 
 def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
-                    rules=True, cut=True):
+                    rules=True, cut=True, only=None):
     """Validate one already-loaded package. Returns a Report.
+
+    `only` -- a set of shape IRIs (str) -- evaluates just those shapes: the
+    editor's incremental revalidation (editor/incremental.py). Rules still run
+    with every shape, since they rewrite the data all shapes see.
 
     Rules are expanded first, with NGSI-LD update semantics applied between
     iterations. pyshacl's advanced mode would run them too, but as pure triple
@@ -56,6 +60,13 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
 
     for view, view_shapes in sorted(shape_views.partition(shapes_graph).items(),
                                     key=lambda item: item[0].value):
+        if only is not None:
+            # An anonymous shape cannot be told apart between two versions:
+            # it is always evaluated again.
+            view_shapes = [s for s in view_shapes
+                           if not isinstance(s, URIRef) or str(s) in only]
+            if not view_shapes:
+                continue
         graph, stats = build_view(data_graph, view)
         report.view_stats.append(stats)
         subset = shape_views.subgraph_for(shapes_graph, view_shapes)
