@@ -7,7 +7,7 @@ Analysis of the 20 nodesets of `translate_default_nodesets.make` (UA-Nodeset `UA
 
 The analysis uses the standard classification (R3 NamespaceMetadata rule, R5 default fallback), i.e.
 `nodeset2owl.py --strict-classification`. Since then nodeset2owl.py applies by default the heuristic rules R1
-(instance-with-Variables override), R2 (containment override) and R4 (definition fallback), see the
+(instance-with-Variables override), R2 (ParentNodeId override) and R4 (definition fallback), see the
 [README](../README.md#static-and-dynamic-nodes). They resolve the server state on static nodes found below (and
 `OnlineAccess`, `Aliases/LastChange`) as well as the misclassified type system nodes of PackML, ISA95 and IRDI; all
 reclassified nodes are listed in [classification-changes.md](static-dynamic-analysis/classification-changes.md),

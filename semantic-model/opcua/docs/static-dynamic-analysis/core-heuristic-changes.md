@@ -7,17 +7,22 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
 
 ## Summary
 
-- **244 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
+- **516 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
   numeric ranges) classifies them static:
   - **232 by R1** (instance-with-Variables override): 46 instances with their Variables – ServerConfiguration and the
     certificate management, the RoleSet roles, PubSub, the historian defaults, core's NamespaceMetadata,
     UserManagement, `Aliases`, `ProvisionableDevice`.
-  - **12 by R2** (containment override): the folders which are components (HasChild) of dynamic instances:
-    `CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
-    `KeyPushTargets`, `Dictionaries`, `Resources`, `AuthorizationServices`, `KeyCredentialConfiguration`,
-    `AggregateFunctions`, `EventTypes`. Folders which are only organized by dynamic instances (`TagVariables`,
-    `Topics`, `Quantities`, `Communication` and below it) stay static: Organizes does not influence the
-    classification.
+  - **284 by R2** (ParentNodeId override): the nodes whose ParentNodeId is dynamic – 8 folders
+    (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
+    `KeyPushTargets`, `AggregateFunctions`, `EventTypes`), 126 Methods of the dynamic instances (e.g. `AddIdentity`,
+    `RemoveEndpoint` of the 11 roles, `Open`, `CloseAndUpdate` of the trust lists) and their 150
+    `InputArguments`/`OutputArguments`. Core's NamespaceMetadata treats the Methods of the Server object (e.g.
+    `GetMonitoredItems` `i=11492` with its `InputArguments` `i=11493`) the same way.
+  - Not reclassified: the folders `Dictionaries` (`i=17594`), `AuthorizationServices` (`i=17732`),
+    `KeyCredentialConfiguration` (`i=18155`) and `Resources` (`i=24226`) are components (HasComponent) of dynamic
+    instances, but have no ParentNodeId, so R3 decides (static). Folders which are only organized by dynamic
+    instances (`TagVariables`, `Topics`, `Quantities`, `Communication` and below it) stay static: Organizes does not
+    influence the classification.
 - The fallbacks R4 and R5 change nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
   dictionaries static anyway).
 - **All but 7** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 7

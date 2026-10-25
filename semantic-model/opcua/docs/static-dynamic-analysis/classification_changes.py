@@ -34,7 +34,7 @@ import analyze  # noqa: E402
 
 RULES = {
     'R1': 'R1 instance-with-Variables override (static → dynamic)',
-    'R2': 'R2 containment override (static → dynamic)',
+    'R2': 'R2 ParentNodeId override (static → dynamic)',
     'R4': 'R4 definition fallback (instead of R5: dynamic → static)',
 }
 # core TypeDefinitions of the definition types and of folders -> area of the nodes R4 makes static

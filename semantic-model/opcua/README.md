@@ -113,7 +113,7 @@ options:
   --strict-classification
                         Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata rule) and
                         R5 (default fallback: types and instance declarations static, instances dynamic). Disables the
-                        heuristic overrides R1 (instance-with-Variables), R2 (containment) and the heuristic fallback
+                        heuristic overrides R1 (instance-with-Variables), R2 (ParentNodeId) and the heuristic fallback
                         R4 (definition fallback), see README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
@@ -172,9 +172,13 @@ Overrides (heuristic, they overrule R3):
   TypeDefinition are not considered (an instance whose Variables the nodeset does not contain
   keeps the classification of R3). Definition nodes (see R4) are excluded, e.g. every
   ModellingRule has a NamingRule property.
-- **R2 containment override.** An Object below a dynamic instance (HasChild) is dynamic, e.g.
-  the folders `Dictionaries` or `AggregateFunctions` of the server specific objects. Methods
-  and definition nodes are excluded.
+- **R2 ParentNodeId override.** A node whose `ParentNodeId` (an attribute of the nodeset, not
+  part of the AddressSpace) is dynamic is dynamic as well: the ParentNodeId expresses the tight
+  coupling of a node to its parent (it is deleted together with the parent), e.g. the folders
+  `CertificateGroups` or `AggregateFunctions` and the Methods (with their arguments) of the server
+  specific objects – as core's NamespaceMetadata already does for the Methods of the Server
+  object. R2 follows the ParentNodeId only, not the HasChild references: a child without
+  ParentNodeId keeps the classification of R3. Definition nodes are excluded.
 
 Standard rule:
 
@@ -196,12 +200,13 @@ Fallbacks (only where R3 does not decide):
   HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type or an
   instance declaration.
 
-All rules follow HasChild only, including all its subtypes (HasComponent, HasProperty,
-HasOrderedComponent, HasAddIn, ...), also those of companion specifications, resolved via the
-ReferenceType hierarchy. Organizes (hierarchical, but no HasChild), like every other reference
-which is not HasChild, never influences the classification: organizing a node does not make it
-part of the organizer, so a static entry folder can organize dynamic machines and a node
-organized by a dynamic instance keeps its own classification.
+R2 follows the ParentNodeId, R1 and R5 follow HasChild only, including all its subtypes
+(HasComponent, HasProperty, HasOrderedComponent, HasAddIn, ...), also those of companion
+specifications, resolved via the ReferenceType hierarchy. Organizes (hierarchical, but no
+HasChild), like every other reference which is not HasChild, never influences the
+classification: organizing a node does not make it part of the organizer, so a static entry
+folder can organize dynamic machines and a node organized by a dynamic instance keeps its own
+classification.
 
 `--classification-report <file>` writes the nodes which the heuristic rules
 classify differently than the standard rules (with the rule) as TSV. For the default

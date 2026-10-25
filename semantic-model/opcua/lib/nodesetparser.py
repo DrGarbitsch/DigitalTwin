@@ -1303,15 +1303,17 @@ Did you forget to import it?")
           overrides (heuristic, they overrule R3):
           R1 instance-with-Variables override: an instance which has Variables is dynamic together with its
              Variables, except definition nodes.
-          R2 containment override: an Object below a dynamic instance (HasChild) is dynamic, except definition nodes.
+          R2 ParentNodeId override: a node whose ParentNodeId (in the nodeset) is dynamic is dynamic, except
+             definition nodes.
           standard rule:
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           fallbacks (only where R3 does not decide):
           R4 definition fallback (heuristic): definition nodes - instances of the definition types (definition_types
              and their subtypes) and the Variables of the type dictionaries - are static.
           R5 default fallback (standard): types and instance declarations are static, instances dynamic.
-        --strict-classification keeps the standard rules R3 and R5 only. Only HasChild (and its subtypes) is considered:
-        Organizes (or any other reference which is not HasChild) never influences the classification.
+        --strict-classification keeps the standard rules R3 and R5 only. R1 considers HasChild (and its subtypes), R2
+        the ParentNodeId only: Organizes (or any other reference which is not HasChild) never influences the
+        classification.
         """
         formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
         if self.strict_classification:
@@ -1350,13 +1352,15 @@ Did you forget to import it?")
             idt, identifier = canonical.split('=', 1)
             undecided = self.explicit_static(self.opcua_ns[index], idt, identifier) is None
             visiting = visiting | {key}
-            parent = self.get_parent_key(node)
+            # R2 follows the ParentNodeId of the nodeset only, not the HasChild references
+            parent = node.get('ParentNodeId')
+            parent = self.key_from_nodeid_string(parent) if parent is not None else None
             is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif static and is_object and parent is not None and not is_definition(key) and \
+            elif static and tag(key) in instance_tags and parent is not None and not is_definition(key) and \
                     not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
-                static, reason = False, f'R2: Object below dynamic instance {self.node_label(parent, xml_nodes)}'
+                static, reason = False, f'R2: child of dynamic parent {self.node_label(parent, xml_nodes)}'
             elif undecided and not static and tag(key) in instance_tags:
                 if is_object and is_definition(key):
                     static, reason = True, 'R4: definition node (fallback)'

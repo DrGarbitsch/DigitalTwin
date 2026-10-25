@@ -19,7 +19,7 @@ and OPC 11030 §7.11 (UA Modelling Best Practices) for standardized instances wh
 **C1. Server specific content inside the static ranges.** Core's NamespaceMetadata (`i=15957`,
 StaticNumericNodeIdRange `i=15963`, 36 ranges) excludes the Server object and its classic children (ServerStatus,
 ServerCapabilities, Namespaces, …), but the later additions to the Server object are inside the static ranges although
-their values are server specific. nodeset2owl.py reclassifies 244 core nodes (R1/R2); the instances are:
+their values are server specific. nodeset2owl.py reclassifies 516 core nodes (R1/R2); the instances are:
 
 | Instance | NodeId | Server specific content (examples) |
 |---|---|---|
@@ -42,6 +42,13 @@ Also server specific, but not reclassified because they are only *organized* (no
 
 *Request:* exclude these subtrees from `StaticNumericNodeIdRange`, as for the classic Server children – or split
 identity and value (a static declaration, server specific values on server specific nodes).
+
+**C1a. Missing ParentNodeId.** `Dictionaries` (`i=17594`, HasComponent of the Server object), `AuthorizationServices`
+(`i=17732`) and `KeyCredentialConfiguration` (`i=18155`, both HasComponent of ServerConfiguration) and `Resources`
+(`i=24226`, HasComponent of the Server object) have no ParentNodeId, unlike the other components of these instances
+(e.g. `CertificateGroups` `i=14053` with `ParentNodeId="i=12637"`). nodeset2owl.py derives the coupling to a parent
+from the ParentNodeId only (R2), so they stay static although their parents are server specific.
+*Request:* add the ParentNodeId (and exclude them from the static ranges, see C1).
 
 **C2. Prototypes exported as nodes.** The nodeset contains 66 Objects/Variables without parent and without any
 incoming reference, which define standard BrowseNames or structures rather than nodes of a server, e.g.
