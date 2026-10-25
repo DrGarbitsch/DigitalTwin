@@ -2571,6 +2571,59 @@ def shapes_feature(ls, params):
         return {'roots': [], 'error': str(exc)}
 
 
+@server.feature('semforge/expression')
+def expression_feature(ls, params):
+    """The value of an attribute as an expression (the expression editor)."""
+    from rdflib import URIRef
+
+    from ..cooked.constrain import _attribute
+    from ..cooked.expression import describe, read_layer, to_json
+    from ..errors import PackageError
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        shape, chain = _field(params, 'shape'), list(_field(params, 'path') or [])
+        holder = package.index('shapes').file_for(URIRef(shape))
+        if holder is None:
+            raise PackageError(f'{shape} is not in any shapes file')
+        with open(holder, encoding='utf-8') as handle:
+            layer = read_layer(package, handle.read(), shape, chain)
+        if layer is None:
+            return {'ok': False, 'error': f'{chain[-1]} has no value layer; edit it in the .ttl'}
+        try:
+            kind = _attribute(package, chain[-1]).kind or 'Property'
+        except PackageError:
+            kind = 'Property'
+        return {'ok': True, 'expression': to_json(layer.root, kind), 'said': describe(layer, kind),
+                'editable': layer.editable, 'reason': layer.reason, 'complex': layer.complex}
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/editExpression')
+def edit_expression_feature(ls, params):
+    """One change to a value's expression (the expression editor)."""
+    from ..cooked.expression import edit
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        action = _field(params, 'action')
+        made = edit(_package_for(root), _field(params, 'shape'),
+                    list(_field(params, 'path') or []),
+                    {k: _field(action, k) for k in ('op', 'node', 'parameter', 'value',
+                                                    'connective')})
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/setLists')
 def set_lists_feature(ls, params):
     """Whether an attribute's value may also be a list (type page)."""

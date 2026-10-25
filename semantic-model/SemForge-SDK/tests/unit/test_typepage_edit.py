@@ -167,9 +167,12 @@ def test_rows_carry_what_an_edit_needs(corpus):
     page = build_type_page(corpus, 'iffBaseEntities:Filter')
     rows = {row['label']: row for row in page['attributes']}
     assert page['ownShape'] == FILTER
-    assert not rows['hasStrength']['valueEditable']
-    assert 'sh:or' in rows['hasStrength']['valueLocked']
-    assert rows['hasCartridge']['valueEditable']
+    # hasStrength's value is an expression (sh:or of number types): editable
+    # in the expression editor, which a plain value never opens.
+    assert rows['hasStrength']['valueEditable'] and rows['hasStrength']['expression']
+    assert not rows['hasStrength']['combinable']
+    assert rows['hasCartridge']['valueEditable'] and rows['hasCartridge']['combinable']
+    assert rows['hasCartridge']['expression'] is None
     assert rows['hasXXXWorkpiece']['path'] == ['iffBaseEntities:hasState',
                                                'iffBaseEntities:hasXXXWorkpiece']
     value_class = next(p for p in rows['hasCartridge']['parameters']
@@ -234,10 +237,22 @@ def test_clicking_a_value_offers_the_entity_types(tmp_path, page):
     assert edit[0]['value'] == {'valueClass': 'iffBaseEntities:Consumable'}
 
 
-def test_a_locked_value_says_why_and_writes_nothing(tmp_path, page):
+def test_an_expression_opens_its_editor_not_the_picker(tmp_path, page):
     seen = _click(tmp_path, page, [{'command': 'value', 'row': _row(page, 'hasStrength')}])
     assert not _sent(seen, 'semforge/editAttribute')
-    assert any('sh:or' in m for m in seen['info'])
+    assert _sent(seen, 'semforge/expression')
+
+
+def test_a_locked_value_says_why_and_writes_nothing(tmp_path, page):
+    import copy
+
+    locked = copy.deepcopy(page)
+    row = next(r for r in locked['attributes'] if r['label'] == 'hasStrength')
+    row.update(valueEditable=False,
+               valueLocked='edited in the .ttl: a comment inside it would be lost')
+    seen = _click(tmp_path, locked, [{'command': 'value', 'row': _row(locked, 'hasStrength')}])
+    assert not _sent(seen, 'semforge/editAttribute') and not _sent(seen, 'semforge/expression')
+    assert any('comment' in m for m in seen['info'])
 
 
 def test_override_declares_on_the_types_own_shape(tmp_path, page):
@@ -290,8 +305,10 @@ def test_the_rendered_page_offers_the_right_action_per_row(tmp_path, page):
     assert 'class="primary" data-action="addAttribute"' in html
     assert 'data-action="pageMenu"' in html, 'New subtype… waits behind the ⋯'
     assert '<button data-action="override"' not in html, 'override is a quiet link'
-    assert f'data-action="value" data-row="{_row(page, "hasStrength")}"' not in html
+    assert f'data-action="value" data-row="{_row(page, "hasStrength")}"' in html
     assert f'data-action="value" data-row="{_row(page, "hasCartridge")}"' in html
+    # The expression, as a tree under the value.
+    assert '<div class="verbatim expr"><div>always: 0 – 100</div><div>any of:</div>' in html
 
 
 def test_new_subtype_on_the_page_names_the_page_s_type(tmp_path, page):

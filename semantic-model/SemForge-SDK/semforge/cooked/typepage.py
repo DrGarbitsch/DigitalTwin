@@ -261,6 +261,40 @@ def _payload_alternatives(package, slot, raw, raw_outer):
                         may_be_empty=empty),)
 
 
+CONNECTIVE_NAMES = ('sh:or', 'sh:and', 'sh:xone', 'sh:not')
+
+
+def _expression_of(package, node, slot, raw):
+    """The value layer as an expression (cooked/expression.py) when it carries
+    a connective, else None. Parsed only then: the page is built for thousands
+    of attributes, and one plain value needs nothing read twice."""
+    from .expression import read_layer
+
+    if slot is None or not any(name in CONNECTIVE_NAMES for name, _ in raw):
+        return None
+    index = package.index('shapes')
+    holder = index.file_for(URIRef(node.shape))
+    if holder is None:
+        return None
+    try:
+        layer = read_layer(package, index.source_of(holder), node.shape, list(node.path_chain))
+    except PackageError:
+        return None
+    return layer if layer is not None and layer.complex else None
+
+
+def _expression_text(layer, kind):
+    from .expression import describe as said
+
+    return said(layer, kind)
+
+
+def _expression_json(layer, kind):
+    from .expression import to_json
+
+    return to_json(layer.root, kind) if layer is not None else None
+
+
 def _lists(slot, found, blocked):
     if found:
         listed = [a.is_list for a in found]
@@ -314,6 +348,16 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
                         if severity_token else None)
     blocked = [name for name, _ in raw if name in ('sh:or', 'sh:in')] or \
         (['sh:in'] if 'sh:in' in value_params else [])
+    # A value that is more than one set of conditions: an expression, edited
+    # in the expression editor (cooked/expression.py). Read only when the
+    # value layer carries a connective -- most do not, and stay one value.
+    layer = None if found else _expression_of(package, node, slot, raw)
+    if layer is not None:
+        extra = [e for e in extra if e.split(' ', 1)[0] not in CONNECTIVE_NAMES]
+    said = forms_text(found, _words) if found else (
+        _expression_text(layer, kind) if layer is not None and not
+        any(name == 'sh:or' and _numbers_only(value) for name, value in raw)
+        else value_text(kind, value_params, raw))
     rows = [{
         'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
         # Every NGSI-LD kind the value may take: `Property or ListProperty`
@@ -324,7 +368,7 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
                          for a in found or ()],
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
         'value': ' · '.join(p for p in (
-            forms_text(found, _words) if found else value_text(kind, value_params, raw),
+            said,
             f'in {unit_text(package, units)}' if units else '',
             'unit required' if unit_required else '') if p),
         # The units its instances may say (ngsild:unitCode), and whether one
@@ -342,8 +386,17 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         # written with sh:or or sh:in is a choice it cannot round-trip --
         # unless it is one of the forms cooked/payloads.py reads exactly, which
         # are written back in every form at once.
-        'valueEditable': bool(found) or (slot is not None and not blocked),
+        'valueEditable': bool(found) or (layer.editable if layer is not None
+                                         else slot is not None and not blocked),
+        # The expression, as a tree, when the value is one: the page shows it
+        # under the value, and clicking the value opens the expression editor.
+        'expression': _expression_json(layer, kind),
+        # One plain value, which "Combine with another condition…" may turn
+        # into an expression -- offered last in the value picker, never first.
+        'combinable': layer is None and not found and slot is not None and not blocked,
         'valueLocked': '' if found else (
+            f'edited in the .ttl: {layer.reason}' if layer is not None and not layer.editable
+            else '' if layer is not None else
             'one of a list (sh:in): edit it in ⋯ → Constraints…'
             if blocked and blocked[0] == 'sh:in'
             else f'written with {blocked[0]}; edit it in the .ttl'

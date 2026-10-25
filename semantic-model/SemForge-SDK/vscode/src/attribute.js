@@ -78,6 +78,14 @@ async function pickValue(client, packageUri, option) {
   } else {
     return {};      // a JSON, list or geo payload has no class or datatype to ask
   }
+  if (option.combine) {
+    // The one way into an expression from a plain value: last, and only when
+    // asked for -- one value is what nearly every attribute needs.
+    items = items.concat([{ label: 'More', kind: vscode.QuickPickItemKind.Separator },
+      { label: '$(symbol-operator) Combine with another condition…',
+        detail: 'any of · exactly one of · not — opens the expression editor',
+        value: { combine: true } }]);
+  }
   const picked = await vscode.window.showQuickPick(items, {
     title: `${option.label}: what must its value be?`,
     matchOnDescription: true,

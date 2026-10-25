@@ -249,6 +249,9 @@ function renderShapePage(page, options) {
         background: var(--vscode-textCodeBlock-background, rgba(128,128,128,.1)); }
   .verbatim { color: var(--vscode-descriptionForeground); white-space: normal; margin-top: 2px;
               font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
+  .expr { font-family: var(--vscode-font-family); }
+  .expr-d1 { padding-left: 14px; } .expr-d2 { padding-left: 28px; }
+  .expr-d3 { padding-left: 42px; } .expr-d4 { padding-left: 56px; }
   .line { margin: 4px 0; }
   .nodes { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0; }
   .node { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

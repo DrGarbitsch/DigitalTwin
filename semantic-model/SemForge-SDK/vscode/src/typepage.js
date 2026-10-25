@@ -162,8 +162,9 @@ function attributeRows(attributes, focused, options) {
     // A class, not a style attribute: the page's CSP admits only its own
     // nonce'd stylesheet, so an inline style would be silently dropped.
     const indent = row.depth ? ` class="depth${Math.min(row.depth, 4)}"` : '';
-    const verbatim = row.verbatim.length
-      ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '';
+    const verbatim = (row.verbatim.length
+      ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '') +
+      (row.expression ? expressionTree(row.expression) : '');
     return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
       `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}` +
       `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
@@ -291,6 +292,29 @@ function instanceRows(page) {
  * Where the validation is: the page is answered at once, and what the
  * validator concludes follows (editor/verdicts.py). Empty when it is current.
  */
+/**
+ * A value that is an expression (sh:or, sh:and, sh:xone, sh:not), as a small
+ * tree under the value: the root's own conditions first, then each part.
+ */
+function expressionTree(root) {
+  const parts = [];
+  function walk(node, depth, own) {
+    const pad = depth ? ` class="expr-d${Math.min(depth, 4)}"` : '';
+    if (node.kind === 'op') {
+      parts.push(`<div${pad}>${escape(node.words)}:</div>`);
+      node.children.forEach((child) => walk(child, depth + 1, false));
+    } else if (node.kind === 'leaf') {
+      if (!(own && !node.conditions.length)) {
+        parts.push(`<div${pad}>${own ? 'always: ' : ''}${escape(node.words)}</div>`);
+      }
+    } else {
+      parts.push(`<div${pad} class="mono" title="kept as written">${escape(node.words)}</div>`);
+    }
+  }
+  root.children.forEach((child, index) => walk(child, 0, index === 0));
+  return `<div class="verbatim expr">${parts.join('')}</div>`;
+}
+
 function verdictNote(verdicts) {
   if (verdicts.state === 'evaluating') {
     // The strip runs along the top of the page: the note alone, small and dim,
@@ -398,6 +422,9 @@ function renderTypePage(page, options) {
           background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
   .mono, .verbatim { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .verbatim { color: var(--vscode-descriptionForeground); white-space: normal; margin-top: 2px; }
+  .expr { font-family: var(--vscode-font-family); }
+  .expr-d1 { padding-left: 14px; } .expr-d2 { padding-left: 28px; }
+  .expr-d3 { padding-left: 42px; } .expr-d4 { padding-left: 56px; }
   .rule { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: baseline;
           padding: 6px 8px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.2)); }
   .rule .acts { display: flex; gap: 4px; }
@@ -866,10 +893,18 @@ async function editValue(pages, row) {
     }
     return false;
   }
+  // Already an expression: its editor. One plain value: the picker, with
+  // "Combine with another condition…" last for when one is not enough.
+  if (row.expression) {
+    return require('./expression').openExpression(pages, row);
+  }
   const value = await pickValue(pages.clientHolder.client, pages.current.packageUri,
-    { kind: row.kind, term: row.term, label: row.label });
+    { kind: row.kind, term: row.term, label: row.label, combine: Boolean(row.combinable) });
   if (value === undefined) {
     return false;
+  }
+  if (value.combine) {
+    return require('./expression').combine(pages, row);
   }
   return Boolean(await request(pages, 'semforge/editAttribute', {
     shape: row.shape, path: row.path,
