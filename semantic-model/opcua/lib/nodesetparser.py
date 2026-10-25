@@ -1304,7 +1304,7 @@ Did you forget to import it?")
           R1 instance-with-Variables override: an instance which has Variables is dynamic together with its
              Variables, except definition nodes.
           R2 ParentNodeId override: a node whose ParentNodeId (in the nodeset) is dynamic is dynamic, except
-             definition nodes.
+             Methods and definition nodes.
           standard rule:
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           fallbacks (only where R3 does not decide):
@@ -1352,13 +1352,14 @@ Did you forget to import it?")
             idt, identifier = canonical.split('=', 1)
             undecided = self.explicit_static(self.opcua_ns[index], idt, identifier) is None
             visiting = visiting | {key}
-            # R2 follows the ParentNodeId of the nodeset only, not the HasChild references
+            # R2 follows the ParentNodeId of the nodeset only, not the HasChild references; Methods are excluded
             parent = node.get('ParentNodeId')
             parent = self.key_from_nodeid_string(parent) if parent is not None else None
             is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif static and tag(key) in instance_tags and parent is not None and not is_definition(key) and \
+            elif static and tag(key) in ('UAObject', 'UAVariable', 'UAView') and parent is not None and \
+                    not is_definition(key) and \
                     not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
                 static, reason = False, f'R2: child of dynamic parent {self.node_label(parent, xml_nodes)}'
             elif undecided and not static and tag(key) in instance_tags:

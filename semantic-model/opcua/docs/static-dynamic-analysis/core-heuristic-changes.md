@@ -7,17 +7,16 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
 
 ## Summary
 
-- **516 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
+- **240 nodes** change their classification, all **static → dynamic**. Core's NamespaceMetadata (R3, 36 static
   numeric ranges) classifies them static:
   - **232 by R1** (instance-with-Variables override): 46 instances with their Variables – ServerConfiguration and the
     certificate management, the RoleSet roles, PubSub, the historian defaults, core's NamespaceMetadata,
     UserManagement, `Aliases`, `ProvisionableDevice`.
-  - **284 by R2** (ParentNodeId override): the nodes whose ParentNodeId is dynamic – 8 folders
-    (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
-    `KeyPushTargets`, `AggregateFunctions`, `EventTypes`), 126 Methods of the dynamic instances (e.g. `AddIdentity`,
-    `RemoveEndpoint` of the 11 roles, `Open`, `CloseAndUpdate` of the trust lists) and their 150
-    `InputArguments`/`OutputArguments`. Core's NamespaceMetadata treats the Methods of the Server object (e.g.
-    `GetMonitoredItems` `i=11492` with its `InputArguments` `i=11493`) the same way.
+  - **8 by R2** (ParentNodeId override): the folders whose ParentNodeId is a dynamic instance:
+    `CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
+    `KeyPushTargets`, `AggregateFunctions`, `EventTypes`. The 126 Methods of the dynamic instances (e.g.
+    `AddIdentity`, `RemoveEndpoint` of the 11 roles, `Open`, `CloseAndUpdate` of the trust lists) are excluded from
+    R2 and stay static with their arguments.
   - Not reclassified: the folders `Dictionaries` (`i=17594`), `AuthorizationServices` (`i=17732`),
     `KeyCredentialConfiguration` (`i=18155`) and `Resources` (`i=24226`) are components (HasComponent) of dynamic
     instances, but have no ParentNodeId, so R3 decides (static). Folders which are only organized by dynamic

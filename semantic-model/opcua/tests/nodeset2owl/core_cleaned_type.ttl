@@ -2407,6 +2407,14 @@ opcua:aT0xMjU2MA a uardf:ObjectType ;
     uardf:nodeId "i=12560" ;
     uardf:symbolicName "RsaSha256ApplicationCertificateType" .
 
+opcua:aT0xMjc0MA a uardf:Method ;
+    uardf:browseName "ApplyChanges" ;
+    uardf:displayName "ApplyChanges"@en ;
+    uardf:name "ApplyChanges" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12740" ;
+    uardf:symbolicName "ApplyChanges" .
+
 opcua:aT0xMjc0NQ a opcua:PropertyType,
         uardf:Variable ;
     uardf:browseName "OptionSetValues" ;
@@ -3471,6 +3479,14 @@ opcua:aT0xNzQ2Nw a uardf:DataType ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=17467" ;
     uardf:symbolicName "DatagramConnectionTransportDataType" .
+
+opcua:aT0xNzQyMQ a uardf:Method ;
+    uardf:browseName "Reset" ;
+    uardf:displayName "Reset"@en ;
+    uardf:name "Reset" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17421" ;
+    uardf:symbolicName "Reset" .
 
 opcua:aT0xNzU0OA a uardf:DataType ;
     opcua:HasEncoding opcua:aT0xNzU0OQ,
@@ -4902,6 +4918,22 @@ opcua:aT0yNTUyMA a uardf:DataType ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=25520" ;
     uardf:symbolicName "PubSubConfigurationValueDataType" .
+
+opcua:aT0yNTcwOA a uardf:Method ;
+    uardf:browseName "CancelChanges" ;
+    uardf:displayName "CancelChanges"@en ;
+    uardf:name "CancelChanges" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25708" ;
+    uardf:symbolicName "CancelChanges" .
+
+opcua:aT0yNTcwOQ a uardf:Method ;
+    uardf:browseName "ResetToServerDefaults" ;
+    uardf:displayName "ResetToServerDefaults"@en ;
+    uardf:name "ResetToServerDefaults" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25709" ;
+    uardf:symbolicName "ResetToServerDefaults" .
 
 opcua:aT0yNTcyNg a uardf:DataType ;
     uardf:browseName "EncodedTicket" ;
@@ -12488,6 +12520,56 @@ opcua:aT0xMjY a opcua:DataTypeEncodingType,
     uardf:nodeId "i=126" ;
     uardf:symbolicName "DefaultBinary" .
 
+opcua:aT0xMjY1MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY1MQ ;
+    opcua:hasInputArguments opcua:aT0xMjY1MQ ;
+    uardf:browseName "Close" ;
+    uardf:displayName "Close"@en ;
+    uardf:name "Close" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12650" ;
+    uardf:symbolicName "Close" .
+
+opcua:aT0xMjY1NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY1Ng ;
+    opcua:hasInputArguments opcua:aT0xMjY1Ng ;
+    uardf:browseName "Write" ;
+    uardf:displayName "Write"@en ;
+    uardf:name "Write" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12655" ;
+    uardf:symbolicName "Write" .
+
+opcua:aT0xMjY2MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY2MQ ;
+    opcua:hasInputArguments opcua:aT0xMjY2MQ ;
+    uardf:browseName "SetPosition" ;
+    uardf:displayName "SetPosition"@en ;
+    uardf:name "SetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12660" ;
+    uardf:symbolicName "SetPosition" .
+
+opcua:aT0xMjY2OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY2OQ ;
+    opcua:hasInputArguments opcua:aT0xMjY2OQ ;
+    uardf:browseName "AddCertificate" ;
+    uardf:displayName "AddCertificate"@en ;
+    uardf:name "AddCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12668" ;
+    uardf:symbolicName "AddCertificate" .
+
+opcua:aT0xMjY3MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY3MQ ;
+    opcua:hasInputArguments opcua:aT0xMjY3MQ ;
+    uardf:browseName "RemoveCertificate" ;
+    uardf:displayName "RemoveCertificate"@en ;
+    uardf:name "RemoveCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12670" ;
+    uardf:symbolicName "RemoveCertificate" .
+
 opcua:aT0xMjY3Ng a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xMjY3Nw ;
@@ -12558,6 +12640,16 @@ opcua:aT0xMjc2Ng a opcua:DataTypeEncodingType,
     uardf:nodeId "i=12766" ;
     uardf:symbolicName "DefaultBinary" .
 
+opcua:aT0xMjc3Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjc3OA ;
+    opcua:hasOutputArguments opcua:aT0xMjc3OA ;
+    uardf:browseName "GetRejectedList" ;
+    uardf:displayName "GetRejectedList"@en ;
+    uardf:name "GetRejectedList" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12777" ;
+    uardf:symbolicName "GetRejectedList" .
+
 opcua:aT0xMjg a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNjEzMQ ;
@@ -12607,6 +12699,106 @@ opcua:aT0xMjkwMQ a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=12901" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0xNDA5OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDA5OQ ;
+    opcua:hasInputArguments opcua:aT0xNDA5OQ ;
+    uardf:browseName "Close" ;
+    uardf:displayName "Close"@en ;
+    uardf:name "Close" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14098" ;
+    uardf:symbolicName "Close" .
+
+opcua:aT0xNDE0Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE0Mw ;
+    opcua:hasInputArguments opcua:aT0xNDE0Mw ;
+    uardf:browseName "SetPosition" ;
+    uardf:displayName "SetPosition"@en ;
+    uardf:name "SetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14142" ;
+    uardf:symbolicName "SetPosition" .
+
+opcua:aT0xNDE1MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE1Mg ;
+    opcua:hasInputArguments opcua:aT0xNDE1Mg ;
+    uardf:browseName "AddCertificate" ;
+    uardf:displayName "AddCertificate"@en ;
+    uardf:name "AddCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14151" ;
+    uardf:symbolicName "AddCertificate" .
+
+opcua:aT0xNDE1Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE1NA ;
+    opcua:hasInputArguments opcua:aT0xNDE1NA ;
+    uardf:browseName "RemoveCertificate" ;
+    uardf:displayName "RemoveCertificate"@en ;
+    uardf:name "RemoveCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14153" ;
+    uardf:symbolicName "RemoveCertificate" .
+
+opcua:aT0xNDEwMw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEwNA ;
+    opcua:hasInputArguments opcua:aT0xNDEwNA ;
+    uardf:browseName "Write" ;
+    uardf:displayName "Write"@en ;
+    uardf:name "Write" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14103" ;
+    uardf:symbolicName "Write" .
+
+opcua:aT0xNDEwOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEwOQ ;
+    opcua:hasInputArguments opcua:aT0xNDEwOQ ;
+    uardf:browseName "SetPosition" ;
+    uardf:displayName "SetPosition"@en ;
+    uardf:name "SetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14108" ;
+    uardf:symbolicName "SetPosition" .
+
+opcua:aT0xNDExNw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDExOA ;
+    opcua:hasInputArguments opcua:aT0xNDExOA ;
+    uardf:browseName "AddCertificate" ;
+    uardf:displayName "AddCertificate"@en ;
+    uardf:name "AddCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14117" ;
+    uardf:symbolicName "AddCertificate" .
+
+opcua:aT0xNDExOQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEyMA ;
+    opcua:hasInputArguments opcua:aT0xNDEyMA ;
+    uardf:browseName "RemoveCertificate" ;
+    uardf:displayName "RemoveCertificate"@en ;
+    uardf:name "RemoveCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14119" ;
+    uardf:symbolicName "RemoveCertificate" .
+
+opcua:aT0xNDEzMg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEzMw ;
+    opcua:hasInputArguments opcua:aT0xNDEzMw ;
+    uardf:browseName "Close" ;
+    uardf:displayName "Close"@en ;
+    uardf:name "Close" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14132" ;
+    uardf:symbolicName "Close" .
+
+opcua:aT0xNDEzNw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEzOA ;
+    opcua:hasInputArguments opcua:aT0xNDEzOA ;
+    uardf:browseName "Write" ;
+    uardf:displayName "Write"@en ;
+    uardf:name "Write" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14137" ;
+    uardf:symbolicName "Write" .
 
 opcua:aT0xNDMxOQ a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -13547,6 +13739,16 @@ opcua:aT0xNTMwNA a opcua:DataTypeEncodingType,
     uardf:nodeId "i=15304" ;
     uardf:symbolicName "DefaultJson" .
 
+opcua:aT0xNTQ0Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTQ0OA ;
+    opcua:hasInputArguments opcua:aT0xNTQ0OA ;
+    uardf:browseName "RemoveSecurityGroup" ;
+    uardf:displayName "RemoveSecurityGroup"@en ;
+    uardf:name "RemoveSecurityGroup" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15447" ;
+    uardf:symbolicName "RemoveSecurityGroup" .
+
 opcua:aT0xNTQ3OQ a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNTUyNA ;
@@ -13683,6 +13885,26 @@ opcua:aT0xNTY0Ng a uardf:DataType ;
     uardf:nodeId "i=15646" ;
     uardf:symbolicName "UadpDataSetMessageContentMask" .
 
+opcua:aT0xNTY0OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY0OQ ;
+    opcua:hasInputArguments opcua:aT0xNTY0OQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15648" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTY1MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY1MQ ;
+    opcua:hasInputArguments opcua:aT0xNTY1MQ ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15650" ;
+    uardf:symbolicName "RemoveIdentity" .
+
 opcua:aT0xNTY1NA a uardf:DataType ;
     opcua:HasProperty opcua:aT0xNTY1NQ ;
     opcua:hasOptionSetValues opcua:aT0xNTY1NQ ;
@@ -13705,6 +13927,26 @@ opcua:aT0xNTY1OA a uardf:DataType ;
     uardf:nodeId "i=15658" ;
     uardf:symbolicName "JsonDataSetMessageContentMask" .
 
+opcua:aT0xNTY2MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY2MQ ;
+    opcua:hasInputArguments opcua:aT0xNTY2MQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15660" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTY2Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY2Mw ;
+    opcua:hasInputArguments opcua:aT0xNTY2Mw ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15662" ;
+    uardf:symbolicName "RemoveIdentity" .
+
 opcua:aT0xNTY3MQ a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNTczNA ;
@@ -13714,6 +13956,26 @@ opcua:aT0xNTY3MQ a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=15671" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0xNTY3Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY3Mw ;
+    opcua:hasInputArguments opcua:aT0xNTY3Mw ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15672" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTY3NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY3NQ ;
+    opcua:hasInputArguments opcua:aT0xNTY3NQ ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15674" ;
+    uardf:symbolicName "RemoveIdentity" .
 
 opcua:aT0xNTY3Ng a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -13785,6 +14047,26 @@ opcua:aT0xNTY4Mw a opcua:DataTypeEncodingType,
     uardf:nodeId "i=15683" ;
     uardf:symbolicName "DefaultBinary" .
 
+opcua:aT0xNTY4NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY4NQ ;
+    opcua:hasInputArguments opcua:aT0xNTY4NQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15684" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTY4Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY4Nw ;
+    opcua:hasInputArguments opcua:aT0xNTY4Nw ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15686" ;
+    uardf:symbolicName "RemoveIdentity" .
+
 opcua:aT0xNTY4OA a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNTc4NA ;
@@ -13844,6 +14126,26 @@ opcua:aT0xNTY5NQ a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=15695" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0xNTY5Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY5Nw ;
+    opcua:hasInputArguments opcua:aT0xNTY5Nw ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15696" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTY5OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTY5OQ ;
+    opcua:hasInputArguments opcua:aT0xNTY5OQ ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15698" ;
+    uardf:symbolicName "RemoveIdentity" .
 
 opcua:aT0xNTYzMg a uardf:DataType ;
     opcua:HasProperty opcua:aT0xNTYzMw ;
@@ -13925,6 +14227,26 @@ opcua:aT0xNTcwNw a opcua:DataTypeEncodingType,
     uardf:nodeId "i=15707" ;
     uardf:symbolicName "DefaultBinary" .
 
+opcua:aT0xNTcwOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTcwOQ ;
+    opcua:hasInputArguments opcua:aT0xNTcwOQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15708" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTcxMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTcxMQ ;
+    opcua:hasInputArguments opcua:aT0xNTcxMQ ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15710" ;
+    uardf:symbolicName "RemoveIdentity" .
+
 opcua:aT0xNTcxMg a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNTg4Ng ;
@@ -13993,6 +14315,26 @@ opcua:aT0xNTcxOQ a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=15719" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0xNTcyMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTcyMQ ;
+    opcua:hasInputArguments opcua:aT0xNTcyMQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15720" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNTcyMg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTcyMw ;
+    opcua:hasInputArguments opcua:aT0xNTcyMw ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15722" ;
+    uardf:symbolicName "RemoveIdentity" .
 
 opcua:aT0xNTcyNA a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -14255,6 +14597,26 @@ opcua:aT0xNTkwNA a uardf:DataType ;
     uardf:nodeId "i=15904" ;
     uardf:symbolicName "DataSetFieldFlags" .
 
+opcua:aT0xNjA0MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjA0Mg ;
+    opcua:hasInputArguments opcua:aT0xNjA0Mg ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16041" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0xNjA0Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjA0NA ;
+    opcua:hasInputArguments opcua:aT0xNjA0NA ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16043" ;
+    uardf:symbolicName "RemoveIdentity" .
+
 opcua:aT0xNjAwNw a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNjA4Mw ;
@@ -14504,6 +14866,36 @@ opcua:aT0xNjE2MQ a opcua:DataTypeEncodingType,
     uardf:nodeId "i=16161" ;
     uardf:symbolicName "DefaultJson" .
 
+opcua:aT0xNjE5NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjE5Ng ;
+    opcua:hasInputArguments opcua:aT0xNjE5Ng ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16195" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjE5Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjE5OA ;
+    opcua:hasInputArguments opcua:aT0xNjE5OA ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16197" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjE5OQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIwMA ;
+    opcua:hasInputArguments opcua:aT0xNjIwMA ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16199" ;
+    uardf:symbolicName "AddEndpoint" .
+
 opcua:aT0xNjEyNg a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0xNjEyNw ;
@@ -14513,6 +14905,156 @@ opcua:aT0xNjEyNg a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=16126" ;
     uardf:symbolicName "DefaultXml" .
+
+opcua:aT0xNjI0MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI0Mg ;
+    opcua:hasInputArguments opcua:aT0xNjI0Mg ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16241" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjI0Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI0NA ;
+    opcua:hasInputArguments opcua:aT0xNjI0NA ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16243" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjI0NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI0Ng ;
+    opcua:hasInputArguments opcua:aT0xNjI0Ng ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16245" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjI1MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI1MQ ;
+    opcua:hasInputArguments opcua:aT0xNjI1MQ ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16250" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjI1Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI1Mw ;
+    opcua:hasInputArguments opcua:aT0xNjI1Mw ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16252" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjI1NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI1NQ ;
+    opcua:hasInputArguments opcua:aT0xNjI1NQ ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16254" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjI1Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI1Nw ;
+    opcua:hasInputArguments opcua:aT0xNjI1Nw ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16256" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjI2MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI2Mg ;
+    opcua:hasInputArguments opcua:aT0xNjI2Mg ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16261" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjI2Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI2NA ;
+    opcua:hasInputArguments opcua:aT0xNjI2NA ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16263" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjI2NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI2Ng ;
+    opcua:hasInputArguments opcua:aT0xNjI2Ng ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16265" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjI2Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI2OA ;
+    opcua:hasInputArguments opcua:aT0xNjI2OA ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16267" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjI3Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI3Mw ;
+    opcua:hasInputArguments opcua:aT0xNjI3Mw ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16272" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjI3NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI3NQ ;
+    opcua:hasInputArguments opcua:aT0xNjI3NQ ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16274" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjI3Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI3Nw ;
+    opcua:hasInputArguments opcua:aT0xNjI3Nw ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16276" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjI3OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI3OQ ;
+    opcua:hasInputArguments opcua:aT0xNjI3OQ ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16278" ;
+    uardf:symbolicName "RemoveEndpoint" .
 
 opcua:aT0xNjI4MA a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -14585,6 +15127,146 @@ opcua:aT0xNjI4OA a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=16288" ;
     uardf:symbolicName "DefaultJson" .
+
+opcua:aT0xNjIwMQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIwMg ;
+    opcua:hasInputArguments opcua:aT0xNjIwMg ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16201" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjIwNg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIwNw ;
+    opcua:hasInputArguments opcua:aT0xNjIwNw ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16206" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjIwOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIwOQ ;
+    opcua:hasInputArguments opcua:aT0xNjIwOQ ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16208" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjIxMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIxMQ ;
+    opcua:hasInputArguments opcua:aT0xNjIxMQ ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16210" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjIxMg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIxMw ;
+    opcua:hasInputArguments opcua:aT0xNjIxMw ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16212" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjIxNw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIxOA ;
+    opcua:hasInputArguments opcua:aT0xNjIxOA ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16217" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjIxOQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIyMA ;
+    opcua:hasInputArguments opcua:aT0xNjIyMA ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16219" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjIyMQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIyMg ;
+    opcua:hasInputArguments opcua:aT0xNjIyMg ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16221" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjIyMw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIyNA ;
+    opcua:hasInputArguments opcua:aT0xNjIyNA ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16223" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjIyOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIyOQ ;
+    opcua:hasInputArguments opcua:aT0xNjIyOQ ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16228" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0xNjIzMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIzMQ ;
+    opcua:hasInputArguments opcua:aT0xNjIzMQ ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16230" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0xNjIzMg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIzMw ;
+    opcua:hasInputArguments opcua:aT0xNjIzMw ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16232" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0xNjIzNA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjIzNQ ;
+    opcua:hasInputArguments opcua:aT0xNjIzNQ ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16234" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0xNjIzOQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNjI0MA ;
+    opcua:hasInputArguments opcua:aT0xNjI0MA ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16239" ;
+    uardf:symbolicName "AddApplication" .
 
 opcua:aT0xNjM5MQ a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -14715,6 +15397,26 @@ opcua:aT0xNzI3Nw a uardf:VariableType ;
     uardf:nodeId "i=17277" ;
     uardf:symbolicName "AlarmRateVariableType" ;
     base:hasDatatype opcua:Double .
+
+opcua:aT0xNzM2NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNzM2NQ ;
+    opcua:hasInputArguments opcua:aT0xNzM2NQ ;
+    uardf:browseName "SetSecurityKeys" ;
+    uardf:displayName "SetSecurityKeys"@en ;
+    uardf:name "SetSecurityKeys" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17364" ;
+    uardf:symbolicName "SetSecurityKeys" .
+
+opcua:aT0xNzM2OQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNzM3MA ;
+    opcua:hasInputArguments opcua:aT0xNzM3MA ;
+    uardf:browseName "RemoveConnection" ;
+    uardf:displayName "RemoveConnection"@en ;
+    uardf:name "RemoveConnection" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17369" ;
+    uardf:symbolicName "RemoveConnection" .
 
 opcua:aT0xNzQ2OA a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -16550,6 +17252,46 @@ opcua:aT0yNDMwMA a opcua:DataTypeEncodingType,
     uardf:nodeId "i=24300" ;
     uardf:symbolicName "DefaultJson" .
 
+opcua:aT0yNDMwNA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNDMwNQ ;
+    opcua:hasInputArguments opcua:aT0yNDMwNQ ;
+    uardf:browseName "AddUser" ;
+    uardf:displayName "AddUser"@en ;
+    uardf:name "AddUser" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24304" ;
+    uardf:symbolicName "AddUser" .
+
+opcua:aT0yNDMwNg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNDMwNw ;
+    opcua:hasInputArguments opcua:aT0yNDMwNw ;
+    uardf:browseName "ModifyUser" ;
+    uardf:displayName "ModifyUser"@en ;
+    uardf:name "ModifyUser" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24306" ;
+    uardf:symbolicName "ModifyUser" .
+
+opcua:aT0yNDMwOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNDMwOQ ;
+    opcua:hasInputArguments opcua:aT0yNDMwOQ ;
+    uardf:browseName "RemoveUser" ;
+    uardf:displayName "RemoveUser"@en ;
+    uardf:name "RemoveUser" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24308" ;
+    uardf:symbolicName "RemoveUser" .
+
+opcua:aT0yNDMxMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNDMxMQ ;
+    opcua:hasInputArguments opcua:aT0yNDMxMQ ;
+    uardf:browseName "ChangePassword" ;
+    uardf:displayName "ChangePassword"@en ;
+    uardf:name "ChangePassword" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24310" ;
+    uardf:symbolicName "ChangePassword" .
+
 opcua:aT0yNTI0Mw a opcua:DataTypeEncodingType,
         uardf:Object ;
     opcua:HasDescription opcua:aT0yNTI0NA ;
@@ -16602,6 +17344,46 @@ opcua:aT0yNTIzOQ a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=25239" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0yNTQ0NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ0NQ ;
+    opcua:hasInputArguments opcua:aT0yNTQ0NQ ;
+    uardf:browseName "RemovePushTarget" ;
+    uardf:displayName "RemovePushTarget"@en ;
+    uardf:name "RemovePushTarget" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25444" ;
+    uardf:symbolicName "RemovePushTarget" .
+
+opcua:aT0yNTQ2Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ2Mw ;
+    opcua:hasInputArguments opcua:aT0yNTQ2Mw ;
+    uardf:browseName "Close" ;
+    uardf:displayName "Close"@en ;
+    uardf:name "Close" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25462" ;
+    uardf:symbolicName "Close" .
+
+opcua:aT0yNTQ2Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ2OA ;
+    opcua:hasInputArguments opcua:aT0yNTQ2OA ;
+    uardf:browseName "Write" ;
+    uardf:displayName "Write"@en ;
+    uardf:name "Write" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25467" ;
+    uardf:symbolicName "Write" .
+
+opcua:aT0yNTQ3Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ3Mw ;
+    opcua:hasInputArguments opcua:aT0yNTQ3Mw ;
+    uardf:browseName "SetPosition" ;
+    uardf:displayName "SetPosition"@en ;
+    uardf:name "SetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25472" ;
+    uardf:symbolicName "SetPosition" .
 
 opcua:aT0yNTU0NQ a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -16679,6 +17461,116 @@ opcua:aT0yNTU2NA a opcua:DataTypeEncodingType,
     uardf:nodeId "i=25564" ;
     uardf:symbolicName "DefaultJson" .
 
+opcua:aT0yNTU3Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU3Mw ;
+    opcua:hasInputArguments opcua:aT0yNTU3Mw ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25572" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0yNTU3NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU3NQ ;
+    opcua:hasInputArguments opcua:aT0yNTU3NQ ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25574" ;
+    uardf:symbolicName "RemoveIdentity" .
+
+opcua:aT0yNTU3Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU3Nw ;
+    opcua:hasInputArguments opcua:aT0yNTU3Nw ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25576" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0yNTU3OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU3OQ ;
+    opcua:hasInputArguments opcua:aT0yNTU3OQ ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25578" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0yNTU4MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU4MQ ;
+    opcua:hasInputArguments opcua:aT0yNTU4MQ ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25580" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0yNTU4Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU4Mw ;
+    opcua:hasInputArguments opcua:aT0yNTU4Mw ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25582" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0yNTU5MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU5Mg ;
+    opcua:hasInputArguments opcua:aT0yNTU5Mg ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25591" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0yNTU5Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU5NA ;
+    opcua:hasInputArguments opcua:aT0yNTU5NA ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25593" ;
+    uardf:symbolicName "RemoveIdentity" .
+
+opcua:aT0yNTU5NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU5Ng ;
+    opcua:hasInputArguments opcua:aT0yNTU5Ng ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25595" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0yNTU5Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTU5OA ;
+    opcua:hasInputArguments opcua:aT0yNTU5OA ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25597" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0yNTU5OQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYwMA ;
+    opcua:hasInputArguments opcua:aT0yNTYwMA ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25599" ;
+    uardf:symbolicName "AddEndpoint" .
+
 opcua:aT0yNTUxNw a uardf:DataType ;
     opcua:HasProperty opcua:aT0yNTUxOA ;
     opcua:hasOptionSetValues opcua:aT0yNTUxOA ;
@@ -16740,6 +17632,76 @@ opcua:aT0yNTY a uardf:DataType ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=256" ;
     uardf:symbolicName "IdType" .
+
+opcua:aT0yNTYwMQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYwMg ;
+    opcua:hasInputArguments opcua:aT0yNTYwMg ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25601" ;
+    uardf:symbolicName "RemoveEndpoint" .
+
+opcua:aT0yNTYxMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYxMQ ;
+    opcua:hasInputArguments opcua:aT0yNTYxMQ ;
+    uardf:browseName "AddIdentity" ;
+    uardf:displayName "AddIdentity"@en ;
+    uardf:name "AddIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25610" ;
+    uardf:symbolicName "AddIdentity" .
+
+opcua:aT0yNTYxMg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYxMw ;
+    opcua:hasInputArguments opcua:aT0yNTYxMw ;
+    uardf:browseName "RemoveIdentity" ;
+    uardf:displayName "RemoveIdentity"@en ;
+    uardf:name "RemoveIdentity" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25612" ;
+    uardf:symbolicName "RemoveIdentity" .
+
+opcua:aT0yNTYxNA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYxNQ ;
+    opcua:hasInputArguments opcua:aT0yNTYxNQ ;
+    uardf:browseName "AddApplication" ;
+    uardf:displayName "AddApplication"@en ;
+    uardf:name "AddApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25614" ;
+    uardf:symbolicName "AddApplication" .
+
+opcua:aT0yNTYxNg a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYxNw ;
+    opcua:hasInputArguments opcua:aT0yNTYxNw ;
+    uardf:browseName "RemoveApplication" ;
+    uardf:displayName "RemoveApplication"@en ;
+    uardf:name "RemoveApplication" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25616" ;
+    uardf:symbolicName "RemoveApplication" .
+
+opcua:aT0yNTYxOA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYxOQ ;
+    opcua:hasInputArguments opcua:aT0yNTYxOQ ;
+    uardf:browseName "AddEndpoint" ;
+    uardf:displayName "AddEndpoint"@en ;
+    uardf:name "AddEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25618" ;
+    uardf:symbolicName "AddEndpoint" .
+
+opcua:aT0yNTYyMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTYyMQ ;
+    opcua:hasInputArguments opcua:aT0yNTYyMQ ;
+    uardf:browseName "RemoveEndpoint" ;
+    uardf:displayName "RemoveEndpoint"@en ;
+    uardf:name "RemoveEndpoint" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25620" ;
+    uardf:symbolicName "RemoveEndpoint" .
 
 opcua:aT0yNTc a uardf:DataType ;
     opcua:HasProperty opcua:aT0xMTg3OA ;
@@ -16819,6 +17781,16 @@ opcua:aT0yOTg a opcua:DataTypeEncodingType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=298" ;
     uardf:symbolicName "DefaultBinary" .
+
+opcua:aT0yOTg4MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yOTg4MQ ;
+    opcua:hasOutputArguments opcua:aT0yOTg4MQ ;
+    uardf:browseName "RequestTickets" ;
+    uardf:displayName "RequestTickets"@en ;
+    uardf:name "RequestTickets" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=29880" ;
+    uardf:symbolicName "RequestTickets" .
 
 opcua:aT0zMDA a opcua:DataTypeEncodingType,
         uardf:Object ;
@@ -22566,6 +23538,262 @@ opcua:aT0xMjUwMw a opcua:PropertyType,
     uardf:symbolicName "Progress" ;
     base:hasDatatype opcua:UInt16 .
 
+opcua:aT0xMjY0Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY0OA,
+        opcua:aT0xMjY0OQ ;
+    opcua:hasInputArguments opcua:aT0xMjY0OA ;
+    opcua:hasOutputArguments opcua:aT0xMjY0OQ ;
+    uardf:browseName "Open" ;
+    uardf:displayName "Open"@en ;
+    uardf:name "Open" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12647" ;
+    uardf:symbolicName "Open" .
+
+opcua:aT0xMjY0OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12648" ;
+    uardf:parent opcua:aT0xMjY0Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Mode\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=3\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY0OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12649" ;
+    uardf:parent opcua:aT0xMjY0Nw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12651" ;
+    uardf:parent opcua:aT0xMjY1MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1Mg a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY1Mw,
+        opcua:aT0xMjY1NA ;
+    opcua:hasInputArguments opcua:aT0xMjY1Mw ;
+    opcua:hasOutputArguments opcua:aT0xMjY1NA ;
+    uardf:browseName "Read" ;
+    uardf:displayName "Read"@en ;
+    uardf:name "Read" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12652" ;
+    uardf:symbolicName "Read" .
+
+opcua:aT0xMjY1Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12653" ;
+    uardf:parent opcua:aT0xMjY1Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Length\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=6\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12654" ;
+    uardf:parent opcua:aT0xMjY1Mg ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12656" ;
+    uardf:parent opcua:aT0xMjY1NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY1OA,
+        opcua:aT0xMjY1OQ ;
+    opcua:hasInputArguments opcua:aT0xMjY1OA ;
+    opcua:hasOutputArguments opcua:aT0xMjY1OQ ;
+    uardf:browseName "GetPosition" ;
+    uardf:displayName "GetPosition"@en ;
+    uardf:name "GetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12657" ;
+    uardf:symbolicName "GetPosition" .
+
+opcua:aT0xMjY1OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12658" ;
+    uardf:parent opcua:aT0xMjY1Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY1OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12659" ;
+    uardf:parent opcua:aT0xMjY1Nw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY2MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12661" ;
+    uardf:parent opcua:aT0xMjY2MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY2Mw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY2NA,
+        opcua:aT0xMjY2NQ ;
+    opcua:hasInputArguments opcua:aT0xMjY2NA ;
+    opcua:hasOutputArguments opcua:aT0xMjY2NQ ;
+    uardf:browseName "OpenWithMasks" ;
+    uardf:displayName "OpenWithMasks"@en ;
+    uardf:name "OpenWithMasks" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12663" ;
+    uardf:symbolicName "OpenWithMasks" .
+
+opcua:aT0xMjY2NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12664" ;
+    uardf:parent opcua:aT0xMjY2Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Masks\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY2NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12665" ;
+    uardf:parent opcua:aT0xMjY2Mw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY2Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjY2Nw,
+        opcua:aT0xNDE2MA ;
+    opcua:hasInputArguments opcua:aT0xNDE2MA ;
+    opcua:hasOutputArguments opcua:aT0xMjY2Nw ;
+    uardf:browseName "CloseAndUpdate" ;
+    uardf:displayName "CloseAndUpdate"@en ;
+    uardf:name "CloseAndUpdate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12666" ;
+    uardf:symbolicName "CloseAndUpdate" .
+
+opcua:aT0xMjY2Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12667" ;
+    uardf:parent opcua:aT0xMjY2Ng ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplyChangesRequired\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY2OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12669" ;
+    uardf:parent opcua:aT0xMjY2OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Certificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjY3MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12671" ;
+    uardf:parent opcua:aT0xMjY3MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Thumbprint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xMjY4Ng a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -22697,6 +23925,20 @@ opcua:aT0xMjc3Ng a opcua:PropertyType,
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=12776" ;
     uardf:parent opcua:aT0xMjc3NQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Certificates\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjc3OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12778" ;
+    uardf:parent opcua:aT0xMjc3Nw ;
     uardf:symbolicName "OutputArguments" ;
     base:hasArrayDimensions ( 1 ) ;
     base:hasDatatype opcua:Argument ;
@@ -22998,6 +24240,46 @@ opcua:aT0xMjczNA a uardf:Method ;
     uardf:nodeId "i=12734" ;
     uardf:parent opcua:aT0xMjU4MQ ;
     uardf:symbolicName "ApplyChanges" .
+
+opcua:aT0xMjczNw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMjczOA,
+        opcua:aT0xMjczOQ ;
+    opcua:hasInputArguments opcua:aT0xMjczOA ;
+    opcua:hasOutputArguments opcua:aT0xMjczOQ ;
+    uardf:browseName "CreateSigningRequest" ;
+    uardf:displayName "CreateSigningRequest"@en ;
+    uardf:name "CreateSigningRequest" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12737" ;
+    uardf:symbolicName "CreateSigningRequest" .
+
+opcua:aT0xMjczOA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12738" ;
+    uardf:parent opcua:aT0xMjczNw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 5 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CertificateGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CertificateTypeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SubjectName\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RegeneratePrivateKey\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Nonce\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMjczOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=12739" ;
+    uardf:parent opcua:aT0xMjczNw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CertificateRequest\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0xMjg0MA a opcua:BaseDataVariableType,
         uardf:Variable ;
@@ -24638,6 +25920,46 @@ opcua:aT0xMzczNg a opcua:PropertyType,
     uardf:symbolicName "CertificateType" ;
     base:hasDatatype opcua:NodeId .
 
+opcua:aT0xMzczNw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xMzczOA,
+        opcua:aT0xMzczOQ ;
+    opcua:hasInputArguments opcua:aT0xMzczOA ;
+    opcua:hasOutputArguments opcua:aT0xMzczOQ ;
+    uardf:browseName "UpdateCertificate" ;
+    uardf:displayName "UpdateCertificate"@en ;
+    uardf:name "UpdateCertificate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=13737" ;
+    uardf:symbolicName "UpdateCertificate" .
+
+opcua:aT0xMzczOA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=13738" ;
+    uardf:parent opcua:aT0xMzczNw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 6 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CertificateGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CertificateTypeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Certificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IssuerCertificates\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"PrivateKeyFormat\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"PrivateKey\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xMzczOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=13739" ;
+    uardf:parent opcua:aT0xMzczNw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplyChangesRequired\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xMzg0MQ a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -26133,6 +27455,560 @@ opcua:aT0xMzkzOA a opcua:PropertyType,
     uardf:symbolicName "LastUpdateTime" ;
     base:hasDatatype opcua:UtcTime .
 
+opcua:aT0xNDA5NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDA5Ng,
+        opcua:aT0xNDA5Nw ;
+    opcua:hasInputArguments opcua:aT0xNDA5Ng ;
+    opcua:hasOutputArguments opcua:aT0xNDA5Nw ;
+    uardf:browseName "Open" ;
+    uardf:displayName "Open"@en ;
+    uardf:name "Open" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14095" ;
+    uardf:symbolicName "Open" .
+
+opcua:aT0xNDA5Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14096" ;
+    uardf:parent opcua:aT0xNDA5NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Mode\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=3\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDA5Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14097" ;
+    uardf:parent opcua:aT0xNDA5NQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDA5OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14099" ;
+    uardf:parent opcua:aT0xNDA5OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14140" ;
+    uardf:parent opcua:aT0xNDEzOQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14141" ;
+    uardf:parent opcua:aT0xNDEzOQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14143" ;
+    uardf:parent opcua:aT0xNDE0Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0NQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE0Ng,
+        opcua:aT0xNDE0Nw ;
+    opcua:hasInputArguments opcua:aT0xNDE0Ng ;
+    opcua:hasOutputArguments opcua:aT0xNDE0Nw ;
+    uardf:browseName "OpenWithMasks" ;
+    uardf:displayName "OpenWithMasks"@en ;
+    uardf:name "OpenWithMasks" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14145" ;
+    uardf:symbolicName "OpenWithMasks" .
+
+opcua:aT0xNDE0Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14146" ;
+    uardf:parent opcua:aT0xNDE0NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Masks\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14147" ;
+    uardf:parent opcua:aT0xNDE0NQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE0OA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE0OQ,
+        opcua:aT0xNDE1MA ;
+    opcua:hasInputArguments opcua:aT0xNDE0OQ ;
+    opcua:hasOutputArguments opcua:aT0xNDE1MA ;
+    uardf:browseName "CloseAndUpdate" ;
+    uardf:displayName "CloseAndUpdate"@en ;
+    uardf:name "CloseAndUpdate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14148" ;
+    uardf:symbolicName "CloseAndUpdate" .
+
+opcua:aT0xNDE0OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14149" ;
+    uardf:parent opcua:aT0xNDE0OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE1MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14150" ;
+    uardf:parent opcua:aT0xNDE0OA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplyChangesRequired\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE1Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14152" ;
+    uardf:parent opcua:aT0xNDE1MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Certificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE1NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14154" ;
+    uardf:parent opcua:aT0xNDE1Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Thumbprint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDE2MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14160" ;
+    uardf:parent opcua:aT0xMjY2Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwMA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEwMQ,
+        opcua:aT0xNDEwMg ;
+    opcua:hasInputArguments opcua:aT0xNDEwMQ ;
+    opcua:hasOutputArguments opcua:aT0xNDEwMg ;
+    uardf:browseName "Read" ;
+    uardf:displayName "Read"@en ;
+    uardf:name "Read" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14100" ;
+    uardf:symbolicName "Read" .
+
+opcua:aT0xNDEwMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14101" ;
+    uardf:parent opcua:aT0xNDEwMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Length\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=6\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwMg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14102" ;
+    uardf:parent opcua:aT0xNDEwMA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwNA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14104" ;
+    uardf:parent opcua:aT0xNDEwMw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwNQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEwNg,
+        opcua:aT0xNDEwNw ;
+    opcua:hasInputArguments opcua:aT0xNDEwNg ;
+    opcua:hasOutputArguments opcua:aT0xNDEwNw ;
+    uardf:browseName "GetPosition" ;
+    uardf:displayName "GetPosition"@en ;
+    uardf:name "GetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14105" ;
+    uardf:symbolicName "GetPosition" .
+
+opcua:aT0xNDEwNg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14106" ;
+    uardf:parent opcua:aT0xNDEwNQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwNw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14107" ;
+    uardf:parent opcua:aT0xNDEwNQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEwOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14109" ;
+    uardf:parent opcua:aT0xNDEwOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDExMQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDExMg,
+        opcua:aT0xNDExMw ;
+    opcua:hasInputArguments opcua:aT0xNDExMg ;
+    opcua:hasOutputArguments opcua:aT0xNDExMw ;
+    uardf:browseName "OpenWithMasks" ;
+    uardf:displayName "OpenWithMasks"@en ;
+    uardf:name "OpenWithMasks" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14111" ;
+    uardf:symbolicName "OpenWithMasks" .
+
+opcua:aT0xNDExMg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14112" ;
+    uardf:parent opcua:aT0xNDExMQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Masks\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDExMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14113" ;
+    uardf:parent opcua:aT0xNDExMQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDExNA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDExNQ,
+        opcua:aT0xNDExNg ;
+    opcua:hasInputArguments opcua:aT0xNDExNQ ;
+    opcua:hasOutputArguments opcua:aT0xNDExNg ;
+    uardf:browseName "CloseAndUpdate" ;
+    uardf:displayName "CloseAndUpdate"@en ;
+    uardf:name "CloseAndUpdate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14114" ;
+    uardf:symbolicName "CloseAndUpdate" .
+
+opcua:aT0xNDExNQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14115" ;
+    uardf:parent opcua:aT0xNDExNA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDExNg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14116" ;
+    uardf:parent opcua:aT0xNDExNA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplyChangesRequired\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDExOA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14118" ;
+    uardf:parent opcua:aT0xNDExNw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Certificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEyMA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14120" ;
+    uardf:parent opcua:aT0xNDExOQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Thumbprint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"IsTrustedCertificate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEyOQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEzMA,
+        opcua:aT0xNDEzMQ ;
+    opcua:hasInputArguments opcua:aT0xNDEzMA ;
+    opcua:hasOutputArguments opcua:aT0xNDEzMQ ;
+    uardf:browseName "Open" ;
+    uardf:displayName "Open"@en ;
+    uardf:name "Open" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14129" ;
+    uardf:symbolicName "Open" .
+
+opcua:aT0xNDEzMA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14130" ;
+    uardf:parent opcua:aT0xNDEyOQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Mode\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=3\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14131" ;
+    uardf:parent opcua:aT0xNDEyOQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14133" ;
+    uardf:parent opcua:aT0xNDEzMg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzNA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDEzNQ,
+        opcua:aT0xNDEzNg ;
+    opcua:hasInputArguments opcua:aT0xNDEzNQ ;
+    opcua:hasOutputArguments opcua:aT0xNDEzNg ;
+    uardf:browseName "Read" ;
+    uardf:displayName "Read"@en ;
+    uardf:name "Read" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14134" ;
+    uardf:symbolicName "Read" .
+
+opcua:aT0xNDEzNQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14135" ;
+    uardf:parent opcua:aT0xNDEzNA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Length\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=6\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzNg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14136" ;
+    uardf:parent opcua:aT0xNDEzNA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzOA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14138" ;
+    uardf:parent opcua:aT0xNDEzNw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNDEzOQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNDE0MA,
+        opcua:aT0xNDE0MQ ;
+    opcua:hasInputArguments opcua:aT0xNDE0MA ;
+    opcua:hasOutputArguments opcua:aT0xNDE0MQ ;
+    uardf:browseName "GetPosition" ;
+    uardf:displayName "GetPosition"@en ;
+    uardf:name "GetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14139" ;
+    uardf:symbolicName "GetPosition" .
+
 opcua:aT0xNDIyNg a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -27052,6 +28928,46 @@ opcua:aT0xNTI2Ng a opcua:BaseDataVariableType,
     uardf:symbolicName "State" ;
     base:hasDatatype opcua:PubSubState .
 
+opcua:aT0xNTIxNQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTIxNg,
+        opcua:aT0xNTIxNw ;
+    opcua:hasInputArguments opcua:aT0xNTIxNg ;
+    opcua:hasOutputArguments opcua:aT0xNTIxNw ;
+    uardf:browseName "GetSecurityKeys" ;
+    uardf:displayName "GetSecurityKeys"@en ;
+    uardf:name "GetSecurityKeys" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15215" ;
+    uardf:symbolicName "GetSecurityKeys" .
+
+opcua:aT0xNTIxNg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15216" ;
+    uardf:parent opcua:aT0xNTIxNQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 3 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"StartingTokenId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=288\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RequestedKeyCount\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTIxNw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15217" ;
+    uardf:parent opcua:aT0xNTIxNQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 5 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityPolicyUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FirstTokenId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=288\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Keys\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"TimeToNextKey\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"KeyLifetime\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xNTIyMQ a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -27318,6 +29234,100 @@ opcua:aT0xNTMzNA a opcua:PropertyType,
     uardf:parent opcua:aT0yMTE0Mg ;
     uardf:symbolicName "ResourceUri" ;
     base:hasDatatype opcua:String .
+
+opcua:aT0xNTQ0MA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTQ0MQ,
+        opcua:aT0xNTQ0Mg ;
+    opcua:hasInputArguments opcua:aT0xNTQ0MQ ;
+    opcua:hasOutputArguments opcua:aT0xNTQ0Mg ;
+    uardf:browseName "GetSecurityGroup" ;
+    uardf:displayName "GetSecurityGroup"@en ;
+    uardf:name "GetSecurityGroup" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15440" ;
+    uardf:symbolicName "GetSecurityGroup" .
+
+opcua:aT0xNTQ0MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15441" ;
+    uardf:parent opcua:aT0xNTQ0MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTQ0Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15442" ;
+    uardf:parent opcua:aT0xNTQ0MA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTQ0NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTQ0NQ,
+        opcua:aT0xNTQ0Ng ;
+    opcua:hasInputArguments opcua:aT0xNTQ0NQ ;
+    opcua:hasOutputArguments opcua:aT0xNTQ0Ng ;
+    uardf:browseName "AddSecurityGroup" ;
+    uardf:displayName "AddSecurityGroup"@en ;
+    uardf:name "AddSecurityGroup" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15444" ;
+    uardf:symbolicName "AddSecurityGroup" .
+
+opcua:aT0xNTQ0NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15445" ;
+    uardf:parent opcua:aT0xNTQ0NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 5 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupName\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"KeyLifetime\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityPolicyUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"MaxFutureKeyCount\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"MaxPastKeyCount\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTQ0Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15446" ;
+    uardf:parent opcua:aT0xNTQ0NA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTQ0OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15448" ;
+    uardf:parent opcua:aT0xNTQ0Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0xNTQ1NQ a opcua:PropertyType,
         uardf:Variable ;
@@ -27767,6 +29777,34 @@ opcua:aT0xNTY0Nw a opcua:PropertyType,
     base:hasValueList ( "Timestamp"@en "PicoSeconds"@en "Status"@en "MajorVersion"@en "MinorVersion"@en "SequenceNumber"@en ) ;
     base:hasValueRank 1 .
 
+opcua:aT0xNTY0OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15649" ;
+    uardf:parent opcua:aT0xNTY0OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY1MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15651" ;
+    uardf:parent opcua:aT0xNTY1MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xNTY1NQ a opcua:PropertyType,
         uardf:Variable ;
     uardf:browseName "OptionSetValues" ;
@@ -27793,6 +29831,118 @@ opcua:aT0xNTY1OQ a opcua:PropertyType,
     base:hasArrayDimensions ( 11 ) ;
     base:hasDatatype opcua:LocalizedText ;
     base:hasValueList ( "DataSetWriterId"@en "MetaDataVersion"@en "SequenceNumber"@en "Timestamp"@en "Status"@en "MessageType"@en "DataSetWriterName"@en "ReversibleFieldEncoding"@en "PublisherId"@en "WriterGroupName"@en "MinorVersion"@en ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY2MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15661" ;
+    uardf:parent opcua:aT0xNTY2MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY2Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15663" ;
+    uardf:parent opcua:aT0xNTY2Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY3Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15673" ;
+    uardf:parent opcua:aT0xNTY3Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY3NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15675" ;
+    uardf:parent opcua:aT0xNTY3NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY4NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15685" ;
+    uardf:parent opcua:aT0xNTY4NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY4Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15687" ;
+    uardf:parent opcua:aT0xNTY4Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY5Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15697" ;
+    uardf:parent opcua:aT0xNTY5Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTY5OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15699" ;
+    uardf:parent opcua:aT0xNTY5OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
 opcua:aT0xNTYyNQ a opcua:PropertyType,
@@ -27946,6 +30096,62 @@ opcua:aT0xNTc5NA a uardf:Method ;
     uardf:nodeId "i=15794" ;
     uardf:parent opcua:aT0xNTc1NA ;
     uardf:symbolicName "Reset" .
+
+opcua:aT0xNTcwOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15709" ;
+    uardf:parent opcua:aT0xNTcwOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTcxMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15711" ;
+    uardf:parent opcua:aT0xNTcxMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTcyMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15721" ;
+    uardf:parent opcua:aT0xNTcyMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNTcyMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15723" ;
+    uardf:parent opcua:aT0xNTcyMg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0xNTg0MA a opcua:PropertyType,
         uardf:Variable ;
@@ -28375,6 +30581,34 @@ opcua:aT0xNTkzNA a opcua:PropertyType,
     base:hasDatatype opcua:EndpointDescription ;
     base:hasValueRank 1 .
 
+opcua:aT0xNjA0Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16042" ;
+    uardf:parent opcua:aT0xNjA0MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjA0NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16044" ;
+    uardf:parent opcua:aT0xNjA0Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xNjAwMQ a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -28506,6 +30740,34 @@ opcua:aT0xNjE4Mw a opcua:PropertyType,
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
+opcua:aT0xNjE5Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16196" ;
+    uardf:parent opcua:aT0xNjE5NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjE5OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16198" ;
+    uardf:parent opcua:aT0xNjE5Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xNjEzNw a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT04MA ;
@@ -28546,6 +30808,230 @@ opcua:aT0xNjEzOQ a opcua:PropertyType,
     uardf:symbolicName "DefaultAccessRestrictions" ;
     base:hasDatatype opcua:AccessRestrictionType .
 
+opcua:aT0xNjI0MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16240" ;
+    uardf:parent opcua:aT0xNjIzOQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI0Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16242" ;
+    uardf:parent opcua:aT0xNjI0MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI0NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16244" ;
+    uardf:parent opcua:aT0xNjI0Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI0Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16246" ;
+    uardf:parent opcua:aT0xNjI0NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI1MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16251" ;
+    uardf:parent opcua:aT0xNjI1MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI1Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16253" ;
+    uardf:parent opcua:aT0xNjI1Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI1NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16255" ;
+    uardf:parent opcua:aT0xNjI1NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI1Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16257" ;
+    uardf:parent opcua:aT0xNjI1Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI2Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16262" ;
+    uardf:parent opcua:aT0xNjI2MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI2NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16264" ;
+    uardf:parent opcua:aT0xNjI2Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI2Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16266" ;
+    uardf:parent opcua:aT0xNjI2NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI2OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16268" ;
+    uardf:parent opcua:aT0xNjI2Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI3Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16273" ;
+    uardf:parent opcua:aT0xNjI3Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI3NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16275" ;
+    uardf:parent opcua:aT0xNjI3NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI3Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16277" ;
+    uardf:parent opcua:aT0xNjI3Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjI3OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16279" ;
+    uardf:parent opcua:aT0xNjI3OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0xNjI5Nw a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -28574,6 +31060,202 @@ opcua:aT0xNjI5OA a opcua:PropertyType,
     base:hasArrayDimensions ( 1 ) ;
     base:hasDatatype opcua:Argument ;
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RoleNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIwMA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16200" ;
+    uardf:parent opcua:aT0xNjE5OQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIwMg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16202" ;
+    uardf:parent opcua:aT0xNjIwMQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIwNw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16207" ;
+    uardf:parent opcua:aT0xNjIwNg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIwOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16209" ;
+    uardf:parent opcua:aT0xNjIwOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIxMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16211" ;
+    uardf:parent opcua:aT0xNjIxMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIxMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16213" ;
+    uardf:parent opcua:aT0xNjIxMg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIxOA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16218" ;
+    uardf:parent opcua:aT0xNjIxNw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIyMA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16220" ;
+    uardf:parent opcua:aT0xNjIxOQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIyMg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16222" ;
+    uardf:parent opcua:aT0xNjIyMQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIyNA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16224" ;
+    uardf:parent opcua:aT0xNjIyMw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIyOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16229" ;
+    uardf:parent opcua:aT0xNjIyOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIzMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16231" ;
+    uardf:parent opcua:aT0xNjIzMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIzMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16233" ;
+    uardf:parent opcua:aT0xNjIzMg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNjIzNQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=16235" ;
+    uardf:parent opcua:aT0xNjIzNA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
 opcua:aT0xNjM0OQ a opcua:PropertyType,
@@ -29917,6 +32599,74 @@ opcua:aT0xNzIyNA a opcua:PropertyType,
     uardf:parent opcua:aT04OTYx ;
     uardf:symbolicName "ConditionEventId" ;
     base:hasDatatype opcua:ByteString .
+
+opcua:aT0xNzM2NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17365" ;
+    uardf:parent opcua:aT0xNzM2NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 7 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityPolicyUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CurrentTokenId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=288\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"CurrentKey\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FutureKeys\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"TimeToNextKey\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"KeyLifetime\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNzM2Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNzM2Nw,
+        opcua:aT0xNzM2OA ;
+    opcua:hasInputArguments opcua:aT0xNzM2Nw ;
+    opcua:hasOutputArguments opcua:aT0xNzM2OA ;
+    uardf:browseName "AddConnection" ;
+    uardf:displayName "AddConnection"@en ;
+    uardf:name "AddConnection" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17366" ;
+    uardf:symbolicName "AddConnection" .
+
+opcua:aT0xNzM2Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17367" ;
+    uardf:parent opcua:aT0xNzM2Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Configuration\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15617\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNzM2OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17368" ;
+    uardf:parent opcua:aT0xNzM2Ng ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ConnectionId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0xNzM3MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17370" ;
+    uardf:parent opcua:aT0xNzM2OQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ConnectionId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0xNzM4Nw a opcua:PropertyType,
         uardf:Variable ;
@@ -38620,6 +41370,46 @@ opcua:aT0yMzQ2NA a opcua:PropertyType,
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"AliasNodeList\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=23468\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
+opcua:aT0yMzQ3Ng a uardf:Method ;
+    opcua:HasProperty opcua:aT0yMzQ3Nw,
+        opcua:aT0yMzQ3OA ;
+    opcua:hasInputArguments opcua:aT0yMzQ3Nw ;
+    opcua:hasOutputArguments opcua:aT0yMzQ3OA ;
+    uardf:browseName "FindAlias" ;
+    uardf:displayName "FindAlias"@en ;
+    uardf:name "FindAlias" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=23476" ;
+    uardf:symbolicName "FindAlias" .
+
+opcua:aT0yMzQ3Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=23477" ;
+    uardf:parent opcua:aT0yMzQ3Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"AliasNameSearchPattern\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ReferenceTypeFilter\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yMzQ3OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=23478" ;
+    uardf:parent opcua:aT0yMzQ3Ng ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"AliasNodeList\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=23468\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0yMzQ4Ng a opcua:PropertyType,
         uardf:Variable ;
     uardf:browseName "InputArguments" ;
@@ -40772,6 +43562,62 @@ opcua:aT0yNDIzOQ a opcua:PropertyType,
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 0, \"xsd:DisplayName\": {\"xsd:Text\": \"NoFailure\"}, \"xsd:Description\": {\"xsd:Text\": \"No failure\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 1, \"xsd:DisplayName\": {\"xsd:Text\": \"InsufficientBandwidth\"}, \"xsd:Description\": {\"xsd:Text\": \"Insufficient bandwidth\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 2, \"xsd:DisplayName\": {\"xsd:Text\": \"InsufficientResources\"}, \"xsd:Description\": {\"xsd:Text\": \"Insufficient bridge resources\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 3, \"xsd:DisplayName\": {\"xsd:Text\": \"InsufficientTrafficClassBandwidth\"}, \"xsd:Description\": {\"xsd:Text\": \"Insufficient bandwidth for Traffic Class\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 4, \"xsd:DisplayName\": {\"xsd:Text\": \"StreamIdInUse\"}, \"xsd:Description\": {\"xsd:Text\": \"StreamID in use by another Talker\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 5, \"xsd:DisplayName\": {\"xsd:Text\": \"StreamDestinationAddressInUse\"}, \"xsd:Description\": {\"xsd:Text\": \"Stream destination address already in use\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 6, \"xsd:DisplayName\": {\"xsd:Text\": \"StreamPreemptedByHigherRank\"}, \"xsd:Description\": {\"xsd:Text\": \"Stream pre-empted by higher rank\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 7, \"xsd:DisplayName\": {\"xsd:Text\": \"LatencyHasChanged\"}, \"xsd:Description\": {\"xsd:Text\": \"Reported latency has changed\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 8, \"xsd:DisplayName\": {\"xsd:Text\": \"EgressPortNotAvbCapable\"}, \"xsd:Description\": {\"xsd:Text\": \"Egress port is not AVBCapable\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 9, \"xsd:DisplayName\": {\"xsd:Text\": \"UseDifferentDestinationAddress\"}, \"xsd:Description\": {\"xsd:Text\": \"Use a different destination address\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 10, \"xsd:DisplayName\": {\"xsd:Text\": \"OutOfMsrpResources\"}, \"xsd:Description\": {\"xsd:Text\": \"Out of MSRP resources\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 11, \"xsd:DisplayName\": {\"xsd:Text\": \"OutOfMmrpResources\"}, \"xsd:Description\": {\"xsd:Text\": \"Out of MMRP resources\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 12, \"xsd:DisplayName\": {\"xsd:Text\": \"CannotStoreDestinationAddress\"}, \"xsd:Description\": {\"xsd:Text\": \"Cannot store destination address\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 13, \"xsd:DisplayName\": {\"xsd:Text\": \"PriorityIsNotAnSrcClass\"}, \"xsd:Description\": {\"xsd:Text\": \"Requested priority is not an SR Class priority\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 14, \"xsd:DisplayName\": {\"xsd:Text\": \"MaxFrameSizeTooLarge\"}, \"xsd:Description\": {\"xsd:Text\": \"MaxFrameSize is too large for media\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 15, \"xsd:DisplayName\": {\"xsd:Text\": \"MaxFanInPortsLimitReached\"}, \"xsd:Description\": {\"xsd:Text\": \"MaxFanInPorts limit has been reached\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 16, \"xsd:DisplayName\": {\"xsd:Text\": \"FirstValueChangedForStreamId\"}, \"xsd:Description\": {\"xsd:Text\": \"Changes in FirstValue for a registered StreamID\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 17, \"xsd:DisplayName\": {\"xsd:Text\": \"VlanBlockedOnEgress\"}, \"xsd:Description\": {\"xsd:Text\": \"VLAN is blocked on this egress port (Registration Forbidden)\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 18, \"xsd:DisplayName\": {\"xsd:Text\": \"VlanTaggingDisabledOnEgress\"}, \"xsd:Description\": {\"xsd:Text\": \"VLAN tagging is disabled on this egress port (untagged set)\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 19, \"xsd:DisplayName\": {\"xsd:Text\": \"SrClassPriorityMismatch\"}, \"xsd:Description\": {\"xsd:Text\": \"SR class priority mismatch\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 20, \"xsd:DisplayName\": {\"xsd:Text\": \"FeatureNotPropagated\"}, \"xsd:Description\": {\"xsd:Text\": \"Enhanced feature cannot be propagated to original Port\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 21, \"xsd:DisplayName\": {\"xsd:Text\": \"MaxLatencyExceeded\"}, \"xsd:Description\": {\"xsd:Text\": \"MaxLatency exceeded\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 22, \"xsd:DisplayName\": {\"xsd:Text\": \"BridgeDoesNotProvideNetworkId\"}, \"xsd:Description\": {\"xsd:Text\": \"Nearest Bridge cannot provide network identification for stream transformation\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 23, \"xsd:DisplayName\": {\"xsd:Text\": \"StreamTransformNotSupported\"}, \"xsd:Description\": {\"xsd:Text\": \"Stream transformation not supported\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 24, \"xsd:DisplayName\": {\"xsd:Text\": \"StreamIdTypeNotSupported\"}, \"xsd:Description\": {\"xsd:Text\": \"Stream identification type not supported for stream transformation\"}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=7616\"}, \"xsd:Body\": {\"xsd:EnumValueType\": {\"xsd:Value\": 25, \"xsd:DisplayName\": {\"xsd:Text\": \"FeatureNotSupported\"}, \"xsd:Description\": {\"xsd:Text\": \"Enhanced feature cannot be supported without a CNC\"}}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
+opcua:aT0yNDMwNQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24305" ;
+    uardf:parent opcua:aT0yNDMwNA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 4 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserName\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Password\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserConfiguration\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=24279\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Description\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNDMwNw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24307" ;
+    uardf:parent opcua:aT0yNDMwNg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 7 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserName\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ModifyPassword\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Password\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ModifyUserConfiguration\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserConfiguration\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=24279\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ModifyDescription\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Description\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNDMwOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24309" ;
+    uardf:parent opcua:aT0yNDMwOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserName\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNDMxMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=24311" ;
+    uardf:parent opcua:aT0yNDMxMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"OldPassword\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"NewPassword\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0yNDMxMw a opcua:PropertyType,
         uardf:Variable ;
     opcua:HasModellingRule opcua:aT03OA ;
@@ -41514,6 +44360,302 @@ opcua:aT0yNTMxNw a opcua:PropertyType,
     base:hasDatatype opcua:String ;
     base:hasValueRank 1 .
 
+opcua:aT0yNTQ0MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ0Mg,
+        opcua:aT0yNTQ0Mw ;
+    opcua:hasInputArguments opcua:aT0yNTQ0Mg ;
+    opcua:hasOutputArguments opcua:aT0yNTQ0Mw ;
+    uardf:browseName "AddPushTarget" ;
+    uardf:displayName "AddPushTarget"@en ;
+    uardf:name "AddPushTarget" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25441" ;
+    uardf:symbolicName "AddPushTarget" .
+
+opcua:aT0yNTQ0Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25442" ;
+    uardf:parent opcua:aT0yNTQ0MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 6 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"EndpointUrl\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityPolicyUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"UserTokenType\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=304\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RequestedKeyCount\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=5\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RetryInterval\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=290\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ0Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25443" ;
+    uardf:parent opcua:aT0yNTQ0MQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"PushTargetId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ0NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25445" ;
+    uardf:parent opcua:aT0yNTQ0NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"PushTargetId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ1OQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ2MA,
+        opcua:aT0yNTQ2MQ ;
+    opcua:hasInputArguments opcua:aT0yNTQ2MA ;
+    opcua:hasOutputArguments opcua:aT0yNTQ2MQ ;
+    uardf:browseName "Open" ;
+    uardf:displayName "Open"@en ;
+    uardf:name "Open" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25459" ;
+    uardf:symbolicName "Open" .
+
+opcua:aT0yNTQ2MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25460" ;
+    uardf:parent opcua:aT0yNTQ1OQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Mode\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=3\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25461" ;
+    uardf:parent opcua:aT0yNTQ1OQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25463" ;
+    uardf:parent opcua:aT0yNTQ2Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ2NQ,
+        opcua:aT0yNTQ2Ng ;
+    opcua:hasInputArguments opcua:aT0yNTQ2NQ ;
+    opcua:hasOutputArguments opcua:aT0yNTQ2Ng ;
+    uardf:browseName "Read" ;
+    uardf:displayName "Read"@en ;
+    uardf:name "Read" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25464" ;
+    uardf:symbolicName "Read" .
+
+opcua:aT0yNTQ2NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25465" ;
+    uardf:parent opcua:aT0yNTQ2NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Length\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=6\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25466" ;
+    uardf:parent opcua:aT0yNTQ2NA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25468" ;
+    uardf:parent opcua:aT0yNTQ2Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Data\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ2OQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ3MA,
+        opcua:aT0yNTQ3MQ ;
+    opcua:hasInputArguments opcua:aT0yNTQ3MA ;
+    opcua:hasOutputArguments opcua:aT0yNTQ3MQ ;
+    uardf:browseName "GetPosition" ;
+    uardf:displayName "GetPosition"@en ;
+    uardf:name "GetPosition" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25469" ;
+    uardf:symbolicName "GetPosition" .
+
+opcua:aT0yNTQ3MA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25470" ;
+    uardf:parent opcua:aT0yNTQ2OQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25471" ;
+    uardf:parent opcua:aT0yNTQ2OQ ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25473" ;
+    uardf:parent opcua:aT0yNTQ3Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 2 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Position\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=9\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ3NQ,
+        opcua:aT0yNTQ3Ng ;
+    opcua:hasInputArguments opcua:aT0yNTQ3NQ ;
+    opcua:hasOutputArguments opcua:aT0yNTQ3Ng ;
+    uardf:browseName "ReserveIds" ;
+    uardf:displayName "ReserveIds"@en ;
+    uardf:name "ReserveIds" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25474" ;
+    uardf:symbolicName "ReserveIds" .
+
+opcua:aT0yNTQ3NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25475" ;
+    uardf:parent opcua:aT0yNTQ3NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 3 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"TransportProfileUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"NumReqWriterGroupIds\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=5\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"NumReqDataSetWriterIds\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=5\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25476" ;
+    uardf:parent opcua:aT0yNTQ3NA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 3 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"DefaultPublisherId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=24\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"WriterGroupIds\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=5\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"DataSetWriterIds\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=5\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ3OA,
+        opcua:aT0yNTQ3OQ ;
+    opcua:hasInputArguments opcua:aT0yNTQ3OA ;
+    opcua:hasOutputArguments opcua:aT0yNTQ3OQ ;
+    uardf:browseName "CloseAndUpdate" ;
+    uardf:displayName "CloseAndUpdate"@en ;
+    uardf:name "CloseAndUpdate" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25477" ;
+    uardf:symbolicName "CloseAndUpdate" .
+
+opcua:aT0yNTQ3OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25478" ;
+    uardf:parent opcua:aT0yNTQ3Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 3 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"FileHandle\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=7\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"RequireCompleteUpdate\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ConfigurationReferences\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=25519\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTQ3OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25479" ;
+    uardf:parent opcua:aT0yNTQ3Nw ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 4 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ChangesApplied\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=1\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ReferencesResults\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=19\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ConfigurationValues\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=25520\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ConfigurationObjects\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
 opcua:aT0yNTQ4Mg a uardf:ObjectType ;
     opcua:HasComponent opcua:aT0yNTUwNQ,
         opcua:aT0yNTUwOA ;
@@ -41793,6 +44935,146 @@ opcua:aT0yNTQzMw a opcua:PropertyType,
     uardf:parent opcua:aT0xNDQxNg ;
     uardf:symbolicName "ConfigurationVersion" ;
     base:hasDatatype opcua:VersionTime .
+
+opcua:aT0yNTU3Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25573" ;
+    uardf:parent opcua:aT0yNTU3Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU3NQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25575" ;
+    uardf:parent opcua:aT0yNTU3NA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU3Nw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25577" ;
+    uardf:parent opcua:aT0yNTU3Ng ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU3OQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25579" ;
+    uardf:parent opcua:aT0yNTU3OA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU4MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25581" ;
+    uardf:parent opcua:aT0yNTU4MA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU4Mw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25583" ;
+    uardf:parent opcua:aT0yNTU4Mg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU5Mg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25592" ;
+    uardf:parent opcua:aT0yNTU5MQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU5NA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25594" ;
+    uardf:parent opcua:aT0yNTU5Mw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU5Ng a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25596" ;
+    uardf:parent opcua:aT0yNTU5NQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTU5OA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25598" ;
+    uardf:parent opcua:aT0yNTU5Nw ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0yNTUwNg a opcua:PropertyType,
         uardf:Variable ;
@@ -42218,6 +45500,118 @@ opcua:aT0yNTY5OQ a uardf:Method ;
     uardf:nodeId "i=25699" ;
     uardf:parent opcua:aT0xMjU4MQ ;
     uardf:symbolicName "ResetToServerDefaults" .
+
+opcua:aT0yNTYwMA a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25600" ;
+    uardf:parent opcua:aT0yNTU5OQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYwMg a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25602" ;
+    uardf:parent opcua:aT0yNTYwMQ ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYxMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25611" ;
+    uardf:parent opcua:aT0yNTYxMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYxMw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25613" ;
+    uardf:parent opcua:aT0yNTYxMg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Rule\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15634\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYxNQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25615" ;
+    uardf:parent opcua:aT0yNTYxNA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYxNw a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25617" ;
+    uardf:parent opcua:aT0yNTYxNg ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"ApplicationUri\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=12\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYxOQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25619" ;
+    uardf:parent opcua:aT0yNTYxOA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
+
+opcua:aT0yNTYyMQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "InputArguments" ;
+    uardf:displayName "InputArguments"@en ;
+    uardf:name "InputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25621" ;
+    uardf:parent opcua:aT0yNTYyMA ;
+    uardf:symbolicName "InputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Endpoint\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=15528\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0yNTYyNA a uardf:Method ;
     uardf:browseName "InvalidateKeys" ;
@@ -43312,6 +46706,20 @@ opcua:aT0yODMx a opcua:PropertyType,
     uardf:parent opcua:aT0yODMw ;
     uardf:symbolicName "Prompt" ;
     base:hasDatatype opcua:LocalizedText .
+
+opcua:aT0yOTg4MQ a opcua:PropertyType,
+        uardf:Variable ;
+    uardf:browseName "OutputArguments" ;
+    uardf:displayName "OutputArguments"@en ;
+    uardf:name "OutputArguments" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=29881" ;
+    uardf:parent opcua:aT0yOTg4MA ;
+    uardf:symbolicName "OutputArguments" ;
+    base:hasArrayDimensions ( 1 ) ;
+    base:hasDatatype opcua:Argument ;
+    base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"Tickets\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=25726\"}, \"xsd:ValueRank\": 1, \"xsd:ArrayDimensions\": {\"xsd:UInt32\": [0]}}}}"^^rdf:JSON ) ;
+    base:hasValueRank 1 .
 
 opcua:aT0yOTk4 a opcua:BaseDataVariableType,
         uardf:Variable ;
@@ -65005,14 +68413,6 @@ opcua:aT04MA a opcua:ModellingRuleType,
 opcua:DataTypeDescriptionType a owl:Class ;
     rdfs:subClassOf opcua:BaseDataVariableType .
 
-opcua:Argument a owl:Class ;
-    rdfs:subClassOf opcua:Structure ;
-    base:hasField opcua:ArrayDimensions,
-        opcua:DataType,
-        opcua:Description,
-        opcua:Name,
-        opcua:ValueRank .
-
 opcua:UInt32 a owl:Class ;
     rdfs:subClassOf opcua:UInteger .
 
@@ -65021,6 +68421,14 @@ opcua:DataTypeEncodingType a owl:Class ;
 
 opcua:BaseDataVariableType a owl:Class ;
     rdfs:subClassOf opcua:BaseVariableType .
+
+opcua:Argument a owl:Class ;
+    rdfs:subClassOf opcua:Structure ;
+    base:hasField opcua:ArrayDimensions,
+        opcua:DataType,
+        opcua:Description,
+        opcua:Name,
+        opcua:ValueRank .
 
 opcua:String a opcua:IdType,
         owl:Class,

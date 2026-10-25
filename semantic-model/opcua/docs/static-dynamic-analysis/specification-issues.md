@@ -19,7 +19,7 @@ and OPC 11030 §7.11 (UA Modelling Best Practices) for standardized instances wh
 **C1. Server specific content inside the static ranges.** Core's NamespaceMetadata (`i=15957`,
 StaticNumericNodeIdRange `i=15963`, 36 ranges) excludes the Server object and its classic children (ServerStatus,
 ServerCapabilities, Namespaces, …), but the later additions to the Server object are inside the static ranges although
-their values are server specific. nodeset2owl.py reclassifies 516 core nodes (R1/R2); the instances are:
+their values are server specific. nodeset2owl.py reclassifies 240 core nodes (R1/R2); the instances are:
 
 | Instance | NodeId | Server specific content (examples) |
 |---|---|---|

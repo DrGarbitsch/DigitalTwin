@@ -175,10 +175,9 @@ Overrides (heuristic, they overrule R3):
 - **R2 ParentNodeId override.** A node whose `ParentNodeId` (an attribute of the nodeset, not
   part of the AddressSpace) is dynamic is dynamic as well: the ParentNodeId expresses the tight
   coupling of a node to its parent (it is deleted together with the parent), e.g. the folders
-  `CertificateGroups` or `AggregateFunctions` and the Methods (with their arguments) of the server
-  specific objects – as core's NamespaceMetadata already does for the Methods of the Server
-  object. R2 follows the ParentNodeId only, not the HasChild references: a child without
-  ParentNodeId keeps the classification of R3. Definition nodes are excluded.
+  `CertificateGroups` or `AggregateFunctions` of the server specific objects. R2 follows the
+  ParentNodeId only, not the HasChild references: a child without ParentNodeId keeps the
+  classification of R3. Methods (and so their arguments) and definition nodes are excluded.
 
 Standard rule:
 
