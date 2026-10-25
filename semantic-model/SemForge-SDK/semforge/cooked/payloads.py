@@ -108,6 +108,13 @@ def prefixes_of(package):
 
 
 def _key(prefixes):
+    if isinstance(prefixes, tuple):
+        return _sorted_key(prefixes)      # prefixes_of's: the same tuple every row
+    return tuple(sorted((str(p), str(n)) for p, n in prefixes))
+
+
+@lru_cache(maxsize=16)
+def _sorted_key(prefixes):
     return tuple(sorted((str(p), str(n)) for p, n in prefixes))
 
 

@@ -343,7 +343,18 @@ def build_tree(package):
     latter marked with where it comes from and not editable in place. Editing it
     there would be a lie of a different kind: SHACL CONJOINS, so a constraint
     added to the subtype cannot relax the one above it (see override_effect).
+
+    Kept with the shapes graph (rdfio/frozen.py): the type page, a new test and
+    the constraints view all start from it, 0.8 s each on the OPC UA pumps.
+    Callers read the nodes; none may change them.
     """
+    from ..rdfio.frozen import derived
+
+    return derived(package.shapes, 'tree', lambda: _build_tree(package),
+                   depends=(package.knowledge, package.vocabulary), key=(package.path,))
+
+
+def _build_tree(package):
     # Per file, because a role may be a directory: the text a shape is read
     # from has to be the text it was WRITTEN in, or the spans address the wrong
     # document.

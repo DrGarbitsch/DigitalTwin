@@ -55,7 +55,7 @@ def _row(package, entity_type, path):
     """(type entry, the type page's row for the attribute at `path`)."""
     from ..cooked.choices import attribute_terms
     from ..cooked.tree import build_tree
-    from ..cooked.typepage import _attribute_rows, _type_entry
+    from ..cooked.typepage import _attribute_rows, _type_entry, _value_of
 
     entry = _type_entry(package, entity_type)
     root = next((r for r in build_tree(package) if r.target_class == entry.iri), None)
@@ -64,12 +64,36 @@ def _row(package, entity_type, path):
         for node in shape.children:
             if node.kind == 'attribute' and list(node.path_chain) == wanted:
                 kind_of = {a.iri: a.kind for a in attribute_terms(package) if a.kind}
-                return entry, _attribute_rows(package, node, kind_of, 0, {}, {})[0]
+                row = _attribute_rows(package, node, kind_of, 0, {}, {})[0]
+                return entry, dict(row, formConditions=_form_conditions(
+                    _value_of(package, node)))
     if len(wanted) > 1:
         raise PackageError('a test for a sub-attribute is not offered yet; write it '
                            'by hand, inside its parent attribute')
     raise PackageError(f'{" / ".join(wanted) or "that attribute"} is not an attribute '
                        f'of {entry.label}')
+
+
+def _form_conditions(value):
+    """{parameter: value} the one value must meet, read from its forms: an
+    OPC UA Variable says them inside `sh:or ( [hasValue …] [hasValueList …] )`,
+    where the row's own parameters do not reach. The one-value form is the one
+    a test fills; a choice inside it (double or integer) takes its first."""
+    from ..cooked.expression import Leaf, Op
+
+    forms = [f for f in value.forms if not f.is_list] or list(value.forms)
+    found = {}
+    pending = [forms[0].root] if forms else []
+    while pending:
+        node = pending.pop(0)
+        if isinstance(node, Leaf):
+            for key, said in node.conditions:
+                found.setdefault(key, said)
+        elif isinstance(node, Op) and node.op == 'and':
+            pending.extend(node.children)
+        elif isinstance(node, Op) and node.op in ('or', 'xone') and node.children:
+            pending.append(node.children[0])
+    return found
 
 
 def _params(row):
@@ -78,6 +102,17 @@ def _params(row):
     value = {p['parameter']: p['value'] for p in row['parameters']
              if p['layer'] == 'value'}
     return attribute, value
+
+
+def _value_conditions(row):
+    """What a valid value must meet: the row's own value parameters, and
+    what its forms say. Only for making a valid value -- a condition inside
+    an sh:or never fires as itself (the sh:or does), so the breakers keep to
+    `_params`."""
+    _, value = _params(row)
+    for key, said in (row.get('formConditions') or {}).items():
+        value.setdefault(key, said)
+    return value
 
 
 def _number(text):
@@ -291,7 +326,7 @@ def _vocabulary_value(package, cls_curie):
 
 def _valid(package, row, scene):
     """('value'|'object', a value every constraint on it accepts)."""
-    _, value = _params(row)
+    value = _value_conditions(row)
     if row['kind'] == 'Relationship':
         target = value.get('sh:class', '')
         name = target.split(':')[-1]
@@ -383,13 +418,18 @@ def _documents(path):
 
 
 def _scene(package, entry):
-    """(documents, entity id, where from): a scene with an entity of the type."""
+    """(documents, entity id, where from): a scene with an entity of the type.
+
+    Only a case expected valid is a scene: an invalid one is broken on
+    purpose, and a test started from it inherits the breakage -- on the OPC
+    UA pumps a valid hasVoltage case came out with power-factor-too-many's
+    two power factors."""
     from .newcase import _model_document
 
     family = _family(package, entry.iri)
     root = examples_root(package.path)
-    examples = sorted(load_expectations(package.path).examples,
-                      key=lambda e: (e.expect != 'valid', e.path))
+    examples = sorted((e for e in load_expectations(package.path).examples
+                       if e.expect == 'valid'), key=lambda e: e.path)
     for example in examples:
         try:
             graph = compose(package, example)
@@ -578,9 +618,9 @@ def new_attribute_test(package, entity_type, path, purpose, name):
         _yaml().dump(raw, handle)
 
     # Run it once, so the answer says whether it already proves what it says.
-    from ..package import load
+    from ..package.loader import reload_keeping_shapes
 
-    fresh = load(package.path)
+    fresh = reload_keeping_shapes(package)
     case = os.path.relpath(path_out, root)
     example = next(e for e in load_expectations(fresh.path).examples if e.path == case)
     report = validate_graphs(compose(fresh, example), fresh.shapes, fresh.knowledge,

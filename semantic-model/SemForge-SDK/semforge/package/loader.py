@@ -218,6 +218,15 @@ def _documents_for(path, role, names):
     return []
 
 
+def reload_keeping_shapes(package):
+    """`package` read again after a write that left its knowledge and shapes
+    alone -- a test case is files under examples/ -- with their graphs, and
+    what is kept with them (rdfio/frozen.py), reused: on the OPC UA pumps a
+    plain reload is 7.5 s, and a validation on new graphs starts cold."""
+    return load(package.path, reuse={role: (package.files(role), getattr(package, role))
+                                     for role in ('knowledge', 'shapes')})
+
+
 def load(path, reuse=None):
     """Load a package directory. Raises PackageError naming what is missing.
 

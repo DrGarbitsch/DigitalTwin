@@ -193,9 +193,9 @@ def add_test_case(package, suite, expect, start, source='', name='', description
             os.remove(path)
         raise
 
-    from ..package import load
+    from ..package.loader import reload_keeping_shapes
 
-    fresh = load(package.path)
+    fresh = reload_keeping_shapes(package)
     case = os.path.relpath(path, root)
     example = next(e for e in load_expectations(fresh.path).examples if e.path == case)
     try:
@@ -274,12 +274,12 @@ def clone_case(package, case, expect='opposite', name=''):
 
 def _outcome(package, case):
     """Whether a declared case passes now, as `semforge test` says."""
-    from ..package import load
+    from ..package.loader import reload_keeping_shapes
     from ..sanity import known_constraints
     from ..validate.orchestrator import validate_graphs
     from .runner import run_tests
 
-    fresh = load(package.path)
+    fresh = reload_keeping_shapes(package)
     example = next(e for e in load_expectations(fresh.path).examples if e.path == case)
     report = validate_graphs(compose(fresh, example), fresh.shapes, fresh.knowledge,
                              strict=False)
