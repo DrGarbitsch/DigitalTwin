@@ -129,15 +129,15 @@ def test_what_is_not_a_case_is_not_deleted(kms, case, suite, said):
 
 
 def test_the_server_plans_and_deletes(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation
 
     uri = f'file://{kms}/shacl.ttl'
-    with mock.patch.object(server, '_publish'):
-        plan = server.delete_case_plan_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
+    with mock.patch.object(validation, 'publish'):
+        plan = edits.delete_case_plan_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
         assert plan['ok'] and plan['lost']
-        done = server.delete_case_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
+        done = edits.delete_case_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
         assert done['ok'] and done['removed'], done
-        again = server.delete_case_plan_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
+        again = edits.delete_case_plan_feature(mock.MagicMock(), {'uri': uri, 'case': BAD})
         assert not again['ok'] and 'not a declared test case' in again['error']
 
 

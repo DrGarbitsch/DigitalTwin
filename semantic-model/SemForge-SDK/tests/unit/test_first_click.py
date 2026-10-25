@@ -90,14 +90,14 @@ def test_without_a_package_nothing_is_kept(ttl):
 
 
 def test_the_package_is_warmed_when_anything_asks(tmp_path, corpus_path):
-    from semforge.editor import server
+    from semforge.editor import session, validation
 
     root = str(tmp_path / 'pkg')
     shutil.copytree(corpus_path, root, ignore=shutil.ignore_patterns('.semforge'))
-    server._warm(root)
+    session.warm(root)
     deadline = time.time() + 120
     while time.time() < deadline:
-        package = server._packages.get(root)
+        package = session._packages.get(root)
         if package is not None and hasattr(package, '_index_knowledge') \
                 and hasattr(package, '_index_shapes'):
             break
@@ -105,12 +105,12 @@ def test_the_package_is_warmed_when_anything_asks(tmp_path, corpus_path):
     else:
         pytest.fail('the package was not warmed')
     assert os.listdir(cache_dir(root, 'index'))
-    server._service().wait(root, timeout=120)
-    assert server._service().get(root)[1].state == 'ready'
+    validation.service().wait(root, timeout=120)
+    assert validation.service().get(root)[1].state == 'ready'
 
-    before = server._packages[root]
-    server._warm(root)                              # once per version
-    assert server._packages[root] is before
+    before = session._packages[root]
+    session.warm(root)                              # once per version
+    assert session._packages[root] is before
 
 
 def _open(tmp_path, page):
@@ -223,7 +223,7 @@ def test_a_click_that_writes_marks_its_claim_until_the_extension_is_done(tmp_pat
 def test_diagnostics_are_never_worked_out_on_the_server_thread(tmp_path, corpus_path,
                                                                monkeypatch):
     """They come from the validation worker, with the verdicts."""
-    from semforge.editor import analysis, server
+    from semforge.editor import analysis, validation
 
     root = str(tmp_path / 'pkg')
     shutil.copytree(corpus_path, root, ignore=shutil.ignore_patterns('.semforge'))
@@ -231,10 +231,10 @@ def test_diagnostics_are_never_worked_out_on_the_server_thread(tmp_path, corpus_
     def forbidden(*args, **kwargs):
         raise AssertionError('diagnostics computed on the server thread')
 
-    server._findings(root)                      # starts the worker; nothing yet
-    server._service().wait(root, timeout=120)
+    validation.findings_of(root)                # starts the worker; nothing yet
+    validation.service().wait(root, timeout=120)
     monkeypatch.setattr(analysis, 'analyse', forbidden)
-    findings = server._findings(root)
+    findings = validation.findings_of(root)
     kinds = {f.kind for items in findings.values() for f in items}
     assert 'unexercised' in kinds, kinds
 

@@ -201,7 +201,7 @@ def test_a_fix_on_a_stale_place_refuses_rather_than_guesses(kms):
 def test_each_finding_offers_its_quick_fixes():
     from lsprotocol import types
 
-    from semforge.editor.server import _fixes_for
+    from semforge.editor.documents import _fixes_for
 
     def diagnostic(data):
         return types.Diagnostic(

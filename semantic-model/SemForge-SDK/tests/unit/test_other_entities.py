@@ -48,16 +48,16 @@ def test_the_edited_document_s_entities_count_too(corpus, tmp_path):
 
 
 def test_the_server_reads_only_files_inside_the_package(corpus_path, tmp_path):
-    from semforge.editor import server
+    from semforge.editor import views
 
     outside = tmp_path / 'elsewhere.jsonld'
     outside.write_text(json.dumps([{'id': 'urn:secret:1', 'type': 'X'}]))
     uri = f'file://{corpus_path}/shacl.ttl'
-    answer = server.value_choices_feature(mock.MagicMock(), {
+    answer = views.value_choices_feature(mock.MagicMock(), {
         'uri': uri, 'entityType': 'iffBaseEntities:Filter', 'attribute': 'hasCartridge',
         'relationship': True, 'file': str(outside)})
     values = [o['value'] for o in answer['others']]
     assert 'urn:secret:1' not in values and 'urn:workpiece:1' in values
-    plain = server.value_choices_feature(mock.MagicMock(), {
+    plain = views.value_choices_feature(mock.MagicMock(), {
         'uri': uri, 'entityType': 'iffBaseEntities:Filter', 'attribute': 'hasCartridge'})
     assert 'others' not in plain, 'a Property is offered no entities'

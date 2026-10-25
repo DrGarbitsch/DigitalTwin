@@ -43,10 +43,10 @@ def full(corpus):
     from semforge.cooked import build_tree
     from semforge.cooked.examples import build_suite
     from semforge.cooked.knowledge import build_knowledge
-    from semforge.editor.server import (_serialise, _serialise_example,
-                                        _serialise_knowledge)
+    from semforge.editor.protocol import serialise
+    from semforge.editor.views import _serialise_example, _serialise_knowledge
 
-    return {'constraints': [_serialise(n) for n in build_tree(corpus)],
+    return {'constraints': [serialise(n) for n in build_tree(corpus)],
             'model': [_serialise_example(n) for n in build_suite(corpus)],
             'knowledge': [_serialise_knowledge(n) for n in build_knowledge(corpus)]}
 

@@ -221,7 +221,7 @@ def test_the_kms_corpus_reports_nothing(corpus_path):
 def test_the_quick_fixes():
     from lsprotocol import types
 
-    from semforge.editor.server import _fixes_for
+    from semforge.editor.documents import _fixes_for
 
     def fixes(code, **data):
         diagnostic = types.Diagnostic(

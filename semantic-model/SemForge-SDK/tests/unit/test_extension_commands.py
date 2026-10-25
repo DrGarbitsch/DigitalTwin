@@ -616,7 +616,7 @@ def test_every_editable_row_can_be_edited(tmp_path, corpus):
     the mismatch is between the data, the JavaScript and package.json.
     """
     from semforge.cooked.examples import build_suite
-    from semforge.editor.server import _serialise_example
+    from semforge.editor.views import _serialise_example
 
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
@@ -637,7 +637,7 @@ def test_every_editable_row_can_be_edited(tmp_path, corpus):
 def test_no_read_only_row_offers_a_write(tmp_path, corpus):
     """A subobject's rows are read-only, and were offered Add Observation."""
     from semforge.cooked.examples import build_suite
-    from semforge.editor.server import _serialise_example
+    from semforge.editor.views import _serialise_example
 
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
@@ -657,7 +657,7 @@ def test_only_a_row_standing_for_a_dataset_takes_an_observation(tmp_path, corpus
     write with no attribute path -- the command would bail with a warning.
     """
     from semforge.cooked.examples import build_suite
-    from semforge.editor.server import _serialise_example
+    from semforge.editor.views import _serialise_example
 
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
@@ -732,7 +732,7 @@ def test_a_file_only_one_case_includes_asks_nothing(tmp_path):
 def test_an_included_row_offers_the_pencil(tmp_path, corpus):
     """The rows under an include used to carry only the scales."""
     from semforge.cooked.examples import build_suite
-    from semforge.editor.server import _serialise_example
+    from semforge.editor.views import _serialise_example
 
     roots = [_serialise_example(node) for node in build_suite(corpus)]
     rows = _rows_for(tmp_path, roots)
@@ -1341,7 +1341,7 @@ def test_the_project_row_carries_the_delete_action(tmp_path):
     import json as _json
 
     from semforge.cooked.project import build_project
-    from semforge.editor.server import _serialise_project
+    from semforge.editor.views import _serialise_project
     from semforge.package import load
 
     corpus = os.path.join(SDK, 'tests', 'corpus', 'kms')

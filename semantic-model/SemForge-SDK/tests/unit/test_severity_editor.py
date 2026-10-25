@@ -80,13 +80,13 @@ def test_a_severity_that_is_no_level_is_reported(kms):
 def test_the_quick_fix_links_the_class():
     from lsprotocol import types
 
-    from semforge.editor import server
+    from semforge.editor import documents
 
     diagnostic = types.Diagnostic(
         range=types.Range(types.Position(1, 0), types.Position(1, 9)), message='x',
         source='semforge', data={'code': 'severity-unlinked', 'subject': KNOW + 'SeverityClass',
                                  'link': KNOW + 'SeverityClass'})
-    actions = server._fixes_for(diagnostic, 'file:///pkg/knowledge.ttl')
+    actions = documents._fixes_for(diagnostic, 'file:///pkg/knowledge.ttl')
     assert [a.title for a in actions] == ['Declare SeverityClass a kind of sh:Severity']
     assert actions[0].command.command == 'semforge.linkSeverityClass'
 
@@ -94,21 +94,21 @@ def test_the_quick_fix_links_the_class():
 # --- the server ------------------------------------------------------------------------
 
 def test_the_server_lists_sets_adds_and_links(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation, views
 
     uri = f'file://{kms}/shacl.ttl'
-    with mock.patch.object(server, '_publish'):
-        listed = server.severity_levels_feature(mock.MagicMock(), {'uri': uri})
+    with mock.patch.object(validation, 'publish'):
+        listed = views.severity_levels_feature(mock.MagicMock(), {'uri': uri})
         assert listed['ok'] and listed['levels'][0]['term'] == 'sh:Violation'
         query = holders(load(str(kms)), CUTTER)[0]['query']
-        done = server.set_severity_feature(mock.MagicMock(), {
+        done = edits.set_severity_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'query': query, 'severity': 'sh:Warning'})
         assert done['ok'], done
         for feature, params in (
-                (server.add_severity_level_feature,
+                (edits.add_severity_level_feature,
                  {'cls': 'sh:Severity', 'name': 'severityMajor', 'label': 'major'}),
-                (server.add_severity_class_feature, {'name': 'AlarmLevel', 'parent': ''}),
-                (server.link_severity_class_feature, {'cls': KNOW + 'SeverityClass'})):
+                (edits.add_severity_class_feature, {'name': 'AlarmLevel', 'parent': ''}),
+                (edits.link_severity_class_feature, {'cls': KNOW + 'SeverityClass'})):
             answer = feature(mock.MagicMock(), dict(params, uri=uri))
             assert answer['ok'], answer
     shapes = load(str(kms)).shapes

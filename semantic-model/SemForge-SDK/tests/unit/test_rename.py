@@ -260,27 +260,27 @@ def test_a_suite_rename_is_refused_when_it_cannot_be_right(kms, suite, name, sai
 # --- the server ------------------------------------------------------------------------
 
 def test_the_server_renames_and_re_reads(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation
 
     uri = f'file://{kms}/shacl.ttl'
-    with mock.patch.object(server, '_publish'):
-        plan = server.rename_shape_plan_feature(mock.MagicMock(), {
+    with mock.patch.object(validation, 'publish'):
+        plan = edits.rename_shape_plan_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape-c0ffee12'})
         assert plan['ok'] and plan['suite']['free']
-        refused = server.rename_shape_feature(mock.MagicMock(), {
+        refused = edits.rename_shape_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'name': 'FilterShape'})
         assert not refused['ok'] and 'already a shape' in refused['error']
-        done = server.rename_shape_feature(mock.MagicMock(), {
+        done = edits.rename_shape_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'name': 'CutterRunningShape-c0ffee12', 'suite': True})
         assert done['ok'] and done['suiteMoved']
-        case = server.rename_case_feature(mock.MagicMock(), {
+        case = edits.rename_case_feature(mock.MagicMock(), {
             'uri': uri, 'case': 'test_CutterRunningShape-c0ffee12/bad/filter-off.jsonld', 'name': 'off'})
         assert case['ok'], case
-        suite = server.rename_suite_feature(mock.MagicMock(), {
+        suite = edits.rename_suite_feature(mock.MagicMock(), {
             'uri': uri, 'suite': 'test_CutterRunningShape-c0ffee12', 'name': 'cutter'})
         assert suite['ok'], suite
         # The package is read again: the next request sees the new names.
-        again = server.rename_shape_plan_feature(mock.MagicMock(), {
+        again = edits.rename_shape_plan_feature(mock.MagicMock(), {
             'uri': uri, 'shape': BASE + 'CutterRunningShape-c0ffee12', 'name': 'StateOnCutterShape'})
         assert again['ok'] and again['suite'] is None
 

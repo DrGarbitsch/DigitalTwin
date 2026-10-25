@@ -289,12 +289,12 @@ def test_a_query_document_names_its_query(corpus_path):
 
 
 def _context(corpus_path):
-    from semforge.editor import server
+    from semforge.editor import analysis, protocol, session
     from semforge.editor.sparqldocs import context
 
     shape = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/StateOnCutterShape'
     uri = _uri(corpus_path, shape)
-    return uri, context(uri, server._package_for, server.package_root, server._uri_to_path)
+    return uri, context(uri, session.package_for, analysis.package_root, protocol.uri_to_path)
 
 
 def test_diagnostics_carry_their_range_and_fix(corpus_path):

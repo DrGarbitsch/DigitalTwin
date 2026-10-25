@@ -201,16 +201,16 @@ def test_a_cut_that_would_change_another_shape_writes_nothing(kms):
 # --- the server ------------------------------------------------------------------------
 
 def test_the_server_plans_deletes_and_re_reads(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation
 
     uri = f'file://{kms}/shacl.ttl'
-    with mock.patch.object(server, '_publish'):
-        plan = server.delete_shape_plan_feature(mock.MagicMock(), {'uri': uri, 'shape': CUTTER})
+    with mock.patch.object(validation, 'publish'):
+        plan = edits.delete_shape_plan_feature(mock.MagicMock(), {'uri': uri, 'shape': CUTTER})
         assert plan['ok'] and plan['onlyCases']
-        done = server.delete_shape_feature(mock.MagicMock(), {
+        done = edits.delete_shape_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'asserts': True, 'cases': True})
         assert done['ok'] and done['casesRemoved'], done
-        again = server.delete_shape_plan_feature(mock.MagicMock(), {'uri': uri, 'shape': CUTTER})
+        again = edits.delete_shape_plan_feature(mock.MagicMock(), {'uri': uri, 'shape': CUTTER})
         assert not again['ok'] and 'not a node shape' in again['error']
 
 

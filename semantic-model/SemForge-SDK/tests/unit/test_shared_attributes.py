@@ -231,13 +231,13 @@ def test_a_sparql_term_names_every_type(kms):
 # --- the server ------------------------------------------------------------------------
 
 def test_the_server_passes_the_extension_on(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation
 
     uri = f'file://{kms}/shacl.ttl'
-    with mock.patch.object(server, '_publish'):
-        refused = server.add_attribute_constraint_feature(mock.MagicMock(), {
+    with mock.patch.object(validation, 'publish'):
+        refused = edits.add_attribute_constraint_feature(mock.MagicMock(), {
             'uri': uri, 'shape': WORKPIECE, 'attribute': STRENGTH})
         assert not refused['ok'] and 'domain extended' in refused['error']
-        made = server.add_attribute_constraint_feature(mock.MagicMock(), {
+        made = edits.add_attribute_constraint_feature(mock.MagicMock(), {
             'uri': uri, 'shape': WORKPIECE, 'attribute': STRENGTH, 'extendDomain': True})
         assert made['ok'] and made['domainAdded'] == ['iffBaseEntities:Workpiece'], made

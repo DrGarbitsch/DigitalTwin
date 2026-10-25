@@ -55,8 +55,9 @@ def _uri(kms):
 
 
 def _server(feature, kms, **params):
-    from semforge.editor import server
-    return getattr(server, feature)(mock.MagicMock(), dict({'uri': _uri(kms)}, **params))
+    from semforge.editor import edits, views
+    handler = getattr(views, feature, None) or getattr(edits, feature)
+    return handler(mock.MagicMock(), dict({'uri': _uri(kms)}, **params))
 
 
 def _drive(tmp_path, scenario):
@@ -178,7 +179,7 @@ def test_a_shapeless_subtype_s_page_offers_plus_attribute(tmp_path, kms):
 
 def _relationship_row(kms):
     from semforge.cooked.examples import build_suite
-    from semforge.editor.server import _serialise_example
+    from semforge.editor.views import _serialise_example
     from semforge.package import load
 
     def walk(node):

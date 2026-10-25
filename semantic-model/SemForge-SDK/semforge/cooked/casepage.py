@@ -200,7 +200,7 @@ def _tree_entities(package, verdicts=None):
     """{(entity id, absolute file): its Tests-tree row} over every case and
     the model -- the rows Add Attribute, Edit Value and the rest act on, so
     the page edits through the same commands the tree does."""
-    from ..editor.server import _serialise_example
+    from ..editor.views import _serialise_example
     from .examples import build_suite
 
     found = {}

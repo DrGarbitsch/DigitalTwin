@@ -122,9 +122,9 @@ def test_a_clone_is_refused_when_it_cannot_be_right(kms, case, expect, name, sai
 
 
 def test_the_server_clones_and_re_reads(kms):
-    from semforge.editor import server
+    from semforge.editor import edits
 
-    made = server.clone_case_feature(mock.MagicMock(), {
+    made = edits.clone_case_feature(mock.MagicMock(), {
         'uri': f'file://{kms}/shacl.ttl', 'case': GOOD, 'expect': 'opposite', 'name': ''})
     assert made['ok'] and made['case'].endswith('bad/filter-on-violates.jsonld'), made
 

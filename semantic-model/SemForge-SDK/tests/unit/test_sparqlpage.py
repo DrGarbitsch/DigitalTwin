@@ -268,26 +268,26 @@ def test_the_type_page_s_rule_rows_open_it(tmp_path, corpus):
 # --- the server --------------------------------------------------------------------------
 
 def test_the_server_answers_all_four(corpus_path, tmp_path):
-    from semforge.editor import server
+    from semforge.editor import edits, validation, views
 
     copy = tmp_path / 'kms'
     shutil.copytree(corpus_path, copy, symlinks=False, ignore=shutil.ignore_patterns('.semforge'))
     uri = f'file://{copy}/shacl.ttl'
     ls = mock.MagicMock()
-    with mock.patch.object(server, '_publish'):
-        opened = server.sparql_bench_feature(ls, {'uri': uri, 'shape': CUTTER, 'source': OFF})
+    with mock.patch.object(validation, 'publish'):
+        opened = views.sparql_bench_feature(ls, {'uri': uri, 'shape': CUTTER, 'source': OFF})
         assert opened['ok'] and opened['focus'] == ['urn:plasmacutter:1']
-        ran = server.sparql_run_feature(ls, {'uri': uri, 'shape': CUTTER, 'index': 0,
-                                             'source': OFF, 'query': opened['holder']['query']})
+        ran = views.sparql_run_feature(ls, {'uri': uri, 'shape': CUTTER, 'index': 0,
+                                            'source': OFF, 'query': opened['holder']['query']})
         assert ran['violating'] == ['urn:plasmacutter:1']
-        saved = server.sparql_save_feature(ls, {
+        saved = edits.sparql_save_feature(ls, {
             'uri': uri, 'shape': CUTTER, 'index': 0,
             'query': opened['holder']['query'] + '\n', 'expected': opened['holder']['query']})
         assert saved['ok'], saved
-        added = server.add_sparql_constraint_feature(ls, {'uri': uri, 'shape': CUTTER,
-                                                          'message': 'second'})
+        added = edits.add_sparql_constraint_feature(ls, {'uri': uri, 'shape': CUTTER,
+                                                         'message': 'second'})
         assert added['ok'] and added['index'] == 1
-        refused = server.sparql_bench_feature(ls, {'uri': uri, 'shape': BASE + 'WorkpieceShape'})
+        refused = views.sparql_bench_feature(ls, {'uri': uri, 'shape': BASE + 'WorkpieceShape'})
         assert not refused['ok'] and 'no SPARQL query' in refused['error']
 
 
@@ -296,14 +296,14 @@ def test_a_parameter_the_client_left_out_is_missing_not_a_tuple_method():
     `index` was tuple.index, and the workbench failed only in a real VS Code."""
     from collections import namedtuple
 
-    from semforge.editor.server import _field
+    from semforge.editor.protocol import field
 
     Sent = namedtuple('Object', ['uri', 'shape'])
-    assert _field(Sent('u', 's'), 'index') is None
-    assert _field(Sent('u', 's'), 'count', 7) == 7
-    assert _field(Sent('u', 's'), 'shape') == 's'
+    assert field(Sent('u', 's'), 'index') is None
+    assert field(Sent('u', 's'), 'count', 7) == 7
+    assert field(Sent('u', 's'), 'shape') == 's'
     WithIndex = namedtuple('Object', ['uri', 'index'])
-    assert _field(WithIndex('u', 2), 'index') == 2
+    assert field(WithIndex('u', 2), 'index') == 2
 
 
 # --- Remove… ----------------------------------------------------------------------------
@@ -388,18 +388,18 @@ def test_the_shape_page_s_remove_names_the_query_by_its_text(tmp_path, corpus):
 
 
 def test_the_server_finds_the_query_by_its_text(corpus_path, tmp_path):
-    from semforge.editor import server
+    from semforge.editor import edits, validation, views
     from semforge.package import load
 
     copy = tmp_path / 'kms'
     shutil.copytree(corpus_path, copy, symlinks=False, ignore=shutil.ignore_patterns('.semforge'))
     uri = f'file://{copy}/shacl.ttl'
     query = sb.holders(load(str(copy)), CUTTER)[0]['query']
-    with mock.patch.object(server, '_publish'):
-        plan = server.sparql_removal_plan_feature(mock.MagicMock(), {
+    with mock.patch.object(validation, 'publish'):
+        plan = views.sparql_removal_plan_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'query': query})
         assert plan['ok'] and plan['last'] and len(plan['asserts']) == 1
-        done = server.sparql_remove_feature(mock.MagicMock(), {
+        done = edits.sparql_remove_feature(mock.MagicMock(), {
             'uri': uri, 'shape': CUTTER, 'query': query, 'expected': query,
             'dropAsserts': True})
         assert done['ok'] and done['asserts'] == 1

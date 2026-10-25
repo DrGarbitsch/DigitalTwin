@@ -472,21 +472,21 @@ def test_sub_attributes_get_their_own_rows(model):
 def test_an_edit_shows_on_the_next_render_of_the_model_page(kms, monkeypatch):
     from unittest import mock
 
-    from semforge.editor import server
+    from semforge.editor import edits, validation, views
 
-    monkeypatch.setattr(server, '_publish', lambda *args: None)
+    monkeypatch.setattr(validation, 'publish', lambda *args: None)
     uri = 'file://' + os.path.join(kms, 'shacl.ttl')
-    page = server.model_page_feature(mock.MagicMock(), {'uri': uri})
+    page = views.model_page_feature(mock.MagicMock(), {'uri': uri})
     assert page['ok'], page
     card, row = next((c, r) for f in page['files'] for c in f['cards']
                      for r in c['attributes']
                      if (r.get('node') or {}).get('editable') and str(r['value'])[:1].isdigit())
     node = row['node']
-    done = server.set_example_value(mock.MagicMock(), {
+    done = edits.set_example_value(mock.MagicMock(), {
         'uri': uri, 'entity': node['entity'], 'path': node['path'],
         'file': node['file'], 'value': '77'})
     assert done['ok'], done
-    again = server.model_page_feature(mock.MagicMock(), {'uri': uri})
+    again = views.model_page_feature(mock.MagicMock(), {'uri': uri})
     assert not again['cached']
     after = _rows(_cards(again)[card['id']])[row['name']]
     assert after['value'] == '77' and after['value'] != row['value']

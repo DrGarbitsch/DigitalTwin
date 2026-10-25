@@ -310,7 +310,7 @@ def test_unstamped_copies_are_one_too(case):
 def test_the_quick_fixes(case):
     from lsprotocol import types
 
-    from semforge.editor.server import _fixes_for
+    from semforge.editor.documents import _fixes_for
 
     def fixes(code, **data):
         diagnostic = types.Diagnostic(

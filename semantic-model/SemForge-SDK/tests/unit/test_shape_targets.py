@@ -279,11 +279,12 @@ def _walk(nodes, depth=0):
 
 def test_types_is_the_hierarchy_with_own_attributes_and_rules(corpus):
     from semforge.cooked.tree import build_tree
-    from semforge.editor.server import _serialise, _type_hierarchy
+    from semforge.editor.protocol import serialise
+    from semforge.editor.views import _type_hierarchy
     from semforge.editor.slim import slim_constraints
 
     payload = {'types': _type_hierarchy(corpus)}
-    roots = slim_constraints([_serialise(n) for n in build_tree(corpus)], payload)
+    roots = slim_constraints([serialise(n) for n in build_tree(corpus)], payload)
     assert [r['label'] for r in roots] == ['Entity']
     rows = {n['label']: (depth, n) for depth, n in _walk(roots)}
     assert rows['Filter'][0] == 2 and rows['Plasmacutter'][0] == 3

@@ -101,14 +101,14 @@ def test_a_hand_rename_s_stale_assert_names_what_it_meant(kms):
 def test_the_quick_fixes_put_the_rename_first():
     from lsprotocol import types
 
-    from semforge.editor import server
+    from semforge.editor import documents
 
     diagnostic = types.Diagnostic(
         range=types.Range(types.Position(3, 0), types.Position(3, 9)), message='stale',
         source='semforge',
         data={'code': 'stale-assert', 'subject': 'ns:Old/hasA/X', 'file': '/e.yaml',
               'case': 'c.jsonld', 'index': 1, 'suggest': 'ns:New/hasA/X'})
-    actions = server._fixes_for(diagnostic, 'file:///pkg/shacl.ttl')
+    actions = documents._fixes_for(diagnostic, 'file:///pkg/shacl.ttl')
     assert [a.title for a in actions] == ['Rename the assert to ns:New/hasA/X', 'Remove this assert']
     assert actions[0].is_preferred and not actions[1].is_preferred
     assert actions[0].command.arguments[0]['kind'] == 'retarget'
@@ -116,13 +116,13 @@ def test_the_quick_fixes_put_the_rename_first():
 
 
 def test_retargeting_the_assert_makes_the_case_pass_again(kms):
-    from semforge.editor import server
+    from semforge.editor import documents, validation
 
     _rename_by_hand(kms, 'FilterShape', 'FilterCheckShape')
     assert _test(kms).returncode != 0, 'the stale assert fails the case'
     yaml = kms / 'examples' / 'test_FilterShape' / 'bad' / 'expectations.yaml'
-    with mock.patch.object(server, '_publish'):
-        done = server.remove_use_feature(mock.MagicMock(), {
+    with mock.patch.object(validation, 'publish'):
+        done = documents.remove_use_feature(mock.MagicMock(), {
             'uri': f'file://{kms}/shacl.ttl', 'kind': 'retarget', 'file': str(yaml),
             'case': 'without-cartridge.jsonld', 'index': 0,
             'constraint': 'iffBaseShacl:FilterCheckShape/hasCartridge/MinCountConstraintComponent'})
@@ -260,17 +260,17 @@ def _semforge_accept(kms):
 
 
 def test_the_server_offers_it_after_the_save(kms):
-    from semforge.editor import server
+    from semforge.editor import documents, session, validation
 
     root = str(kms)
     uri = f'file://{kms}/shacl.ttl'
-    for table in (server._packages, server._stamps, server._shape_prints, server._pending_renames):
+    for table in (session._packages, session._stamps, session._shape_prints, session._pending_renames):
         table.pop(root, None)
-    server._package_for(root)                       # the package as it was read
+    session.package_for(root)                       # the package as it was read
     _rename_by_hand(kms, 'StateOnCutterShape', 'CutterRunningShape')
     ls = mock.MagicMock()
-    with mock.patch.object(server, '_publish'):
-        server.did_save(ls, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
+    with mock.patch.object(validation, 'publish'):
+        documents.did_save(ls, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
     ls.protocol.notify.assert_called_once()
     method, notice = ls.protocol.notify.call_args[0]
     assert method == 'semforge/shapeRenamed'
@@ -278,25 +278,25 @@ def test_the_server_offers_it_after_the_save(kms):
     assert notice['asserts'] == 1 and notice['suite']['free']
     # Offered once: the next save says nothing more.
     ls2 = mock.MagicMock()
-    with mock.patch.object(server, '_publish'):
-        server.did_save(ls2, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
+    with mock.patch.object(validation, 'publish'):
+        documents.did_save(ls2, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
     ls2.protocol.notify.assert_not_called()
 
 
 def test_semforge_s_own_rename_is_not_offered_again(kms):
-    from semforge.editor import server
+    from semforge.editor import documents, edits, session, validation
 
     root = str(kms)
     uri = f'file://{kms}/shacl.ttl'
-    for table in (server._packages, server._stamps, server._shape_prints, server._pending_renames):
+    for table in (session._packages, session._stamps, session._shape_prints, session._pending_renames):
         table.pop(root, None)
-    server._package_for(root)
-    with mock.patch.object(server, '_publish'):
-        done = server.rename_shape_feature(mock.MagicMock(), {
+    session.package_for(root)
+    with mock.patch.object(validation, 'publish'):
+        done = edits.rename_shape_feature(mock.MagicMock(), {
             'uri': uri, 'shape': BASE + 'StateOnCutterShape', 'name': 'CutterRunningShape'})
         assert done['ok']
         ls = mock.MagicMock()
-        server.did_save(ls, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
+        documents.did_save(ls, mock.MagicMock(text_document=mock.MagicMock(uri=uri)))
     ls.protocol.notify.assert_not_called(), 'the suite was kept on purpose'
 
 
@@ -333,12 +333,12 @@ def test_dismissed_nothing_is_written(tmp_path):
 # --- F2 on a shape's name ----------------------------------------------------------------
 
 def _shape_at(kms, line, character):
-    from semforge.editor import server
+    from semforge.editor import views
 
     ls = mock.MagicMock()
     ls.workspace.get_text_document.side_effect = Exception('not open')
-    return server.shape_at_feature(ls, {'uri': f'file://{kms}/shacl.ttl', 'line': line,
-                                        'character': character})
+    return views.shape_at_feature(ls, {'uri': f'file://{kms}/shacl.ttl', 'line': line,
+                                       'character': character})
 
 
 def test_f2_finds_the_shape_under_the_cursor(kms):

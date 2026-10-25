@@ -196,7 +196,7 @@ def test_an_unknown_unit_in_the_data_is_refused_and_reported(pkg):
 def test_the_quick_fixes_of_an_unknown_unit():
     from lsprotocol import types
 
-    from semforge.editor.server import _fixes_for
+    from semforge.editor.documents import _fixes_for
 
     diagnostic = types.Diagnostic(
         range=types.Range(types.Position(0, 0), types.Position(0, 1)), message='',

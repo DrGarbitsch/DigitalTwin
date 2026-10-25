@@ -17,7 +17,7 @@
 """Loaded graphs are frozen, and what is derived from one is kept with it.
 
 A package reloaded after an edit reuses the graphs of every file that did not
-change (package/loader.py, editor/server.py), and a shapes file the editor
+change (package/loader.py, editor/session.py), and a shapes file the editor
 wrote becomes a NEW graph (package/patches.py). A graph is therefore one
 version of its files: what was derived from it holds for as long as it lives,
 and goes with it. That is the whole validity rule -- identity -- and it holds

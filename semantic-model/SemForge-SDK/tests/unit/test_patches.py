@@ -109,7 +109,7 @@ def test_a_file_changed_since_is_parsed_again(root):
 
 
 def test_a_replaced_graph_is_freed_once_the_edits_are_quiet():
-    from semforge.editor import server
+    from semforge.editor import session
 
     graph = Graph()
     graph.add((graph.identifier, graph.identifier, graph.identifier))
@@ -118,7 +118,7 @@ def test_a_replaced_graph_is_freed_once_the_edits_are_quiet():
     try:
         del graph
         assert gone() is not None, 'a frozen cycle is not collected'
-        server._tidy()
+        session._tidy()
         assert gone() is None
     finally:
         gc.unfreeze()

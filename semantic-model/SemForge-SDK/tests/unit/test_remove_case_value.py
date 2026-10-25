@@ -126,10 +126,10 @@ def test_what_is_not_there_is_not_removed(kms, entity, path, dataset, said):
 
 
 def test_the_server_removes_and_republishes(kms):
-    from semforge.editor import server
+    from semforge.editor import edits, validation
 
-    with mock.patch.object(server, '_publish') as published:
-        done = server.remove_case_value_feature(mock.MagicMock(), {
+    with mock.patch.object(validation, 'publish') as published:
+        done = edits.remove_case_value_feature(mock.MagicMock(), {
             'uri': f'file://{kms}/shacl.ttl', 'entity': WP, 'path': [H], 'file': CASE})
     assert done['ok'] and done['removed'] == 'hasHeight', done
     published.assert_called()

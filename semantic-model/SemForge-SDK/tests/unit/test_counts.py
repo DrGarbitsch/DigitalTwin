@@ -243,7 +243,8 @@ def _as_pygls(value):
     ({'counts': {'min': 2, 'max': 4}}, '2 to 4'),
     ({'counts': {'min': 3, 'max': None}}, 'at least 3')])
 def test_edit_attribute_reads_nested_params_as_pygls_sends_them(machine, change, said):
-    from semforge.editor.server import _path_to_uri as path_to_uri, edit_attribute_feature
+    from semforge.editor.edits import edit_attribute_feature
+    from semforge.editor.protocol import path_to_uri
 
     root, cls, shape = machine
     params = _as_pygls(dict({'uri': path_to_uri(load(root).sources['shapes']),
@@ -254,7 +255,8 @@ def test_edit_attribute_reads_nested_params_as_pygls_sends_them(machine, change,
 
 
 def test_a_value_edit_reads_nested_params_too(machine):
-    from semforge.editor.server import _path_to_uri as path_to_uri, edit_attribute_feature
+    from semforge.editor.edits import edit_attribute_feature
+    from semforge.editor.protocol import path_to_uri
 
     root, cls, shape = machine
     params = _as_pygls({'uri': path_to_uri(load(root).sources['shapes']), 'shape': shape,

@@ -180,11 +180,11 @@ def _apply(text, edits):
 
 @pytest.mark.parametrize('code, body, at, replace', CASES)
 def test_each_fix_takes_its_warning_away(corpus_path, terms, code, body, at, replace):
-    from semforge.editor import server
+    from semforge.editor import analysis, protocol, session
     from semforge.editor.sparqldocs import code_actions, context, diagnostics
 
     uri = _uri(corpus_path)
-    ctx = context(uri, server._package_for, server.package_root, server._uri_to_path)
+    ctx = context(uri, session.package_for, analysis.package_root, protocol.uri_to_path)
     text = HEAD + body
     found = [d for d in diagnostics(text, ctx) if d.code == code]
     params = types.CodeActionParams(
@@ -198,11 +198,11 @@ def test_each_fix_takes_its_warning_away(corpus_path, terms, code, body, at, rep
 
 
 def test_the_explicit_form_s_fix_folds_the_instance_in(corpus_path, terms):
-    from semforge.editor import server
+    from semforge.editor import analysis, protocol, session
     from semforge.editor.sparqldocs import code_actions, context, diagnostics
 
     uri = _uri(corpus_path)
-    ctx = context(uri, server._package_for, server.package_root, server._uri_to_path)
+    ctx = context(uri, session.package_for, analysis.package_root, protocol.uri_to_path)
     text = HEAD + ('SELECT $this WHERE {\n    $this iffBaseEntities:hasStrength ?a .\n'
                    '    ?a ngsild:hasValue ?s .\n    FILTER(?s > 1)\n}\n')
     found = [d for d in diagnostics(text, ctx) if d.code == 'explicit-node']
@@ -217,11 +217,11 @@ def test_the_explicit_form_s_fix_folds_the_instance_in(corpus_path, terms):
 
 
 def test_not_compiled_offers_the_shape_as_a_command(corpus_path):
-    from semforge.editor import server
+    from semforge.editor import analysis, protocol, session
     from semforge.editor.sparqldocs import code_actions, context, diagnostics
 
     uri = _uri(corpus_path)
-    ctx = context(uri, server._package_for, server.package_root, server._uri_to_path)
+    ctx = context(uri, session.package_for, analysis.package_root, protocol.uri_to_path)
     text = HEAD + 'SELECT $this WHERE { $this iffBaseEntities:hasJSON [ ngsild:hasJSON ?j ] }'
     found = [d for d in diagnostics(text, ctx) if d.code == 'not-compiled']
     params = types.CodeActionParams(
@@ -330,24 +330,24 @@ def test_inspect_shows_an_instance_by_what_it_holds(corpus):
 def test_a_package_change_rechecks_open_queries(corpus_path):
     from unittest import mock
 
-    from semforge.editor import server
+    from semforge.editor import validation
 
     uri = _uri(corpus_path)
     ls = mock.MagicMock()
     ls.workspace.text_documents = {uri: None, 'file:///x.ttl': None}
-    with mock.patch.object(server, '_publish_query') as publish:
-        server._republish_queries(ls)
+    with mock.patch.object(validation, 'publish_query') as publish:
+        validation.republish_queries(ls)
     assert publish.call_args_list == [mock.call(ls, uri)]
 
 
 def test_a_lone_instance_variable_is_read_first_and_tested_second(corpus_path):
     """`$this ex:hasFilter ?filter .` -- read as the target, the variable kept;
     `[ ]` (only "it is there") is the second fix."""
-    from semforge.editor import server
+    from semforge.editor import analysis, protocol, session
     from semforge.editor.sparqldocs import code_actions, context, diagnostics
 
     uri = _uri(corpus_path)
-    ctx = context(uri, server._package_for, server.package_root, server._uri_to_path)
+    ctx = context(uri, session.package_for, analysis.package_root, protocol.uri_to_path)
     text = HEAD + 'SELECT $this WHERE {\n    $this iffBaseEntities:hasFilter ?filter .\n}\n'
     found = [d for d in diagnostics(text, ctx) if d.code == 'variable-node']
     assert 'to read its target: iffBaseEntities:hasFilter [ ngsild:hasObject ?filter ]' in \

@@ -170,16 +170,16 @@ def test_definition_of_nothing_is_none(analysis):
 # --- the protocol layer, exercised without a session -------------------------
 
 def test_the_server_module_imports_and_maps_severities():
-    from semforge.editor import server
+    from semforge.editor import protocol, validation
 
-    assert set(server.SEVERITY) == {'error', 'warning', 'information', 'hint'}
-    assert server.server is not None
+    assert set(validation.SEVERITY) == {'error', 'warning', 'information', 'hint'}
+    assert protocol.server is not None
 
 
 def test_word_extraction_at_a_cursor():
     from lsprotocol import types
 
-    from semforge.editor.server import _word_at
+    from semforge.editor.documents import _word_at
 
     class Document:
         lines = ['    sh:path iffBaseEntities:hasStrength ;\n']
@@ -192,7 +192,7 @@ def test_token_extraction_keeps_the_prefix():
     """References need the term as written; the local name is ambiguous."""
     from lsprotocol import types
 
-    from semforge.editor.server import _token_at
+    from semforge.editor.documents import _token_at
 
     class Document:
         lines = ['    sh:path iffBaseEntities:hasStrength ;\n',
@@ -212,10 +212,10 @@ def test_token_extraction_keeps_the_prefix():
 
 
 def test_uri_round_trip():
-    from semforge.editor.server import _path_to_uri, _uri_to_path
+    from semforge.editor.protocol import path_to_uri, uri_to_path
 
     path = '/tmp/a package/shacl.ttl'
-    assert _uri_to_path(_path_to_uri(path)) == path
+    assert uri_to_path(path_to_uri(path)) == path
 
 
 def test_the_extension_manifest_is_valid_and_points_at_the_server():
