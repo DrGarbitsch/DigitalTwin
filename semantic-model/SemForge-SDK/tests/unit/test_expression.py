@@ -227,7 +227,43 @@ def test_what_is_written_validates_as_meant(root):
     assert fails('"other"')
 
 
-def test_the_editor_lists_every_part_indented():
+def test_a_group_is_added_with_its_branches(root):
+    chain = ['iffBaseEntities:hasNoteX']
+    _edit(root, {'op': 'addgroup', 'node': [], 'connective': 'or',
+                 'conditions': [{'parameter': 'sh:maxLength', 'value': '5'},
+                                {'parameter': 'sh:hasValue', 'value': '"n/a"'}]}, EXPR, chain)
+    assert describe(_layer(root, EXPR, chain)) == \
+        'text · any of: at most 5 characters | exactly "n/a"'
+    with pytest.raises(PackageError, match='two or more'):
+        _edit(root, {'op': 'addgroup', 'node': [], 'connective': 'or',
+                     'conditions': [{'parameter': 'sh:maxLength', 'value': '5'}]}, EXPR, chain)
+
+
+def test_a_scalar_or_list_value_takes_an_expression_on_every_form(tmp_path, corpus):
+    """The kms hasList: an integer or a list of them. The expression holds for
+    the one value and for each item alike."""
+    from semforge.cooked.expression import read_target
+    from semforge.package import load
+
+    root = tmp_path / 'pkg'
+    shutil.copytree(corpus.path, root, ignore=shutil.ignore_patterns('.semforge'))
+    cutter = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/CutterShape'
+    chain = ['iffBaseEntities:hasList']
+    edit(load(str(root)), cutter, chain, {'op': 'combine', 'connective': 'or',
+                                          'parameter': 'sh:hasValue', 'value': '"n/a"'})
+    layer = read_target(load(str(root)), (root / 'shacl.ttl').read_text(), cutter, chain)
+    assert layer.forms is not None and layer.complex
+    assert describe(layer) == 'any of: number (integer) | exactly "n/a"'
+    scalar, listed = layer.forms[1]
+    assert dict(listed.member)['sh:or'] == dict(scalar.member)['sh:or']
+
+
+# --- the panel ----------------------------------------------------------------------------
+
+def _panel(tmp_path, state, after=None):
+    """The expression editor's panel: (its HTML as rendered, its DOM after
+    `after` ran in headless Chromium -- or None without one)."""
+    import glob
     import json
     import os
     import subprocess
@@ -236,14 +272,95 @@ def test_the_editor_lists_every_part_indented():
     if node is None:
         pytest.skip('node is not installed')
     sdk = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-    out = subprocess.run([node, os.path.join(sdk, 'tests', 'harness', 'expression.js'),
-                          os.path.join(sdk, 'vscode', 'src')],
-                         capture_output=True, text=True, timeout=60)
-    assert out.returncode == 0, out.stderr[-1500:]
-    full, empty = json.loads(out.stdout.strip().splitlines()[-1])
-    assert [i['address'] for i in full] == [[0], [1], [1, 0], [1, 1], [1, 1, 0], [1, 2]]
-    assert full[0]['description'] == 'and always'
-    assert full[4]['label'].startswith('  $(symbol-field)')
-    assert full[5]['description'].startswith('kept as written')
-    # No conditions of its own: the value starts at its connective.
-    assert [i['address'] for i in empty] == [[1], [1, 0], [1, 1]]
+    (tmp_path / 'state.json').write_text(json.dumps(state))
+    args = [node, os.path.join(sdk, 'tests', 'harness', 'expression.js'),
+            os.path.join(sdk, 'vscode', 'src'), str(tmp_path / 'state.json'),
+            str(tmp_path / 'panel.html')]
+    if after:
+        (tmp_path / 'after.js').write_text(after)
+        args.append(str(tmp_path / 'after.js'))
+    run = subprocess.run(args, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr[-1500:]
+    html = (tmp_path / 'panel.html').read_text()
+    if after is None:
+        return html, None
+    chrome = next((c for c in [os.environ.get('SEMFORGE_CHROME', '')] + sorted(glob.glob(
+        os.path.expanduser('~/.cache/ms-playwright/chromium-*/chrome-linux*/chrome')))
+        if c and os.path.exists(c)), None)
+    if chrome is None:
+        pytest.skip('no headless Chromium (set SEMFORGE_CHROME)')
+    dom = subprocess.run([chrome, '--headless=new', '--no-sandbox', '--disable-gpu',
+                          '--virtual-time-budget=3000', '--dump-dom',
+                          'file://' + str(tmp_path / 'panel.html')],
+                         capture_output=True, text=True, timeout=120).stdout
+    return html, dom
+
+
+def _posted(dom):
+    import html
+    import json
+    import re
+
+    found = re.search(r'<html[^>]* data-posted="([^"]*)"', dom)
+    return [m['action'] for m in json.loads(html.unescape(found.group(1)))] if found else []
+
+
+def _state(root):
+    from semforge.cooked.expression import to_json
+
+    layer = _layer(root)
+    return {'label': 'hasStrength', 'expression': to_json(layer.root), 'said': describe(layer),
+            'editable': True, 'datatypes': [{'label': 'number', 'value': 'xsd:double'}],
+            'classes': []}
+
+
+def test_the_panel_draws_every_part_as_a_box(root, tmp_path):
+    html, _ = _panel(tmp_path, _state(root))
+    assert 'data-addr="[0]"' in html and 'data-addr="[1]"' in html
+    assert 'data-addr="[1,0]"' in html and 'data-addr="[1,1]"' in html
+    # The connective is a choice; the layer's own conditions say "always".
+    assert '<option value="or" selected>any of</option>' in html
+    assert '<span class="what">always</span>' in html
+    assert 'data-param="sh:maxInclusive" data-value="100.0"' in html
+    for act in ('combine-or', 'rootgroup', 'addgroup', 'wrapor', 'unwrap', 'change', 'unset'):
+        assert f'data-act="{act}"' in html, act
+    assert '<option value="xsd:double">number</option>' in html
+
+
+def test_a_value_edited_in_the_ttl_shows_no_tools(root, tmp_path):
+    html, _ = _panel(tmp_path, dict(_state(root), editable=False,
+                                    reason='a comment inside it would be lost'))
+    assert 'Edited in the .ttl: a comment inside it would be lost' in html
+    assert 'data-act="set"' not in html and 'data-act="retype"' not in html
+
+
+def test_what_the_panel_sends(root, tmp_path):
+    _, dom = _panel(tmp_path, _state(root), '''
+function fill(form, values) {
+  form.querySelectorAll('.row').forEach(function (row, i) {
+    var v = values[i]; if (!v) { return; }
+    var pick = row.querySelector('[data-field=parameter]');
+    if (pick && !pick.disabled) { pick.value = v[0]; }
+    row.querySelector('[data-field=value]').value = v[1];
+  });
+}
+// A group of two at the root, all of.
+document.querySelector('[data-act=rootgroup]').click();
+var form = document.querySelector('form');
+form.querySelector('[data-field=connective]').value = 'and';
+fill(form, [null, ['sh:minInclusive', '1'], ['sh:maxInclusive', '9']]);
+form.querySelector('[type=submit]').click();
+// The maximum changed.
+document.querySelector('.chip[data-param="sh:maxInclusive"] [data-act=change]').click();
+fill(document.querySelector('form'), [['sh:maxInclusive', '50']]);
+document.querySelector('form [type=submit]').click();
+// any of -> exactly one of.
+var select = document.querySelector('select[data-act=retype]');
+select.value = 'xone'; select.dispatchEvent(new Event('change', { bubbles: true }));
+''')
+    assert _posted(dom) == [
+        {'op': 'addgroup', 'node': [], 'connective': 'and',
+         'conditions': [{'parameter': 'sh:minInclusive', 'value': '1'},
+                        {'parameter': 'sh:maxInclusive', 'value': '9'}]},
+        {'op': 'set', 'node': [0], 'parameter': 'sh:maxInclusive', 'value': '50'},
+        {'op': 'retype', 'node': [1], 'connective': 'xone'}]

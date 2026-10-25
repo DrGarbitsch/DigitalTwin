@@ -15,247 +15,390 @@
 */
 
 /**
- * The expression editor: a value that is more than one set of conditions.
+ * The expression editor: what a value must be, when that is more than one
+ * set of conditions -- any of, all of, exactly one of, not, nested.
  *
- * Opened only when the value already is an expression (sh:or, sh:and,
- * sh:xone, sh:not on its value layer) or when asked for with "Combine with
- * another condition…" in the value picker. One plain value -- what nearly
- * every attribute needs -- never sees it.
+ * A panel beside the type page draws the expression as nested boxes; every
+ * box is edited where it stands. Opened from the attribute's ⋯ menu
+ * ("Expression editor…"), from its value when that already is an
+ * expression, or from "Combine with another condition…" in the value
+ * picker. One plain value -- what nearly every attribute needs -- is still
+ * edited with the picker.
  *
- * The expression is shown as a tree, one line per part; picking a part offers
- * what can be done to it. Every change is one request to the server, which
- * rewrites the value layer and reads it back before keeping it
- * (cooked/expression.py).
+ * Every change is one request (semforge/editExpression); the server rewrites
+ * the value and reads it back before keeping it (cooked/expression.py), and
+ * the panel is drawn again from what is now in the file.
  */
+const crypto = require('crypto');
 const vscode = require('vscode');
-
-const CONNECTIVE_WORDS = { or: 'any of', and: 'all of', xone: 'exactly one of', not: 'not' };
 
 // What a condition may be, in the order a reader thinks of them.
 const CONDITIONS = [
-  { parameter: 'sh:datatype', label: 'A datatype', detail: 'number, text, date, …', ask: 'choice' },
-  { parameter: 'sh:class', label: 'A class', detail: 'a vocabulary term, or an entity type', ask: 'choice' },
-  { parameter: 'sh:hasValue', label: 'Exactly this value', detail: 'a number, "text", or a prefixed name', ask: 'text' },
-  { parameter: 'sh:in', label: 'One of a list', detail: 'separated by commas', ask: 'text' },
-  { parameter: 'sh:minInclusive', label: 'At least (≥)', ask: 'number' },
-  { parameter: 'sh:minExclusive', label: 'More than (>)', ask: 'number' },
-  { parameter: 'sh:maxInclusive', label: 'At most (≤)', ask: 'number' },
-  { parameter: 'sh:maxExclusive', label: 'Less than (<)', ask: 'number' },
-  { parameter: 'sh:minLength', label: 'At least this many characters', ask: 'integer' },
-  { parameter: 'sh:maxLength', label: 'At most this many characters', ask: 'integer' },
-  { parameter: 'sh:pattern', label: 'Matching a pattern', detail: 'a regular expression', ask: 'text' }
+  { parameter: 'sh:datatype', label: 'datatype', hint: 'xsd:double, xsd:string, …', list: 'datatypes' },
+  { parameter: 'sh:class', label: 'class', hint: 'a vocabulary term or an entity type', list: 'classes' },
+  { parameter: 'sh:hasValue', label: 'exactly', hint: 'a number, "text", or a prefixed name' },
+  { parameter: 'sh:in', label: 'one of', hint: 'values separated by commas' },
+  { parameter: 'sh:minInclusive', label: '≥', hint: 'a number' },
+  { parameter: 'sh:minExclusive', label: '>', hint: 'a number' },
+  { parameter: 'sh:maxInclusive', label: '≤', hint: 'a number' },
+  { parameter: 'sh:maxExclusive', label: '<', hint: 'a number' },
+  { parameter: 'sh:minLength', label: 'at least … characters', hint: 'a whole number' },
+  { parameter: 'sh:maxLength', label: 'at most … characters', hint: 'a whole number' },
+  { parameter: 'sh:pattern', label: 'matching', hint: 'a regular expression' },
+  { parameter: 'sh:nodeKind', label: 'node kind', hint: 'sh:Literal or sh:IRI' }
 ];
+const CONNECTIVES = { or: 'any of', and: 'all of', xone: 'exactly one of', not: 'not' };
 
-async function send(pages, method, params) {
-  const client = pages.clientHolder.client;
-  if (!client) {
-    return undefined;
-  }
-  const answer = await client.sendRequest(method, Object.assign({ uri: pages.current.packageUri }, params));
-  if (!answer || !answer.ok) {
-    vscode.window.showErrorMessage(`SemForge: ${(answer && answer.error) || 'no answer'}`);
-    return undefined;
-  }
-  return answer;
+function escape(text) {
+  return String(text === undefined || text === null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-/** {parameter, value} for one condition, or undefined when cancelled. */
-async function askCondition(pages, row, title, only) {
-  const offered = only ? CONDITIONS.filter((c) => c.parameter === only) : CONDITIONS;
-  const spec = offered.length === 1 ? offered[0]
-    : await vscode.window.showQuickPick(offered, { title });
-  if (!spec) {
-    return undefined;
+function conditionLabel(parameter) {
+  const known = CONDITIONS.find((c) => c.parameter === parameter);
+  return known ? known.label : parameter;
+}
+
+function button(act, label, title, extra) {
+  return `<button class="tool" data-act="${act}" title="${escape(title)}"${extra || ''}>${escape(label)}</button>`;
+}
+
+/** One part of the expression, as a box; `address` is its path from the root. */
+function box(node, address, own, editable) {
+  const at = ` data-addr="${escape(JSON.stringify(address))}"`;
+  if (node.kind === 'raw') {
+    return `<div class="box raw"${at}><div class="head"><span class="what">kept as written</span>` +
+      (editable ? `<span class="tools">${button('remove', 'Remove', 'Remove this part')}` +
+        `${button('open', 'Open in .ttl', 'Show it in the shapes file')}</span>` : '') +
+      `</div><code>${escape(node.words)}</code></div>`;
   }
-  if (spec.ask === 'choice') {
-    const slot = row.kind === 'Relationship' ? 'ngsild:hasObject' : 'ngsild:hasValue';
-    let choices = [];
-    try {
-      const answer = await pages.clientHolder.client.sendRequest('semforge/choices', {
-        uri: pages.current.packageUri, path: [row.term, slot], parameter: spec.parameter });
-      choices = answer.choices || [];
-    } catch (error) {
-      choices = [];
-    }
-    const items = choices.map((c) => ({ label: c.label || c.value, description: c.value,
-      detail: c.detail, value: c.value }))
-      .concat([{ label: '$(edit) Enter another…', value: undefined }]);
-    const picked = await vscode.window.showQuickPick(items,
-      { title: `${title} · ${spec.label}`, matchOnDescription: true });
-    if (!picked) {
-      return undefined;
-    }
-    if (picked.value !== undefined) {
-      return { parameter: spec.parameter, value: picked.value };
-    }
+  if (node.kind === 'leaf') {
+    const chips = node.conditions.map((c) =>
+      `<span class="chip" data-param="${escape(c.parameter)}" data-value="${escape(c.value)}">` +
+      `<span class="p">${escape(conditionLabel(c.parameter))}</span> ${escape(c.value)}` +
+      (editable ? `<a href="#" class="x" data-act="change" title="Change it">✎</a>` +
+        `<a href="#" class="x" data-act="unset" title="Remove this condition">×</a>` : '') +
+      '</span>').join('');
+    const tools = editable ? '<span class="tools">' +
+      button('set', '+ Condition', 'Add a condition: all of them must hold') +
+      (own ? '' : button('wrapor', 'Or else…', 'Any of: this, or another') +
+        button('wrapxone', 'Exactly one of…', 'This or another, not both') +
+        button('wrapnot', 'Not', 'Anything but this') +
+        button('remove', 'Remove', 'Remove this branch')) + '</span>' : '';
+    return `<div class="box leaf${own ? ' own' : ''}"${at}><div class="head">` +
+      `<span class="what">${own ? 'always' : escape(node.words)}</span>${tools}</div>` +
+      `<div class="chips">${chips || '<span class="dim">no condition: any value</span>'}</div></div>`;
   }
-  const value = await vscode.window.showInputBox({
-    title: `${title} · ${spec.label}`,
-    prompt: spec.detail || '',
-    validateInput: (text) => {
-      const raw = text.trim();
-      if (!raw) {
-        return 'a value is needed';
-      }
-      if (spec.ask === 'number' && Number.isNaN(Number(raw))) {
-        return 'a number';
-      }
-      if (spec.ask === 'integer' && !/^\d+$/.test(raw)) {
-        return 'a whole number, 0 or more';
-      }
-      return undefined;
+  const kids = node.children.map((child, index) =>
+    box(child, address.concat([index]), false, editable)).join('');
+  const kind = node.op === 'not' ? '<span class="what">not</span>'
+    : editable ? `<select data-act="retype" title="What its branches say together">${['or', 'and', 'xone'].map((op) =>
+      `<option value="${op}"${op === node.op ? ' selected' : ''}>${CONNECTIVES[op]}</option>`).join('')}</select>`
+      : `<span class="what">${CONNECTIVES[node.op]}</span>`;
+  const tools = editable ? '<span class="tools">' +
+    (node.op !== 'not' ? button('add', '+ Condition', 'Another branch: one condition') +
+      button('addgroup', '+ Group', 'Another branch: any of / all of / exactly one of / not') : '') +
+    button('wrapnot', 'Not', 'Anything but this group') +
+    button('unwrap', node.op === 'not' ? 'Drop "not"' : 'Unwrap', 'Its branches take its place') +
+    button('remove', 'Remove', 'Remove this group') + '</span>' : '';
+  return `<div class="box op op-${node.op}"${at}><div class="head">${kind}${tools}</div>` +
+    `<div class="kids">${kids}</div></div>`;
+}
+
+/** The panel. `state`: what semforge/expression said, the row, the choices. */
+function renderExpressionPanel(state, options) {
+  const nonce = options.nonce;
+  const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
+  const expression = state.expression || { kind: 'op', op: 'and', children: [] };
+  const [own, ...rest] = expression.children;
+  const editable = !!state.editable;
+  const rootTools = editable ? '<div class="roottools">' +
+    button('combine-or', 'Or else…', 'Any of: everything it is now, or another condition') +
+    button('combine-xone', 'Exactly one of…', 'Everything it is now, or another condition — not both') +
+    button('combine-not', 'But not…', 'Everything it is now, except') +
+    button('rootgroup', '+ Group', 'Another part every value must satisfy: any of / all of / exactly one of / not') +
+    '</div>' : '';
+  const lists = ['datatypes', 'classes'].map((name) => `<datalist id="${name}">` +
+    (state[name] || []).map((c) => `<option value="${escape(c.value)}">${escape(c.label || '')}</option>`).join('') +
+    '</datalist>').join('');
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escape(state.label)}</title>
+<style nonce="${nonce}">
+  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 12px 18px; }
+  h1 { font-size: 1.2em; margin: 0 0 4px; }
+  .said { margin: 4px 0 12px; }
+  .note { color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  .error { color: var(--vscode-errorForeground); margin: 6px 0; }
+  .box { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 4px;
+         padding: 6px 8px; margin: 6px 0; }
+  .box.op { border-left: 3px solid var(--vscode-textLink-foreground); }
+  .box.op-not { border-left-color: var(--vscode-errorForeground); }
+  .box.own { border-style: dashed; }
+  .kids { margin-left: 14px; }
+  .head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .what { font-weight: 600; }
+  .tools { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+  .tool { font-size: 0.85em; padding: 1px 6px; color: var(--vscode-button-secondaryForeground);
+          background: var(--vscode-button-secondaryBackground); border: none; border-radius: 3px; cursor: pointer; }
+  .tool:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .chips { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+          border-radius: 10px; padding: 1px 8px; font-size: 0.9em; }
+  .chip .p { opacity: .8; }
+  .chip .x { margin-left: 4px; color: inherit; text-decoration: none; }
+  .dim { color: var(--vscode-descriptionForeground); }
+  .roottools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  code { font-family: var(--vscode-editor-font-family); font-size: 0.9em; overflow-wrap: anywhere; }
+  form { margin: 6px 0; padding: 6px 8px; background: var(--vscode-editorWidget-background, rgba(128,128,128,.1));
+         border-radius: 4px; }
+  form .row { display: flex; gap: 6px; margin: 4px 0; align-items: center; flex-wrap: wrap; }
+  form input, form select { background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+         border: 1px solid var(--vscode-input-border, transparent); padding: 2px 4px; }
+  form input { min-width: 16em; }
+  .primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+             border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
+</style></head><body>
+<h1>${escape(state.label)}: what its value must be</h1>
+<div class="said">${escape(state.said || 'any value')}</div>
+${state.forms ? '<div class="note">It may be one value or a list: this holds for the one value and for every item of a list.</div>' : ''}
+${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
+${editable ? '' : `<div class="error">Edited in the .ttl: ${escape(state.reason || '')}</div>`}
+${rootTools}
+<div id="tree">${own ? box(own, [0], true, editable) : ''}${rest.map((node, index) =>
+    box(node, [index + 1], false, editable)).join('')}</div>
+${lists}
+<script nonce="${nonce}">
+  const vscode = acquireVsCodeApi();
+  const CONDITIONS = ${JSON.stringify(CONDITIONS)};
+  const CONNECTIVES = ${JSON.stringify(CONNECTIVES)};
+  function send(action) { vscode.postMessage({ command: 'edit', action: action }); }
+  function el(tag, attrs, text) {
+    const node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    if (text !== undefined) { node.textContent = text; }
+    return node;
+  }
+  // One row of a form: which condition, and its value.
+  function conditionRow(fixed, value) {
+    const row = el('div', { class: 'row' });
+    const pick = el('select', { 'data-field': 'parameter' });
+    CONDITIONS.forEach(function (c) {
+      const option = el('option', { value: c.parameter }, c.label);
+      if (fixed === c.parameter) { option.selected = true; }
+      pick.append(option);
+    });
+    if (fixed) { pick.disabled = true; }
+    const input = el('input', { 'data-field': 'value' });
+    if (value !== undefined) { input.value = value; }
+    function hint() {
+      const c = CONDITIONS.find(function (x) { return x.parameter === pick.value; });
+      input.placeholder = c.hint;
+      if (c.list) { input.setAttribute('list', c.list); } else { input.removeAttribute('list'); }
+    }
+    pick.addEventListener('change', hint);
+    hint();
+    row.append(pick, input);
+    return row;
+  }
+  function closeForms() { document.querySelectorAll('form').forEach(function (f) { f.remove(); }); }
+  // An inline form under a box: spec.rows condition rows (more may be added
+  // when spec.more), a connective choice when spec.connective, then
+  // spec.done(values, connective).
+  function openForm(holder, spec) {
+    closeForms();
+    const form = el('form');
+    if (spec.title) { form.append(el('div', { class: 'what' }, spec.title)); }
+    let connective;
+    if (spec.connective) {
+      const row = el('div', { class: 'row' });
+      connective = el('select', { 'data-field': 'connective' });
+      ['or', 'and', 'xone', 'not'].forEach(function (op) {
+        connective.append(el('option', { value: op }, CONNECTIVES[op]));
+      });
+      row.append(el('span', {}, 'a group:'), connective);
+      form.append(row);
+    }
+    const rows = el('div');
+    for (let i = 0; i < (spec.rows || 1); i += 1) { rows.append(conditionRow(spec.fixed, spec.value)); }
+    form.append(rows);
+    const actions = el('div', { class: 'row' });
+    if (spec.more) {
+      const more = el('button', { type: 'button', class: 'tool' }, '+ Another condition');
+      more.addEventListener('click', function () { rows.append(conditionRow()); });
+      actions.append(more);
+    }
+    const ok = el('button', { type: 'submit', class: 'primary' }, 'Apply');
+    const cancel = el('button', { type: 'button', class: 'tool' }, 'Cancel');
+    cancel.addEventListener('click', closeForms);
+    actions.append(ok, cancel);
+    form.append(actions);
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const values = Array.from(rows.querySelectorAll('.row')).map(function (row) {
+        return { parameter: row.querySelector('[data-field=parameter]').value,
+          value: row.querySelector('[data-field=value]').value.trim() };
+      }).filter(function (c) { return c.value; });
+      if (!values.length) { return; }
+      spec.done(values, connective ? connective.value : undefined);
+    });
+    holder.after(form);
+    const first = form.querySelector('input');
+    if (first) { first.focus(); }
+  }
+  document.addEventListener('click', function (event) {
+    const target = event.target.closest('[data-act]');
+    if (!target || target.tagName === 'SELECT') { return; }
+    event.preventDefault();
+    const act = target.dataset.act;
+    const boxNode = target.closest('[data-addr]');
+    const addr = boxNode ? JSON.parse(boxNode.dataset.addr) : [];
+    const head = boxNode ? boxNode.querySelector(':scope > .head') : target;
+    const chip = target.closest('.chip');
+    if (act === 'open') { vscode.postMessage({ command: 'open' }); return; }
+    if (act === 'remove' || act === 'unwrap') { send({ op: act, node: addr }); return; }
+    if (act === 'wrapnot') { send({ op: 'wrap', node: addr, connective: 'not' }); return; }
+    if (act === 'unset') { send({ op: 'unset', node: addr, parameter: chip.dataset.param }); return; }
+    if (act === 'change') {
+      openForm(chip, { title: 'Change it', fixed: chip.dataset.param, value: chip.dataset.value,
+        done: function (v) { send({ op: 'set', node: addr, parameter: v[0].parameter, value: v[0].value }); } });
+      return;
+    }
+    if (act === 'set' || act === 'add') {
+      openForm(head, { title: act === 'set' ? 'Another condition — all of them must hold'
+        : 'Another branch',
+        done: function (v) { send({ op: act, node: addr, parameter: v[0].parameter, value: v[0].value }); } });
+      return;
+    }
+    if (act === 'wrapor' || act === 'wrapxone') {
+      openForm(head, { title: act === 'wrapor' ? 'Or else' : 'Exactly one of this and',
+        done: function (v) {
+          send({ op: 'wrap', node: addr, connective: act === 'wrapor' ? 'or' : 'xone',
+            parameter: v[0].parameter, value: v[0].value });
+        } });
+      return;
+    }
+    if (act === 'addgroup' || act === 'rootgroup') {
+      openForm(head, { title: 'A group of conditions', connective: true, rows: 2, more: true,
+        done: function (v, connective) {
+          send({ op: 'addgroup', node: act === 'rootgroup' ? [] : addr, connective: connective,
+            conditions: v });
+        } });
+      return;
+    }
+    if (act.indexOf('combine-') === 0) {
+      const connective = act.slice('combine-'.length);
+      openForm(target.parentElement, { title: { or: 'Or else', xone: 'Exactly one of: what it is now, or',
+        not: 'But not' }[connective],
+        done: function (v) {
+          send({ op: 'combine', connective: connective, parameter: v[0].parameter, value: v[0].value });
+        } });
     }
   });
-  return value === undefined ? undefined : { parameter: spec.parameter, value: value.trim() };
+  document.addEventListener('change', function (event) {
+    const select = event.target.closest('select[data-act=retype]');
+    if (!select) { return; }
+    const addr = JSON.parse(select.closest('[data-addr]').dataset.addr);
+    send({ op: 'retype', node: addr, connective: select.value });
+  });
+</script>
+</body></html>`;
 }
 
-/** The tree as quick pick items, one per part, indented by depth. */
-function lines(node, address, depth, out) {
-  const indent = ' '.repeat(depth);
-  if (node.kind === 'op') {
-    if (address.length) {
-      out.push({ label: `${indent}$(symbol-operator) ${node.words}`, node, address });
-    }
-    node.children.forEach((child, index) =>
-      lines(child, address.concat([index]), depth + (address.length ? 1 : 0), out));
-  } else if (node.kind === 'leaf') {
-    const own = address.length === 1 && address[0] === 0;
-    if (own && !node.conditions.length) {
-      return;          // the layer's own conditions, when there are none
-    }
-    out.push({ label: `${indent}$(symbol-field) ${node.words}`,
-      description: own ? 'and always' : '', node, address });
-  } else {
-    out.push({ label: `${indent}$(code) ${node.words}`, description: 'kept as written — edit in the .ttl',
-      node, address });
+/** One panel, beside the type page; it follows the attribute it was opened on. */
+class ExpressionPanel {
+  constructor(pages) {
+    this.pages = pages;
+    this.panel = undefined;
+    this.row = undefined;
+    this.packageUri = undefined;
+    this.error = '';
   }
-  return out;
-}
 
-/** What can be done to one part; the server's action, or undefined. */
-async function actionFor(pages, row, item) {
-  const { node, address } = item;
-  const title = `${row.label}: ${node.words}`;
-  let choices;
-  if (node.kind === 'leaf') {
-    choices = [
-      { label: '$(add) Add a condition…', op: 'set' },
-      ...(node.conditions.length ? [
-        { label: '$(edit) Change a condition…', op: 'change' },
-        { label: '$(remove) Remove a condition…', op: 'unset' }] : []),
-      { label: '$(symbol-operator) Or else…', description: 'any of: this, or another', op: 'wrap', connective: 'or' },
-      { label: '$(symbol-operator) Exactly one of this and…', op: 'wrap', connective: 'xone' },
-      { label: '$(circle-slash) Not this', op: 'wrap', connective: 'not' },
-      ...(address.length > 1 || address[0] !== 0 ? [{ label: '$(trash) Remove this branch', op: 'remove' }] : [])
-    ];
-  } else if (node.kind === 'op') {
-    choices = [
-      ...(node.op !== 'not' ? [{ label: '$(add) Add a branch…', op: 'add' }] : []),
-      ...(node.op !== 'not' ? ['or', 'and', 'xone'].filter((op) => op !== node.op).map((op) => ({
-        label: `$(arrow-swap) Change to "${CONNECTIVE_WORDS[op]}"`, op: 'retype', connective: op })) : []),
-      { label: '$(circle-slash) Not this', op: 'wrap', connective: 'not' },
-      ...(node.op === 'not' || node.op === 'and' || node.children.length === 1
-        ? [{ label: node.op === 'not' ? '$(debug-step-out) Drop the "not"' : '$(debug-step-out) Unwrap',
-          op: 'unwrap' }] : []),
-      { label: '$(trash) Remove', op: 'remove' }
-    ];
-  } else {
-    choices = [{ label: '$(trash) Remove', op: 'remove' },
-      { label: '$(go-to-file) Open in .ttl', op: 'open' }];
-  }
-  const picked = await vscode.window.showQuickPick(choices, { title });
-  if (!picked) {
-    return undefined;
-  }
-  if (picked.op === 'open') {
-    await require('./reveal').showLocation(row.definedAt, true);
-    return undefined;
-  }
-  const action = { op: picked.op, node: address, connective: picked.connective };
-  if (picked.op === 'change') {
-    const which = await vscode.window.showQuickPick(node.conditions.map((c) => ({
-      label: `${c.parameter} ${c.value}`, parameter: c.parameter })), { title });
-    if (!which) {
-      return undefined;
+  async open(row) {
+    this.row = row;
+    this.packageUri = this.pages.current.packageUri;
+    this.error = '';
+    if (!this.panel) {
+      this.panel = vscode.window.createWebviewPanel('semforgeExpression', 'Expression',
+        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
+        { enableScripts: true, localResourceRoots: [] });
+      this.panel.onDidDispose(() => { this.panel = undefined; });
+      this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
+    } else {
+      this.panel.reveal(vscode.ViewColumn.Beside);
     }
-    const condition = await askCondition(pages, row, title, which.parameter);
-    return condition && Object.assign(action, { op: 'set' }, condition);
+    this.choices = await this.loadChoices();
+    await this.render();
   }
-  if (picked.op === 'unset') {
-    const which = await vscode.window.showQuickPick(node.conditions.map((c) => ({
-      label: `${c.parameter} ${c.value}`, parameter: c.parameter })), { title });
-    return which && Object.assign(action, { parameter: which.parameter });
-  }
-  if (['set', 'add'].includes(picked.op) ||
-      (picked.op === 'wrap' && picked.connective !== 'not')) {
-    const condition = await askCondition(pages, row, title);
-    return condition && Object.assign(action, condition);
-  }
-  return action;
-}
 
-/**
- * Edit the value of `row` as an expression, until Done. Returns true when
- * something was written (the page then refreshes).
- */
-async function openExpression(pages, row) {
-  const where = { shape: row.shape, path: row.path };
-  let changed = false;
-  for (;;) {
-    const read = await send(pages, 'semforge/expression', where);
-    if (!read) {
-      return changed;
+  async request(method, params) {
+    const client = this.pages.clientHolder.client;
+    if (!client) {
+      return { ok: false, error: 'the language server is not running' };
     }
-    if (!read.editable) {
-      const open = await vscode.window.showInformationMessage(
-        `SemForge: ${row.label}'s value is edited in the .ttl: ${read.reason}.`, 'Open in .ttl');
-      if (open) {
-        await require('./reveal').showLocation(row.definedAt, true);
+    try {
+      return await client.sendRequest(method, Object.assign({ uri: this.packageUri }, params));
+    } catch (error) {
+      return { ok: false, error: error.message || String(error) };
+    }
+  }
+
+  async loadChoices() {
+    const slot = this.row.kind === 'Relationship' ? 'ngsild:hasObject' : 'ngsild:hasValue';
+    const [datatypes, classes] = await Promise.all(['sh:datatype', 'sh:class'].map((parameter) =>
+      this.request('semforge/choices', { path: [this.row.term, slot], parameter, search: null })));
+    return { datatypes: (datatypes && datatypes.choices) || [], classes: (classes && classes.choices) || [] };
+  }
+
+  async render() {
+    if (!this.panel) {
+      return;
+    }
+    const read = await this.request('semforge/expression', { shape: this.row.shape, path: this.row.path });
+    this.panel.title = `${this.row.label} · expression`;
+    const state = Object.assign({ label: this.row.label }, this.choices,
+      read.ok ? read : { editable: false, reason: read.error }, { error: this.error });
+    this.panel.webview.html = renderExpressionPanel(state,
+      { nonce: crypto.randomBytes(16).toString('base64') });
+  }
+
+  async receive(message) {
+    if (!message || !this.row) {
+      return;
+    }
+    if (message.command === 'open') {
+      await require('./reveal').showLocation(this.row.definedAt, true);
+      return;
+    }
+    if (message.command === 'edit') {
+      const done = await this.request('semforge/editExpression',
+        { shape: this.row.shape, path: this.row.path, action: message.action });
+      this.error = done.ok ? '' : done.error;
+      await this.render();
+      if (done.ok) {
+        this.pages.refresh();
       }
-      return changed;
-    }
-    const items = [{ label: '$(check) Done', done: true },
-      { label: read.said || 'any value', kind: vscode.QuickPickItemKind.Separator }]
-      .concat(lines(read.expression, [], 0, []));
-    const picked = await vscode.window.showQuickPick(items, {
-      title: `${row.label}: what its value must be`,
-      placeHolder: 'Pick a part to change it'
-    });
-    if (!picked || picked.done) {
-      return changed;
-    }
-    const action = await actionFor(pages, row, picked);
-    if (!action) {
-      continue;
-    }
-    if (await send(pages, 'semforge/editExpression', Object.assign({ action }, where))) {
-      changed = true;
     }
   }
 }
 
-/** "Combine with another condition…": one plain value becomes an expression. */
+let panel;
+
+/** Open the expression editor on `row` of the type (or shape) page. */
+async function openExpression(pages, row) {
+  if (!panel || panel.pages !== pages) {
+    panel = new ExpressionPanel(pages);
+  }
+  await panel.open(row);
+  return false;          // the page refreshes when an edit is applied
+}
+
+/** "Combine with another condition…": the editor, ready to combine. */
 async function combine(pages, row) {
-  const how = await vscode.window.showQuickPick([
-    { label: 'Or else…', description: 'any of: what it is now, or another', connective: 'or' },
-    { label: 'Exactly one of…', description: 'what it is now, or another, not both', connective: 'xone' },
-    { label: 'But not…', description: 'what it is now, except', connective: 'not' }
-  ], { title: `${row.label}: combine its value with another condition` });
-  if (!how) {
-    return false;
-  }
-  const condition = await askCondition(pages, row, `${row.label} · ${how.label}`);
-  if (!condition) {
-    return false;
-  }
-  const done = await send(pages, 'semforge/editExpression', {
-    shape: row.shape, path: row.path,
-    action: Object.assign({ op: 'combine', connective: how.connective }, condition) });
-  if (!done) {
-    return false;
-  }
-  await openExpression(pages, row);
-  return true;
+  return openExpression(pages, row);
 }
 
-module.exports = { openExpression, combine, lines, CONDITIONS };
+module.exports = { openExpression, combine, renderExpressionPanel, CONDITIONS };

@@ -81,6 +81,10 @@ class Layer:
     root: Op                         # Op('and', (Leaf(own conditions), *connectives))
     editable: bool
     reason: str = ''                 # why not, when not
+    # A value that may be a scalar or a list (cooked/payloads.py): the
+    # expression is on its member, the same in every form -- what one value
+    # must be, and what each item of a list must be.
+    forms: tuple = None
 
     @property
     def complex(self):
@@ -181,6 +185,29 @@ def read_layer(package, text, shape, chain):
         if any(w is not None and not _uncommented(text[w[0]:w[1]]) for w in written):
             reason = 'a comment inside it would be lost'
     return Layer(slot=slot, root=root, editable=not reason, reason=reason)
+
+
+def read_target(package, text, shape, chain):
+    """What the expression editor edits for the attribute at `chain`: its
+    value layer (read_layer), or -- for a value that may be a scalar or a list
+    -- the conditions on its member, which every form shares."""
+    from .constrain import _forms_at, _group_in, _turtle_name
+    from .payloads import _same_values, prefixes_of
+
+    forms = _forms_at(package, text, shape, chain)
+    if forms is None:
+        return read_layer(package, text, shape, chain)
+    where, found = forms
+    base = next((a for a in found if not a.is_list), found[0])
+    body = '[ ' + ' ; '.join(f'<{SH}{k[3:]}> {v}' for k, v in base.member) + ' ]'
+    root, reason = _read_root(body, prefixes_of(package), lambda iri: _turtle_name(text, iri))
+    if not reason and not all(_same_values(base, a) for a in found):
+        reason = 'its single value and its list items are checked differently'
+    holder = _group_in(text, shape, chain if where == 'attribute' else chain + [where])
+    written = holder.parameter(_turtle_name(text, SH['or']))
+    if not reason and written is not None and not _uncommented(text[written[0]:written[1]]):
+        reason = 'a comment inside it would be lost'
+    return Layer(slot=where, root=root, editable=not reason, reason=reason, forms=forms)
 
 
 def _read_root(body, prefixes, spell):
@@ -300,7 +327,7 @@ def describe(layer, kind='Property'):
     """One line: `0 – 100 · any of: number (double) | number (integer)`."""
     def said(node):
         if isinstance(node, Op):
-            inner = ' | '.join(said(c) for c in node.children)
+            inner = (' and ' if node.op == 'and' else ' | ').join(said(c) for c in node.children)
             return f'{WORDS[node.op]}: {inner}' if node.op != 'not' else f'not ({inner})'
         return words(node, kind)
     own, *rest = layer.root.children
@@ -365,44 +392,70 @@ def write_layer(package, shape, chain, root):
         raise PackageError(f'{shape} is not in any shapes file')
     with open(holder, encoding='utf-8') as handle:
         text = handle.read()
-    before = read_layer(package, text, shape, chain)
+    before = read_target(package, text, shape, chain)
     if before is None:
         raise PackageError(f'{chain[-1]} has no value layer; edit it in the .ttl')
     if not before.editable:
         raise PackageError(f'the value of {chain[-1]} is edited in the .ttl: {before.reason}')
     root = normalize_root(root)
     own, params = _split(root)
-    target = chain + [before.slot]
 
     def name(iri):
         return _turtle_name(text, iri)
 
-    old = dict(before.root.children[0].conditions)
-    new = dict(own.conditions)
-    for key in sorted(set(old) | set(new)):
-        spelled = _turtle_name(text, SH[key[3:]])
-        layer = _group_in(text, shape, target)
-        if key in new and old.get(key) != new[key]:
-            text = _set(text, layer, spelled, new[key])
-        elif key not in new:
-            text = _remove_line(text, layer, spelled)
-    for op in CONNECTIVES:
-        spelled = _turtle_name(text, SH[op])
-        layer = _group_in(text, shape, target)
-        if layer.parameter(spelled) is not None:
-            text = _remove_line(text, layer, spelled)
-    for op, node in params:
-        layer = _group_in(text, shape, target)
-        text = _set(text, layer, _turtle_name(text, SH[op]), _value(node, name))
+    if before.forms is not None:
+        text = _write_forms(text, shape, chain, before.forms, own, params, name)
+    else:
+        target = chain + [before.slot]
+        old = dict(before.root.children[0].conditions)
+        new = dict(own.conditions)
+        for key in sorted(set(old) | set(new)):
+            spelled = _turtle_name(text, SH[key[3:]])
+            layer = _group_in(text, shape, target)
+            if key in new and old.get(key) != new[key]:
+                text = _set(text, layer, spelled, new[key])
+            elif key not in new:
+                text = _remove_line(text, layer, spelled)
+        for op in CONNECTIVES:
+            spelled = _turtle_name(text, SH[op])
+            layer = _group_in(text, shape, target)
+            if layer.parameter(spelled) is not None:
+                text = _remove_line(text, layer, spelled)
+        for op, node in params:
+            layer = _group_in(text, shape, target)
+            text = _set(text, layer, _turtle_name(text, SH[op]), _value(node, name))
 
     from .payloads import prefixes_of
 
-    after = read_layer(package, text, shape, chain)
+    after = read_target(package, text, shape, chain)
     if after is None or normalize_root(after.root) != _canonical(root, prefixes_of(package), name):
         raise PackageError('the value would not read back as meant; nothing was changed')
     _write_verified(holder, text)
-    layer = _group_in(text, shape, target)
-    return {'file': holder, 'line': text.count('\n', 0, layer.start) + 1}
+    group = _group_in(text, shape, chain)
+    return {'file': holder, 'line': text.count('\n', 0, group.start) + 1}
+
+
+def _write_forms(text, shape, chain, forms, own, params, name):
+    """The member of every form rewritten to the expression: the value's
+    conditions for one value and for each item of a list alike (a list's
+    items carry no sh:nodeKind, as the OPC UA tools write them)."""
+    from dataclasses import replace as changed
+
+    from ..rdfio import set_parameter
+    from .constrain import _group_in, _indent_of, _turtle_name
+    from .payloads import render, render_list_value
+
+    pairs = list(own.conditions) + [(f'sh:{op}', _value(node, name)) for op, node in params]
+    where, found = forms
+    new = tuple(changed(a, member=tuple(sorted(p for p in pairs if not (
+        a.is_list and p[0] == 'sh:nodeKind')))) for a in found)
+    spelled = _turtle_name(text, SH['or'])
+    if where == 'attribute':
+        group = _group_in(text, shape, chain)
+        start = group.parameter(spelled)[0]
+        return set_parameter(text, group, spelled, render(new, name, _indent_of(text, start)))
+    layer = _group_in(text, shape, chain + [where])
+    return set_parameter(text, layer, spelled, render_list_value(new[0].member, name))
 
 
 # --- the edits the page asks for -------------------------------------------------------------
@@ -456,25 +509,38 @@ def edit(package, shape, chain, action):
         raise PackageError(f'{shape} is not in any shapes file')
     with open(holder, encoding='utf-8') as handle:
         text = handle.read()
-    layer = read_layer(package, text, str(shape), list(chain))
+    layer = read_target(package, text, str(shape), list(chain))
     if layer is None:
         raise PackageError(f'{chain[-1]} has no value layer; edit it in the .ttl')
     root = layer.root
     what = action.get('op')
     address = [int(i) for i in action.get('node') or []]
 
-    def condition():
-        parameter = action.get('parameter')
+    def condition(spec=None):
+        spec = spec or action
+        parameter = spec.get('parameter')
         if parameter not in CONDITIONS:
             raise PackageError(f'{parameter} is not a condition on a value')
+        if not str(spec.get('value') or '').strip():
+            raise PackageError(f'{parameter} needs a value')
         if parameter == 'sh:hasValue':
             from .tree import _list_value
-            value = _list_value(package, text, [action.get('value')])[2:-2]
+            value = _list_value(package, text, [spec.get('value')])[2:-2]
         else:
-            value = _parameter_value(package, text, parameter, action.get('value'))
+            value = _parameter_value(package, text, parameter, spec.get('value'))
         return parameter, value
 
-    if what in ('set', 'unset'):
+    if what == 'addgroup':
+        # A group arrives with its branches: one branch alone would be no group.
+        node, op = _at(root, address), action.get('connective')
+        if not isinstance(node, Op) or node.op == 'not':
+            raise PackageError('a group is added inside any of, all of or exactly one of')
+        branches = tuple(Leaf((condition(spec),)) for spec in action.get('conditions') or [])
+        if op not in CONNECTIVES or len(branches) < (1 if op == 'not' else 2):
+            raise PackageError('a group is not with one condition, any of / exactly one '
+                               'of / all of with two or more')
+        root = _put(root, address, Op(node.op, node.children + (Op(op, branches),)))
+    elif what in ('set', 'unset'):
         node = _at(root, address)
         if not isinstance(node, Leaf):
             raise PackageError('conditions are set on a set of conditions, not on a connective')

@@ -1129,6 +1129,12 @@ async function rowMenu(pages, row) {
         : 'any — which unitCode its instances may say',
       run: async () => require('./units').editUnits(pages.clientHolder.client,
         pages.current.packageUri, row) }]),
+    // Any value as an expression -- any of, all of, exactly one of, not --
+    // in the panel beside the page; always here, whether it is one yet or not.
+    ...(row.expressionable ? [{ label: '$(symbol-operator) Expression editor…',
+      description: row.expression ? 'its value is an expression'
+        : 'combine its value with other conditions: any of, all of, exactly one of, not',
+      run: async () => require('./expression').openExpression(pages, row) }] : []),
     // A value that may also be a list -- an OPC UA array (its ValueRank) --
     // is the choice `a scalar, or a list of them`; switched here, both ways.
     ...(row.lists === 'single' ? [{ label: '$(list-unordered) Allow a list too',

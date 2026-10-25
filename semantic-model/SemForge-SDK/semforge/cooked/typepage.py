@@ -264,20 +264,24 @@ def _payload_alternatives(package, slot, raw, raw_outer):
 CONNECTIVE_NAMES = ('sh:or', 'sh:and', 'sh:xone', 'sh:not')
 
 
-def _expression_of(package, node, slot, raw):
-    """The value layer as an expression (cooked/expression.py) when it carries
-    a connective, else None. Parsed only then: the page is built for thousands
-    of attributes, and one plain value needs nothing read twice."""
-    from .expression import read_layer
+def _expression_of(package, node, slot, raw, found=None):
+    """The value as an expression (cooked/expression.py) when it carries a
+    connective -- on its value layer, or on the member of a value that may be
+    a scalar or a list -- else None. Parsed only then: the page is built for
+    thousands of attributes, and one plain value needs nothing read twice."""
+    from .expression import read_target
 
-    if slot is None or not any(name in CONNECTIVE_NAMES for name, _ in raw):
+    if found:
+        if not any(key in CONNECTIVE_NAMES for a in found for key, _ in a.member):
+            return None
+    elif slot is None or not any(name in CONNECTIVE_NAMES for name, _ in raw):
         return None
     index = package.index('shapes')
     holder = index.file_for(URIRef(node.shape))
     if holder is None:
         return None
     try:
-        layer = read_layer(package, index.source_of(holder), node.shape, list(node.path_chain))
+        layer = read_target(package, index.source_of(holder), node.shape, list(node.path_chain))
     except PackageError:
         return None
     return layer if layer is not None and layer.complex else None
@@ -351,10 +355,12 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     # A value that is more than one set of conditions: an expression, edited
     # in the expression editor (cooked/expression.py). Read only when the
     # value layer carries a connective -- most do not, and stay one value.
-    layer = None if found else _expression_of(package, node, slot, raw)
+    layer = _expression_of(package, node, slot, raw, found)
     if layer is not None:
         extra = [e for e in extra if e.split(' ', 1)[0] not in CONNECTIVE_NAMES]
-    said = forms_text(found, _words) if found else (
+    # A scalar-or-list value with an expression on its member: each form says it.
+    said = forms_text(found, (lambda kind, _: _expression_text(layer, kind))
+                      if layer is not None else _words) if found else (
         _expression_text(layer, kind) if layer is not None and not
         any(name == 'sh:or' and _numbers_only(value) for name, value in raw)
         else value_text(kind, value_params, raw))
@@ -393,7 +399,9 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'expression': _expression_json(layer, kind),
         # One plain value, which "Combine with another condition…" may turn
         # into an expression -- offered last in the value picker, never first.
-        'combinable': layer is None and not found and slot is not None and not blocked,
+        'combinable': layer is None and (bool(found) or slot is not None and not blocked),
+        # Whether the expression editor can be opened on it at all (⋯ menu).
+        'expressionable': bool(found) or slot is not None,
         'valueLocked': '' if found else (
             f'edited in the .ttl: {layer.reason}' if layer is not None and not layer.editable
             else '' if layer is not None else

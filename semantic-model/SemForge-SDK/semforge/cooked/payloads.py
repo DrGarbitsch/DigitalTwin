@@ -51,7 +51,10 @@ from ..ngsild.kinds import KINDS_OF_PAYLOAD, LIST_PAYLOADS, PAYLOAD_PATHS
 # The constraints a value (or a list member) may carry and still be said in
 # words; anything else on it makes the form not one of these.
 MEMBER = {SH.datatype, SH['class'], SH.nodeKind, SH.minInclusive, SH.maxInclusive,
-          SH.minExclusive, SH.maxExclusive, SH.minLength, SH.maxLength, SH.pattern}
+          SH.minExclusive, SH.maxExclusive, SH.minLength, SH.maxLength, SH.pattern,
+          SH.flags, SH['in'], SH.hasValue,
+          # An expression on the value (cooked/expression.py), kept as written.
+          SH['or'], SH['and'], SH.xone, SH['not']}
 COUNTS = {SH.minCount, SH.maxCount}
 # What every member of an RDF list is: ( [ sh:zeroOrMorePath rdf:rest ] rdf:first ).
 LIST_KIND = {'hasValue': 'Property', 'hasObject': 'Relationship',
@@ -252,8 +255,17 @@ def _member(graph, node):
             continue
         if len(list(graph.objects(node, predicate))) != 1:
             return None
-        params.append(('sh:' + str(predicate)[len(str(SH)):], _text(value, graph)))
+        params.append(('sh:' + str(predicate)[len(str(SH)):], _token(value, graph)))
     return tuple(params)
+
+
+def _token(value, graph):
+    """A member's value as Turtle, ready to be written back: a quoted string
+    stays quoted (an sh:pattern was written back bare), a list or an
+    expression is written out whole."""
+    from .expression import _Reader
+
+    return _Reader(graph, graph.namespace_manager.normalizeUri).term(value)
 
 
 def _text(value, graph=None):

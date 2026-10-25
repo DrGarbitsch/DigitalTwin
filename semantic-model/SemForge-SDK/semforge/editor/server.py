@@ -2577,7 +2577,7 @@ def expression_feature(ls, params):
     from rdflib import URIRef
 
     from ..cooked.constrain import _attribute
-    from ..cooked.expression import describe, read_layer, to_json
+    from ..cooked.expression import describe, read_target, to_json
     from ..errors import PackageError
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
@@ -2590,7 +2590,7 @@ def expression_feature(ls, params):
         if holder is None:
             raise PackageError(f'{shape} is not in any shapes file')
         with open(holder, encoding='utf-8') as handle:
-            layer = read_layer(package, handle.read(), shape, chain)
+            layer = read_target(package, handle.read(), shape, chain)
         if layer is None:
             return {'ok': False, 'error': f'{chain[-1]} has no value layer; edit it in the .ttl'}
         try:
@@ -2598,7 +2598,10 @@ def expression_feature(ls, params):
         except PackageError:
             kind = 'Property'
         return {'ok': True, 'expression': to_json(layer.root, kind), 'said': describe(layer, kind),
-                'editable': layer.editable, 'reason': layer.reason, 'complex': layer.complex}
+                'editable': layer.editable, 'reason': layer.reason, 'complex': layer.complex,
+                # A scalar-or-list value: the expression holds for one value
+                # and for each item of a list alike.
+                'forms': layer.forms is not None}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 
@@ -2615,8 +2618,12 @@ def edit_expression_feature(ls, params):
         action = _field(params, 'action')
         made = edit(_package_for(root), _field(params, 'shape'),
                     list(_field(params, 'path') or []),
-                    {k: _field(action, k) for k in ('op', 'node', 'parameter', 'value',
-                                                    'connective')})
+                    dict({k: _field(action, k) for k in ('op', 'node', 'parameter', 'value',
+                                                         'connective')},
+                         # A nested object arrives as pygls's Object: read field by field.
+                         conditions=[{'parameter': _field(c, 'parameter'),
+                                      'value': _field(c, 'value')}
+                                     for c in (_field(action, 'conditions') or [])]))
         _packages.pop(root, None)
         _publish(ls, _path_to_uri(made['file']))
         return dict(made, ok=True)

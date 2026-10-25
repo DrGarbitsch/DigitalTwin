@@ -15,36 +15,34 @@
 */
 
 /**
- * The expression editor's list of parts, for one expression as the server
- * sends it. Prints one JSON line: [{label, description, address}].
+ * The expression editor's panel as HTML, for a browser to run:
  *
- *   node expression.js <vscode/src directory>
+ *   node expression.js <vscode/src> <state.json> <out.html> [after.js]
+ *
+ * acquireVsCodeApi is stubbed; what the panel posts is kept on
+ * <html data-posted="[…]">. `after.js`, if given, runs once the panel is up.
  */
+const fs = require('fs');
 const Module = require('module');
 const path = require('path');
 
 const original = Module._load;
 Module._load = function (request, parent, isMain) {
   if (request === 'vscode') {
-    return { QuickPickItemKind: { Separator: -1 } };
+    return {};
   }
   return original(request, parent, isMain);
 };
 
-const { lines } = require(path.resolve(process.argv[2], 'expression.js'));
-
-const leaf = (words, conditions) => ({ kind: 'leaf', words, conditions: conditions || [{}] });
-const expression = {
-  kind: 'op', op: 'and', words: 'all of', children: [
-    leaf('0 – 100'),
-    { kind: 'op', op: 'or', words: 'any of', children: [
-      leaf('number (double)'),
-      { kind: 'op', op: 'not', words: 'not', children: [leaf('number (integer)')] },
-      { kind: 'raw', words: '[ sh:node ex:Other ]' }] }]
-};
-const empty = { kind: 'op', op: 'and', words: 'all of', children: [
-  leaf('any value', []),
-  { kind: 'op', op: 'xone', words: 'exactly one of', children: [leaf('text'), leaf('URL')] }] };
-
-console.log(JSON.stringify([expression, empty].map((tree) => lines(tree, [], 0, []).map(
-  (item) => ({ label: item.label, description: item.description || '', address: item.address })))));
+const { renderExpressionPanel } = require(path.resolve(process.argv[2], 'expression.js'));
+const state = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
+let html = renderExpressionPanel(state, { nonce: 'n' });
+const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage(m) { ' +
+  'var all = JSON.parse(document.documentElement.dataset.posted || "[]"); all.push(m); ' +
+  'document.documentElement.dataset.posted = JSON.stringify(all); } }; }</script>';
+html = html.replace('<script nonce="n">', stub + '<script nonce="n">');
+if (process.argv[5]) {
+  html = html.replace('</body>', '<script nonce="n">' + fs.readFileSync(process.argv[5], 'utf-8') +
+    '</script></body>');
+}
+fs.writeFileSync(process.argv[4], html);
