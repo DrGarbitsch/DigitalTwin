@@ -171,14 +171,12 @@ def query_predicates(text, namespaces=None):
 def read_set(shapes):
     """Every predicate the shapes can read, or None when that is any.
 
-    Kept on the shapes graph (parsing its SPARQL is most of the cost), keyed
-    by its size as well: a loaded shapes graph is never edited in place.
+    Kept with a frozen shapes graph (rdfio/frozen.py): parsing its SPARQL is
+    most of the cost.
     """
-    cache = shapes.__dict__.setdefault('_semforge_read_set', {})
-    if len(shapes) not in cache:
-        cache.clear()
-        cache[len(shapes)] = _read_set(shapes)
-    return cache[len(shapes)]
+    from ..rdfio.frozen import derived
+
+    return derived(shapes, 'read_set', lambda: _read_set(shapes))
 
 
 def _read_set(shapes):

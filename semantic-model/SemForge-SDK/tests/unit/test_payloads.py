@@ -283,7 +283,7 @@ def test_what_is_written_validates_as_meant(tmp_path, corpus):
             @prefix ngsi-ld: <https://uri.etsi.org/ngsi-ld/> .
             @prefix e: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
             <urn:f:1> a e:Filter ; e:hasPlainX [ {value} ] .''', format='turtle')
-        _, report, _ = pyshacl.validate(data, shacl_graph=shapes)
+        _, report, _ = pyshacl.validate(data, shacl_graph=shapes + Graph())  # pyshacl writes into it
         return [r for r in report.objects(None, SH.result)
                 if 'hasPlainX' in str(report.value(r, SH.resultPath))]
 

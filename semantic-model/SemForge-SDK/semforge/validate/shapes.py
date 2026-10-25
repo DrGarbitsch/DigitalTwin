@@ -208,18 +208,17 @@ def subgraph_for(shapes_graph, shapes):
     shape is written as. Shapes reference each other only through sh:node,
     which CBD does not cross -- so a referenced shape is pulled in explicitly.
 
-    Kept on the shapes graph, per shape set: rebuilt for every validation it
-    cost 0.8 s on the OPC UA pump shapes, and a loaded shapes graph is never
-    edited (pyshacl, which writes into its shapes, is handed a copy). The
-    size is in the key all the same. Callers must not change what they get.
+    Kept with a frozen shapes graph (rdfio/frozen.py), per shape set:
+    rebuilt for every validation it cost 0.8 s on the OPC UA pump shapes.
+    What is kept is frozen too -- pyshacl, which writes into its shapes, is
+    handed a copy.
     """
-    cache = shapes_graph.__dict__.setdefault('_semforge_subgraphs', {})
-    key = (len(shapes_graph), frozenset(shapes))
-    if key not in cache:
-        if len(cache) > 32:
-            cache.clear()
-        cache[key] = _subgraph(shapes_graph, shapes)
-    return cache[key]
+    from ..rdfio.frozen import derived, freeze, is_frozen
+
+    if not is_frozen(shapes_graph):
+        return _subgraph(shapes_graph, shapes)
+    return derived(shapes_graph, 'subgraphs', lambda: freeze(_subgraph(shapes_graph, shapes)),
+                   key=(frozenset(shapes),), keep=32)
 
 
 def _subgraph(shapes_graph, shapes):

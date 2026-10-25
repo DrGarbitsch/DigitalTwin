@@ -112,7 +112,7 @@ def test_one_boolean_or_a_list_of_numbers(root):
             @prefix ngsild: <https://uri.etsi.org/ngsi-ld/> .
             @prefix e: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
             <urn:c:1> a e:Cutter ; e:hasList [ {payload} ] .''', format='turtle')
-        _, report, _ = pyshacl.validate(data, shacl_graph=shapes)
+        _, report, _ = pyshacl.validate(data, shacl_graph=shapes + Graph())  # pyshacl writes into it
         return any('hasList' in str(report.value(r, SH.resultPath))
                    for r in report.objects(None, SH.result))
 

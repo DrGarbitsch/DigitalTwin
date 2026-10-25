@@ -225,7 +225,7 @@ def load(path, reuse=None):
     role's graph as it is when the role is made of the same documents and the
     caller knows none of them changed (editor/incremental.py): the OPC UA pump
     knowledge is 217,582 triples that an edit to a shape leaves alone. The
-    graph is shared, so nothing may write to it -- nothing does.
+    graph is shared, so nothing may write to it: it is frozen (rdfio/frozen.py).
     """
     if not os.path.isdir(path):
         raise PackageError(f'not a package directory: {path}')
@@ -286,4 +286,9 @@ def load(path, reuse=None):
             package.model.parse(data=_json.dumps(document), format='json-ld')
         else:
             package.model.parse(source, format='json-ld')
+    # One version of its files each: read-only from here, and what is derived
+    # from one is kept with it (rdfio/frozen.py).
+    from ..rdfio.frozen import freeze
+    for role in ('knowledge', 'vocabulary', 'shapes', 'model'):
+        freeze(getattr(package, role))
     return package

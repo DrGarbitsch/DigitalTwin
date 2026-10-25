@@ -44,18 +44,19 @@ def _private_copy(shapes_graph):
     has written into before validates exactly as a fresh one -- and copying the
     21,276 triples of the OPC UA pump shapes cost 0.6 s per validation. The
     graph given here is never edited (validate/shapes.subgraph_for keeps one
-    per shape set); its size is in the key all the same.
+    per shape set, frozen). Kept only with a frozen graph (rdfio/frozen.py):
+    any other is copied every time.
     """
-    kept = shapes_graph.__dict__.get('_semforge_pyshacl')
-    if kept is not None and kept[0] == len(shapes_graph):
-        return kept[1]
-    shapes = Graph()
-    for prefix, namespace in shapes_graph.namespaces():
-        shapes.bind(prefix, namespace)
-    for triple in shapes_graph:
-        shapes.add(triple)
-    shapes_graph.__dict__['_semforge_pyshacl'] = (len(shapes_graph), shapes)
-    return shapes
+    from ...rdfio.frozen import derived
+
+    def copy():
+        shapes = Graph()
+        for prefix, namespace in shapes_graph.namespaces():
+            shapes.bind(prefix, namespace)
+        for triple in shapes_graph:
+            shapes.add(triple)
+        return shapes
+    return derived(shapes_graph, 'pyshacl_copy', copy)
 
 
 def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):

@@ -96,7 +96,7 @@ def prefixes_of(package):
     the graph's. The graph binds a namespace to ONE prefix, so a file saying
     both `ngsild:` and `ngsi-ld:` -- as the OPC UA package does once merged
     with SemForge's own -- loses one, and its sh:or could not be read back."""
-    from ..rdfio.memo import on_graph
+    from ..rdfio.frozen import derived
     from ..rdfio.turtle_index import _prefixes
 
     def compute():
@@ -104,7 +104,7 @@ def prefixes_of(package):
         for index in package.index('shapes').indexes.values():
             found.update(_prefixes(index.source)[0])
         return tuple(sorted(found.items()))
-    return on_graph(package.shapes, 'file_prefixes', (package.path,), compute)
+    return derived(package.shapes, 'file_prefixes', compute, key=(package.path,))
 
 
 def _key(prefixes):

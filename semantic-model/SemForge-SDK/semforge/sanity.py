@@ -109,11 +109,10 @@ class SanityFinding:
 
 def _declared(package):
     """Every IRI the knowledge or the NGSI-LD vocabulary declares."""
-    from .rdfio.memo import on_graph
+    from .rdfio.frozen import derived
 
-    return on_graph(package.knowledge, 'declared',
-                    (package.vocabulary, len(package.vocabulary)),
-                    lambda: frozenset(_declare(package)))
+    return derived(package.knowledge, 'declared', lambda: frozenset(_declare(package)),
+                   depends=(package.vocabulary,))
 
 
 def _declare(package):

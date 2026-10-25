@@ -27,8 +27,8 @@ Only when that is certainly the same graph: the file holds exactly what was
 written; the old statements account for exactly the triples taken out -- the
 same number, the same named ones -- so a subject also said elsewhere in the
 file is never cut short. Otherwise None, and the file is parsed as before.
-The result is a new Graph: nothing kept on the old one (rdfio/memo.py) is
-reused for it.
+The result is a new Graph, frozen when it is loaded: nothing kept with the
+old one (rdfio/frozen.py) is reused for it.
 """
 
 import hashlib

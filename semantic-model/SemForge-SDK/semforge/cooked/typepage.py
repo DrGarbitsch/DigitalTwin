@@ -233,11 +233,12 @@ PLAIN_PAYLOADS = ('hasValue', 'hasObject')
 def _value_of(package, node):
     """The attribute's value as its forms (cooked/valueforms.py) -- the one
     reader the page, the value editor and the constraints view share."""
-    from ..rdfio.memo import on_graph
+    from ..rdfio.frozen import derived
     from .valueforms import Value, read_value
 
     # Kept with the shapes graph: an edit gives the package a new one.
-    known = on_graph(package.shapes, 'row_values', (package.path,), dict)
+    known = derived(package.shapes, 'row_values', dict, depends=(package.knowledge,),
+                    key=(package.path,))
     key = (node.shape, tuple(node.path_chain))
     if key in known:
         return known[key]

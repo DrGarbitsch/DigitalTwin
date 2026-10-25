@@ -214,7 +214,7 @@ def test_what_is_written_validates_as_meant(root):
             @prefix ngsild: <https://uri.etsi.org/ngsi-ld/> .
             @prefix e: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
             <urn:f:1> a e:Filter ; e:hasStrength [ ngsild:hasValue {value} ] .''', format='turtle')
-        _, report, _ = pyshacl.validate(data, shacl_graph=shapes)
+        _, report, _ = pyshacl.validate(data, shacl_graph=shapes + Graph())  # pyshacl writes into it
         return any('hasStrength' in str(report.value(r, SH.resultPath)) or
                    'hasValue' in str(report.value(r, SH.resultPath))
                    for r in report.objects(None, SH.result)
