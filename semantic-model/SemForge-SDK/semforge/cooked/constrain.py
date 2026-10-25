@@ -65,6 +65,9 @@ from .choices import _ancestor_chain, attribute_terms, classify_classes
 # PAYLOAD_KEY decides the JSON key.
 from ..ngsild.kinds import PAYLOAD_PATH  # noqa: E402
 
+# A JsonProperty's `json` is a literal of this datatype (JSON-LD's "@json").
+RDF_JSON = URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#JSON')
+
 
 def _attribute(package, attribute):
     wanted = str(attribute)
@@ -244,8 +247,10 @@ def _value_layer(package, kind, datatype, value_class, name):
         pairs += [(SH.nodeKind, SH.IRI), (SH['class'], cls)]
     elif datatype:
         iri = _resolve(package, datatype)
-        if iri is None or not str(iri).startswith(str(XSD)):
-            raise PackageError(f'{datatype} is not an XML Schema datatype')
+        if iri is None and str(datatype).strip() == 'rdf:JSON':
+            iri = RDF_JSON
+        if iri is None or not (str(iri).startswith(str(XSD)) or iri == RDF_JSON):
+            raise PackageError(f'{datatype} is not an XML Schema datatype, nor rdf:JSON')
         pairs.append((SH.datatype, iri))
     return pairs
 

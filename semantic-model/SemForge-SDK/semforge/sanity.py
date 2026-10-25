@@ -43,6 +43,9 @@ line that holds it:
   count-impossible   a property shape whose sh:minCount is above its
                      sh:maxCount: no data can ever satisfy it, so every
                      entity it judges fails -- for a reason no data can fix
+  json-never-holds   sh:datatype rdf:JSON anywhere but a JsonProperty's json
+                     (a warning): a JSON object elsewhere is read as nodes,
+                     so no NGSI-LD data satisfies it
   dataset-not-iri    a datasetId in the data that is not an IRI: the context
                      reads it as one, so a plain word silently becomes another
   dataset-none       an explicit "datasetId": "@none" -- the platform's name
@@ -397,6 +400,86 @@ def _impossible(text, compute):
     return _IMPOSSIBLE[text]
 
 
+RDF_JSON = URIRef(str(RDF) + 'JSON')
+CLIMB = (SH['or'], SH['and'], SH.xone, SH['not'], RDF.first, RDF.rest)
+
+
+def _judged(graph, node, through=CLIMB):
+    """(the node that says sh:path, its path) for conditions at `node`, out
+    through sh:or / sh:and / sh:xone / sh:not and their lists -- or (None, None)."""
+    seen, todo = set(), [node]
+    while todo:
+        current = todo.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        path = graph.value(current, SH.path)
+        if path is not None:
+            return current, path
+        todo.extend(s for s, p in graph.subject_predicates(current) if p in through)
+    return None, None
+
+
+def _json_checks(package):
+    """json-never-holds: sh:datatype rdf:JSON where no NGSI-LD data can have it.
+
+    rdf:JSON is what a JsonProperty's `json` is -- JSON-LD's "@json". A JSON
+    object in a Property's `value`, or as an item of a ListProperty's
+    `valueList`, is expanded into nodes; a number or a text, into an xsd:
+    literal. The OPC UA tools write "a list of rdf:JSON values" for JSON
+    Variables: that form can never hold.
+    """
+    from .ngsild.kinds import NGSILD, payload_of
+    from .rdfio import terms
+
+    graph = package.shapes
+    said = {}
+    for node in set(graph.subjects(SH.datatype, RDF_JSON)):
+        holder, path = _judged(graph, node)
+        if path is None or str(path) == NGSILD + 'hasJSON':
+            continue
+        if isinstance(path, BNode):
+            where = 'on each item of a list'
+        elif payload_of(str(path)):
+            where = f'on its {payload_of(str(path))}'
+        else:
+            where = 'on the attribute node itself'
+        # The attribute it belongs to: up through sh:property as well, past
+        # the value layers and the list's member shape.
+        attribute, current = path, holder
+        while attribute is None or isinstance(attribute, BNode) or payload_of(str(attribute)):
+            parents = [s for s, p in graph.subject_predicates(current)
+                       if p in CLIMB + (SH.property,)]
+            if not parents:
+                break
+            current = parents[0]
+            attribute = graph.value(current, SH.path)
+        if attribute is None or isinstance(attribute, BNode) or payload_of(str(attribute)):
+            continue
+        said.setdefault(str(attribute), where)
+
+    out = []
+    for path in package.files('shapes'):
+        if not os.path.isfile(path) or not said:
+            continue
+        with open(path, encoding='utf-8') as handle:
+            found = terms(handle.read())
+        for index, term in enumerate(found):
+            where = said.get(term.iri)
+            if where is None or not index or found[index - 1].iri != str(SH.path):
+                continue
+            name = term.iri.rsplit('/', 1)[-1].rsplit('#', 1)[-1]
+            out.append(SanityFinding(
+                file=os.path.abspath(path), line=term.line, severity='warning',
+                code='json-never-holds', subject=term.iri,
+                message=f'{name} says sh:datatype rdf:JSON {where}. Only a JsonProperty\'s '
+                        f'json is an rdf:JSON literal: a JSON object anywhere else is '
+                        f'read as nodes, a number or text as an xsd: literal -- so no '
+                        f'NGSI-LD data satisfies this. Make it a JsonProperty.'))
+            del said[term.iri]
+    return out
+
+
 def _count_checks(package):
     """count-impossible, on the sh:path of the property shape that says it."""
     from rdflib import Graph
@@ -679,6 +762,7 @@ def sanity(package):
                   lambda: _severity_checks(package),
                   lambda: _dataset_checks(package),
                   lambda: _count_checks(package),
+                  lambda: _json_checks(package),
                   lambda: _vocabulary_checks(package),
                   lambda: _unused_attributes(package)):
         try:

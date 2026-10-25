@@ -559,7 +559,8 @@ def _term(package, text, value):
         namespace = dict((p, str(n)) for p, n in package.shapes.namespaces()).get(prefix) \
             or dict((p, str(n)) for p, n in package.knowledge.namespaces()).get(prefix) \
             or {'xsd': 'http://www.w3.org/2001/XMLSchema#',
-                'sh': 'http://www.w3.org/ns/shacl#'}.get(prefix)
+                'sh': 'http://www.w3.org/ns/shacl#',
+                'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'}.get(prefix)
         if namespace is None:
             raise PackageError(f'{value}: the prefix "{prefix}" is not declared')
         iri = namespace + name

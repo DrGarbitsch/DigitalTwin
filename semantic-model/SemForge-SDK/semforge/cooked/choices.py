@@ -60,7 +60,10 @@ NODE_KINDS = ['sh:IRI', 'sh:BlankNode', 'sh:Literal', 'sh:BlankNodeOrIRI',
               'sh:IRIOrLiteral', 'sh:BlankNodeOrLiteral']
 
 COMMON_DATATYPES = ['xsd:string', 'xsd:integer', 'xsd:double', 'xsd:decimal',
-                    'xsd:boolean', 'xsd:dateTime', 'xsd:date', 'xsd:anyURI']
+                    'xsd:boolean', 'xsd:dateTime', 'xsd:date', 'xsd:anyURI', 'rdf:JSON']
+# rdf:JSON is what a JsonProperty's `json` is (JSON-LD's "@json"); nothing
+# else in NGSI-LD data is one -- sanity.py says so where it is used otherwise.
+DATATYPE_DETAIL = {'rdf:JSON': "JSON — a JsonProperty's json; nowhere else"}
 
 
 def declared_entity_root(package_path):
@@ -620,7 +623,7 @@ def choices_for(package, path_chain, parameter, search=None, limit=None):
                 for kind in NODE_KINDS], ''
 
     if parameter == 'sh:datatype':
-        return [{'value': name, 'label': name, 'detail': ''}
+        return [{'value': name, 'label': name, 'detail': DATATYPE_DETAIL.get(name, '')}
                 for name in COMMON_DATATYPES], ''
 
     if parameter != 'sh:class':

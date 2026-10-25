@@ -54,7 +54,7 @@ NUMBER_TYPES = {'xsd:double', 'xsd:decimal', 'xsd:integer', 'xsd:float',
                 'xsd:positiveInteger'}
 DATATYPE_WORDS = {'xsd:string': 'text', 'xsd:boolean': 'true / false',
                   'xsd:dateTime': 'date and time', 'xsd:date': 'date',
-                  'xsd:anyURI': 'URL'}
+                  'xsd:anyURI': 'URL', 'rdf:JSON': 'JSON'}
 COUNT_PARAMETERS = {'sh:minCount', 'sh:maxCount'}
 # Parameters the vocabulary renders; anything else on a slot is shown verbatim.
 RENDERED = COUNT_PARAMETERS | {'sh:class', 'sh:datatype', 'sh:nodeKind',
