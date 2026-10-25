@@ -810,7 +810,7 @@ def test_a_package_nested_inside_another_is_offered_too(tmp_path):
     _bare_package(tmp_path, 'kms')
     _bare_package(tmp_path / 'kms', 'test')
     seen = _drive(tmp_path, {'command': 'semforge.selectPackage', 'pick': 'test'})
-    offered = [item['description'] for item in seen['quickPicks'][0]['items']]
+    offered = [item.get('description') for item in seen['quickPicks'][0]['items']]
     assert any(str(tmp_path / 'kms' / 'test') in (text or '')
                for text in offered), offered
 
@@ -946,8 +946,8 @@ def test_a_missing_type_is_declared_in_the_knowledge_first(tmp_path):
     """The way out is to add the class, not to type a name into the data."""
     seen = _drive(tmp_path, {
         'command': 'semforge.addEntity', 'node': ENTITY_ROW,
-        # the last row of the type list, then its parent
-        'picks': [2, 'e:Filter'],
+        # the action on top of the type list, then its parent
+        'picks': ['$(add) New entity type…', 'e:Filter'],
         'inputs': ['Waterjetcutter', 'urn:waterjetcutter:1'],
         'replies': {
             'semforge/entityTypes': TYPES_REPLY,
@@ -1018,8 +1018,11 @@ def test_the_attribute_is_chosen_from_the_knowledge(tmp_path):
     # One with no domain is offered, and says so rather than claiming a carrier.
     assert 'no domain declared' in offered['e:hasTrust']['detail']
 
-    # Its datasetId is picked (the default instance); only the value is typed.
-    assert [i['label'] for i in seen['quickPicks'][1]['items']][0] == 'Default instance'
+    # Its datasetId is picked (the default instance, what Enter takes, under
+    # the action on top); only the value is typed.
+    assert [i['label'] for i in seen['quickPicks'][1]['items'] if i['label']][:2] == [
+        '$(add) New namespace…', 'Default instance']
+    assert seen['quickPicks'][1]['active'] == ['Default instance']
     assert len(seen['inputs']) == 1
     wrote = [r for r in seen['requests'] if r['method'] == 'semforge/addAttribute']
     assert wrote[0]['params']['name'] == 'e:hasState'
@@ -1040,7 +1043,7 @@ def test_a_relationship_says_it_wants_an_entity(tmp_path):
 def test_a_missing_attribute_is_declared_in_the_knowledge_first(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'picks': [2, 'Property', 'Default instance'],
+        'picks': ['$(add) New attribute…', 'Property', 'Default instance'],
         'inputs': ['hasPressure', 'bar at the inlet', '1.0'],
         'replies': {
             'semforge/attributes': ATTRIBUTES_REPLY,
@@ -1068,7 +1071,7 @@ def test_the_kind_is_asked_because_it_decides_the_encoding(tmp_path):
     """Property carries `value`, Relationship carries `object`."""
     seen = _drive(tmp_path, {
         'command': 'semforge.addAttribute', 'node': ENTITY_NODE,
-        'picks': [2, 'Relationship'], 'inputs': ['hasFilter', ''],
+        'picks': ['$(add) New attribute…', 'Relationship'], 'inputs': ['hasFilter', ''],
         'replies': {'semforge/attributes': ATTRIBUTES_REPLY,
                     'semforge/addAttributeTerm': {'ok': False, 'error': 'no'}},
     })
@@ -1087,7 +1090,7 @@ def test_a_sub_attribute_says_what_it_hangs_off(tmp_path):
              'parents': ['e:hasFilter'], 'comment': 'how far it is trusted',
              'constrained': True, 'definedAt': '', 'scoped': False}]}},
     })
-    row = seen['quickPicks'][0]['items'][0]
+    row = next(i for i in seen['quickPicks'][0]['items'] if i['label'] == 'e:hasTrust')
     assert 'a sub-attribute of e:hasFilter' in row['detail']
     assert 'carried by anything' not in row['detail']
 
@@ -1107,7 +1110,8 @@ def test_an_unplaced_sub_attribute_says_which_kind_carries_it(tmp_path):
              'carrierKind': 'Relationship', 'parents': [], 'comment': '',
              'constrained': False, 'definedAt': '', 'scoped': False}]}},
     })
-    detail = seen['quickPicks'][0]['items'][0]['detail']
+    detail = next(i for i in seen['quickPicks'][0]['items']
+                  if i['label'] == 'e:hasConfidence')['detail']
     assert 'carried by any Relationship' in detail
     assert 'not placed in a shape yet' in detail
 

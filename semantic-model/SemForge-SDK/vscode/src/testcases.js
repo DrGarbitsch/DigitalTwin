@@ -76,21 +76,19 @@ async function pickSuite(options, preset) {
   if (preset) {
     return { suite: preset };
   }
-  const items = options.suites.map((suite) => ({ label: `$(beaker) ${suite}`, suite }));
+  const items = [{ label: 'Suites', kind: SEPARATOR }]
+    .concat(options.suites.map((suite) => ({ label: `$(beaker) ${suite}`, suite })));
   const fresh = options.shapes.filter((s) => !existing.has(`test_${s.label}`));
-  items.push({ label: 'A new suite', kind: SEPARATOR });
+  items.push({ label: 'A new suite for a shape', kind: SEPARATOR });
   items.push(...fresh.map((s) => ({ label: `$(add) test_${s.label}`,
     description: `for ${s.name}`, suite: `test_${s.label}` })));
-  items.push({ label: '$(new-folder) New suite…', alwaysShow: true, named: true,
-    description: fresh.length ? 'any name'
-      : 'any name — every shape has a suite already' });
-  if (options.undeclared.length) {
-    items.push({ label: 'Already written', kind: SEPARATOR });
-    items.push({ label: '$(file-add) Declare a file under examples/ that nothing runs',
-      description: `${options.undeclared.length} file(s)`, declare: true });
-  }
-  const picked = await vscode.window.showQuickPick(items,
-    { title: 'New test case: in which suite?' });
+  // The actions on top: an OPC UA package has a suite, and a shape, per type.
+  const picked = await require('./picks').pickWithActions([
+    { label: '$(new-folder) New suite…', named: true,
+      description: fresh.length ? 'any name' : 'any name — every shape has a suite already' },
+    options.undeclared.length ? { label: '$(file-add) Declare a file under examples/ that nothing runs',
+      description: `${options.undeclared.length} file(s)`, declare: true } : null
+  ], items, { title: 'New test case: in which suite?' });
   return picked && picked.named ? askSuiteName(existing) : picked;
 }
 

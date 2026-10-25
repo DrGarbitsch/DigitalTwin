@@ -89,17 +89,17 @@ async function askDatasetId(client, packageUri, options) {
         description: 'type the local part', detail: space.namespace, pick: 'space', space });
     }
   }
-  items.push({ label: '', kind: SEPARATOR },
+  // The action on top, like every picker's; the first instance stays highlighted.
+  const picked = await require('./picks').pickWithActions([
     { label: '$(add) New namespace…', description: 'define a prefix and its IRI for the package',
-      pick: 'new' });
-  const picked = await vscode.window.showQuickPick(items, {
+      pick: 'new' }], items, {
     title: options.title,
     placeHolder: taken.length
       ? `Has ${taken.map((d) => (d === '@none' ? 'default' : d)).join(', ')} — another instance needs its own`
       : 'The datasetId of this instance',
     matchOnDescription: true,
     matchOnDetail: true
-  });
+  }, items.find((item) => item.kind !== SEPARATOR));
   if (!picked) {
     return undefined;
   }

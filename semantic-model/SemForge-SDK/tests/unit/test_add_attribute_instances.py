@@ -154,9 +154,11 @@ def test_the_default_instance_comes_first_then_the_namespaces(tmp_path):
     seen = _drive(tmp_path, _entity([]), ['Default instance'], ['0.5'])
     items = seen['quickPicks'][1]['items']
     labels = [i['label'] for i in items if i['label']]
-    assert labels == ['Default instance', 'In a namespace of this package',
-                      'base:hasStrength-2', 'sensors:hasStrength-2',
-                      '$(add) New namespace…']
+    # The action on top; the default instance is what Enter takes.
+    assert labels == ['$(add) New namespace…', 'Default instance',
+                      'In a namespace of this package',
+                      'base:hasStrength-2', 'sensors:hasStrength-2']
+    assert seen['quickPicks'][1]['active'] == ['Default instance']
     assert _sent(seen)[0]['datasetId'] is None
 
 

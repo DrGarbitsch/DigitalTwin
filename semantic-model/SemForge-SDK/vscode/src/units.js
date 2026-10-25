@@ -125,10 +125,12 @@ async function newUnit(client, packageUri, preset) {
   if (!offered) {
     return undefined;
   }
-  const quantity = await vscode.window.showQuickPick(
-    offered.quantities.map((q) => ({ label: q, value: q }))
-      .concat([{ label: '$(edit) Another quantity…', other: true }]),
-    { title: `${code.trim().toUpperCase()} measures…`, placeHolder: 'the quantity, as QUDT names it' });
+  // The action on top: QUDT names hundreds of quantities.
+  const quantity = await require('./picks').pickWithActions(
+    [{ label: '$(edit) Another quantity…', other: true }],
+    offered.quantities.map((q) => ({ label: q, value: q })),
+    { title: `${code.trim().toUpperCase()} measures…`, placeHolder: 'the quantity, as QUDT names it',
+      heading: 'QUDT quantities' });
   if (!quantity) {
     return undefined;
   }

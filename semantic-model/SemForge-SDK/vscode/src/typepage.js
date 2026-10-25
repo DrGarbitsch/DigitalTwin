@@ -1006,9 +1006,10 @@ async function askValue(pages, row, spec, current) {
     }
     const items = offered.map((c) => ({ label: c.label || c.value, description: c.detail,
       value: c.value }));
-    items.push({ label: '$(edit) Enter a different value…', value: undefined });
-    const picked = await vscode.window.showQuickPick(items,
-      { title: `${row.label} · ${spec.parameter}`, matchOnDescription: true });
+    // On top: the list may be hundreds of OPC UA classes long.
+    const picked = await require('./picks').pickWithActions(
+      [{ label: '$(edit) Enter a different value…', value: undefined }], items,
+      { title: `${row.label} · ${spec.parameter}`, heading: 'Offered', matchOnDescription: true });
     if (!picked) {
       return undefined;
     }

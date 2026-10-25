@@ -107,15 +107,15 @@ async function pickVocabularyNamespace(client, packageUri, name, near) {
       value: space.default ? '' : (space.prefix || space.namespace)
     });
   }
-  items.push({ label: '', kind: SEPARATOR },
+  // The action on top, like every picker's; Enter still keeps the usual place.
+  const picked = await require('./picks').pickWithActions([
     { label: '$(add) New namespace…', description: 'define a prefix and its IRI for the package',
-      create: true });
-  const picked = await vscode.window.showQuickPick(items, {
+      create: true }], items, {
     title: `Namespace for ${name}`,
     placeHolder: 'Enter keeps the usual place',
     matchOnDescription: true,
     matchOnDetail: true
-  });
+  }, items.find((item) => item.kind !== SEPARATOR && item.value === ''));
   if (!picked) {
     return undefined;
   }

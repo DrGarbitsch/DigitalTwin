@@ -264,13 +264,13 @@ function toItems(choices) {
     detail: choice.detail,
     value: choice.value
   }));
-  items.push({
+  // On top: the choices may be hundreds of OPC UA classes long.
+  return require('./picks').withActions([{
     label: '$(edit) Enter a different value…',
     description: '',
     detail: 'anything valid in the shapes file',
     value: CUSTOM
-  });
-  return items;
+  }], items, 'Offered');
 }
 
 async function fetchChoices(client, node, search) {
@@ -429,17 +429,16 @@ async function pickAttribute(client, node) {
   }
   // The attribute may not exist yet. Declaring it is the knowledge's business,
   // but making the author leave this picker for another view to do it was the
-  // friction: the shape already says which type it is for.
-  items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
-  items.push({
+  // friction: the shape already says which type it is for. On top: the
+  // declared attributes may be hundreds.
+  const picked = await require('./picks').pickWithActions([{
     label: parentPath ? '$(add) New sub-attribute…' : '$(add) New attribute…',
     description: parentPath
       ? `declare it in the knowledge as carried by ${node.raw.label}, then constrain it here`
       : 'declare it in the knowledge, then constrain it here',
     create: true,
     targets: result.targets || []
-  });
-  const picked = await vscode.window.showQuickPick(items, {
+  }], items, {
     title: parentPath
       ? `Add a sub-attribute inside ${node.raw.label}`
       : `Add an attribute to ${node.raw.label}`,

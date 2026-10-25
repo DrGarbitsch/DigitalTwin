@@ -266,6 +266,8 @@ const stub = {
               items: pick.items.map((item) => ({
                 label: item.label, description: item.description, detail: item.detail,
                 value: item.value, separator: item.kind === -1 })),
+              // What Enter takes before anything is chosen: the code's own default.
+              active: (pick.activeItems || []).map((item) => item.label),
               placeHolder: pick.placeholder, typed });
             const answer = Array.isArray(scenario.picks)
               ? scenario.picks[seen.quickPicks.length - 1] : scenario.pick;

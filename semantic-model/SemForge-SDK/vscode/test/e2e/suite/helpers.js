@@ -95,10 +95,12 @@ function answering(answers) {
   const saved = {};
   const queue = answers.slice();
   const asked = [];
-  const next = (kind, offered) => {
+  // `also`: other kinds that answer the same question -- a list picker drawn
+  // with createQuickPick only to highlight its default is still a pick.
+  const next = (kind, offered, also) => {
     asked.push({ kind, offered });
     const answer = queue.shift();
-    if (answer && answer.kind && answer.kind !== kind) {
+    if (answer && answer.kind && answer.kind !== kind && !(also || []).includes(answer.kind)) {
       throw new Error(`asked a ${kind}, the test expected a ${answer.kind}: ${JSON.stringify(offered)}`);
     }
     return answer;
@@ -157,7 +159,10 @@ function answering(answers) {
     const shown = real.show.bind(real);
     real.show = () => {
       shown();
-      const answer = next('quickPick', real.items.map((i) => i.label));
+      const answer = next('quickPick', real.items.map((i) => i.label), ['pick']);
+      // `enter: true` is a person pressing Enter on what the picker itself
+      // highlights -- its default, which need not be the first row.
+      const highlighted = (real.activeItems || [])[0];
       setTimeout(() => {
         if (!answer) {
           real.hide();
@@ -167,7 +172,7 @@ function answering(answers) {
           real.value = answer.type;     // fires onDidChangeValue
         }
         setTimeout(() => {
-          const chosen = by(real.items, answer);
+          const chosen = answer.enter ? highlighted : by(real.items, answer);
           if (!chosen) {
             real.hide();
             return;

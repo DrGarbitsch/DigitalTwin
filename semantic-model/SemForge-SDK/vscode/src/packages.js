@@ -257,12 +257,13 @@ function register(context, session, views, refreshAll) {
                                               : entry.directory,
         uri: entry.uri
       }));
-      items.push({
+      // The action on top, like every picker's.
+      items.unshift({
         label: 'Follow the active editor',
         description: 'unpin — the views move to whatever package you open',
         uri: undefined,
         follow: true
-      });
+      }, { label: 'Packages', kind: vscode.QuickPickItemKind.Separator });
       if (!found.length) {
         // Nothing to choose between is not a menu; it is a diagnosis.
         vscode.window.showWarningMessage(

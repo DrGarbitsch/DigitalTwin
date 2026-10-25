@@ -639,13 +639,13 @@ async function pickEntityType(client, packageUri) {
              `${type.instances} in the model`].join(' · '),
     type
   }));
-  items.push({
+  // On top: an OPC UA knowledge declares hundreds of types.
+  const chosen = await require('./picks').pickWithActions([{
     label: '$(add) New entity type…',
     description: 'declare it in the knowledge, then use it',
     create: true
-  });
-
-  const chosen = await vscode.window.showQuickPick(items, {
+  }], items, {
+    heading: 'Declared types',
     placeHolder: 'Type — from the knowledge',
     matchOnDescription: true
   });
@@ -805,15 +805,15 @@ async function pickAttribute(client, packageUri, entityType, entity, parent) {
       .filter(Boolean).join(' — '),
     attribute
   }));
-  items.push({
+  // On top: an OPC UA knowledge declares hundreds of attributes.
+  const chosen = await require('./picks').pickWithActions([{
     label: parent ? '$(add) New sub-attribute…' : '$(add) New attribute…',
     description: parent
       ? `declare it in the knowledge as carried by ${parent}, then use it`
       : 'declare it in the knowledge, then use it',
     create: true
-  });
-
-  const chosen = await vscode.window.showQuickPick(items, {
+  }], items, {
+    heading: 'Declared attributes',
     placeHolder: parent
       ? `Sub-attribute inside ${parent} on ${entity} — from the knowledge`
       : `Attribute for ${entity} — from the knowledge`,

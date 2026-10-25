@@ -213,12 +213,16 @@ def state_page(kms):
     return dict(build_vocabulary_page(load(str(kms)), KNOW + 'MachineState'), ok=True)
 
 
-def test_plus_value_offers_the_usual_place_first_and_new_namespace_last(tmp_path, state_page):
-    seen = _plus_value(tmp_path, state_page, inputs=['state_LEAK', 'LEAK'], picks=[0])
+def test_plus_value_offers_new_namespace_on_top_and_enter_keeps_the_usual_place(
+        tmp_path, state_page):
+    seen = _plus_value(tmp_path, state_page, inputs=['state_LEAK', 'LEAK'],
+                       picks=['base:state_LEAK'])
     pick = next(p for p in seen['quickPicks'] if p['placeHolder'] == 'Enter keeps the usual place')
     labels = [i['label'] for i in pick['items'] if i['label']]
-    assert labels[:2] == ['The usual place', 'base:state_LEAK']
-    assert labels[-1] == '$(add) New namespace…'
+    # The action first -- after a long list it is never seen -- then the
+    # usual place, which is what Enter takes.
+    assert labels[:3] == ['$(add) New namespace…', 'The usual place', 'base:state_LEAK']
+    assert pick['active'] == ['base:state_LEAK']
     assert 'eclass:state_LEAK' in labels
     assert _asked(seen, 'semforge/vocabularyNamespaces') == [
         {'uri': 'file:///pkg/shacl.ttl', 'near': KNOW + 'MachineState'}]
