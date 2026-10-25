@@ -2577,7 +2577,7 @@ def expression_feature(ls, params):
     from rdflib import URIRef
 
     from ..cooked.constrain import _attribute
-    from ..cooked.expression import describe, read_target, to_json
+    from ..cooked.expression import describe, forms_of, read_target, to_json
     from ..errors import PackageError
 
     root = package_root(_uri_to_path(_field(params, 'uri', '')))
@@ -2597,11 +2597,19 @@ def expression_feature(ls, params):
             kind = _attribute(package, chain[-1]).kind or 'Property'
         except PackageError:
             kind = 'Property'
-        return {'ok': True, 'expression': to_json(layer.root, kind), 'said': describe(layer, kind),
+        forms, lists = forms_of(layer)
+        member = describe(layer, kind) or 'any value'
+        said = member
+        if layer.forms is not None:
+            # The whole value, as the type page says it: "number (double), or
+            # a list of them (possibly empty)".
+            from ..cooked.payloads import describe as forms_text
+            said = forms_text(layer.forms[1], lambda _kind, _params: member)
+        return {'ok': True, 'expression': to_json(layer.root, kind), 'said': said,
                 'editable': layer.editable, 'reason': layer.reason, 'complex': layer.complex,
-                # A scalar-or-list value: the expression holds for one value
-                # and for each item of a list alike.
-                'forms': layer.forms is not None}
+                # The forms the value may take -- one value, a list -- shown
+                # above what each must be; and whether a list can be switched.
+                'forms': forms, 'lists': lists}
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
 

@@ -364,3 +364,78 @@ select.value = 'xone'; select.dispatchEvent(new Event('change', { bubbles: true 
                         {'parameter': 'sh:maxInclusive', 'value': '9'}]},
         {'op': 'set', 'node': [0], 'parameter': 'sh:maxInclusive', 'value': '50'},
         {'op': 'retype', 'node': [1], 'connective': 'xone'}]
+
+
+# --- a value that may be one or a list: its forms, shown -------------------------------------
+
+CUTTER = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/CutterShape'
+LIST = ['iffBaseEntities:hasList']
+
+
+def _cutter(tmp_path, corpus):
+    root = tmp_path / 'cut'
+    shutil.copytree(corpus.path, root, ignore=shutil.ignore_patterns('.semforge'))
+    return root
+
+
+def _target(root):
+    from semforge.cooked.expression import read_target
+    from semforge.package import load
+
+    return read_target(load(str(root)), (root / 'shacl.ttl').read_text(), CUTTER, LIST)
+
+
+def test_the_forms_are_said_and_the_encoding_is_not_a_condition(tmp_path, corpus):
+    """The kms hasList is written as the OPC UA tools write hasAmbientHumidity:
+    an integer, or a list of integers that may be empty. The editor showed the
+    integer and sh:nodeKind sh:Literal -- and nothing of the list."""
+    from semforge.cooked.expression import forms_of, to_json
+
+    layer = _target(_cutter(tmp_path, corpus))
+    forms, lists = forms_of(layer)
+    assert forms == [
+        {'form': 'one value', 'kind': 'Property', 'payload': 'ngsi-ld:hasValue',
+         'mayBeEmpty': False},
+        {'form': 'a list of values', 'kind': 'ListProperty', 'payload': 'ngsi-ld:hasValueList',
+         'mayBeEmpty': True}]
+    assert lists == 'allowed'
+    own = to_json(layer.root)['children'][0]['conditions']
+    assert own == [{'parameter': 'sh:datatype', 'value': 'xsd:integer'}]
+
+
+def test_the_one_values_encoding_follows_what_it_must_be(tmp_path, corpus):
+    from semforge.package import load
+
+    root = _cutter(tmp_path, corpus)
+
+    def encodings():
+        scalar, listed = _target(root).forms[1]
+        return dict(scalar.member).get('sh:nodeKind'), dict(listed.member).get('sh:nodeKind')
+
+    edit(load(str(root)), CUTTER, LIST, {'op': 'set', 'node': [0], 'parameter': 'sh:datatype',
+                                         'value': 'xsd:double'})
+    assert encodings() == ('sh:Literal', None)
+    edit(load(str(root)), CUTTER, LIST, {'op': 'combine', 'connective': 'or',
+                                         'parameter': 'sh:hasValue', 'value': '"n/a"'})
+    # A choice: no one encoding holds for every branch.
+    assert encodings() == (None, None)
+
+
+def test_a_plain_value_offers_a_list_and_a_choice_offers_one_value(root, tmp_path):
+    from semforge.cooked.expression import forms_of
+
+    plain = _layer(root, EXPR, ['iffBaseEntities:hasNoteX'])
+    assert forms_of(plain) == ([{'form': 'one value', 'kind': 'Property',
+                                 'payload': 'ngsild:hasValue', 'mayBeEmpty': False}], 'single')
+    state = dict(_state(root), forms=forms_of(plain)[0], lists='single')
+    html, dom = _panel(tmp_path, state, '''
+document.querySelector('[data-act="lists-on"]').click();
+''')
+    assert '<span class="what">Its forms</span>' in html
+    assert 'data-act="lists-on"' in html and 'The value must be' in html
+    import html as entities
+    import json
+    import re
+
+    posted = json.loads(entities.unescape(re.search(r' data-posted="([^"]*)"', dom).group(1)))
+    assert posted == [{'command': 'lists', 'allowed': True}]

@@ -106,6 +106,28 @@ function box(node, address, own, editable) {
     `<div class="kids">${kids}</div></div>`;
 }
 
+/**
+ * The forms the value may take -- one value, a list of them -- each with its
+ * NGSI-LD kind and payload; and the switch between "one value" and "one
+ * value or a list" (an OPC UA Variable's ValueRank) when there is one.
+ */
+function formsBox(state) {
+  const forms = state.forms || [];
+  if (!forms.length) {
+    return '';
+  }
+  const rows = forms.map((f) => `<li><span class="what">${escape(f.form)}</span> · ` +
+    `<span class="kindchip">${escape(f.kind)}</span> <code>${escape(f.payload)}</code>` +
+    `${f.mayBeEmpty ? ' · <span class="dim">may be empty</span>' : ''}</li>`).join('');
+  const tools = !state.editable ? ''
+    : state.lists === 'single' ? button('lists-on', 'Allow a list too',
+      'One value, or a list of them (possibly empty) — like an OPC UA array')
+      : state.lists === 'allowed' ? button('lists-off', 'One value only', 'No list: one value again')
+        : '';
+  return `<div class="box forms"><div class="head"><span class="what">Its forms</span>` +
+    `<span class="tools">${tools}</span></div><ul>${rows}</ul></div>`;
+}
+
 /** The panel. `state`: what semforge/expression said, the row, the choices. */
 function renderExpressionPanel(state, options) {
   const nonce = options.nonce;
@@ -113,6 +135,7 @@ function renderExpressionPanel(state, options) {
   const expression = state.expression || { kind: 'op', op: 'and', children: [] };
   const [own, ...rest] = expression.children;
   const editable = !!state.editable;
+  const listed = (state.forms || []).some((f) => /List/.test(f.kind));
   const rootTools = editable ? '<div class="roottools">' +
     button('combine-or', 'Or else…', 'Any of: everything it is now, or another condition') +
     button('combine-xone', 'Exactly one of…', 'Everything it is now, or another condition — not both') +
@@ -151,6 +174,11 @@ function renderExpressionPanel(state, options) {
   .chip .x { margin-left: 4px; color: inherit; text-decoration: none; }
   .dim { color: var(--vscode-descriptionForeground); }
   .roottools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  h2 { font-size: 1em; margin: 14px 0 4px; }
+  .forms ul { margin: 4px 0 0; padding-left: 18px; }
+  .forms li { margin: 2px 0; }
+  .kindchip { font-size: 0.8em; padding: 0 6px; border-radius: 3px;
+              background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
   code { font-family: var(--vscode-editor-font-family); font-size: 0.9em; overflow-wrap: anywhere; }
   form { margin: 6px 0; padding: 6px 8px; background: var(--vscode-editorWidget-background, rgba(128,128,128,.1));
          border-radius: 4px; }
@@ -163,9 +191,10 @@ function renderExpressionPanel(state, options) {
 </style></head><body>
 <h1>${escape(state.label)}: what its value must be</h1>
 <div class="said">${escape(state.said || 'any value')}</div>
-${state.forms ? '<div class="note">It may be one value or a list: this holds for the one value and for every item of a list.</div>' : ''}
 ${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
 ${editable ? '' : `<div class="error">Edited in the .ttl: ${escape(state.reason || '')}</div>`}
+${formsBox(state)}
+<h2>${listed ? 'Each value must be — the one value, and every item of a list' : 'The value must be'}</h2>
 ${rootTools}
 <div id="tree">${own ? box(own, [0], true, editable) : ''}${rest.map((node, index) =>
     box(node, [index + 1], false, editable)).join('')}</div>
@@ -258,6 +287,10 @@ ${lists}
     const head = boxNode ? boxNode.querySelector(':scope > .head') : target;
     const chip = target.closest('.chip');
     if (act === 'open') { vscode.postMessage({ command: 'open' }); return; }
+    if (act === 'lists-on' || act === 'lists-off') {
+      vscode.postMessage({ command: 'lists', allowed: act === 'lists-on' });
+      return;
+    }
     if (act === 'remove' || act === 'unwrap') { send({ op: act, node: addr }); return; }
     if (act === 'wrapnot') { send({ op: 'wrap', node: addr, connective: 'not' }); return; }
     if (act === 'unset') { send({ op: 'unset', node: addr, parameter: chip.dataset.param }); return; }
@@ -371,6 +404,16 @@ class ExpressionPanel {
     }
     if (message.command === 'open') {
       await require('./reveal').showLocation(this.row.definedAt, true);
+      return;
+    }
+    if (message.command === 'lists') {
+      const done = await this.request('semforge/setLists',
+        { shape: this.row.shape, path: this.row.path, allowed: !!message.allowed });
+      this.error = done.ok ? '' : done.error;
+      await this.render();
+      if (done.ok) {
+        this.pages.refresh();
+      }
       return;
     }
     if (message.command === 'edit') {

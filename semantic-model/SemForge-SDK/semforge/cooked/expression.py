@@ -199,7 +199,11 @@ def read_target(package, text, shape, chain):
         return read_layer(package, text, shape, chain)
     where, found = forms
     base = next((a for a in found if not a.is_list), found[0])
-    body = '[ ' + ' ; '.join(f'<{SH}{k[3:]}> {v}' for k, v in base.member) + ' ]'
+    # sh:nodeKind on the one value is its encoding -- a literal, or an IRI --
+    # not a condition the author set: the list's items carry none. It is not
+    # shown, and _write_forms says it again from the datatype or class.
+    body = '[ ' + ' ; '.join(f'<{SH}{k[3:]}> {v}' for k, v in base.member
+                             if k != 'sh:nodeKind') + ' ]'
     root, reason = _read_root(body, prefixes_of(package), lambda iri: _turtle_name(text, iri))
     if not reason and not all(_same_values(base, a) for a in found):
         reason = 'its single value and its list items are checked differently'
@@ -208,6 +212,32 @@ def read_target(package, text, shape, chain):
     if not reason and written is not None and not _uncommented(text[written[0]:written[1]]):
         reason = 'a comment inside it would be lost'
     return Layer(slot=where, root=root, editable=not reason, reason=reason, forms=forms)
+
+
+FORM_WORDS = {'hasValue': 'one value', 'hasObject': 'one entity',
+              'hasValueList': 'a list of values', 'hasObjectList': 'a list of entities'}
+FORM_KINDS = {'hasValue': 'Property', 'hasObject': 'Relationship',
+              'hasValueList': 'ListProperty', 'hasObjectList': 'ListRelationship'}
+
+
+def forms_of(layer):
+    """The forms the value may take, for the editor to show above what each
+    must be: [{'form', 'kind', 'payload', 'mayBeEmpty'}], and whether a
+    list can be switched on ('single') or off ('allowed') -- or neither ('')."""
+    from ..ngsild.kinds import payload_of
+
+    if layer.forms is not None:
+        found = layer.forms[1]
+        listed = [a.is_list for a in found]
+        switch = 'allowed' if layer.forms[0] == 'attribute' and any(listed) and \
+            not all(listed) else ''
+        return [{'form': FORM_WORDS.get(a.payload, a.payload), 'kind': a.kind,
+                 'payload': f'ngsi-ld:{a.payload}', 'mayBeEmpty': a.may_be_empty}
+                for a in found], switch
+    payload = payload_of(layer.slot)
+    return [{'form': FORM_WORDS.get(payload, payload), 'kind': FORM_KINDS.get(payload, ''),
+             'payload': layer.slot, 'mayBeEmpty': False}], \
+        'single' if payload in ('hasValue', 'hasObject') else ''
 
 
 def _read_root(body, prefixes, spell):
@@ -445,10 +475,25 @@ def _write_forms(text, shape, chain, forms, own, params, name):
     from .constrain import _group_in, _indent_of, _turtle_name
     from .payloads import render, render_list_value
 
-    pairs = list(own.conditions) + [(f'sh:{op}', _value(node, name)) for op, node in params]
+    pairs = [(k, v) for k, v in own.conditions if k != 'sh:nodeKind'] + \
+        [(f'sh:{op}', _value(node, name)) for op, node in params]
     where, found = forms
-    new = tuple(changed(a, member=tuple(sorted(p for p in pairs if not (
-        a.is_list and p[0] == 'sh:nodeKind')))) for a in found)
+
+    def encoding(alternative):
+        """The one value's sh:nodeKind, said again from what it now must be:
+        a literal for a datatype, an IRI for a class, none when the value is
+        a choice of both or neither -- and only where it had one before."""
+        had = dict(alternative.member).get('sh:nodeKind')
+        if alternative.is_list or had is None:
+            return []
+        keys = dict(own.conditions)
+        if 'sh:datatype' in keys and 'sh:class' not in keys and not params:
+            return [('sh:nodeKind', name(SH.Literal))]
+        if 'sh:class' in keys and 'sh:datatype' not in keys and not params:
+            return [('sh:nodeKind', name(SH.IRI))]
+        return []
+
+    new = tuple(changed(a, member=tuple(sorted(pairs + encoding(a)))) for a in found)
     spelled = _turtle_name(text, SH['or'])
     if where == 'attribute':
         group = _group_in(text, shape, chain)
