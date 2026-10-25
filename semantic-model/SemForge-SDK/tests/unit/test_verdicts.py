@@ -81,7 +81,8 @@ class Fake:
 def _service(fake, notified=None):
     return VerdictService(fake.fingerprint, fake.run,
                           notify=lambda root, state: (notified if notified is not None
-                                                      else []).append(state.state),
+                                                      else []).append(
+                              'started' if state.started else state.state),
                           use_disk=False)
 
 
@@ -92,9 +93,11 @@ def test_a_page_never_waits_and_hears_when_they_are_in():
 
     verdicts, state = service.get('/pkg')
     assert verdicts is None and state.state == 'evaluating'
+    # Said at once, so the editor can show a validation is going.
+    assert notified == ['started']
     fake.gate.set()
     service.wait('/pkg', timeout=10)
-    assert notified == ['ready']
+    assert notified == ['started', 'ready']
     verdicts, state = service.get('/pkg')
     assert state.state == 'ready' and verdicts.stamp == 'v1'
 

@@ -103,11 +103,12 @@ def compute(package, stamp):
     from ..errors import PackageError
     from ..expect.store import compose, load_expectations
     from ..validate.orchestrator import validate_graphs
-    from ..validate.readset import knowledge_for
+    from ..validate.readset import run_knowledge
 
     started = time.time()
-    # Cut once for every graph of this run (validate/readset.py), not per graph.
-    knowledge = knowledge_for(package.shapes, package.knowledge)
+    # Cut once for every graph of this run (validate/readset.py), not per
+    # graph -- or not at all, when each graph is narrowed to what it reaches.
+    knowledge = run_knowledge(package.shapes, package.knowledge)
     model = validate_graphs(package.model, package.shapes, knowledge, strict=False, cut=False)
     cases = {}
     for example in load_expectations(package.path).examples:
@@ -196,10 +197,11 @@ class State:
     stale: bool = False  # the verdicts are an older version's
     error: str = ''
     seconds: float = 0.0
+    started: bool = False  # announces a run that just began, nothing to fetch
 
     def as_dict(self):
         return {'state': self.state, 'stale': self.stale, 'error': self.error,
-                'seconds': self.seconds}
+                'seconds': self.seconds, 'started': self.started}
 
 
 class VerdictService:
@@ -207,7 +209,8 @@ class VerdictService:
 
     `fingerprint(root)` says which version a package is at; `run(root, stamp)`
     returns its Verdicts (in_process, or a ProcessRunner); `notify(root,
-    state)` is called from the service's thread when a run ends.
+    state)` is called when a run starts (`started`), and from the service's
+    thread when it ends.
     """
 
     def __init__(self, fingerprint, run, notify=None, use_disk=True):
@@ -285,7 +288,11 @@ class VerdictService:
             thread = threading.Thread(target=self._run, args=(root,), daemon=True,
                                       name=f'semforge-verdicts:{os.path.basename(root)}')
             self._threads[root] = thread
+            stale = root in self._done
         thread.start()
+        # Said at once, so the editor can show that a validation is going: an
+        # edit used to be followed by seconds of nothing, then new verdicts.
+        self._notify(root, State('evaluating', stale=stale, started=True))
 
     def _run(self, root):
         while True:

@@ -106,6 +106,14 @@ class SanityFinding:
 
 def _declared(package):
     """Every IRI the knowledge or the NGSI-LD vocabulary declares."""
+    from .rdfio.memo import on_graph
+
+    return on_graph(package.knowledge, 'declared',
+                    (package.vocabulary, len(package.vocabulary)),
+                    lambda: frozenset(_declare(package)))
+
+
+def _declare(package):
     found = {str(s) for s in package.knowledge.subjects(None, None)
              if isinstance(s, URIRef)}
     try:
@@ -376,6 +384,19 @@ def _severity_checks(package):
 
 # --- counts no data can satisfy --------------------------------------------------
 
+# A shapes file's text -> its impossible counts: parsing it again after every
+# validation cost 1.3 s on the OPC UA pump shapes.
+_IMPOSSIBLE = {}
+
+
+def _impossible(text, compute):
+    if text not in _IMPOSSIBLE:
+        if len(_IMPOSSIBLE) > 16:
+            _IMPOSSIBLE.clear()
+        _IMPOSSIBLE[text] = compute()
+    return _IMPOSSIBLE[text]
+
+
 def _count_checks(package):
     """count-impossible, on the sh:path of the property shape that says it."""
     from rdflib import Graph
@@ -390,7 +411,8 @@ def _count_checks(package):
         try:
             with open(path, encoding='utf-8') as handle:
                 text = handle.read()
-            impossible = impossible_counts(Graph().parse(data=text, format='turtle'))
+            impossible = _impossible(text, lambda: impossible_counts(
+                Graph().parse(data=text, format='turtle')))
         except Exception:                          # noqa: BLE001
             continue
         if not impossible:

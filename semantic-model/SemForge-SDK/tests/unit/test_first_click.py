@@ -237,3 +237,23 @@ def test_diagnostics_are_never_worked_out_on_the_server_thread(tmp_path, corpus_
     findings = server._findings(root)
     kinds = {f.kind for items in findings.values() for f in items}
     assert 'unexercised' in kinds, kinds
+
+
+def test_the_status_bar_says_while_a_validation_runs():
+    """The server says when a run starts and ends; the status bar spins until
+    every package's run has ended, then says how long it took, then goes."""
+    node = shutil.which('node')
+    if node is None:
+        pytest.skip('node is not installed')
+    out = subprocess.run([node, os.path.join(SDK, 'tests', 'harness', 'validating.js'), SRC],
+                         capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr[-1500:]
+    seen = json.loads(out.stdout.strip().splitlines()[-1])
+    spin = {'text': '$(sync~spin) SemForge: validating…', 'visible': True, 'timer': False}
+    assert seen[:3] == [spin, spin, spin]
+    assert seen[3] == {'text': '$(check) SemForge: validated in 1.3 s', 'visible': True,
+                       'timer': True}
+    assert seen[4]['visible'] is False and seen[4]['timer'] is False
+    assert seen[5] == spin
+    assert seen[6]['text'] == '$(error) SemForge: validation failed'
+    assert seen[7] == {'tooltip': 'boom'}

@@ -37,6 +37,27 @@ from .. import normalise
 from ..results import Result, Status
 
 
+def _private_copy(shapes_graph):
+    """pyshacl's own copy of a shapes graph, made once per graph.
+
+    What pyshacl writes into it are the same axioms on every run, so a copy it
+    has written into before validates exactly as a fresh one -- and copying the
+    21,276 triples of the OPC UA pump shapes cost 0.6 s per validation. The
+    graph given here is never edited (validate/shapes.subgraph_for keeps one
+    per shape set); its size is in the key all the same.
+    """
+    kept = shapes_graph.__dict__.get('_semforge_pyshacl')
+    if kept is not None and kept[0] == len(shapes_graph):
+        return kept[1]
+    shapes = Graph()
+    for prefix, namespace in shapes_graph.namespaces():
+        shapes.bind(prefix, namespace)
+    for triple in shapes_graph:
+        shapes.add(triple)
+    shapes_graph.__dict__['_semforge_pyshacl'] = (len(shapes_graph), shapes)
+    return shapes
+
+
 def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
     """Validate and return normalised Results (violations only).
 
@@ -58,15 +79,12 @@ def run(data_graph, shapes_graph, knowledge_graph=None, view='current'):
     # package's own graph makes that graph drift: a cached package accumulates
     # them, and a semantic diff between a validated and an unvalidated copy of
     # the same file reports changes that are not in either file.
-    shapes = Graph()
-    for prefix, namespace in shapes_graph.namespaces():
-        shapes.bind(prefix, namespace)
-    for triple in shapes_graph:
-        shapes.add(triple)
+    shapes = _private_copy(shapes_graph)
 
+    # `data` is this call's own copy: pyshacl need not clone it again.
     _, report, _ = pyshacl.validate(
         data, shacl_graph=shapes,
-        advanced=True, inplace=False, do_owl_imports=False)
+        advanced=True, inplace=True, do_owl_imports=False)
 
     results = []
     for node in report.objects(None, SH.result):

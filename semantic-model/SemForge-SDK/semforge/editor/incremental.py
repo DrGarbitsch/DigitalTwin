@@ -41,6 +41,7 @@ reports any difference on stderr -- and uses the full result -- for whoever
 wants to see it hold on their own package.
 """
 
+import gc
 import hashlib
 import os
 import sys
@@ -377,11 +378,11 @@ def apply(old, package, stamp, the_plan):
     from ..errors import PackageError
     from ..validate.orchestrator import validate_graphs
 
-    from ..validate.readset import knowledge_for
+    from ..validate.readset import run_knowledge
 
     started = time.time()
     shapes = the_plan.shapes
-    knowledge = knowledge_for(package.shapes, package.knowledge)   # once per run
+    knowledge = run_knowledge(package.shapes, package.knowledge)   # once per run
 
     def validate(graph, only=None):
         return validate_graphs(graph, package.shapes, knowledge, strict=False, cut=False,
@@ -446,7 +447,11 @@ class Session:
     def run(self, root, stamp):
         old = self._last.get(root)
         digests, _ = _digests(root, set())
-        package = self._load(root, reuse=self._reusable(old, digests))
+        reuse = self._reusable(old, digests)
+        fresh = set(reuse or ()) != {'knowledge', 'shapes'}
+        if fresh:
+            gc.unfreeze()        # what was kept may be replaced now: collectable again
+        package = self._load(root, reuse=reuse)
         knowledge_paths = {os.path.abspath(p) for p in package.files('knowledge')}
         kept = {}
         for path in knowledge_paths:
@@ -475,6 +480,15 @@ class Session:
         verdicts.findings = findings(root, package, verdicts)
         self._last[root] = Snapshot(stamp=stamp, package=package, verdicts=verdicts,
                                     digests=digests, knowledge=kept, prints=prints)
+        if fresh:
+            # The knowledge and shapes graphs stay for every edit that follows:
+            # two million objects on the OPC UA pumps, which each full pass of
+            # Python's cycle collector walked again -- a second, at random,
+            # inside an edit that otherwise validates in a quarter of one.
+            # Frozen, the collector leaves them alone (paid here, once).
+            old = None
+            gc.collect()
+            gc.freeze()
         return verdicts
 
     @staticmethod

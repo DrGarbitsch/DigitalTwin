@@ -169,7 +169,19 @@ def query_predicates(text, namespaces=None):
 
 
 def read_set(shapes):
-    """Every predicate the shapes can read, or None when that is any."""
+    """Every predicate the shapes can read, or None when that is any.
+
+    Kept on the shapes graph (parsing its SPARQL is most of the cost), keyed
+    by its size as well: a loaded shapes graph is never edited in place.
+    """
+    cache = shapes.__dict__.setdefault('_semforge_read_set', {})
+    if len(shapes) not in cache:
+        cache.clear()
+        cache[len(shapes)] = _read_set(shapes)
+    return cache[len(shapes)]
+
+
+def _read_set(shapes):
     for opaque in OPAQUE:
         if (None, opaque, None) in shapes:
             return None
@@ -210,3 +222,95 @@ def knowledge_for(shapes, knowledge):
     if knowledge is None:
         return None
     return cut(knowledge, read_set(shapes))
+
+
+# Targets that pick focus nodes by something other than their type: what they
+# select cannot be told from the data alone, so near() does not apply.
+UNANCHORED = (SH.targetSubjectsOf, SH.targetObjectsOf, SH.target, SH.rule, SH.sparql)
+
+
+def anchored(shapes):
+    """Whether near() can narrow the knowledge for these shapes."""
+    return read_set(shapes) is not None and \
+        not any((None, p, None) in shapes for p in UNANCHORED)
+
+
+def run_knowledge(shapes, knowledge):
+    """The knowledge to validate a package's graphs against, each with
+    validate_graphs(cut=False): the whole of it when near() narrows it per
+    graph -- cutting 217,582 triples first cost 0.6 s and changes nothing near()
+    keeps -- else the cut, made once for all of them."""
+    return knowledge if anchored(shapes) else knowledge_for(shapes, knowledge)
+
+
+def near(shapes, knowledge, data):
+    """The knowledge a validation of `data` can reach -- or None when that is
+    not knowable, and the caller keeps what it has.
+
+    A test case of one entity was validated against the 31,356 knowledge
+    triples of the OPC UA pump package, copied through every step: 2.2 s for
+    22 triples of data. What it can actually touch is what is reachable from
+    its own nodes:
+
+    * from every node of the data, and every knowledge node a shape targets by
+      class (so a targeted knowledge entity is validated as before);
+    * along the predicates the shapes read (see read_set) -- forward, and
+      backward for those named under sh:inversePath;
+    * with the rdf:type of everything reached, and the whole rdfs:subClassOf
+      hierarchy, which targets and sh:class read.
+
+    A SPARQL constraint can read any triple, and a target by subject, object
+    or SPARQL picks nodes the data does not name: with any of them the answer
+    is None.
+    """
+    from rdflib import Literal
+    from rdflib.namespace import OWL
+
+    if knowledge is None or not anchored(shapes):
+        return None
+    predicates = read_set(shapes)
+    forward = set(predicates) - {RDF.type, RDFS.subClassOf}
+    backward = set()
+    for path in shapes.objects(None, SH.inversePath):
+        backward |= _path_predicates(shapes, path)
+
+    # The classes targeted, and every class below them.
+    classes = set(shapes.objects(None, SH.targetClass))
+    classes |= {s for s in shapes.subjects(RDF.type, SH.NodeShape)
+                if (s, RDF.type, RDFS.Class) in shapes or (s, RDF.type, OWL.Class) in shapes}
+    todo = list(classes)
+    while todo:
+        for sub in knowledge.subjects(RDFS.subClassOf, todo.pop()):
+            if sub not in classes:
+                classes.add(sub)
+                todo.append(sub)
+
+    start = set(data.subjects()) | {o for o in data.objects() if not isinstance(o, Literal)}
+    start |= set(shapes.objects(None, SH.targetNode))
+    for cls in classes:
+        start.update(knowledge.subjects(RDF.type, cls))
+
+    out = Graph()
+    for prefix, namespace in knowledge.namespaces():
+        out.bind(prefix, namespace)
+    seen, todo = set(start), list(start)
+    while todo:
+        node = todo.pop()
+        for predicate, obj in knowledge.predicate_objects(node):
+            if predicate in forward:
+                out.add((node, predicate, obj))
+                if not isinstance(obj, Literal) and obj not in seen:
+                    seen.add(obj)
+                    todo.append(obj)
+        for predicate in backward:
+            for subject in knowledge.subjects(predicate, node):
+                out.add((subject, predicate, node))
+                if subject not in seen:
+                    seen.add(subject)
+                    todo.append(subject)
+    for node in seen:
+        for cls in knowledge.objects(node, RDF.type):
+            out.add((node, RDF.type, cls))
+    for triple in knowledge.triples((None, RDFS.subClassOf, None)):
+        out.add(triple)
+    return out

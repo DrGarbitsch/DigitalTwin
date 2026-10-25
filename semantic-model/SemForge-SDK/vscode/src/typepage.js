@@ -291,7 +291,10 @@ function instanceRows(page) {
  */
 function verdictNote(verdicts) {
   if (verdicts.state === 'evaluating') {
-    return `<span class="dim" title="The package is being validated in the background; this page ` +
+    // The strip runs along the top of the page: the note alone, small and dim,
+    // was easy to miss, and a validation can take seconds.
+    return `<span class="vstrip" aria-hidden="true"></span>` +
+      `<span class="dim" title="The package is being validated in the background; this page ` +
       `updates when it is done">⟳ ${verdicts.stale ? 'showing the last results, re-evaluating…'
         : 'evaluating…'}</span>`;
   }
@@ -534,6 +537,11 @@ const BUSY_CSS = `
   .updating { color: var(--vscode-textLink-foreground, #3794ff); font-size: 0.86em; margin-left: 8px;
               white-space: nowrap; opacity: 1; }
   .busy .updating { opacity: 1; }
+  .vstrip { position: fixed; top: 0; left: 0; right: 0; height: 2px; overflow: hidden; z-index: 10; }
+  .vstrip::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%;
+                   background: var(--vscode-progressBar-background, #0e70c0);
+                   animation: vstrip 1.2s ease-in-out infinite; }
+  @keyframes vstrip { from { left: -30%; } to { left: 100%; } }
 `;
 
 function renderMessage(title, message) {

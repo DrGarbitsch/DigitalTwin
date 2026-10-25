@@ -412,7 +412,20 @@ def attribute_terms(package):
     the entity reads as validated. `iffBaseEntities:hasOutWorkpiecexx` is in
     the shipped kms today, one letter pair away from a real attribute, and
     nothing has ever said so.
+
+    Kept on the knowledge graph (rdfio/memo.py) while it, the shapes and the
+    agreed names are the same: a second on the OPC UA pump knowledge.
     """
+    from ..package.prefixes import names_by_namespace
+    from ..rdfio.memo import on_graph
+
+    names = tuple(sorted(names_by_namespace(package.path).items()))
+    return list(on_graph(package.knowledge, 'attribute_terms',
+                         (package.shapes, len(package.shapes), package.path, names),
+                         lambda: tuple(_attribute_terms(package))))
+
+
+def _attribute_terms(package):
     from rdflib.namespace import SH
 
     index = package.index('knowledge')

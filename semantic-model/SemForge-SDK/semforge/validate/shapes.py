@@ -207,7 +207,22 @@ def subgraph_for(shapes_graph, shapes):
     Built by concise bounded description, which follows the blank node tree a
     shape is written as. Shapes reference each other only through sh:node,
     which CBD does not cross -- so a referenced shape is pulled in explicitly.
+
+    Kept on the shapes graph, per shape set: rebuilt for every validation it
+    cost 0.8 s on the OPC UA pump shapes, and a loaded shapes graph is never
+    edited (pyshacl, which writes into its shapes, is handed a copy). The
+    size is in the key all the same. Callers must not change what they get.
     """
+    cache = shapes_graph.__dict__.setdefault('_semforge_subgraphs', {})
+    key = (len(shapes_graph), frozenset(shapes))
+    if key not in cache:
+        if len(cache) > 32:
+            cache.clear()
+        cache[key] = _subgraph(shapes_graph, shapes)
+    return cache[key]
+
+
+def _subgraph(shapes_graph, shapes):
     from rdflib import Graph
 
     out = Graph()

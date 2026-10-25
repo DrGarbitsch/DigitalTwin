@@ -56,6 +56,7 @@ const severity = require('./severity');
 const units = require('./units');
 const timestamps = require('./timestamps');
 const { showLocation } = require('./reveal');
+const validatingStatus = require('./validating');
 
 // Shared so the tree provider always talks to the CURRENT client: restarting
 // the server must not leave the view wired to a dead one.
@@ -64,6 +65,8 @@ const clientHolder = { client: undefined };
 // (`semforge/verdicts`); pages showing "evaluating…" ask again then.
 const verdictsDone = new vscode.EventEmitter();
 clientHolder.onVerdicts = verdictsDone.event;
+// The status bar's "validating…": told when a run starts, too.
+let validating;
 let client;
 let lastResolved;
 
@@ -237,7 +240,15 @@ function startClient(context) {
   if (typeof client.onNotification === 'function') {
     client.onNotification('semforge/shapeRenamed',
       (notice) => rename.offerFollow(clientHolder, notice));
-    client.onNotification('semforge/verdicts', (notice) => verdictsDone.fire(notice));
+    client.onNotification('semforge/verdicts', (notice) => {
+      if (validating) {
+        validating.notice(notice);
+      }
+      // A run that just started has nothing new for the pages to fetch.
+      if (!(notice && notice.started)) {
+        verdictsDone.fire(notice);
+      }
+    });
   }
   client.start();
   clientHolder.client = client;
@@ -245,6 +256,7 @@ function startClient(context) {
 }
 
 function activate(context) {
+  validating = validatingStatus.register(vscode, context);
   startClient(context);
 
   // One answer to "which package is this?", shared by all three views and

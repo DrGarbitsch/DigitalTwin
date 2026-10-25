@@ -27,7 +27,7 @@ import pytest
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
 
-from semforge.validate.readset import (ALWAYS, Unbounded, cut, knowledge_for,
+from semforge.validate.readset import (ALWAYS, Unbounded, cut, knowledge_for, near,
                                        query_predicates, read_set)
 
 PREFIXES = '''@prefix sh: <http://www.w3.org/ns/shacl#> .
@@ -149,6 +149,97 @@ def test_the_kms_verdicts_are_the_same_with_and_without_the_cut(corpus):
     graphs = [corpus.model] + [compose(corpus, e)
                                for e in load_expectations(corpus.path).examples]
     for graph in graphs:
-        full = validate_graphs(graph, corpus.shapes, corpus.knowledge, strict=False, cut=False)
+        full = validate_graphs(graph, corpus.shapes, corpus.knowledge, strict=False,
+                               cut=False, near=False)
         reduced = validate_graphs(graph, corpus.shapes, corpus.knowledge, strict=False)
         assert keys(full) == keys(reduced)
+
+
+# near(): of the knowledge, what the data can reach. Each case below is one
+# where a verdict depends on the knowledge; with near() it must not change.
+
+NEAR_PREFIXES = PREFIXES + '''@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+'''
+
+
+def turtle(body):
+    return Graph().parse(data=NEAR_PREFIXES + body, format='turtle')
+
+
+def violations(shapes_graph, data, knowledge):
+    import pyshacl
+    from rdflib.namespace import SH
+
+    merged = Graph()
+    for triple in data:
+        merged.add(triple)
+    for triple in knowledge:
+        merged.add(triple)
+    _, report, _ = pyshacl.validate(merged, shacl_graph=shapes_graph, do_owl_imports=False)
+    return sorted((str(report.value(r, SH.focusNode)), str(report.value(r, SH.sourceConstraintComponent)))
+                  for r in report.objects(None, SH.result))
+
+
+# Noise the data cannot reach: it must be dropped, and must not matter.
+NOISE = '''ex:far ex:a ex:farther . ex:farther ex:b "x" . ex:far a ex:Other .
+             ex:far ex:browseName "far" .'''
+
+
+@pytest.mark.parametrize('shapes_body, data_body, knowledge_body', [
+    # A knowledge entity a shape targets by class is validated as before.
+    ('ex:S a sh:NodeShape ; sh:targetClass ex:C ; sh:property [ sh:path ex:a ; sh:minCount 1 ] .',
+     'ex:d a ex:C ; ex:a "1" .',
+     'ex:k a ex:Sub . ex:Sub rdfs:subClassOf ex:C .'),
+    # ... and one it targets by name.
+    ('ex:S a sh:NodeShape ; sh:targetNode ex:k ; sh:property [ sh:path ex:a ; sh:minCount 1 ] .',
+     'ex:d ex:x "1" .',
+     'ex:k ex:b "2" .'),
+    # ... and by implicit class target.
+    ('ex:C a sh:NodeShape, rdfs:Class ; sh:property [ sh:path ex:a ; sh:minCount 1 ] .',
+     'ex:d a ex:C ; ex:a "1" .',
+     'ex:k a ex:C .'),
+    # An inverse path reads knowledge pointing INTO the data.
+    ('ex:S a sh:NodeShape ; sh:targetClass ex:C ; '
+     'sh:property [ sh:path [ sh:inversePath ex:partOf ] ; sh:maxCount 1 ] .',
+     'ex:d a ex:C .',
+     'ex:k1 ex:partOf ex:d . ex:k2 ex:partOf ex:d .'),
+    # sh:class on a value typed in the knowledge, through the class hierarchy.
+    ('ex:S a sh:NodeShape ; sh:targetClass ex:C ; sh:property [ sh:path ex:link ; sh:class ex:T ] .',
+     'ex:d a ex:C ; ex:link ex:k , ex:j .',
+     'ex:k a ex:Sub . ex:Sub rdfs:subClassOf ex:T . ex:j a ex:Other .'),
+    # sh:node into a knowledge entity, two hops deep.
+    ('ex:S a sh:NodeShape ; sh:targetClass ex:C ; sh:property [ sh:path ex:link ; sh:node ex:N ] . '
+     'ex:N a sh:NodeShape ; sh:property [ sh:path ( ex:b ex:c ) ; sh:hasValue "ok" ] .',
+     'ex:d a ex:C ; ex:link ex:k , ex:j .',
+     'ex:k ex:b ex:m . ex:m ex:c "ok" . ex:j ex:b ex:n . ex:n ex:c "no" .'),
+    # A transitive path walks as far as the knowledge goes.
+    ('ex:S a sh:NodeShape ; sh:targetClass ex:C ; '
+     'sh:property [ sh:path [ sh:oneOrMorePath ex:b ] ; sh:maxCount 2 ] .',
+     'ex:d a ex:C ; ex:b ex:k .',
+     'ex:k ex:b ex:m . ex:m ex:b ex:n .'),
+])
+def test_near_never_changes_a_verdict(shapes_body, data_body, knowledge_body):
+    shapes_graph = turtle(shapes_body)
+    data = turtle(data_body)
+    knowledge = turtle(knowledge_body + NOISE)
+    reduced = near(shapes_graph, knowledge, data)
+    assert reduced is not None
+    assert (URIRef(EX + 'far'), URIRef(EX + 'browseName'), Literal('far')) not in reduced
+    expected = violations(shapes_graph, data, knowledge)
+    assert expected, 'each case must depend on the knowledge to mean anything'
+    assert violations(shapes_graph, data, reduced) == expected
+
+
+@pytest.mark.parametrize('shapes_body', [
+    'ex:S a sh:NodeShape ; sh:targetSubjectsOf ex:a ; sh:property [ sh:path ex:a ; sh:maxCount 1 ] .',
+    'ex:S a sh:NodeShape ; sh:targetObjectsOf ex:a ; sh:property [ sh:path ex:a ; sh:maxCount 1 ] .',
+    'ex:S a sh:NodeShape ; sh:targetClass ex:C ; '
+    'sh:sparql [ sh:select "SELECT $this WHERE { $this <https://example.org/a> ?o }" ] .',
+])
+def test_near_does_not_guess_what_it_cannot_anchor(shapes_body):
+    assert near(turtle(shapes_body), turtle(NOISE), turtle('ex:d ex:a "1" .')) is None
+
+
+def test_the_kms_falls_back_to_the_whole_cut(corpus):
+    # Its SPARQL constraints can read any triple.
+    assert near(corpus.shapes, corpus.knowledge, corpus.model) is None

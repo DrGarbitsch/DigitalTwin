@@ -33,7 +33,7 @@ from .results import Report, Result, Status
 
 
 def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
-                    rules=True, cut=True, only=None):
+                    rules=True, cut=True, only=None, near=True):
     """Validate one already-loaded package. Returns a Report.
 
     `only` -- a set of shape IRIs (str) -- evaluates just those shapes: the
@@ -45,12 +45,20 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
     ADDITION -- which makes every rule that rewrites an existing attribute
     manufacture a cardinality violation against its own shape.
     """
-    if cut and knowledge_graph is not None and isinstance(shapes_graph, Graph):
-        # Only what some constraint can read (validate/readset.py): the rest
-        # of the knowledge is carried through rules, view and pyshacl for
-        # nothing -- 217,582 triples where 31,356 are read, on the OPC UA pumps.
+    if knowledge_graph is not None and isinstance(shapes_graph, Graph):
         from .readset import knowledge_for
-        knowledge_graph = knowledge_for(shapes_graph, knowledge_graph)
+        from .readset import near as reachable
+
+        # Only what this data can reach (readset.near): a test case of one
+        # entity spent 2.2 s copying 31,356 knowledge triples it never touched.
+        reduced = reachable(shapes_graph, knowledge_graph, data_graph) if near else None
+        if reduced is not None:
+            knowledge_graph = reduced
+        elif cut:
+            # Else only what some constraint can read (readset.knowledge_for):
+            # the rest is carried through rules, view and pyshacl for nothing
+            # -- 217,582 triples where 31,356 are read, on the OPC UA pumps.
+            knowledge_graph = knowledge_for(shapes_graph, knowledge_graph)
 
     diagnostics = DiagnosticSet()
     for diagnostic in shape_views.check_declarations(shapes_graph):
