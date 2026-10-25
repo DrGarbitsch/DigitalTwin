@@ -895,7 +895,9 @@ async function editValue(pages, row) {
   }
   // Already an expression: its editor. One plain value: the picker, with
   // "Combine with another condition…" last for when one is not enough.
-  if (row.expression) {
+  // More than one plain value -- an expression, or several forms (one value
+  // or a list, a Property or a JsonProperty, …): the value editor.
+  if (row.expression || (row.alternatives && row.alternatives.length)) {
     return require('./expression').openExpression(pages, row);
   }
   const value = await pickValue(pages.clientHolder.client, pages.current.packageUri,
@@ -1132,9 +1134,8 @@ async function rowMenu(pages, row) {
         pages.current.packageUri, row) }]),
     // Any value as an expression -- any of, all of, exactly one of, not --
     // in the panel beside the page; always here, whether it is one yet or not.
-    ...(row.expressionable ? [{ label: '$(symbol-operator) Expression editor…',
-      description: row.expression ? 'its value is an expression'
-        : 'combine its value with other conditions: any of, all of, exactly one of, not',
+    ...(row.expressionable ? [{ label: '$(symbol-operator) Value editor…',
+      description: 'its forms (Property, JsonProperty, a list, …) and what each must be',
       run: async () => require('./expression').openExpression(pages, row) }] : []),
     // A value that may also be a list -- an OPC UA array (its ValueRank) --
     // is the choice `a scalar, or a list of them`; switched here, both ways.

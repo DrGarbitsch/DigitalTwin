@@ -287,6 +287,21 @@ def _expression_of(package, node, slot, raw, found=None):
     return layer if layer is not None and layer.complex else None
 
 
+def _member_words(package):
+    """Each form of a choice in its own words, expressions included: "one
+    boolean, or a list of: any of: … " -- the forms need not share them."""
+    from .payloads import prefixes_of
+    from .valueforms import member_words
+
+    prefixes = prefixes_of(package)
+    spell = package.shapes.namespace_manager.normalizeUri
+
+    def words(kind, params):
+        return member_words(params, 'Relationship' if is_relationship(kind) else 'Property',
+                            prefixes, spell)
+    return words
+
+
 def _expression_text(layer, kind):
     from .expression import describe as said
 
@@ -359,8 +374,8 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     if layer is not None:
         extra = [e for e in extra if e.split(' ', 1)[0] not in CONNECTIVE_NAMES]
     # A scalar-or-list value with an expression on its member: each form says it.
-    said = forms_text(found, (lambda kind, _: _expression_text(layer, kind))
-                      if layer is not None else _words) if found else (
+    said = forms_text(found, _member_words(package) if layer is not None else _words) \
+        if found else (
         _expression_text(layer, kind) if layer is not None and not
         any(name == 'sh:or' and _numbers_only(value) for name, value in raw)
         else value_text(kind, value_params, raw))

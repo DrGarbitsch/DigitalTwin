@@ -547,8 +547,6 @@ def edit(package, shape, chain, action):
       layer's own value conditions become one branch of any of / exactly one
       of beside the new one; `not` adds the new one as "not".
     """
-    from .tree import _parameter_value
-
     holder = package.index('shapes').file_for(URIRef(str(shape)))
     if holder is None:
         raise PackageError(f'{shape} is not in any shapes file')
@@ -557,9 +555,13 @@ def edit(package, shape, chain, action):
     layer = read_target(package, text, str(shape), list(chain))
     if layer is None:
         raise PackageError(f'{chain[-1]} has no value layer; edit it in the .ttl')
-    root = layer.root
-    what = action.get('op')
-    address = [int(i) for i in action.get('node') or []]
+    root = _apply(layer.root, action, _conditions(package, text, action))
+    return write_layer(package, shape, chain, root)
+
+
+def _conditions(package, text, action):
+    """condition(spec=None) -> (parameter, value as the file writes it)."""
+    from .tree import _parameter_value
 
     def condition(spec=None):
         spec = spec or action
@@ -575,6 +577,13 @@ def edit(package, shape, chain, action):
             value = _parameter_value(package, text, parameter, spec.get('value'))
         return parameter, value
 
+    return condition
+
+
+def _apply(root, action, condition):
+    """One edit of an expression tree, as the page asks for it (see edit())."""
+    what = action.get('op')
+    address = [int(i) for i in action.get('node') or []]
     if what == 'addgroup':
         # A group arrives with its branches: one branch alone would be no group.
         node, op = _at(root, address), action.get('connective')
@@ -650,4 +659,4 @@ def edit(package, shape, chain, action):
             raise PackageError(f'combine with any of, exactly one of or not -- not {op}')
     else:
         raise PackageError(f'{what} is not an edit of an expression')
-    return write_layer(package, shape, chain, root)
+    return root

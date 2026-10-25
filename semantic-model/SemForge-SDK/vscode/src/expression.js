@@ -15,18 +15,23 @@
 */
 
 /**
- * The expression editor: what a value must be, when that is more than one
- * set of conditions -- any of, all of, exactly one of, not, nested.
+ * The value editor: what an attribute's value may be.
  *
- * A panel beside the type page draws the expression as nested boxes; every
- * box is edited where it stands. Opened from the attribute's ⋯ menu
- * ("Expression editor…"), from its value when that already is an
- * expression, or from "Combine with another condition…" in the value
- * picker. One plain value -- what nearly every attribute needs -- is still
- * edited with the picker.
+ * First its forms -- a Property's value, a Relationship's entity, a
+ * JsonProperty, a ListProperty, … any choice of them, as NGSI-LD allows --
+ * then, for each form on its own, what it must be: conditions, and
+ * expressions of them (any of, all of, exactly one of, not, nested). "One
+ * boolean, or a list of numbers" is two forms with their own conditions.
  *
- * Every change is one request (semforge/editExpression); the server rewrites
- * the value and reads it back before keeping it (cooked/expression.py), and
+ * A panel beside the type page draws each form as a card and its conditions
+ * as nested boxes; everything is edited where it stands. Opened from the
+ * attribute's ⋯ menu ("Value editor…"), from its value when that is more
+ * than one plain value, or from "Combine with another condition…" in the
+ * value picker. One plain value -- what nearly every attribute needs -- is
+ * still edited with the picker.
+ *
+ * Every change is one request (semforge/editValueForms); the server rewrites
+ * the value and reads it back before keeping it (cooked/valueforms.py), and
  * the panel is drawn again from what is now in the file.
  */
 const crypto = require('crypto');
@@ -107,41 +112,43 @@ function box(node, address, own, editable) {
 }
 
 /**
- * The forms the value may take -- one value, a list of them -- each with its
- * NGSI-LD kind and payload; and the switch between "one value" and "one
- * value or a list" (an OPC UA Variable's ValueRank) when there is one.
+ * One form of the value -- a Property's value, a list, a JsonProperty, … --
+ * as a card: its kind (a choice), whether a list may be empty, what it says,
+ * and its own conditions as boxes. `index` is the form's place in the value.
  */
-function formsBox(state) {
-  const forms = state.forms || [];
-  if (!forms.length) {
-    return '';
-  }
-  const rows = forms.map((f) => `<li><span class="what">${escape(f.form)}</span> · ` +
-    `<span class="kindchip">${escape(f.kind)}</span> <code>${escape(f.payload)}</code>` +
-    `${f.mayBeEmpty ? ' · <span class="dim">may be empty</span>' : ''}</li>`).join('');
-  const tools = !state.editable ? ''
-    : state.lists === 'single' ? button('lists-on', 'Allow a list too',
-      'One value, or a list of them (possibly empty) — like an OPC UA array')
-      : state.lists === 'allowed' ? button('lists-off', 'One value only', 'No list: one value again')
-        : '';
-  return `<div class="box forms"><div class="head"><span class="what">Its forms</span>` +
-    `<span class="tools">${tools}</span></div><ul>${rows}</ul></div>`;
+function formCard(form, index, state) {
+  const editable = !!state.editable;
+  const expression = form.expression || { kind: 'op', op: 'and', children: [] };
+  const [own, ...rest] = expression.children;
+  const kind = editable
+    ? `<select data-act="formkind" title="What kind of attribute this form is">${(state.kinds || [])
+      .map((k) => `<option value="${k}"${k === form.kind ? ' selected' : ''}>${k}</option>`).join('')}</select>`
+    : `<span class="kindchip">${escape(form.kind)}</span>`;
+  const empty = form.list ? `<label class="empty"><input type="checkbox" data-act="empty"` +
+    `${form.mayBeEmpty ? ' checked' : ''}${editable ? '' : ' disabled'}> may be empty</label>` : '';
+  const tools = editable ? '<span class="tools">' +
+    button('combine-or', 'Or else…', 'Any of: what it is now, or another condition') +
+    button('combine-xone', 'Exactly one of…', 'What it is now, or another condition — not both') +
+    button('combine-not', 'But not…', 'What it is now, except') +
+    button('rootgroup', '+ Group', 'A part it must also satisfy: any of / all of / exactly one of / not') +
+    button('removeform', 'Remove form', 'The value may no longer take this form') + '</span>' : '';
+  return `<div class="box form" data-form="${index}"><div class="head">${kind}` +
+    ` <code>${escape(form.payload)}</code>${empty}${tools}</div>` +
+    `<div class="formsaid">${escape(form.said)}</div>` +
+    `<div class="sub">${form.list ? 'Each item must be' : 'It must be'}</div>` +
+    `${own ? box(own, [0], true, editable) : ''}${rest.map((node, i) =>
+      box(node, [i + 1], false, editable)).join('')}</div>`;
 }
 
 /** The panel. `state`: what semforge/expression said, the row, the choices. */
 function renderExpressionPanel(state, options) {
   const nonce = options.nonce;
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
-  const expression = state.expression || { kind: 'op', op: 'and', children: [] };
-  const [own, ...rest] = expression.children;
   const editable = !!state.editable;
-  const listed = (state.forms || []).some((f) => /List/.test(f.kind));
-  const rootTools = editable ? '<div class="roottools">' +
-    button('combine-or', 'Or else…', 'Any of: everything it is now, or another condition') +
-    button('combine-xone', 'Exactly one of…', 'Everything it is now, or another condition — not both') +
-    button('combine-not', 'But not…', 'Everything it is now, except') +
-    button('rootgroup', '+ Group', 'Another part every value must satisfy: any of / all of / exactly one of / not') +
-    '</div>' : '';
+  const forms = state.forms || [];
+  const add = editable ? `<div class="roottools"><select id="newkind" title="The kind of the new form">` +
+    `${(state.kinds || []).map((k) => `<option value="${k}">${k}</option>`).join('')}</select>` +
+    button('addform', '+ Form', 'The value may also take this form') + '</div>' : '';
   const lists = ['datatypes', 'classes'].map((name) => `<datalist id="${name}">` +
     (state[name] || []).map((c) => `<option value="${escape(c.value)}">${escape(c.label || '')}</option>`).join('') +
     '</datalist>').join('');
@@ -175,8 +182,12 @@ function renderExpressionPanel(state, options) {
   .dim { color: var(--vscode-descriptionForeground); }
   .roottools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
   h2 { font-size: 1em; margin: 14px 0 4px; }
-  .forms ul { margin: 4px 0 0; padding-left: 18px; }
-  .forms li { margin: 2px 0; }
+  .box.form { border-width: 2px; padding: 8px 10px; margin: 10px 0; }
+  .formsaid { margin: 4px 0; }
+  .sub { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-top: 6px; }
+  .empty { font-size: 0.9em; }
+  select { background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+           border: 1px solid var(--vscode-input-border, transparent); }
   .kindchip { font-size: 0.8em; padding: 0 6px; border-radius: 3px;
               background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
   code { font-family: var(--vscode-editor-font-family); font-size: 0.9em; overflow-wrap: anywhere; }
@@ -189,21 +200,25 @@ function renderExpressionPanel(state, options) {
   .primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
              border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
 </style></head><body>
-<h1>${escape(state.label)}: what its value must be</h1>
+<h1>${escape(state.label)}: what its value may be</h1>
 <div class="said">${escape(state.said || 'any value')}</div>
 ${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
 ${editable ? '' : `<div class="error">Edited in the .ttl: ${escape(state.reason || '')}</div>`}
-${formsBox(state)}
-<h2>${listed ? 'Each value must be — the one value, and every item of a list' : 'The value must be'}</h2>
-${rootTools}
-<div id="tree">${own ? box(own, [0], true, editable) : ''}${rest.map((node, index) =>
-    box(node, [index + 1], false, editable)).join('')}</div>
+<h2>Its forms — each with what it must be</h2>
+${add}
+<div id="forms">${forms.length ? forms.map((form, index) => formCard(form, index, state)).join('')
+    : '<div class="dim">Any value: no form is constrained yet. Add one.</div>'}</div>
 ${lists}
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const CONDITIONS = ${JSON.stringify(CONDITIONS)};
   const CONNECTIVES = ${JSON.stringify(CONNECTIVES)};
-  function send(action) { vscode.postMessage({ command: 'edit', action: action }); }
+  // Every request names the form it is about: the card it comes from.
+  function send(action, from) {
+    const card = from && from.closest('[data-form]');
+    if (card) { action.form = Number(card.dataset.form); }
+    vscode.postMessage({ command: 'edit', action: action });
+  }
   function el(tag, attrs, text) {
     const node = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
@@ -286,29 +301,31 @@ ${lists}
     const addr = boxNode ? JSON.parse(boxNode.dataset.addr) : [];
     const head = boxNode ? boxNode.querySelector(':scope > .head') : target;
     const chip = target.closest('.chip');
-    if (act === 'open') { vscode.postMessage({ command: 'open' }); return; }
-    if (act === 'lists-on' || act === 'lists-off') {
-      vscode.postMessage({ command: 'lists', allowed: act === 'lists-on' });
+    function send_(action) { send(action, target); }
+    if (act === 'addform') {
+      send({ op: 'addform', kind: document.getElementById('newkind').value });
       return;
     }
-    if (act === 'remove' || act === 'unwrap') { send({ op: act, node: addr }); return; }
-    if (act === 'wrapnot') { send({ op: 'wrap', node: addr, connective: 'not' }); return; }
-    if (act === 'unset') { send({ op: 'unset', node: addr, parameter: chip.dataset.param }); return; }
+    if (act === 'removeform') { send_({ op: 'removeform' }); return; }
+    if (act === 'open') { vscode.postMessage({ command: 'open' }); return; }
+    if (act === 'remove' || act === 'unwrap') { send_({ op: act, node: addr }); return; }
+    if (act === 'wrapnot') { send_({ op: 'wrap', node: addr, connective: 'not' }); return; }
+    if (act === 'unset') { send_({ op: 'unset', node: addr, parameter: chip.dataset.param }); return; }
     if (act === 'change') {
       openForm(chip, { title: 'Change it', fixed: chip.dataset.param, value: chip.dataset.value,
-        done: function (v) { send({ op: 'set', node: addr, parameter: v[0].parameter, value: v[0].value }); } });
+        done: function (v) { send_({ op: 'set', node: addr, parameter: v[0].parameter, value: v[0].value }); } });
       return;
     }
     if (act === 'set' || act === 'add') {
       openForm(head, { title: act === 'set' ? 'Another condition — all of them must hold'
         : 'Another branch',
-        done: function (v) { send({ op: act, node: addr, parameter: v[0].parameter, value: v[0].value }); } });
+        done: function (v) { send_({ op: act, node: addr, parameter: v[0].parameter, value: v[0].value }); } });
       return;
     }
     if (act === 'wrapor' || act === 'wrapxone') {
       openForm(head, { title: act === 'wrapor' ? 'Or else' : 'Exactly one of this and',
         done: function (v) {
-          send({ op: 'wrap', node: addr, connective: act === 'wrapor' ? 'or' : 'xone',
+          send_({ op: 'wrap', node: addr, connective: act === 'wrapor' ? 'or' : 'xone',
             parameter: v[0].parameter, value: v[0].value });
         } });
       return;
@@ -316,7 +333,7 @@ ${lists}
     if (act === 'addgroup' || act === 'rootgroup') {
       openForm(head, { title: 'A group of conditions', connective: true, rows: 2, more: true,
         done: function (v, connective) {
-          send({ op: 'addgroup', node: act === 'rootgroup' ? [] : addr, connective: connective,
+          send_({ op: 'addgroup', node: act === 'rootgroup' ? [] : addr, connective: connective,
             conditions: v });
         } });
       return;
@@ -326,15 +343,20 @@ ${lists}
       openForm(target.parentElement, { title: { or: 'Or else', xone: 'Exactly one of: what it is now, or',
         not: 'But not' }[connective],
         done: function (v) {
-          send({ op: 'combine', connective: connective, parameter: v[0].parameter, value: v[0].value });
+          send_({ op: 'combine', connective: connective, parameter: v[0].parameter, value: v[0].value });
         } });
     }
   });
   document.addEventListener('change', function (event) {
-    const select = event.target.closest('select[data-act=retype]');
-    if (!select) { return; }
-    const addr = JSON.parse(select.closest('[data-addr]').dataset.addr);
-    send({ op: 'retype', node: addr, connective: select.value });
+    const target = event.target;
+    if (target.matches('select[data-act=retype]')) {
+      const addr = JSON.parse(target.closest('[data-addr]').dataset.addr);
+      send({ op: 'retype', node: addr, connective: target.value }, target);
+    } else if (target.matches('select[data-act=formkind]')) {
+      send({ op: 'formkind', kind: target.value }, target);
+    } else if (target.matches('input[data-act=empty]')) {
+      send({ op: 'empty', value: target.checked }, target);
+    }
   });
 </script>
 </body></html>`;
@@ -390,8 +412,8 @@ class ExpressionPanel {
     if (!this.panel) {
       return;
     }
-    const read = await this.request('semforge/expression', { shape: this.row.shape, path: this.row.path });
-    this.panel.title = `${this.row.label} · expression`;
+    const read = await this.request('semforge/valueForms', { shape: this.row.shape, path: this.row.path });
+    this.panel.title = `${this.row.label} · value`;
     const state = Object.assign({ label: this.row.label }, this.choices,
       read.ok ? read : { editable: false, reason: read.error }, { error: this.error });
     this.panel.webview.html = renderExpressionPanel(state,
@@ -406,18 +428,8 @@ class ExpressionPanel {
       await require('./reveal').showLocation(this.row.definedAt, true);
       return;
     }
-    if (message.command === 'lists') {
-      const done = await this.request('semforge/setLists',
-        { shape: this.row.shape, path: this.row.path, allowed: !!message.allowed });
-      this.error = done.ok ? '' : done.error;
-      await this.render();
-      if (done.ok) {
-        this.pages.refresh();
-      }
-      return;
-    }
     if (message.command === 'edit') {
-      const done = await this.request('semforge/editExpression',
+      const done = await this.request('semforge/editValueForms',
         { shape: this.row.shape, path: this.row.path, action: message.action });
       this.error = done.ok ? '' : done.error;
       await this.render();

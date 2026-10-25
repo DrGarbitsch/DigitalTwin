@@ -240,7 +240,7 @@ def test_clicking_a_value_offers_the_entity_types(tmp_path, page):
 def test_an_expression_opens_its_editor_not_the_picker(tmp_path, page):
     seen = _click(tmp_path, page, [{'command': 'value', 'row': _row(page, 'hasStrength')}])
     assert not _sent(seen, 'semforge/editAttribute')
-    assert _sent(seen, 'semforge/expression')
+    assert _sent(seen, 'semforge/valueForms')
 
 
 def test_a_locked_value_says_why_and_writes_nothing(tmp_path, page):
@@ -251,7 +251,7 @@ def test_a_locked_value_says_why_and_writes_nothing(tmp_path, page):
     row.update(valueEditable=False,
                valueLocked='edited in the .ttl: a comment inside it would be lost')
     seen = _click(tmp_path, locked, [{'command': 'value', 'row': _row(locked, 'hasStrength')}])
-    assert not _sent(seen, 'semforge/editAttribute') and not _sent(seen, 'semforge/expression')
+    assert not _sent(seen, 'semforge/editAttribute') and not _sent(seen, 'semforge/valueForms')
     assert any('comment' in m for m in seen['info'])
 
 

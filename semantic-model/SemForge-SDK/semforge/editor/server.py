@@ -2571,6 +2571,55 @@ def shapes_feature(ls, params):
         return {'roots': [], 'error': str(exc)}
 
 
+@server.feature('semforge/valueForms')
+def value_forms_feature(ls, params):
+    """What an attribute's value may be: its forms, each with its conditions
+    (cooked/valueforms.py) -- the value editor."""
+    from rdflib import URIRef
+
+    from ..cooked.valueforms import read_value, to_payload
+    from ..errors import PackageError
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        package = _package_for(root)
+        shape, chain = _field(params, 'shape'), list(_field(params, 'path') or [])
+        holder = package.index('shapes').file_for(URIRef(shape))
+        if holder is None:
+            raise PackageError(f'{shape} is not in any shapes file')
+        with open(holder, encoding='utf-8') as handle:
+            value = read_value(package, handle.read(), shape, chain)
+        return dict(to_payload(value), ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
+@server.feature('semforge/editValueForms')
+def edit_value_forms_feature(ls, params):
+    """One change to a value's forms, or to what one form must be."""
+    from ..cooked.valueforms import edit_value
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        action = _field(params, 'action')
+        made = edit_value(_package_for(root), _field(params, 'shape'),
+                          list(_field(params, 'path') or []),
+                          dict({k: _field(action, k) for k in (
+                              'op', 'node', 'parameter', 'value', 'connective', 'form', 'kind')},
+                              conditions=[{'parameter': _field(c, 'parameter'),
+                                           'value': _field(c, 'value')}
+                                          for c in (_field(action, 'conditions') or [])]))
+        _packages.pop(root, None)
+        _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/expression')
 def expression_feature(ls, params):
     """The value of an attribute as an expression (the expression editor)."""
