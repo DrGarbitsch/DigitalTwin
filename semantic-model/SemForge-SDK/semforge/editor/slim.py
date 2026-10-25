@@ -109,12 +109,20 @@ def _summary(node):
             if child.get('kind') == 'constraint' and child.get('parameter'):
                 value[child['parameter']] = child['value']
             elif child.get('kind') == 'raw':
-                raw.append((child['label'].replace(' (raw only)', ''),
+                raw.append((child.get('parameter') or child['label'].replace(' (raw only)', ''),
                             child.get('value', '')))
     kind = 'Relationship' if slot is not None and \
         str(slot.get('detail', '')).endswith('hasObject') else 'Property'
     said = presence(own.get('sh:minCount'), own.get('sh:maxCount'))
-    if slot is not None:
+    # The forms of the value, as the tree read them (cooked/payloads.py):
+    # `text, or a list of them`, on an sh:or of value layers or of list members.
+    forms = next((c.get('detail', '') for holder in (node, slot or {})
+                  for c in holder.get('children', [])
+                  if c.get('kind') == 'raw' and str(c.get('label', '')).startswith('value: ')),
+                 '')
+    if forms:
+        said += ' · ' + forms
+    elif slot is not None:
         said += ' · ' + value_text(kind, value, raw)
     return said
 

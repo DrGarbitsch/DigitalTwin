@@ -70,3 +70,42 @@ def payload_name(kind):
 
 def is_relationship(kind):
     return kind in ('Relationship', 'ListRelationship')
+
+
+# The prefixes NGSI-LD is written under: SemForge's `ngsild:`, and the
+# `ngsi-ld:` of the core @context, which the OPC UA tools use.
+PREFIXES = ('ngsild', 'ngsi-ld')
+
+
+def payload_of(text):
+    """'hasValue' for a payload predicate as a shapes file spells it --
+    `ngsild:hasValue`, `ngsi-ld:hasValue` or the full IRI -- else ''.
+
+    Text-level readers compared paths with the `ngsild:` spelling only, and
+    every `ngsi-ld:hasObject` of the OPC UA shapes was read as a
+    sub-attribute named hasObject.
+    """
+    text = str(text or '').strip()
+    if text.startswith('<') and text.endswith('>'):
+        text = text[1:-1]
+    if text.startswith(NGSILD):
+        name = text[len(NGSILD):]
+    elif ':' in text and text.split(':', 1)[0] in PREFIXES:
+        name = text.split(':', 1)[1]
+    else:
+        return ''
+    return name if name in PAYLOAD_NAMES else ''
+
+
+class PayloadSpellings:
+    """`path in VALUE_PATHS` for text-level readers: true for every spelling
+    payload_of() knows. Iterates as the `ngsild:` spellings SemForge writes."""
+
+    def __contains__(self, text):
+        return bool(payload_of(text))
+
+    def __iter__(self):
+        return iter(f'ngsild:{name}' for name in PAYLOAD_NAMES)
+
+
+SPELLINGS = PayloadSpellings()

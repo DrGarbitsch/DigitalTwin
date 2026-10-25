@@ -72,9 +72,8 @@ EDITABLE = {
 # Structure, not parameters. Shown so the tree is honest; edited in raw.
 RAW_ONLY = {'sh:or', 'sh:and', 'sh:xone', 'sh:not', 'sh:node', 'sh:in'}
 
-from ..ngsild.kinds import PAYLOAD_NAMES as _PAYLOADS  # noqa: E402
-
-VALUE_PATHS = {f'ngsild:{name}' for name in _PAYLOADS}
+from ..ngsild.kinds import SPELLINGS as VALUE_PATHS  # noqa: E402
+from ..ngsild.kinds import payload_of  # noqa: E402
 
 # An NGSI-LD attribute IS a blank node carrying hasValue/hasObject, so
 # `sh:nodeKind sh:BlankNode` on a forward attribute path restates the encoding
@@ -186,12 +185,35 @@ def _short(path):
     return local(path.strip('<>')).split(':')[-1]
 
 
-def _attribute_node(block, shape, chain, locate=None):
+def _name_forms(nodes, prefixes, list_payload=''):
+    """An sh:or that says the forms of a value (cooked/payloads.py) is named
+    by them -- `value: Property or ListProperty`, `text, or a list of them` --
+    rather than shown as text to read. Still raw: it is edited in the .ttl."""
+    from .payloads import Alternative, alternatives, describe, kinds, list_form
+    from .typepage import LIST_KINDS, _words
+
+    for node in nodes:
+        if node.kind != 'raw' or node.parameter != 'sh:or':
+            continue
+        if list_payload:
+            read = list_form(node.value, prefixes)
+            found = read and (Alternative(payload=list_payload, kind=LIST_KINDS[list_payload],
+                                          member=read[0], may_be_empty=read[1]),)
+        else:
+            found = alternatives(node.value, prefixes)
+        if found:
+            node.label = 'value: ' + ' or '.join(kinds(found))
+            node.detail = describe(found, _words)
+
+
+def _attribute_node(block, shape, chain, locate=None, prefixes=None):
     chain = chain + [block.path]
     node = CookedNode(kind='attribute', label=_short(block.path),
                       detail=block.path, shape=shape, path_chain=list(chain),
                       defined_at=locate(block.start) if locate else '')
     node.children.extend(_constraint_nodes(block, shape, chain, locate, False))
+    if prefixes is not None:
+        _name_forms(node.children, prefixes)
 
     for child in block.children:
         if child.path in VALUE_PATHS:
@@ -203,6 +225,9 @@ def _attribute_node(block, shape, chain, locate=None):
             slot.children.extend(
                 _constraint_nodes(child, shape, chain + [child.path], locate,
                                   True))
+            if prefixes is not None and payload_of(child.path) in ('hasValueList',
+                                                                   'hasObjectList'):
+                _name_forms(slot.children, prefixes, payload_of(child.path))
             node.children.append(slot)
         elif _is_unit_path(child.path):
             # The attribute's unitCode: which units its instances may say
@@ -216,7 +241,7 @@ def _attribute_node(block, shape, chain, locate=None):
                 _constraint_nodes(child, shape, chain + [child.path], locate, True))
             node.children.append(unit)
         else:
-            node.children.append(_attribute_node(child, shape, chain, locate))
+            node.children.append(_attribute_node(child, shape, chain, locate, prefixes))
     return node
 
 
@@ -273,8 +298,11 @@ def _shape_node(package, shape, text, index, line_of=None):
     node = CookedNode(kind='shape', label=curie(package.shapes, shape),
                       detail=f'{len(groups)} attribute(s)', shape=str(shape),
                       defined_at=index.locator(shape))
+    from .payloads import prefixes_of
+
+    prefixes = prefixes_of(package)
     for group in groups:
-        node.children.append(_attribute_node(group, str(shape), [], locate))
+        node.children.append(_attribute_node(group, str(shape), [], locate, prefixes))
     if (shape, SH.sparql, None) in package.shapes:
         node.children.append(CookedNode(
             kind='raw', label='SPARQL constraint',
@@ -458,7 +486,7 @@ def apply_edit(package, shape, path_chain, parameter, value):
 # value -- a datatype or a range on the attribute node constrains the blank
 # node itself and can never be satisfied.
 ATTRIBUTE_LAYER = {'sh:minCount', 'sh:maxCount'}
-SLOTS = tuple(f'ngsild:{name}' for name in _PAYLOADS)
+SLOTS = tuple(VALUE_PATHS)
 
 
 def _term(package, text, value):

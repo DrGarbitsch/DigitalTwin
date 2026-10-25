@@ -44,7 +44,10 @@ from rdflib import Literal, URIRef
 from rdflib.namespace import RDF, RDFS, SH
 
 from ..errors import PackageError
+from ..ngsild.kinds import is_relationship, payload_of
 from ..validate.normalise import curie
+from .payloads import describe as forms_text
+from .payloads import kinds as kinds_of
 
 NUMBER_TYPES = {'xsd:double', 'xsd:decimal', 'xsd:integer', 'xsd:float',
                 'xsd:int', 'xsd:long', 'xsd:short', 'xsd:nonNegativeInteger',
@@ -204,7 +207,10 @@ def _params(node):
         if child.kind == 'constraint' and child.parameter:
             params[child.parameter] = child.value
         elif child.kind == 'raw' and not child.label.startswith('SPARQL'):
-            raw.append((child.label.replace(' (raw only)', ''), child.value))
+            # By its parameter: the label of an sh:or the tree could read says
+            # what it means (`value: Property or ListProperty`), not its name.
+            raw.append((child.parameter or child.label.replace(' (raw only)', ''),
+                        child.value))
     return params, raw
 
 
@@ -222,6 +228,39 @@ def _units_of(node):
     return codes, str(least).strip() not in ('', '0')
 
 
+def _words(kind, parameters):
+    return value_text('Relationship' if is_relationship(kind) else 'Property',
+                      parameters, [])
+
+
+LIST_KINDS = {'hasValueList': 'ListProperty', 'hasObjectList': 'ListRelationship'}
+
+
+def _payload_alternatives(package, slot, raw, raw_outer):
+    """The forms the value may take (cooked/payloads.py), or None when it is
+    one plain value layer, or one this cannot read.
+
+    Two places say it: an sh:or of value layers on the attribute -- a scalar
+    or a list -- and the sh:or of a list payload's own value: its members, or
+    the empty list."""
+    from .payloads import Alternative, alternatives, list_form, prefixes_of
+
+    prefixes = prefixes_of(package)
+    if slot is None:
+        text = next((value for name, value in raw_outer if name == 'sh:or'), None)
+        return alternatives(text, prefixes) if text else None
+    payload = payload_of(slot.path_chain[-1] if slot.path_chain else '')
+    text = next((value for name, value in raw if name == 'sh:or'), None)
+    if payload not in LIST_KINDS or not text:
+        return None
+    read = list_form(text, prefixes)
+    if read is None:
+        return None
+    member, empty = read
+    return (Alternative(payload=payload, kind=LIST_KINDS[payload], member=member,
+                        may_be_empty=empty),)
+
+
 def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     """One row per attribute node, its sub-attributes after it."""
     from .units import unit_text
@@ -232,13 +271,16 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     value_params, raw = _params(slot) if slot is not None else ({}, [])
     token = node.detail or node.label
     iri = str(_resolve_token(package, token))
-    kind = kind_of.get(iri) or ('Relationship' if slot is not None and
-                                slot.detail.endswith('hasObject') else 'Property')
+    found = _payload_alternatives(package, slot, raw, raw_outer)
+    kind = kind_of.get(iri) or (
+        'Relationship' if any(is_relationship(a.kind) for a in found or ()) or
+        (slot is not None and slot.detail.endswith('hasObject')) else 'Property')
     shape_name = curie(package.shapes, URIRef(node.shape)) if node.shape else ''
     # Verbatim is for what the vocabulary could NOT say; an sh:or it already
-    # rendered as "number" is not shown twice.
+    # rendered -- as "number", or as the forms of the value -- is not shown twice.
     extra = [f'{name} {value}' for name, value in raw + raw_outer
-             if not (name == 'sh:or' and _numbers_only(value)) and name != 'sh:severity']
+             if not (name == 'sh:or' and (_numbers_only(value) or found))
+             and name != 'sh:severity']
     extra += [f'{name} {value}' for name, value in value_params.items()
               if name not in RENDERED]
     tested = coverage.get((shape_name, _short(token)), 'untested')
@@ -263,9 +305,15 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         (['sh:in'] if 'sh:in' in value_params else [])
     rows = [{
         'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
+        # Every NGSI-LD kind the value may take: `Property or ListProperty`
+        # for an OPC UA Variable that may be a scalar or an array.
+        'kinds': kinds_of(found) if found else [kind],
+        'alternatives': [{'payload': a.payload, 'kind': a.kind,
+                          'member': dict(a.member), 'mayBeEmpty': a.may_be_empty}
+                         for a in found or ()],
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
         'value': ' · '.join(p for p in (
-            value_text(kind, value_params, raw),
+            forms_text(found, _words) if found else value_text(kind, value_params, raw),
             f'in {unit_text(package, units)}' if units else '',
             'unit required' if unit_required else '') if p),
         # The units its instances may say (ngsild:unitCode), and whether one

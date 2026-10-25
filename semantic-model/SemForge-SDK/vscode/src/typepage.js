@@ -169,7 +169,9 @@ function attributeRows(attributes, focused, options) {
       `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
         `Violated in the main-model by:\n${row.violations.join('\n')}\n\nClick: open the main-model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
-      `<td><span class="kind">${escape(row.kind)}</span></td>` +
+      // Every kind the value may take: `Property or ListProperty` for a value
+      // that may be a scalar or a list (an OPC UA Variable's ValueRank).
+      `<td><span class="kind">${escape((row.kinds || [row.kind]).join(' or '))}</span></td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
       `<td>${row.inherited ? escape(row.value)

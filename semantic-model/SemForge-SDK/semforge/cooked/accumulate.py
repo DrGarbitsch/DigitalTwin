@@ -159,6 +159,11 @@ def _list_notes(package, basis, value):
     return notes + list_conflicts(package, value, shared or lists[0][0])
 
 
+def _same_forms(rows):
+    forms = [r.get('alternatives') for r in rows]
+    return bool(forms[0]) and all(f == forms[0] for f in forms)
+
+
 def accumulate(rows, package=None):
     """Rows of the type page, one per (shape, attribute) -> one per attribute.
 
@@ -193,7 +198,10 @@ def accumulate(rows, package=None):
         merged = dict(first)
         merged.update({
             'presence': presence(attribute.get('sh:minCount'), attribute.get('sh:maxCount')),
-            'value': value_text(first['kind'], value, [r for r in raw if r[0] == 'sh:or']),
+            # The forms of the value (scalar or list), when the shapes agree on
+            # them, are said as each shape said them; there is nothing to add up.
+            'value': first['value'] if _same_forms(basis) and not value
+            else value_text(first['kind'], value, [r for r in raw if r[0] == 'sh:or']),
             'verbatim': sorted({v for m in basis for v in m.get('verbatim', [])}),
             'violations': sorted({v for m in members for v in m['violations']}),
             'tested': max((m.get('tested', 'untested') for m in members),

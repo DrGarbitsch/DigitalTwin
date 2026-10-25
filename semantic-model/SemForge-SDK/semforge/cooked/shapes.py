@@ -30,6 +30,7 @@ from rdflib import URIRef
 from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from ..errors import PackageError
+from ..ngsild.kinds import payload_of
 from ..validate.normalise import curie, local
 from ..validate.shapes import every_node_shape
 
@@ -149,7 +150,7 @@ def _target_iri(package, kind, target):
                                f'declare it in the knowledge first')
         return URIRef(entry.iri)
     if kind in ('subjectsOf', 'objectsOf'):
-        if text in ('ngsild:hasObject', 'https://uri.etsi.org/ngsi-ld/hasObject'):
+        if payload_of(text) == 'hasObject':
             return URIRef('https://uri.etsi.org/ngsi-ld/hasObject')
         entry = next((e for e in attribute_terms(package)
                       if text in (e.iri, e.term, e.label)), None)
