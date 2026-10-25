@@ -32,7 +32,7 @@ import pytest
 from rdflib import Graph, URIRef
 from rdflib.namespace import SH
 
-from semforge.cooked.valueforms import edit_value, read_value, to_payload, value_words
+from semforge.cooked.valueforms import edit_value, read_value, say, to_payload
 from semforge.errors import PackageError
 
 FILTER = 'https://industryfusion.github.io/contexts/example/v0/base_shacl/FilterShape'
@@ -66,15 +66,15 @@ def _edit(root, action, shape=FILTER, chain=STRENGTH):
 def test_one_value_layer_is_one_form_edited_where_it_stands(root):
     value = _value(root)
     assert value.where == 'slot' and [f.kind for f in value.forms] == ['Property']
-    assert value_words(value) == \
-        'one value: 0 – 100 · any of: number (double) | number (integer)'
+    # As the type page says it: double or integer is "a number".
+    assert say(value) == 'number · 0 – 100'
     before = (root / 'shacl.ttl').read_text()
     _edit(root, {'op': 'set', 'form': 0, 'node': [0], 'parameter': 'sh:maxInclusive',
                  'value': '50'})
     after = (root / 'shacl.ttl').read_text()
     # In place: the value layer keeps its lines, one parameter changed.
     assert len(after.splitlines()) == len(before.splitlines())
-    assert value_words(_value(root)).startswith('one value: 0 – 50')
+    assert say(_value(root)) == 'number · 0 – 50'
 
 
 def test_forms_are_added_given_their_own_conditions_and_removed(root):
@@ -85,9 +85,8 @@ def test_forms_are_added_given_their_own_conditions_and_removed(root):
     value = _value(root)
     assert value.where == 'attribute'
     assert [f.kind for f in value.forms] == ['Property', 'ListProperty', 'JsonProperty']
-    assert value_words(value) == (
-        'one value: 0 – 100 · any of: number (double) | number (integer), '
-        'or a list of values (may be empty): number (integer), or JSON: any value')
+    assert say(value) == ('one value: number · 0 – 100, or a list of values (may be empty): '
+                          'number, or JSON: any value')
     _edit(root, {'op': 'removeform', 'form': 2})
     _edit(root, {'op': 'removeform', 'form': 1})
     value = _value(root)
@@ -98,8 +97,8 @@ def test_one_boolean_or_a_list_of_numbers(root):
     """The forms need not share their conditions."""
     _edit(root, {'op': 'set', 'form': 0, 'node': [0], 'parameter': 'sh:datatype',
                  'value': 'xsd:boolean'}, CUTTER, LIST)
-    assert value_words(_value(root, CUTTER, LIST)) == \
-        'one value: true / false, or a list of values (may be empty): number (integer)'
+    assert say(_value(root, CUTTER, LIST)) == \
+        'true / false, or a list of: number (possibly empty)'
 
     import pyshacl
 

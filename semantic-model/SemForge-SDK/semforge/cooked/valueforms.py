@@ -40,6 +40,7 @@ whole, never half-edited. Every write is read back first: it must say what
 was meant.
 """
 
+import functools
 from dataclasses import dataclass, replace
 
 from rdflib import URIRef
@@ -48,7 +49,7 @@ from rdflib.namespace import SH
 from ..errors import PackageError
 from ..ngsild.kinds import LIST_PAYLOADS, NGSILD, PAYLOAD_NAME
 from .expression import (Leaf, Op, _apply, _canonical, _conditions, _read_root, _split,
-                         _uncommented, _value, describe, normalize_root, to_json)
+                         _uncommented, _value, normalize_root, to_json)
 
 # The kinds a form may be, in the order a reader thinks of them; each has its
 # payload. GeoProperty shares hasValue with Property, and is not offered.
@@ -87,13 +88,46 @@ class Value:
     reason: str = ''
 
 
-def _form(alternative, prefixes, spell):
-    """A Form from what payloads.py read; (Form, why not editable)."""
+def speller(prefixes):
+    """spell(iri) by the longest of `prefixes` that fits, else <iri>."""
+    import re
+
+    ordered = sorted(((str(n), str(p)) for p, n in prefixes), key=lambda x: -len(x[0]))
+
+    def spell(iri):
+        text = str(iri)
+        for namespace, prefix in ordered:
+            rest = text[len(namespace):]
+            if text.startswith(namespace) and rest and re.match(r'^[\w-]+$', rest):
+                return f'{prefix}:{rest}'
+        return f'<{text}>'
+    return spell
+
+
+def value_of(found, prefixes):
+    """A Value from what payloads.alternatives() read -- for a view that has
+    the sh:or's text but not the file (the constraints tree)."""
+    pairs = [_form(a, prefixes, prefixes) for a in found]
+    reason = next((r for _, r in pairs if r), '')
+    return Value(tuple(f for f, _ in pairs), 'attribute', editable=not reason, reason=reason)
+
+
+@functools.lru_cache(maxsize=4096)
+def _root_of(body, prefixes, spelling):
+    """_read_root, kept: the same few member texts recur hundreds of times --
+    every text attribute of the OPC UA shapes says the same -- and the
+    constraints tree reads all 576 of them for every type page."""
+    return _read_root(body, prefixes, speller(spelling))
+
+
+def _form(alternative, prefixes, spelling):
+    """A Form from what payloads.py read; (Form, why not editable).
+    `spelling`: the (prefix, namespace) pairs its terms are written with."""
     from rdflib.namespace import SH as shacl
 
     member = [(k, v) for k, v in alternative.member if k != 'sh:nodeKind']
     body = '[ ' + ' ; '.join(f'<{shacl}{k[3:]}> {v}' for k, v in member) + ' ]'
-    root, reason = _read_root(body, prefixes, spell)
+    root, reason = _root_of(body, tuple(prefixes), tuple(spelling))
     return Form(payload=alternative.payload, root=root, least=alternative.least or '',
                 most=alternative.most or '', may_be_empty=alternative.may_be_empty,
                 encoded='sh:nodeKind' in dict(alternative.member)), reason
@@ -102,13 +136,13 @@ def _form(alternative, prefixes, spell):
 def read_value(package, text, shape, chain):
     """The value of the attribute at `chain` of `shape`, as forms."""
     from .constrain import _group_in, _turtle_name, _value_slot
+    from .knowledge import _prefix_lines
     from .payloads import alternatives, prefixes_of
 
     group = _group_in(text, shape, chain)
     prefixes = prefixes_of(package)
-
-    def spell(iri):
-        return _turtle_name(text, iri)
+    # Terms as THIS file writes them: by its own prefix lines (as _turtle_name).
+    spelling = _prefix_lines(text)
 
     choice = group.parameter(_turtle_name(text, SH['or']))
     slot = _value_slot(package, group)
@@ -133,7 +167,7 @@ def read_value(package, text, shape, chain):
         return Value((), '')
     forms, reasons = [], []
     for alternative in found:
-        form, reason = _form(alternative, prefixes, spell)
+        form, reason = _form(alternative, prefixes, spelling)
         forms.append(form)
         reasons.append(reason)
     reason = next((r for r in reasons if r), '')
@@ -276,10 +310,64 @@ def write_value(package, shape, chain, forms):
 
 # --- the edits the panel asks for ------------------------------------------------------------
 
+# A single value's list, the same kind of thing many times.
+LISTS = {'hasValue': 'hasValueList', 'hasObject': 'hasObjectList'}
+# What the value picker sets: what kind of thing the value is.
+TYPE = ('sh:class', 'sh:datatype', 'sh:nodeKind')
+
+
+def _unchanged(package, shape, chain):
+    holder = package.index('shapes').file_for(URIRef(str(shape)))
+    return {'file': holder, 'line': 0, 'changed': False}
+
+
+def set_type(package, shape, chain, value):
+    """What the value picker says the value is -- {'datatype'}, {'valueClass'}
+    or {'kind': 'any'} -- in every form at once; ranges, lengths and patterns
+    stay. Checked as a new attribute's value is (constrain._value_layer)."""
+    from .constrain import _attribute, _resolve, _turtle_name, _value_layer
+    from ..ngsild.kinds import is_relationship
+
+    holder = package.index('shapes').file_for(URIRef(str(shape)))
+    if holder is None:
+        raise PackageError(f'{shape} is not in any shapes file')
+    with open(holder, encoding='utf-8') as handle:
+        text = handle.read()
+    current = read_value(package, text, str(shape), list(chain))
+    if not current.editable:
+        raise PackageError(f'the value of {chain[-1]} is edited in the .ttl: {current.reason}')
+    if not current.forms:
+        raise PackageError(f'{chain[-1]} has no value layer; add a form in the value editor')
+    connectives = sorted({f'sh:{n.op}' for f in current.forms
+                          for n in normalize_root(f.root).children[1:] if isinstance(n, Op)})
+    if connectives:
+        # One type beside an expression would contradict it ("text" and
+        # "any of: number"): what it is, is said in the expression.
+        raise PackageError(f'the value of {chain[-1]} is an expression ({", ".join(connectives)}): '
+                           f'change it in the value editor')
+    entry = _attribute(package, str(_resolve(package, chain[-1])))
+    relationship = any(is_relationship(f.kind) for f in current.forms)
+    pairs = [] if value.get('kind') == 'any' else _value_layer(
+        package, 'Relationship' if relationship else 'Property',
+        value.get('datatype') or None, value.get('valueClass') or None, entry.label)
+    wanted = [('sh:' + str(p)[len(str(SH)):], _turtle_name(text, o)) for p, o in pairs
+              if p not in (SH.minCount, SH.maxCount, SH.nodeKind)]
+    forms = []
+    for form in current.forms:
+        own, *rest = normalize_root(form.root).children
+        kept = [(k, v) for k, v in own.conditions if k not in TYPE]
+        root = Op('and', (Leaf(tuple(sorted(kept + wanted))),) + tuple(rest))
+        # As the picker always wrote it: a vocabulary term or an entity is an
+        # IRI, and says so (sh:nodeKind sh:IRI); a datatype says it is a
+        # literal by itself, and "any value" says nothing.
+        forms.append(replace(form, root=root, encoded=any(k == 'sh:class' for k, _ in wanted)))
+    return write_value(package, shape, chain, tuple(forms))
+
+
 def edit_value(package, shape, chain, action):
     """One change to the value's forms, or to what one form must be.
 
-    action: {'op': 'addform' (kind) | 'removeform' | 'formkind' (kind) |
+    action: {'op': 'lists' (value: bool) | 'addform' (kind) | 'removeform' | 'formkind' (kind) |
     'empty' (value: bool) | any edit of cooked/expression.py, 'form': index}.
     """
     holder = package.index('shapes').file_for(URIRef(str(shape)))
@@ -304,7 +392,24 @@ def edit_value(package, shape, chain, action):
             raise PackageError(f'{kind} is not a kind a value may take here')
         return PAYLOAD_NAME[kind]
 
-    if what == 'addform':
+    if what == 'lists':
+        # "Allow a list too": the one value's conditions, for each item of a
+        # list that may be empty -- an OPC UA array. Off: the lists go.
+        scalars = [f for f in forms if not f.is_list]
+        if action.get('value'):
+            if any(f.is_list for f in forms):
+                return _unchanged(package, shape, chain)
+            if len(scalars) != 1 or scalars[0].payload not in LISTS:
+                raise PackageError('a list is allowed beside one single value')
+            one = scalars[0]
+            forms.append(Form(payload=LISTS[one.payload], root=one.root, may_be_empty=True))
+        else:
+            if not any(f.is_list for f in forms):
+                return _unchanged(package, shape, chain)
+            if not scalars:
+                raise PackageError('the value is only a list: there is no single value to keep')
+            forms = scalars
+    elif what == 'addform':
         payload = payload_for(action.get('kind'))
         forms.append(Form(payload=payload, root=Op('and', (Leaf(),)),
                           may_be_empty=NGSILD + payload in LIST_PAYLOADS))
@@ -329,46 +434,84 @@ def edit_value(package, shape, chain, action):
 
 
 # --- said ----------------------------------------------------------------------------------
+#
+# One wording for a value, wherever it is shown: the type and shape pages, the
+# constraints view, the value editor. Four describers had grown, and said the
+# same value four ways ("number · 0 – 100" here, "0 – 100 · any of: number
+# (double) | number (integer)" there).
+
+def _kind(form):
+    return 'Relationship' if form.payload in ('hasObject', 'hasObjectList') else 'Property'
+
+
+def member_text(root, kind='Property'):
+    """What the value (or each item of a list) must be: `number · 0 – 100`.
+
+    Its own conditions first, then its connectives -- except a choice between
+    number types only ("double or integer"), which is what "a number" means
+    to the reader, and is said so.
+    """
+    from .expression import clause, words
+    from .typepage import NUMBER_TYPES
+
+    own, *rest = normalize_root(root).children
+    conditions = dict(own.conditions)
+    kept = []
+    for node in rest:
+        numbers = isinstance(node, Op) and node.op == 'or' and all(
+            isinstance(c, Leaf) and set(dict(c.conditions)) == {'sh:datatype'} and
+            dict(c.conditions)['sh:datatype'] in NUMBER_TYPES for c in node.children)
+        if numbers and 'sh:datatype' not in conditions:
+            conditions['sh:datatype'] = dict(node.children[0].conditions)['sh:datatype']
+        else:
+            kept.append(node)
+    parts = [words(Leaf(tuple(sorted(conditions.items()))), kind, tag=False)] \
+        if conditions else []
+    parts += [clause(node, kind) for node in kept]
+    return ' · '.join(parts) or ('an entity' if kind == 'Relationship' else 'any value')
+
 
 def form_words(form):
-    said = describe(_Layered(form.root), 'Relationship' if form.payload in (
-        'hasObject', 'hasObjectList') else 'Property') or 'any value'
-    head = WORDS.get(form.payload, form.payload)
+    """One form with its kind: `a list of values (may be empty): number`."""
     tail = ' (may be empty)' if form.may_be_empty else ''
-    return f'{head}{tail}: {said}'
+    return f'{WORDS.get(form.payload, form.payload)}{tail}: {member_text(form.root, _kind(form))}'
 
 
-def member_words(params, kind, prefixes, spell):
-    """What one form's member must be, in words -- for the type page, where
-    each form of a choice says its own conditions, expressions included."""
-    from rdflib.namespace import SH as shacl
+def say(value):
+    """The whole value in words, as every view shows it.
 
-    body = '[ ' + ' ; '.join(f'<{shacl}{k[3:]}> {v}' for k, v in params.items()
-                             if k != 'sh:nodeKind') + ' ]'
-    root, _ = _read_root(body, prefixes, spell)
-    return describe(_Layered(root), kind) or 'any value'
-
-
-class _Layered:
-    """describe() reads a layer's root; a form has one too."""
-
-    def __init__(self, root):
-        self.root = normalize_root(root)
-
-
-def value_words(value):
-    if not value.forms:
+    One plain value says its conditions; a value or a list of the same, "…,
+    or a list of them"; anything else, each form with its kind.
+    """
+    forms = value.forms
+    if not forms:
         return 'any value'
-    return ', or '.join(form_words(f) for f in value.forms)
+    plain = ('hasValue', 'hasObject')
+    if len(forms) == 1:
+        form = forms[0]
+        if form.payload in plain:
+            return member_text(form.root, _kind(form))
+        if form.is_list:
+            tail = ' (possibly empty)' if form.may_be_empty else ''
+            return f'a list of: {member_text(form.root, _kind(form))}{tail}'
+        return form_words(form)
+    scalars = [f for f in forms if not f.is_list]
+    lists = [f for f in forms if f.is_list]
+    if len(scalars) == 1 and len(lists) == 1 and scalars[0].payload in plain:
+        one, many = scalars[0], lists[0]
+        tail = ' (possibly empty)' if many.may_be_empty else ''
+        if normalize_root(one.root) == normalize_root(many.root):
+            return f'{member_text(one.root, _kind(one))}, or a list of them{tail}'
+        return (f'{member_text(one.root, _kind(one))}, '
+                f'or a list of: {member_text(many.root, _kind(many))}{tail}')
+    return ', or '.join(form_words(f) for f in forms)
 
 
 def to_payload(value):
     """The value as the panel draws it."""
     return {'forms': [{'kind': f.kind, 'payload': f'ngsi-ld:{f.payload}', 'list': f.is_list,
                        'mayBeEmpty': f.may_be_empty, 'said': form_words(f),
-                       'expression': to_json(normalize_root(f.root),
-                                             'Relationship' if f.payload in (
-                                                 'hasObject', 'hasObjectList') else 'Property')}
+                       'expression': to_json(normalize_root(f.root), _kind(f))}
                       for f in value.forms],
-            'said': value_words(value), 'editable': value.editable, 'reason': value.reason,
+            'said': say(value), 'editable': value.editable, 'reason': value.reason,
             'kinds': list(KINDS)}

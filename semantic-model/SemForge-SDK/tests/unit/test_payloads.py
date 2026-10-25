@@ -26,8 +26,8 @@ import shutil
 
 import pytest
 
-from semforge.cooked.payloads import alternatives, describe, list_form
-from semforge.cooked.typepage import _words
+from semforge.cooked.payloads import alternatives, list_form
+from semforge.cooked.valueforms import say, value_of
 from semforge.ngsild.kinds import SPELLINGS, payload_of
 
 PREFIXES = [('sh', 'http://www.w3.org/ns/shacl#'), ('xsd', 'http://www.w3.org/2001/XMLSchema#'),
@@ -65,7 +65,7 @@ def test_a_scalar_or_a_list_is_read_and_said(member, said):
     assert [a.kind for a in found] == ['Property', 'ListProperty']
     assert [a.payload for a in found] == ['hasValue', 'hasValueList']
     assert found[1].may_be_empty and not found[0].may_be_empty
-    assert describe(found, _words) == said
+    assert say(value_of(found, PREFIXES)) == said
 
 
 def test_a_list_whose_members_differ_says_both():
@@ -75,7 +75,7 @@ def test_a_list_whose_members_differ_says_both():
             'sh:path ( [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ] ] ] )')
     found = alternatives(text, PREFIXES)
     assert not found[1].may_be_empty
-    assert describe(found, _words) == 'text, or a list of: number'
+    assert say(value_of(found, PREFIXES)) == 'text, or a list of: number'
 
 
 def test_the_value_of_a_list_payload_is_read():
@@ -158,7 +158,7 @@ def test_the_type_page_says_the_forms(tmp_path, corpus):
     assert category['kinds'] == ['Property', 'ListProperty']
     assert category['value'] == 'text, or a list of them (possibly empty)'
     assert not any(v.startswith('sh:or') for v in category['verbatim'])
-    assert [a['payload'] for a in category['alternatives']] == ['hasValue', 'hasValueList']
+    assert [a['payload'] for a in category['forms']] == ['hasValue', 'hasValueList']
 
     # ngsi-ld:hasObject is the relationship's value, not a sub-attribute.
     link = rows['hasLinkX']
@@ -214,20 +214,26 @@ def test_a_list_values_members_are_edited(tmp_path, corpus):
     assert _rows(root)['hasListX']['value'] == 'a list of: text (possibly empty)'
 
 
-def test_a_single_value_may_become_a_list_and_back(tmp_path, corpus):
-    from semforge.cooked.constrain import set_lists
+def _lists(root, allowed):
+    """⋯ → "Allow a list too" / "One value only": the one writer of values."""
+    from semforge.cooked.valueforms import edit_value
     from semforge.package import load
 
+    return edit_value(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'],
+                      {'op': 'lists', 'value': allowed})
+
+
+def test_a_single_value_may_become_a_list_and_back(tmp_path, corpus):
     root = _package(tmp_path, corpus)
-    made = set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)
-    assert made['changed']
+    made = _lists(root, True)
+    assert made.get('changed', True)
     row = _rows(root)['hasPlainX']
     assert row['kinds'] == ['Property', 'ListProperty'] and row['lists'] == 'allowed'
     assert row['value'] == 'text · at most 20 characters, or a list of them (possibly empty)'
     # Again: nothing to do.
-    assert not set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)['changed']
+    assert not _lists(root, True)['changed']
 
-    set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], False)
+    _lists(root, False)
     row = _rows(root)['hasPlainX']
     assert row['kinds'] == ['Property'] and row['lists'] == 'single'
     assert row['value'] == 'text · at most 20 characters'
@@ -254,12 +260,11 @@ def test_what_is_written_validates_as_meant(tmp_path, corpus):
     from rdflib import Graph, URIRef
     from rdflib.namespace import SH
 
-    from semforge.cooked.constrain import set_lists
     from semforge.package import load
     from semforge.validate.shapes import subgraph_for
 
     root = _package(tmp_path, corpus)
-    set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)
+    _lists(root, True)
     shapes = subgraph_for(load(str(root)).shapes, [URIRef(FORMS)])
 
     def violations(value):

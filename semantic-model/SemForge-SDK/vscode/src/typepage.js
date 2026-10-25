@@ -922,9 +922,9 @@ async function editValue(pages, row) {
   }
   // Already an expression: its editor. One plain value: the picker, with
   // "Combine with another condition…" last for when one is not enough.
-  // More than one plain value -- an expression, or several forms (one value
-  // or a list, a Property or a JsonProperty, …): the value editor.
-  if (row.expression || (row.alternatives && row.alternatives.length)) {
+  // More than one plain value -- an expression, a list, several forms, an
+  // sh:in -- is the value editor's (the server says which: row.simple).
+  if (!row.simple) {
     return require('./expression').openExpression(pages, row);
   }
   const value = await pickValue(pages.clientHolder.client, pages.current.packageUri,
@@ -1169,12 +1169,12 @@ async function rowMenu(pages, row) {
     ...(row.lists === 'single' ? [{ label: '$(list-unordered) Allow a list too',
       description: `${row.kind === 'Relationship' ? 'ListRelationship' : 'ListProperty'}: ` +
         'one value, or a list of them (possibly empty)',
-      run: async () => Boolean(await request(pages, 'semforge/setLists',
-        { shape: row.shape, path: row.path, allowed: true })) }]
+      run: async () => Boolean(await request(pages, 'semforge/editValueForms',
+        { shape: row.shape, path: row.path, action: { op: 'lists', value: true } })) }]
       : row.lists === 'allowed' ? [{ label: '$(symbol-variable) One value only',
         description: 'no list: the value is a single one again',
-        run: async () => Boolean(await request(pages, 'semforge/setLists',
-          { shape: row.shape, path: row.path, allowed: false })) }] : []),
+        run: async () => Boolean(await request(pages, 'semforge/editValueForms',
+          { shape: row.shape, path: row.path, action: { op: 'lists', value: false } })) }] : []),
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {

@@ -44,10 +44,8 @@ from rdflib import Literal, URIRef
 from rdflib.namespace import RDF, RDFS, SH
 
 from ..errors import PackageError
-from ..ngsild.kinds import is_relationship, payload_of
+from ..ngsild.kinds import is_relationship
 from ..validate.normalise import curie
-from .payloads import describe as forms_text
-from .payloads import kinds as kinds_of
 
 NUMBER_TYPES = {'xsd:double', 'xsd:decimal', 'xsd:integer', 'xsd:float',
                 'xsd:int', 'xsd:long', 'xsd:short', 'xsd:nonNegativeInteger',
@@ -228,101 +226,71 @@ def _units_of(node):
     return codes, str(least).strip() not in ('', '0')
 
 
-def _words(kind, parameters):
-    return value_text('Relationship' if is_relationship(kind) else 'Property',
-                      parameters, [])
-
-
-LIST_KINDS = {'hasValueList': 'ListProperty', 'hasObjectList': 'ListRelationship'}
-
-
-def _payload_alternatives(package, slot, raw, raw_outer):
-    """The forms the value may take (cooked/payloads.py), or None when it is
-    one plain value layer, or one this cannot read.
-
-    Two places say it: an sh:or of value layers on the attribute -- a scalar
-    or a list -- and the sh:or of a list payload's own value: its members, or
-    the empty list."""
-    from .payloads import Alternative, alternatives, list_form, prefixes_of
-
-    prefixes = prefixes_of(package)
-    if slot is None:
-        text = next((value for name, value in raw_outer if name == 'sh:or'), None)
-        return alternatives(text, prefixes) if text else None
-    payload = payload_of(slot.path_chain[-1] if slot.path_chain else '')
-    text = next((value for name, value in raw if name == 'sh:or'), None)
-    if payload not in LIST_KINDS or not text:
-        return None
-    read = list_form(text, prefixes)
-    if read is None:
-        return None
-    member, empty = read
-    return (Alternative(payload=payload, kind=LIST_KINDS[payload], member=member,
-                        may_be_empty=empty),)
-
-
 CONNECTIVE_NAMES = ('sh:or', 'sh:and', 'sh:xone', 'sh:not')
+PLAIN_PAYLOADS = ('hasValue', 'hasObject')
 
 
-def _expression_of(package, node, slot, raw, found=None):
-    """The value as an expression (cooked/expression.py) when it carries a
-    connective -- on its value layer, or on the member of a value that may be
-    a scalar or a list -- else None. Parsed only then: the page is built for
-    thousands of attributes, and one plain value needs nothing read twice."""
-    from .expression import read_target
+def _value_of(package, node):
+    """The attribute's value as its forms (cooked/valueforms.py) -- the one
+    reader the page, the value editor and the constraints view share."""
+    from ..rdfio.memo import on_graph
+    from .valueforms import Value, read_value
 
-    if found:
-        if not any(key in CONNECTIVE_NAMES for a in found for key, _ in a.member):
-            return None
-    elif slot is None or not any(name in CONNECTIVE_NAMES for name, _ in raw):
-        return None
+    # Kept with the shapes graph: an edit gives the package a new one.
+    known = on_graph(package.shapes, 'row_values', (package.path,), dict)
+    key = (node.shape, tuple(node.path_chain))
+    if key in known:
+        return known[key]
     index = package.index('shapes')
-    holder = index.file_for(URIRef(node.shape))
+    holder = index.file_for(URIRef(node.shape)) if node.shape else None
     if holder is None:
-        return None
-    try:
-        layer = read_target(package, index.source_of(holder), node.shape, list(node.path_chain))
-    except PackageError:
-        return None
-    return layer if layer is not None and layer.complex else None
+        value = Value((), '', editable=False, reason='its shape is in no shapes file')
+    else:
+        try:
+            value = read_value(package, index.source_of(holder), node.shape,
+                               list(node.path_chain))
+        except PackageError as exc:
+            value = Value((), '', editable=False, reason=str(exc))
+    known[key] = value
+    return value
 
 
-def _member_words(package):
-    """Each form of a choice in its own words, expressions included: "one
-    boolean, or a list of: any of: … " -- the forms need not share them."""
-    from .payloads import prefixes_of
-    from .valueforms import member_words
-
-    prefixes = prefixes_of(package)
-    spell = package.shapes.namespace_manager.normalizeUri
-
-    def words(kind, params):
-        return member_words(params, 'Relationship' if is_relationship(kind) else 'Property',
-                            prefixes, spell)
-    return words
-
-
-def _expression_text(layer, kind):
-    from .expression import describe as said
-
-    return said(layer, kind)
-
-
-def _expression_json(layer, kind):
+def _value_fields(value, kind):
+    """What a row says and offers about its value, from the value alone."""
     from .expression import to_json
+    from .valueforms import say
 
-    return to_json(layer.root, kind) if layer is not None else None
-
-
-def _lists(slot, found, blocked):
-    if found:
-        listed = [a.is_list for a in found]
-        return 'allowed' if any(listed) and not all(listed) else ''
-    if slot is None or blocked or slot.children and any(
-            c.kind not in ('constraint',) for c in slot.children):
-        return ''
-    return 'single' if payload_of(slot.path_chain[-1] if slot.path_chain else '') in (
-        'hasValue', 'hasObject') else ''
+    forms = value.forms
+    one = forms[0] if len(forms) == 1 else None
+    plain = one is not None and one.payload in PLAIN_PAYLOADS
+    connectives = plain and len(one.root.children) > 1
+    # One plain value with plain conditions: the quick picker edits it.
+    # Anything more -- an expression, a list, several forms, an sh:in --
+    # opens the value editor.
+    simple = value.editable and plain and not connectives and \
+        'sh:in' not in dict(one.root.children[0].conditions)
+    scalars = [f for f in forms if not f.is_list]
+    lists = [f for f in forms if f.is_list]
+    return {
+        'kinds': [f.kind for f in forms] or [kind],
+        'forms': [{'kind': f.kind, 'payload': f.payload, 'mayBeEmpty': f.may_be_empty}
+                  for f in forms],
+        'value': say(value) if forms else ('an entity' if kind == 'Relationship'
+                                           else 'any value'),
+        'valueEditable': value.editable,
+        'valueLocked': '' if value.editable else f'edited in the .ttl: {value.reason}',
+        'simple': simple,
+        # The expression, as a tree under the value, when it is one.
+        'expression': to_json(one.root, kind) if connectives else None,
+        # "Combine with another condition…", last in the quick picker.
+        'combinable': simple,
+        # ⋯ → "Value editor…".
+        'expressionable': value.editable,
+        # "Allow a list too" ('single') / "One value only" ('allowed').
+        'lists': '' if not value.editable else 'single' if plain else
+        'allowed' if len(scalars) == 1 and lists and scalars[0].payload in PLAIN_PAYLOADS
+        else '',
+    }
 
 
 def _attribute_rows(package, node, kind_of, depth, coverage, violated):
@@ -335,18 +303,18 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     value_params, raw = _params(slot) if slot is not None else ({}, [])
     token = node.detail or node.label
     iri = str(_resolve_token(package, token))
-    found = _payload_alternatives(package, slot, raw, raw_outer)
+    value = _value_of(package, node)
     kind = kind_of.get(iri) or (
-        'Relationship' if any(is_relationship(a.kind) for a in found or ()) or
-        (slot is not None and slot.detail.endswith('hasObject')) else 'Property')
+        'Relationship' if any(is_relationship(f.kind) for f in value.forms) else 'Property')
     shape_name = curie(package.shapes, URIRef(node.shape)) if node.shape else ''
-    # Verbatim is for what the vocabulary could NOT say; an sh:or it already
-    # rendered -- as "number", or as the forms of the value -- is not shown twice.
-    extra = [f'{name} {value}' for name, value in raw + raw_outer
-             if not (name == 'sh:or' and (_numbers_only(value) or found))
-             and name != 'sh:severity']
-    extra += [f'{name} {value}' for name, value in value_params.items()
-              if name not in RENDERED]
+    # Verbatim is for what the words could NOT say: what an editable value
+    # says is in its words (connectives included); one SemForge does not edit
+    # is shown as written.
+    extra = [f'{name} {text}' for name, text in raw + raw_outer
+             if name != 'sh:severity' and not (value.editable and name in CONNECTIVE_NAMES)]
+    extra += [f'{name} {text}' for name, text in value_params.items()
+              if name not in RENDERED and not (value.editable and name in (
+                  'sh:hasValue', 'sh:flags'))]
     tested = coverage.get((shape_name, _short(token)), 'untested')
     # Every parameter with the address an edit needs: its sh:path chain (the
     # value layer's includes the slot) and its name. "Edit a parameter" and
@@ -365,31 +333,12 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         (value for name, value in raw_outer if name == 'sh:severity'), None)
     severity = describe(package, str(_resolve_token(package, severity_token))
                         if severity_token else None)
-    blocked = [name for name, _ in raw if name in ('sh:or', 'sh:in')] or \
-        (['sh:in'] if 'sh:in' in value_params else [])
-    # A value that is more than one set of conditions: an expression, edited
-    # in the expression editor (cooked/expression.py). Read only when the
-    # value layer carries a connective -- most do not, and stay one value.
-    layer = _expression_of(package, node, slot, raw, found)
-    if layer is not None:
-        extra = [e for e in extra if e.split(' ', 1)[0] not in CONNECTIVE_NAMES]
-    # A scalar-or-list value with an expression on its member: each form says it.
-    said = forms_text(found, _member_words(package) if layer is not None else _words) \
-        if found else (
-        _expression_text(layer, kind) if layer is not None and not
-        any(name == 'sh:or' and _numbers_only(value) for name, value in raw)
-        else value_text(kind, value_params, raw))
+    fields = _value_fields(value, kind)
     rows = [{
         'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
-        # Every NGSI-LD kind the value may take: `Property or ListProperty`
-        # for an OPC UA Variable that may be a scalar or an array.
-        'kinds': kinds_of(found) if found else [kind],
-        'alternatives': [{'payload': a.payload, 'kind': a.kind,
-                          'member': dict(a.member), 'mayBeEmpty': a.may_be_empty}
-                         for a in found or ()],
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
         'value': ' · '.join(p for p in (
-            said,
+            fields['value'],
             f'in {unit_text(package, units)}' if units else '',
             'unit required' if unit_required else '') if p),
         # The units its instances may say (ngsild:unitCode), and whether one
@@ -403,32 +352,9 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'severity': severity['label'], 'severityDeclared': bool(severity_token),
         'severityKnown': severity['known'],
         'path': list(node.path_chain), 'parameters': parameters,
-        # The value picker rewrites class / datatype / nodeKind; a value
-        # written with sh:or or sh:in is a choice it cannot round-trip --
-        # unless it is one of the forms cooked/payloads.py reads exactly, which
-        # are written back in every form at once.
-        'valueEditable': bool(found) or (layer.editable if layer is not None
-                                         else slot is not None and not blocked),
-        # The expression, as a tree, when the value is one: the page shows it
-        # under the value, and clicking the value opens the expression editor.
-        'expression': _expression_json(layer, kind),
-        # One plain value, which "Combine with another condition…" may turn
-        # into an expression -- offered last in the value picker, never first.
-        'combinable': layer is None and (bool(found) or slot is not None and not blocked),
-        # Whether the expression editor can be opened on it at all (⋯ menu).
-        'expressionable': bool(found) or slot is not None,
-        'valueLocked': '' if found else (
-            f'edited in the .ttl: {layer.reason}' if layer is not None and not layer.editable
-            else '' if layer is not None else
-            'one of a list (sh:in): edit it in ⋯ → Constraints…'
-            if blocked and blocked[0] == 'sh:in'
-            else f'written with {blocked[0]}; edit it in the .ttl'
-            if blocked else '' if slot is not None
-            else 'no value layer; edit it in the .ttl'),
-        # Whether its value may also be a list (an OPC UA array), and can be
-        # switched: 'allowed' -- a scalar or a list; 'single' -- one plain
-        # value; '' -- neither can be offered here.
-        'lists': _lists(slot, found, blocked),
+        # Kinds, forms, editable or not, the expression, the list switch:
+        # all from the one value (_value_fields).
+        **{k: v for k, v in fields.items() if k != 'value'},
         # The value's sh:in list, item by item, for the Constraints… editor.
         'inList': _in_list(raw, value_params, slot),
         # What the list contradicts on the same value, said on the row.

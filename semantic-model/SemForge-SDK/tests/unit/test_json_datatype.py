@@ -105,7 +105,7 @@ def test_the_value_picker_accepts_rdf_json(root):
 
 
 def test_the_value_editor_writes_it_into_a_json_property(root):
-    from semforge.cooked.valueforms import edit_value, read_value, value_words
+    from semforge.cooked.valueforms import edit_value, read_value, say
     from semforge.package import load
 
     shape, chain = 'https://example.org/JsonShape', ['iffBaseEntities:hasSettingsX']
@@ -113,4 +113,4 @@ def test_the_value_editor_writes_it_into_a_json_property(root):
     edit_value(load(str(root)), shape, chain, {'op': 'removeform', 'form': 1})
     value = read_value(load(str(root)), (root / 'shacl.ttl').read_text(), shape, chain)
     assert [f.kind for f in value.forms] == ['JsonProperty']
-    assert value_words(value) == 'JSON: JSON'
+    assert say(value) == 'JSON: JSON'

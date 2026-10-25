@@ -189,21 +189,23 @@ def _name_forms(nodes, prefixes, list_payload=''):
     """An sh:or that says the forms of a value (cooked/payloads.py) is named
     by them -- `value: Property or ListProperty`, `text, or a list of them` --
     rather than shown as text to read. Still raw: it is edited in the .ttl."""
-    from .payloads import Alternative, alternatives, describe, kinds, list_form
-    from .typepage import LIST_KINDS, _words
+    from .payloads import Alternative, alternatives, list_form
+    from .valueforms import KIND_OF, say, value_of
 
     for node in nodes:
         if node.kind != 'raw' or node.parameter != 'sh:or':
             continue
         if list_payload:
             read = list_form(node.value, prefixes)
-            found = read and (Alternative(payload=list_payload, kind=LIST_KINDS[list_payload],
+            found = read and (Alternative(payload=list_payload, kind=KIND_OF[list_payload],
                                           member=read[0], may_be_empty=read[1]),)
         else:
             found = alternatives(node.value, prefixes)
         if found:
-            node.label = 'value: ' + ' or '.join(kinds(found))
-            node.detail = describe(found, _words)
+            # In the words every view uses (valueforms.say).
+            value = value_of(found, prefixes)
+            node.label = 'value: ' + ' or '.join(dict.fromkeys(f.kind for f in value.forms))
+            node.detail = say(value)
 
 
 def _attribute_node(block, shape, chain, locate=None, prefixes=None):

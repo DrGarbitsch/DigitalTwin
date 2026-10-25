@@ -242,7 +242,7 @@ def test_a_group_is_added_with_its_branches(root):
 def test_a_scalar_or_list_value_takes_an_expression_on_every_form(tmp_path, corpus):
     """The kms hasList: an integer or a list of them. The expression holds for
     the one value and for each item alike."""
-    from semforge.cooked.expression import read_target
+    from semforge.cooked.valueforms import read_value, say
     from semforge.package import load
 
     root = tmp_path / 'pkg'
@@ -251,11 +251,11 @@ def test_a_scalar_or_list_value_takes_an_expression_on_every_form(tmp_path, corp
     chain = ['iffBaseEntities:hasList']
     edit(load(str(root)), cutter, chain, {'op': 'combine', 'connective': 'or',
                                           'parameter': 'sh:hasValue', 'value': '"n/a"'})
-    layer = read_target(load(str(root)), (root / 'shacl.ttl').read_text(), cutter, chain)
-    assert layer.forms is not None and layer.complex
-    assert describe(layer) == 'any of: number (integer) | exactly "n/a"'
-    scalar, listed = layer.forms[1]
-    assert dict(listed.member)['sh:or'] == dict(scalar.member)['sh:or']
+    value = read_value(load(str(root)), (root / 'shacl.ttl').read_text(), cutter, chain)
+    scalar, listed = value.forms
+    assert normalize_root(scalar.root) == normalize_root(listed.root)
+    assert say(value) == \
+        'any of: number (integer) | exactly "n/a", or a list of them (possibly empty)'
 
 
 # --- a value that may be one or a list: its forms, shown -------------------------------------
@@ -270,38 +270,35 @@ def _cutter(tmp_path, corpus):
     return root
 
 
-def _target(root):
-    from semforge.cooked.expression import read_target
-    from semforge.package import load
-
-    return read_target(load(str(root)), (root / 'shacl.ttl').read_text(), CUTTER, LIST)
-
-
 def test_the_forms_are_said_and_the_encoding_is_not_a_condition(tmp_path, corpus):
     """The kms hasList is written as the OPC UA tools write hasAmbientHumidity:
     an integer, or a list of integers that may be empty. The editor showed the
     integer and sh:nodeKind sh:Literal -- and nothing of the list."""
-    from semforge.cooked.expression import forms_of, to_json
+    from semforge.cooked.valueforms import read_value, to_payload
+    from semforge.package import load
 
-    layer = _target(_cutter(tmp_path, corpus))
-    forms, lists = forms_of(layer)
-    assert forms == [
-        {'form': 'one value', 'kind': 'Property', 'payload': 'ngsi-ld:hasValue',
-         'mayBeEmpty': False},
-        {'form': 'a list of values', 'kind': 'ListProperty', 'payload': 'ngsi-ld:hasValueList',
-         'mayBeEmpty': True}]
-    assert lists == 'allowed'
-    own = to_json(layer.root)['children'][0]['conditions']
-    assert own == [{'parameter': 'sh:datatype', 'value': 'xsd:integer'}]
+    root = _cutter(tmp_path, corpus)
+    value = read_value(load(str(root)), (root / 'shacl.ttl').read_text(), CUTTER, LIST)
+    forms = to_payload(value)['forms']
+    assert [(f['kind'], f['payload'], f['mayBeEmpty']) for f in forms] == [
+        ('Property', 'ngsi-ld:hasValue', False), ('ListProperty', 'ngsi-ld:hasValueList', True)]
+    assert forms[0]['expression']['children'][0]['conditions'] == \
+        [{'parameter': 'sh:datatype', 'value': 'xsd:integer'}]
 
 
 def test_the_one_values_encoding_follows_what_it_must_be(tmp_path, corpus):
+    from semforge.cooked.constrain import _group_in
+    from semforge.cooked.payloads import alternatives, prefixes_of
     from semforge.package import load
 
     root = _cutter(tmp_path, corpus)
 
     def encodings():
-        scalar, listed = _target(root).forms[1]
+        """sh:nodeKind of the one value and of each item, as written."""
+        package = load(str(root))
+        text = (root / 'shacl.ttl').read_text()
+        written = _group_in(text, CUTTER, LIST).parameter('sh:or')[2]
+        scalar, listed = alternatives(written, prefixes_of(package))
         return dict(scalar.member).get('sh:nodeKind'), dict(listed.member).get('sh:nodeKind')
 
     edit(load(str(root)), CUTTER, LIST, {'op': 'set', 'node': [0], 'parameter': 'sh:datatype',
@@ -309,5 +306,9 @@ def test_the_one_values_encoding_follows_what_it_must_be(tmp_path, corpus):
     assert encodings() == ('sh:Literal', None)
     edit(load(str(root)), CUTTER, LIST, {'op': 'combine', 'connective': 'or',
                                          'parameter': 'sh:hasValue', 'value': '"n/a"'})
-    # A choice: no one encoding holds for every branch.
+    # A choice of a number and a text: both literals, so still sh:Literal.
+    assert encodings() == ('sh:Literal', None)
+    edit(load(str(root)), CUTTER, LIST, {'op': 'add', 'node': [1], 'parameter': 'sh:class',
+                                         'value': 'iffBaseEntities:Filter'})
+    # A literal or an IRI: no one encoding holds for every branch.
     assert encodings() == (None, None)

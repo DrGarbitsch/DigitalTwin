@@ -74,9 +74,6 @@ class Alternative:
     def is_list(self):
         return self.payload in ('hasValueList', 'hasObjectList')
 
-    def parameters(self):
-        return dict(self.member)
-
 
 def alternatives(text, prefixes):
     """The payload alternatives an sh:or's text says, or None.
@@ -276,39 +273,6 @@ def _text(value, graph=None):
     if graph is not None and isinstance(value, URIRef):
         return graph.namespace_manager.normalizeUri(value)
     return str(value)
-
-
-def _same_values(one, other):
-    """Do two value layers admit the same values? A scalar says
-    `sh:nodeKind sh:Literal`, its list's member does not: that is the
-    encoding, not the value."""
-    def values(alternative):
-        return {k: v for k, v in alternative.member if k != 'sh:nodeKind'}
-    return values(one) == values(other)
-
-
-def describe(found, words):
-    """What the alternatives admit, in the words `words(kind, params)` gives
-    one value: `text, or a list of them (possibly empty)`."""
-    parts = []
-    for alternative in found:
-        if alternative.is_list:
-            scalar = next((a for a in found if not a.is_list and _same_values(a, alternative)),
-                          None)
-            said = 'a list of them' if scalar is not None and len(found) == 2 \
-                else f'a list of: {words(alternative.kind, alternative.parameters())}'
-            if alternative.may_be_empty:
-                said += ' (possibly empty)'
-        else:
-            said = words(alternative.kind, alternative.parameters())
-        parts.append(said)
-    # The scalar first: "a list of them" points back at it.
-    scalars = [p for p, a in zip(parts, found) if not a.is_list]
-    return ', or '.join(scalars + [p for p, a in zip(parts, found) if a.is_list])
-
-
-def kinds(found):
-    return list(dict.fromkeys(a.kind for a in found))
 
 
 # --- writing them back -----------------------------------------------------------

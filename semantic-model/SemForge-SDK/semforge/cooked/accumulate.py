@@ -160,7 +160,7 @@ def _list_notes(package, basis, value):
 
 
 def _same_forms(rows):
-    forms = [r.get('alternatives') for r in rows]
+    forms = [r.get('forms') for r in rows]
     return bool(forms[0]) and all(f == forms[0] for f in forms)
 
 
