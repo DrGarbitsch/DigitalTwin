@@ -158,8 +158,33 @@ def test_a_path_opens_card_by_card_and_a_cycle_ends_in_a_reference(tmp_path):
     assert 'hasDriver →' in graph
     # A target not on the page cannot be opened, and says why.
     assert 'urn:gone is not on this page' in graph
-    # The row names what the card below is: type and id.
-    assert 'ex:Port urn:b' in graph
+    # The row names what the card below is: type and id -- the type a link to
+    # the TARGET's type page.
+    assert '<a class="dim" href="#" title="Open the ex:Port page" data-type="ex:Port">' \
+        'ex:Port</a> <span title="urn:b">urn:b</span>' in graph
+
+
+def _posted(dom):
+    import html as entities
+
+    found = re.search(r'<html[^>]* data-posted="([^"]*)"', dom)
+    return json.loads(entities.unescape(found.group(1))) if found else []
+
+
+def test_a_type_opens_its_own_page_and_a_card_opens_none(tmp_path):
+    """Clicking a type -- in a card's head, or on a relationship row naming the
+    type it points at -- opens THAT type's page; a click elsewhere on a card
+    opens none. The whole card carried its type, and a click anywhere in it
+    opened the card's own type page, also from a row pointing at another."""
+    dom = _dom(tmp_path, WALK.replace('REBUILD', '''
+  a.querySelector(':scope > summary [data-type]').click();
+  a.querySelector('.attr[data-rel="urn:b"] .value [data-type]').click();
+  a.querySelector('.attr[data-rel="urn:b"] .value [title="urn:b"]').click();
+  a.querySelector('.attr[data-rel="urn:b"]').click();
+  document.querySelector('#cardview .card[data-id="urn:a"]').click();
+'''))
+    assert [m for m in _posted(dom) if m.get('command') == 'type'] == [
+        {'command': 'type', 'name': 'ex:Pump'}, {'command': 'type', 'name': 'ex:Port'}]
 
 
 def test_the_open_branches_come_back_when_the_view_is_drawn_again(tmp_path):

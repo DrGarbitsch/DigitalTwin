@@ -36,7 +36,10 @@ Module._load = function (request, parent, isMain) {
 const { renderCasePage } = require(path.join(process.argv[2], 'casepage.js'));
 const page = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
 let html = renderCasePage(page, { nonce: 'n' });
-const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage() {}, ' +
+// What the page posts is kept on <html data-posted="[…]">, for a dumped DOM to show.
+const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage(m) { ' +
+  'var all = JSON.parse(document.documentElement.dataset.posted || "[]"); all.push(m); ' +
+  'document.documentElement.dataset.posted = JSON.stringify(all); }, ' +
   'getState() { return null; }, setState() {} }; }</script>';
 html = html.replace('<script nonce="n">', stub + '<script nonce="n">');
 if (process.argv[5]) {

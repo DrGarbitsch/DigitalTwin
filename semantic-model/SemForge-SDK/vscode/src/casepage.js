@@ -126,7 +126,10 @@ function card(entity, focused, at) {
   const names = (entity.attributes || []).map((row) => row.name).join('|');
   return `<div class="card${bad ? ' bad' : ''}${focused ? ' focus" id="focus' : ''}"` +
     ` data-card="${at === undefined ? '' : at}" data-id="${escape(entity.id || '')}"` +
-    ` data-type="${escape(entity.type || '')}" data-attrs="${escape(names)}">` +
+    // What the filter reads. Not data-type: that is what a click opens the
+    // type page for, and the whole card carrying it made a click anywhere on
+    // it -- on a relationship to another type, too -- open this card's type.
+    ` data-ftype="${escape(entity.type || '')}" data-attrs="${escape(names)}">` +
     `<div class="title">${open(entity.id || '(no id)', entity.file, entity.line)}` +
     `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
       ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}` +
@@ -438,7 +441,7 @@ ${BUSY_SCRIPT}
   function applyFilter() {
     let shown = 0;
     document.querySelectorAll('.card[data-card]').forEach(function (card) {
-      const ok = matches({ id: card.dataset.id || '', type: card.dataset.type || '',
+      const ok = matches({ id: card.dataset.id || '', type: card.dataset.ftype || '',
                            attrs: (card.dataset.attrs || '').split('|') });
       card.hidden = !ok;
       if (ok) { shown += 1; }
@@ -491,11 +494,21 @@ ${BUSY_SCRIPT}
   // to it -- which is also where a cycle ends.
   const shown = new Map();
   function present(node) { return !!node && document.body.contains(node); }
+  // A type, as a link to its page -- the page of THIS type, whatever card or
+  // row it stands on.
+  function typeLink(type, cls) {
+    if (!type) { return el('span', cls, '(no type)'); }
+    const link = el('a', cls, type);
+    link.href = '#';
+    link.title = 'Open the ' + type + ' page';
+    link.dataset.type = type;
+    return link;
+  }
   function header(e, via) {
     const summary = el('summary', 'thead');
     summary.title = e.id;
     if (via) { summary.append(el('span', 'via', via + ' →')); }
-    summary.append(el('span', 'gtype', e.type || '(no type)'));
+    summary.append(typeLink(e.type, 'gtype'));
     summary.append(el('span', 'gid', shortId(e.id)));
     if (e.bad) { summary.append(el('span', 'badmark', '✗')); }
     return summary;
@@ -542,14 +555,17 @@ ${BUSY_SCRIPT}
       const idNode = value && Array.from(value.querySelectorAll('a')).concat(Array.from(value.childNodes))
         .find(function (n) { return n.textContent.trim() === row.dataset.rel; });
       if (idNode) {
-        const text = (target && target.type ? target.type + ' ' : '') + shortId(row.dataset.rel);
+        // The target's type opens the TARGET's type page; the id stays what
+        // it was (a link to where the entity is written, or text).
+        let idHolder = idNode;
         if (idNode.nodeType === 3) {
-          const span = el('span', '', text);
-          span.title = row.dataset.rel;
-          idNode.replaceWith(span);
-        } else {
-          idNode.textContent = text;
-          idNode.title = row.dataset.rel;
+          idHolder = el('span', '', '');
+          idNode.replaceWith(idHolder);
+        }
+        idHolder.textContent = shortId(row.dataset.rel);
+        idHolder.title = row.dataset.rel;
+        if (target && target.type) {
+          idHolder.before(typeLink(target.type, 'dim'), document.createTextNode(' '));
         }
       }
     });
