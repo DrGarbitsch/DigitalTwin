@@ -153,7 +153,8 @@ def _row_menu(tmp_path, kms, picks, inputs=None, replies=None):
         'command': 'semforge.openTypePage',
         'node': {'raw': {'kind': 'type', 'targetClass': ENT + 'Filter', 'label': 'Filter',
                          'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
-        'webviewMessages': [{'command': 'menu', 'row': row}] if picks else [],
+        # The attribute editor's Severity button asks the page (attributepanel.js).
+        'webviewMessages': [{'command': 'severity', 'row': row}] if picks else [],
         'picks': picks, 'inputs': inputs or [],
         'replies': dict({'semforge/typePage': page, 'semforge/severityLevels': LEVELS,
                          'semforge/setSeverity': {'ok': True, 'file': '/f', 'severity': 'x'}},
@@ -166,9 +167,8 @@ def _asked(seen, method):
 
 
 def test_severity_on_an_attribute_row_offers_shacl_s_and_the_package_s(tmp_path, kms):
-    seen, row = _row_menu(tmp_path, kms, ['$(warning) Severity…', 'warning'])
-    assert '$(warning) Severity…' in [i['label'] for i in seen['quickPicks'][0]['items']]
-    labels = [i['label'] for i in seen['quickPicks'][1]['items']]
+    seen, row = _row_menu(tmp_path, kms, ['warning'])
+    labels = [i['label'] for i in seen['quickPicks'][0]['items']]
     assert labels[:4] == ['SHACL', 'violation', 'warning', 'base:SeverityClass']
     for offered in ('$(circle-slash) No severity', '$(add) New severity level…',
                     '$(type-hierarchy-sub) New severity class…'):
@@ -179,12 +179,12 @@ def test_severity_on_an_attribute_row_offers_shacl_s_and_the_package_s(tmp_path,
 
 
 def test_no_severity_clears_it_back_to_the_default(tmp_path, kms):
-    seen, _ = _row_menu(tmp_path, kms, ['$(warning) Severity…', '$(circle-slash) No severity'])
+    seen, _ = _row_menu(tmp_path, kms, ['$(circle-slash) No severity'])
     assert _asked(seen, 'semforge/setSeverity')[0]['severity'] == ''
 
 
 def test_a_new_level_is_made_and_set(tmp_path, kms):
-    seen, _ = _row_menu(tmp_path, kms, ['$(warning) Severity…', '$(add) New severity level…'],
+    seen, _ = _row_menu(tmp_path, kms, ['$(add) New severity level…'],
                         inputs=['severityMajor', 'major'],
                         replies={'semforge/addSeverityLevel': {
                             'ok': True, 'iri': KNOW + 'severityMajor',
@@ -195,15 +195,15 @@ def test_a_new_level_is_made_and_set(tmp_path, kms):
     assert _asked(seen, 'semforge/setSeverity')[0]['severity'] == 'base:severityMajor'
 
 
-def test_severity_has_its_own_column_and_is_edited_in_it(tmp_path, kms):
+def test_severity_has_its_own_column(tmp_path, kms):
     set_severity(load(str(kms)), FILTER, path=['iffBaseEntities:hasStrength'],
                  severity='sh:Warning')
     seen, _ = _row_menu(tmp_path, kms, [])
     html = seen['webviews'][0]['html'][-1]
     assert '>Severity</th>' in html
-    row = html.split('>has<wbr>Strength</a>', 1)[1].split('</tr>', 1)[0]
-    assert 'data-action="severity"' in row and '>warning</a>' in row
-    other = html.split('>has<wbr>Cartridge</a>', 1)[1].split('</tr>', 1)[0]
+    row = html.split('has<wbr>Strength', 1)[1].split('</tr>', 1)[0]
+    assert '<td class="sev">warning</td>' in row
+    other = html.split('has<wbr>Cartridge', 1)[1].split('</tr>', 1)[0]
     assert '<span class="dim">violation (default)</span>' in other
 
 

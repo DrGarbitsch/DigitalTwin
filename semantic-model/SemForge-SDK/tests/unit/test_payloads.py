@@ -177,8 +177,19 @@ def test_the_type_page_says_the_forms(tmp_path, corpus):
     said = [n for top in build_tree(package) for n in nodes(top)
             if n.kind == 'raw' and n.label.startswith('value: ')]
     assert {n.label for n in said} >= {'value: Property or ListProperty', 'value: ListProperty'}
-    assert category['valueEditable'] and category['lists'] == 'allowed'
-    assert rows['hasPlainX']['lists'] == 'single'
+    # The attribute editor offers a list where one value is allowed, and back.
+    assert category['valueEditable'] and _switch(root, 'hasCategoryX') == 'allowed'
+    assert _switch(root, 'hasPlainX') == 'single'
+
+
+def _switch(root, attribute):
+    """What the attribute editor's list button does (semforge/valueForms)."""
+    from semforge.cooked.valueforms import read_value, to_payload
+    from semforge.package import load
+
+    text = (root / 'shacl.ttl').read_text()
+    value = read_value(load(str(root)), text, FORMS, [f'iffBaseEntities:{attribute}'])
+    return to_payload(value)['lists']
 
 
 # --- editing them --------------------------------------------------------------------
@@ -228,14 +239,14 @@ def test_a_single_value_may_become_a_list_and_back(tmp_path, corpus):
     made = _lists(root, True)
     assert made.get('changed', True)
     row = _rows(root)['hasPlainX']
-    assert row['kinds'] == ['Property', 'ListProperty'] and row['lists'] == 'allowed'
+    assert row['kinds'] == ['Property', 'ListProperty'] and _switch(root, 'hasPlainX') == 'allowed'
     assert row['value'] == 'text · at most 20 characters, or a list of them (possibly empty)'
     # Again: nothing to do.
     assert not _lists(root, True)['changed']
 
     _lists(root, False)
     row = _rows(root)['hasPlainX']
-    assert row['kinds'] == ['Property'] and row['lists'] == 'single'
+    assert row['kinds'] == ['Property'] and _switch(root, 'hasPlainX') == 'single'
     assert row['value'] == 'text · at most 20 characters'
 
 

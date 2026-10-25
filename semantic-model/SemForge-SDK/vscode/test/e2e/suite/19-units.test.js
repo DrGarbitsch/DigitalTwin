@@ -45,11 +45,11 @@ describe('Units (unitCode)', () => {
       api.pages.type.page, 'the Workpiece page');
     const row = page.attributes.findIndex((a) => a.label === 'hasLength');
     const session = answering([
-      { kind: 'pick', label: '$(symbol-ruler) Unit…' },
       { kind: 'pick', choose: (items) => items.filter((i) => i.label === 'MMT') },
       { kind: 'pick', label: 'Required' }]);
     try {
-      await api.pages.type.receive({ command: 'menu', row });
+      // The attribute editor's Unit button (attributepanel.js).
+      await api.pages.type.receive({ command: 'unit', row });
     } finally {
       session.restore();
     }

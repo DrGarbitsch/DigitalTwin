@@ -169,7 +169,7 @@ def test_a_vocabulary_list_is_written_and_read_back(kms):
     assert 'one of: WC1 · WC2' in row['value']
     # A list of values is more than one plain value: the value editor's,
     # where the list is a condition like any other.
-    assert not row['simple'] and row['valueEditable'] and not row['valueLocked']
+    assert row['valueEditable'] and not row['valueLocked']
 
 
 def test_editing_a_list_replaces_it(kms):

@@ -60,15 +60,14 @@ describe('Severity… on a constraint', () => {
       .find((a) => a.label === 'hasHeight' && a.severityDeclared) && api.pages.type.page,
     'the page to say it');
     row = page.attributes.findIndex((a) => a.label === 'hasHeight');
-    session = answering([{ kind: 'pick', label: '$(warning) Severity…' },
-      { kind: 'pick', label: '$(add) New severity level…' },
+    session = answering([{ kind: 'pick', label: '$(add) New severity level…' },
       { kind: 'input', value: 'severityMajor' },
       // The namespace: Enter keeps the usual place -- highlighted, though
       // "New namespace…" is on top.
       { kind: 'pick', enter: true },
       { kind: 'input', value: 'major' }]);
     try {
-      await api.pages.type.receive({ command: 'menu', row });
+      await api.pages.type.receive({ command: 'severity', row });
     } finally {
       session.restore();
     }

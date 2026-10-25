@@ -155,7 +155,7 @@ def _panel(tmp_path, state, after=None):
     if node is None:
         pytest.skip('node is not installed')
     (tmp_path / 'state.json').write_text(json.dumps(state))
-    args = [node, os.path.join(SDK, 'tests', 'harness', 'expression.js'),
+    args = [node, os.path.join(SDK, 'tests', 'harness', 'attributepanel.js'),
             os.path.join(SDK, 'vscode', 'src'), str(tmp_path / 'state.json'),
             str(tmp_path / 'panel.html')]
     if after:

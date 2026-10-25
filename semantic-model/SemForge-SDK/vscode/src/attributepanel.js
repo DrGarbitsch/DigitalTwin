@@ -15,24 +15,25 @@
 */
 
 /**
- * The value editor: what an attribute's value may be.
+ * The attribute editor: everything one attribute's constraint says, in one
+ * panel beside the type (or shape) page -- the page's table only shows it.
  *
- * First its forms -- a Property's value, a Relationship's entity, a
- * JsonProperty, a ListProperty, … any choice of them, as NGSI-LD allows --
- * then, for each form on its own, what it must be: conditions, and
+ * On top what holds for the attribute: presence and counts, severity, unit,
+ * how well the test cases prove it, and where it is declared. Each is changed
+ * by the flow the page always had (typepage.js EDITS), asked for through the
+ * page -- which knows which shape to write when several constrain it.
+ *
+ * Then its value: first its forms -- a Property's value, a Relationship's
+ * entity, a JsonProperty, a ListProperty, … any choice of them, as NGSI-LD
+ * allows -- then, for each form on its own, what it must be: conditions, and
  * expressions of them (any of, all of, exactly one of, not, nested). "One
  * boolean, or a list of numbers" is two forms with their own conditions.
+ * Every change of the value is one request (semforge/editValueForms); the
+ * server rewrites it and reads it back before keeping it
+ * (cooked/valueforms.py).
  *
- * A panel beside the type page draws each form as a card and its conditions
- * as nested boxes; everything is edited where it stands. Opened from the
- * attribute's ⋯ menu ("Value editor…"), from its value when that is more
- * than one plain value, or from "Combine with another condition…" in the
- * value picker. One plain value -- what nearly every attribute needs -- is
- * still edited with the picker.
- *
- * Every change is one request (semforge/editValueForms); the server rewrites
- * the value and reads it back before keeping it (cooked/valueforms.py), and
- * the panel is drawn again from what is now in the file.
+ * After every change the panel is drawn again from the page's fresh row and
+ * from what is now in the file.
  */
 const crypto = require('crypto');
 const vscode = require('vscode');
@@ -140,15 +141,69 @@ function formCard(form, index, state) {
       box(node, [i + 1], false, editable)).join('')}</div>`;
 }
 
-/** The panel. `state`: what semforge/expression said, the row, the choices. */
-function renderExpressionPanel(state, options) {
+/** One line of the summary: what it says, and the button that changes it. */
+function line(name, said, act, label, title) {
+  return `<div class="line"><span class="name">${escape(name)}</span>` +
+    `<span class="said">${said}</span>${act ? cmd(act, label, title) : ''}</div>`;
+}
+
+function cmd(name, label, title) {
+  return `<button class="tool" data-cmd="${name}" title="${escape(title || '')}">${escape(label)}</button>`;
+}
+
+/**
+ * What holds for the attribute, from the page's row: presence, severity,
+ * unit, tests, where it is declared -- each with the way to change it. An
+ * inherited one is the supertype's: shown, and tightened with Override.
+ */
+function summaryBox(row) {
+  if (!row) {
+    return '';
+  }
+  const own = !row.inherited;
+  const severity = row.severityDeclared ? escape(row.severity || '')
+    : '<span class="dim">violation (default)</span>';
+  const units = row.kind === 'Relationship' ? '' : line('Unit',
+    row.units && row.units.length
+      ? `${escape(row.units.join(', '))}${row.unitRequired ? ' · required' : ''}`
+      : '<span class="dim">any</span>',
+    own && 'unit', 'Change…', 'Which unitCode its instances may say');
+  const tested = row.tested && row.tested !== 'untested' ? escape(row.tested)
+    : '<span class="dim">untested</span>';
+  const where = `${escape(row.shapeName || '')}` +
+    `${row.inheritedFrom ? ` <span class="dim">· from ${escape(row.inheritedFrom)}</span>` : ''}`;
+  const several = row.contributions && row.contributions.length > 1
+    ? `<div class="note">${row.contributions.length} shapes constrain it; a change asks which ` +
+      'of them to write.</div>' : '';
+  return `<div class="box summary">` +
+    line('Presence', escape(row.presence), own && 'presence', 'Change…',
+      'Optional or required; exactly, at least, between') +
+    line('Severity', severity, own && 'severity', 'Change…',
+      'How serious its results are when it fires') +
+    units +
+    line('Tests', tested, 'test', 'New test…', 'A valid case, or one of its constraints firing') +
+    line('Declared in', where, 'open', 'Open in .ttl', 'Show it in the shapes file') +
+    (own ? `<div class="line">${cmd('params', 'Other parameters…', 'Every parameter, as written: add, change, remove')}</div>`
+      : `<div class="note">Declared on ${escape(row.inheritedFrom || 'a supertype')}: changed ` +
+        `there, or tightened here. ${cmd('override', 'Override…', 'Declare a stricter constraint on this type\'s own shape')}</div>`) +
+    several + '</div>';
+}
+
+/** The panel. `state`: the page's row, what semforge/valueForms said, the choices. */
+function renderAttributePanel(state, options) {
   const nonce = options.nonce;
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
-  const editable = !!state.editable;
+  // An inherited value is the supertype's: shown here, changed there.
+  const editable = !!state.editable && !(state.row && state.row.inherited);
   const forms = state.forms || [];
   const add = editable ? `<div class="roottools"><select id="newkind" title="The kind of the new form">` +
     `${(state.kinds || []).map((k) => `<option value="${k}">${k}</option>`).join('')}</select>` +
-    button('addform', '+ Form', 'The value may also take this form') + '</div>' : '';
+    button('addform', '+ Form', 'The value may also take this form') +
+    // An OPC UA Variable's ValueRank: one value, or a list of the same.
+    (state.lists === 'single' ? button('lists-on', 'Allow a list too',
+      'One value, or a list of them (possibly empty): the same conditions for each item')
+      : state.lists === 'allowed' ? button('lists-off', 'One value only', 'No list: one value again')
+        : '') + '</div>' : '';
   const lists = ['datatypes', 'classes'].map((name) => `<datalist id="${name}">` +
     (state[name] || []).map((c) => `<option value="${escape(c.value)}">${escape(c.label || '')}</option>`).join('') +
     '</datalist>').join('');
@@ -181,7 +236,11 @@ function renderExpressionPanel(state, options) {
   .chip .x { margin-left: 4px; color: inherit; text-decoration: none; }
   .dim { color: var(--vscode-descriptionForeground); }
   .roottools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  h2 { font-size: 1em; margin: 14px 0 4px; }
+  h2 { font-size: 1.05em; margin: 16px 0 4px; }
+  h3 { font-size: 0.95em; margin: 12px 0 4px; color: var(--vscode-descriptionForeground); }
+  .summary .line { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; flex-wrap: wrap; }
+  .summary .name { min-width: 7.5em; color: var(--vscode-descriptionForeground); }
+  .summary .said { margin: 0; }
   .box.form { border-width: 2px; padding: 8px 10px; margin: 10px 0; }
   .formsaid { margin: 4px 0; }
   .sub { color: var(--vscode-descriptionForeground); font-size: 0.9em; margin-top: 6px; }
@@ -200,11 +259,14 @@ function renderExpressionPanel(state, options) {
   .primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
              border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
 </style></head><body>
-<h1>${escape(state.label)}: what its value may be</h1>
-<div class="said">${escape(state.said || 'any value')}</div>
+<h1>${escape(state.label)}</h1>
+${state.row ? `<div class="dim">${escape(state.row.term || '')}</div>` : ''}
 ${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
-${editable ? '' : `<div class="error">Edited in the .ttl: ${escape(state.reason || '')}</div>`}
-<h2>Its forms — each with what it must be</h2>
+${summaryBox(state.row)}
+<h2>Its value</h2>
+<div class="said">${escape(state.said || 'any value')}</div>
+${state.editable || !state.reason ? '' : `<div class="error">Edited in the .ttl: ${escape(state.reason)}</div>`}
+<h3>Its forms — each with what it must be</h3>
 ${add}
 <div id="forms">${forms.length ? forms.map((form, index) => formCard(form, index, state)).join('')
     : '<div class="dim">Any value: no form is constrained yet. Add one.</div>'}</div>
@@ -293,6 +355,12 @@ ${lists}
     if (first) { first.focus(); }
   }
   document.addEventListener('click', function (event) {
+    const asked = event.target.closest('[data-cmd]');
+    if (asked) {
+      event.preventDefault();
+      vscode.postMessage({ command: 'row', name: asked.dataset.cmd });
+      return;
+    }
     const target = event.target.closest('[data-act]');
     if (!target || target.tagName === 'SELECT') { return; }
     event.preventDefault();
@@ -307,6 +375,10 @@ ${lists}
       return;
     }
     if (act === 'removeform') { send_({ op: 'removeform' }); return; }
+    if (act === 'lists-on' || act === 'lists-off') {
+      send({ op: 'lists', value: act === 'lists-on' });
+      return;
+    }
     if (act === 'open') { vscode.postMessage({ command: 'open' }); return; }
     if (act === 'remove' || act === 'unwrap') { send_({ op: act, node: addr }); return; }
     if (act === 'wrapnot') { send_({ op: 'wrap', node: addr, connective: 'not' }); return; }
@@ -363,21 +435,25 @@ ${lists}
 }
 
 /** One panel, beside the type page; it follows the attribute it was opened on. */
-class ExpressionPanel {
+class AttributePanel {
   constructor(pages) {
     this.pages = pages;
     this.panel = undefined;
     this.row = undefined;
+    this.index = undefined;
+    this.contrib = undefined;
     this.packageUri = undefined;
     this.error = '';
   }
 
-  async open(row) {
+  async open(row, index, contrib) {
     this.row = row;
+    this.index = index;
+    this.contrib = contrib;
     this.packageUri = this.pages.current.packageUri;
     this.error = '';
     if (!this.panel) {
-      this.panel = vscode.window.createWebviewPanel('semforgeExpression', 'Expression',
+      this.panel = vscode.window.createWebviewPanel('semforgeAttribute', 'Attribute',
         { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false },
         { enableScripts: true, localResourceRoots: [] });
       this.panel.onDidDispose(() => { this.panel = undefined; });
@@ -408,15 +484,34 @@ class ExpressionPanel {
     return { datatypes: (datatypes && datatypes.choices) || [], classes: (classes && classes.choices) || [] };
   }
 
+  /** The row as the page has it now: the same attribute, after the page was
+   *  drawn again -- by its place, or wherever it moved. */
+  fresh() {
+    const rows = (this.pages.page && this.pages.page.attributes) || [];
+    const same = (r) => r && r.term === this.row.term &&
+      JSON.stringify(r.path) === JSON.stringify(this.row.path) && !!r.inherited === !!this.row.inherited;
+    let found = same(rows[this.index]) ? rows[this.index] : undefined;
+    if (!found) {
+      const at = rows.findIndex(same);
+      if (at >= 0) {
+        this.index = at;
+        found = rows[at];
+      }
+    }
+    const row = found || this.row;
+    return this.contrib !== undefined && row.contributions ? row.contributions[this.contrib] || row : row;
+  }
+
   async render() {
     if (!this.panel) {
       return;
     }
+    this.row = this.fresh();
     const read = await this.request('semforge/valueForms', { shape: this.row.shape, path: this.row.path });
-    this.panel.title = `${this.row.label} · value`;
-    const state = Object.assign({ label: this.row.label }, this.choices,
+    this.panel.title = `${this.row.label} · attribute`;
+    const state = Object.assign({ label: this.row.label, row: this.row }, this.choices,
       read.ok ? read : { editable: false, reason: read.error }, { error: this.error });
-    this.panel.webview.html = renderExpressionPanel(state,
+    this.panel.webview.html = renderAttributePanel(state,
       { nonce: crypto.randomBytes(16).toString('base64') });
   }
 
@@ -424,36 +519,39 @@ class ExpressionPanel {
     if (!message || !this.row) {
       return;
     }
-    if (message.command === 'open') {
-      await require('./reveal').showLocation(this.row.definedAt, true);
+    if (message.command === 'row') {
+      if (message.name === 'open') {
+        await require('./reveal').showLocation(this.row.definedAt, true);
+        return;
+      }
+      // The page's own flow, on the page's own row: it knows which shape to
+      // write when several constrain the attribute, and draws itself again.
+      await this.pages.receive({ command: message.name, row: this.index, contrib: this.contrib });
+      await this.render();
       return;
     }
     if (message.command === 'edit') {
       const done = await this.request('semforge/editValueForms',
         { shape: this.row.shape, path: this.row.path, action: message.action });
       this.error = done.ok ? '' : done.error;
-      await this.render();
       if (done.ok) {
-        this.pages.refresh();
+        await this.pages.render();
       }
+      await this.render();
     }
   }
 }
 
 let panel;
 
-/** Open the expression editor on `row` of the type (or shape) page. */
-async function openExpression(pages, row) {
+/** Open the attribute editor on row `index` (and `contrib`, one of the
+ *  shapes that constrain it) of the type or shape page. */
+async function openAttribute(pages, row, index, contrib) {
   if (!panel || panel.pages !== pages) {
-    panel = new ExpressionPanel(pages);
+    panel = new AttributePanel(pages);
   }
-  await panel.open(row);
-  return false;          // the page refreshes when an edit is applied
+  await panel.open(row, index, contrib);
+  return false;          // the page draws itself again when something changes
 }
 
-/** "Combine with another condition…": the editor, ready to combine. */
-async function combine(pages, row) {
-  return openExpression(pages, row);
-}
-
-module.exports = { openExpression, combine, renderExpressionPanel, CONDITIONS };
+module.exports = { openAttribute, renderAttributePanel, summaryBox, CONDITIONS };

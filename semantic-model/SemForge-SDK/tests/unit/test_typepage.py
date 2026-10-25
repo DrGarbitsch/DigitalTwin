@@ -190,7 +190,7 @@ def test_a_clicked_attribute_is_marked_and_scrolled_to(tmp_path, filter_page):
     """Clicking an attribute in a tree opens its type's page AT that attribute."""
     row = filter_page['attributes'][-1]
     html = _render(tmp_path, filter_page, focus={'path': row['path']})
-    assert f'>{row["label"]}<' in _focused_row(html).replace('<wbr>', '')
+    assert f'>{row["label"]}' in _focused_row(html).replace('<wbr>', '')
     assert "getElementById('focus')" in html and 'scrollIntoView' in html
 
 
@@ -200,13 +200,13 @@ def test_a_constraint_row_marks_the_attribute_it_belongs_to(tmp_path, filter_pag
     row = filter_page['attributes'][0]
     html = _render(tmp_path, filter_page,
                    focus={'path': row['path'] + ['https://example.com/hasValue']})
-    assert f'>{row["label"]}<' in _focused_row(html).replace('<wbr>', '')
+    assert f'>{row["label"]}' in _focused_row(html).replace('<wbr>', '')
 
 
 def test_the_knowledge_tree_marks_by_attribute_alone(tmp_path, filter_page):
     row = filter_page['attributes'][-1]
     html = _render(tmp_path, filter_page, focus={'attribute': row['attribute']})
-    assert f'>{row["label"]}<' in _focused_row(html).replace('<wbr>', '')
+    assert f'>{row["label"]}' in _focused_row(html).replace('<wbr>', '')
 
 
 def test_no_focus_marks_nothing_and_glyphs_are_gone(tmp_path, filter_page):

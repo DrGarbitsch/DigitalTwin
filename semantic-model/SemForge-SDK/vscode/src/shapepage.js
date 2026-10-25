@@ -455,6 +455,14 @@ class ShapePages {
       return;
     }
     const packageUri = this.current.packageUri;
+    if (message.command === 'attribute') {
+      // A click on a row: the attribute editor beside the page.
+      const row = this.page && this.page.attributes ? this.page.attributes[message.row] : undefined;
+      if (row) {
+        await require('./attributepanel').openAttribute(this, row, message.row);
+      }
+      return;
+    }
     const edit = EDITS[message.command];
     if (edit) {
       // The type page's own edits: they write into `page.ownShape`, which

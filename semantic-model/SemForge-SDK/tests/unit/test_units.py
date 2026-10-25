@@ -329,11 +329,10 @@ def test_unit_on_a_type_page_row_writes_the_shape(tmp_path, pkg):
         'command': 'semforge.openTypePage',
         'node': {'raw': {'kind': 'type', 'targetClass': machine, 'label': 'Machine',
                          'children': []}, 'packageUri': 'file:///pkg/shacl.ttl'},
-        'webviewMessages': [{'command': 'menu', 'row': row}],
-        'picks': ['$(symbol-ruler) Unit…', ['CEL', 'FAH'], 'Required'],
+        # The attribute editor's Unit button asks the page (attributepanel.js).
+        'webviewMessages': [{'command': 'unit', 'row': row}],
+        'picks': [['CEL', 'FAH'], 'Required'],
         'replies': {'semforge/typePage': page, 'semforge/units': dict(UNITS, allowed=[]),
                     'semforge/setUnits': {'ok': True}}})
-    menu = [i['label'] for i in seen['quickPicks'][0]['items']]
-    assert '$(symbol-ruler) Unit…' in menu
     [sent] = _asked(seen, 'semforge/setUnits')
     assert (sent['codes'], sent['required'], sent['path']) == (['CEL', 'FAH'], True, [TEMPERATURE])

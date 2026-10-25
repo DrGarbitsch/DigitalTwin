@@ -170,9 +170,7 @@ def test_rows_carry_what_an_edit_needs(corpus):
     # hasStrength's value is an expression (sh:or of number types): editable
     # in the expression editor, which a plain value never opens.
     assert rows['hasStrength']['valueEditable'] and rows['hasStrength']['expression']
-    assert not rows['hasStrength']['combinable']
-    assert rows['hasCartridge']['valueEditable'] and rows['hasCartridge']['combinable']
-    assert rows['hasCartridge']['expression'] is None
+    assert rows['hasCartridge']['valueEditable'] and rows['hasCartridge']['expression'] is None
     assert rows['hasXXXWorkpiece']['path'] == ['iffBaseEntities:hasState',
                                                'iffBaseEntities:hasXXXWorkpiece']
     value_class = next(p for p in rows['hasCartridge']['parameters']
@@ -227,32 +225,60 @@ def test_clicking_presence_writes_it_and_refreshes(tmp_path, page):
         {e['command'] for e in seen['executed']}
 
 
-def test_clicking_a_value_offers_the_entity_types(tmp_path, page):
-    seen = _click(tmp_path, page, [{'command': 'value', 'row': _row(page, 'hasCartridge')}],
-                  pick='Consumable',
-                  replies={'semforge/choices': {'choices': [
-                      {'value': 'iffBaseEntities:Consumable', 'label': 'Consumable',
-                       'detail': 'entity type'}]}})
-    edit = _sent(seen, 'semforge/editAttribute')
-    assert edit[0]['value'] == {'valueClass': 'iffBaseEntities:Consumable'}
+FORMS = {'ok': True, 'editable': True, 'said': 'a Consumable', 'forms': [],
+         'kinds': ['Relationship'], 'lists': 'single'}
 
 
-def test_an_expression_opens_its_editor_not_the_picker(tmp_path, page):
-    seen = _click(tmp_path, page, [{'command': 'value', 'row': _row(page, 'hasStrength')}])
-    assert not _sent(seen, 'semforge/editAttribute')
-    assert _sent(seen, 'semforge/valueForms')
+def test_clicking_a_row_opens_the_attribute_editor_beside(tmp_path, page):
+    """A row is a summary; a click on it opens the one place it is changed."""
+    row = _row(page, 'hasCartridge')
+    seen = _click(tmp_path, page, [{'command': 'attribute', 'row': row}],
+                  replies={'semforge/valueForms': FORMS})
+    assert seen['errors'] == [], seen['errors']
+    assert _sent(seen, 'semforge/valueForms') == [{
+        'uri': 'file:///pkg/shacl.ttl', 'shape': FILTER,
+        'path': ['iffBaseEntities:hasCartridge']}]
+    editor = seen['webviews'][-1]
+    assert editor['viewType'] == 'semforgeAttribute'
+    assert editor['title'] == 'hasCartridge · attribute'
+    html = editor['html'][-1]
+    for asks in ('data-cmd="presence"', 'data-cmd="severity"', 'data-cmd="test"',
+                 'data-cmd="open"', 'data-cmd="params"'):
+        assert asks in html, asks
+    assert 'data-act="lists-on"' in html, 'one value: a list may be allowed'
+    assert not _sent(seen, 'semforge/editAttribute'), 'opening writes nothing'
 
 
-def test_a_locked_value_says_why_and_writes_nothing(tmp_path, page):
-    import copy
+def test_an_edit_in_the_editor_writes_and_redraws_both(tmp_path, page):
+    action = {'op': 'set', 'form': 0, 'parameter': 'sh:class',
+              'value': 'iffBaseEntities:Consumable'}
+    seen = _click(tmp_path, page, [{'command': 'attribute', 'row': _row(page, 'hasCartridge')},
+                                   {'command': 'edit', 'action': action}],
+                  replies={'semforge/valueForms': FORMS,
+                           'semforge/editValueForms': {'ok': True}})
+    assert [e['action'] for e in _sent(seen, 'semforge/editValueForms')] == [action]
+    assert len(_sent(seen, 'semforge/typePage')) == 2, 'the page re-renders'
+    assert len(_sent(seen, 'semforge/valueForms')) == 2, 'and so does the editor'
 
-    locked = copy.deepcopy(page)
-    row = next(r for r in locked['attributes'] if r['label'] == 'hasStrength')
-    row.update(valueEditable=False,
-               valueLocked='edited in the .ttl: a comment inside it would be lost')
-    seen = _click(tmp_path, locked, [{'command': 'value', 'row': _row(locked, 'hasStrength')}])
-    assert not _sent(seen, 'semforge/editAttribute') and not _sent(seen, 'semforge/valueForms')
-    assert any('comment' in m for m in seen['info'])
+
+def test_the_editor_s_buttons_run_the_page_s_own_flows(tmp_path, page):
+    """Presence in the editor is the page's presence picker, on the page's row."""
+    seen = _click(tmp_path, page, [{'command': 'attribute', 'row': _row(page, 'hasCartridge')},
+                                   {'command': 'row', 'name': 'presence'}],
+                  pick='Optional', replies={'semforge/valueForms': FORMS})
+    assert _sent(seen, 'semforge/editAttribute') == [{
+        'uri': 'file:///pkg/shacl.ttl', 'shape': FILTER,
+        'path': ['iffBaseEntities:hasCartridge'], 'presence': 'optional'}]
+
+
+def test_a_locked_value_says_why_and_offers_no_edit(tmp_path, page):
+    locked = dict(FORMS, editable=False,
+                  reason='a comment inside it would be lost')
+    seen = _click(tmp_path, page, [{'command': 'attribute', 'row': _row(page, 'hasStrength')}],
+                  replies={'semforge/valueForms': locked})
+    html = seen['webviews'][-1]['html'][-1]
+    assert 'Edited in the .ttl: a comment inside it would be lost' in html
+    assert 'data-act="addform"' not in html and 'data-act="lists-on"' not in html
 
 
 def test_override_declares_on_the_types_own_shape(tmp_path, page):
@@ -305,8 +331,10 @@ def test_the_rendered_page_offers_the_right_action_per_row(tmp_path, page):
     assert 'class="primary" data-action="addAttribute"' in html
     assert 'data-action="pageMenu"' in html, 'New subtype… waits behind the ⋯'
     assert '<button data-action="override"' not in html, 'override is a quiet link'
-    assert f'data-action="value" data-row="{_row(page, "hasStrength")}"' in html
-    assert f'data-action="value" data-row="{_row(page, "hasCartridge")}"' in html
+    # Every row opens the attribute editor; its cells are text, not links.
+    for label in ('hasStrength', 'hasCartridge'):
+        assert f'data-action="attribute" data-row="{_row(page, label)}"' in html, label
+    assert 'data-action="value"' not in html and 'data-action="presence"' not in html
     # The expression, as a tree under the value.
     assert '<div class="verbatim expr"><div>always: 0 – 100</div><div>any of:</div>' in html
 

@@ -17,7 +17,7 @@
 /**
  * The expression editor's panel as HTML, for a browser to run:
  *
- *   node expression.js <vscode/src> <state.json> <out.html> [after.js]
+ *   node attributepanel.js <vscode/src> <state.json> <out.html> [after.js]
  *
  * acquireVsCodeApi is stubbed; what the panel posts is kept on
  * <html data-posted="[…]">. `after.js`, if given, runs once the panel is up.
@@ -34,9 +34,9 @@ Module._load = function (request, parent, isMain) {
   return original(request, parent, isMain);
 };
 
-const { renderExpressionPanel } = require(path.resolve(process.argv[2], 'expression.js'));
+const { renderAttributePanel } = require(path.resolve(process.argv[2], 'attributepanel.js'));
 const state = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
-let html = renderExpressionPanel(state, { nonce: 'n' });
+let html = renderAttributePanel(state, { nonce: 'n' });
 const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage(m) { ' +
   'var all = JSON.parse(document.documentElement.dataset.posted || "[]"); all.push(m); ' +
   'document.documentElement.dataset.posted = JSON.stringify(all); } }; }</script>';

@@ -256,21 +256,15 @@ def _value_of(package, node):
 
 
 def _value_fields(value, kind):
-    """What a row says and offers about its value, from the value alone."""
+    """What a row says about its value, from the value alone. Changing it is
+    the attribute editor's (attributepanel.js), which reads the value itself."""
     from .expression import to_json
     from .valueforms import say
 
     forms = value.forms
     one = forms[0] if len(forms) == 1 else None
-    plain = one is not None and one.payload in PLAIN_PAYLOADS
-    connectives = plain and len(one.root.children) > 1
-    # One plain value with plain conditions: the quick picker edits it.
-    # Anything more -- an expression, a list, several forms, an sh:in --
-    # opens the value editor.
-    simple = value.editable and plain and not connectives and \
-        'sh:in' not in dict(one.root.children[0].conditions)
-    scalars = [f for f in forms if not f.is_list]
-    lists = [f for f in forms if f.is_list]
+    connectives = one is not None and one.payload in PLAIN_PAYLOADS and \
+        len(one.root.children) > 1
     return {
         'kinds': [f.kind for f in forms] or [kind],
         'forms': [{'kind': f.kind, 'payload': f.payload, 'mayBeEmpty': f.may_be_empty}
@@ -279,17 +273,8 @@ def _value_fields(value, kind):
                                            else 'any value'),
         'valueEditable': value.editable,
         'valueLocked': '' if value.editable else f'edited in the .ttl: {value.reason}',
-        'simple': simple,
         # The expression, as a tree under the value, when it is one.
         'expression': to_json(one.root, kind) if connectives else None,
-        # "Combine with another condition…", last in the quick picker.
-        'combinable': simple,
-        # ⋯ → "Value editor…".
-        'expressionable': value.editable,
-        # "Allow a list too" ('single') / "One value only" ('allowed').
-        'lists': '' if not value.editable else 'single' if plain else
-        'allowed' if len(scalars) == 1 and lists and scalars[0].payload in PLAIN_PAYLOADS
-        else '',
     }
 
 

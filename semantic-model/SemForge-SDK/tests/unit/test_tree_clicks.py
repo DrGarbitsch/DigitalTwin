@@ -770,7 +770,7 @@ def test_the_type_page_offers_new_test_in_the_tested_column(tmp_path):
         'webviewMessages': [{'command': 'test', 'row': 0}],
         'replies': {'semforge/typePage': page}})
     html = seen['webviews'][0]['html'][-1]
-    assert 'data-action="test"' in html and 'New test…' in html
+    assert 'data-action="attribute"' in html and 'untested' in html
     asked = _opened(seen, 'semforge.newAttributeTest')
     assert asked and asked[0][0]['raw']['typeClass'] == 'https://x/Machine'
     assert asked[0][0]['raw']['path'] == PRESSURE['path']
@@ -801,8 +801,8 @@ def _shape(tmp_path, **scenario):
 
 def test_the_shape_page_rows_carry_the_type_page_s_actions(tmp_path):
     html = _shape(tmp_path)['webviews'][0]['html'][-1]
-    for action in ('data-action="presence"', 'data-action="value"', 'data-action="menu"',
-                   'data-action="test"', 'data-action="addAttribute"'):
+    for action in ('data-action="attribute"', 'data-action="menu"',
+                   'data-action="addAttribute"'):
         assert action in html, action
     assert 'Declared in' not in html, 'one shape: the column would repeat its name'
 
@@ -846,8 +846,8 @@ def _constraint_menu(tmp_path, picks, inputs, reply=None):
         {'parameter': 'sh:datatype', 'value': 'xsd:double',
          'path': ['x:hasPressure', 'ngsild:hasValue'], 'layer': 'value'}])
     page = dict(EDITABLE_SHAPE, attributes=[row])
-    seen = _shape(tmp_path, picks=['$(edit) Constraints…'] + picks, inputs=inputs,
-                  webviewMessages=[{'command': 'menu', 'row': 0}],
+    seen = _shape(tmp_path, picks=picks, inputs=inputs,
+                  webviewMessages=[{'command': 'params', 'row': 0}],
                   replies={'semforge/shapePage': page,
                            'semforge/setConstraint': reply or {'ok': True, 'note': ''},
                            'semforge/choices': {'choices': []}})
@@ -857,7 +857,7 @@ def _constraint_menu(tmp_path, picks, inputs, reply=None):
 
 def test_the_constraint_menu_offers_what_is_missing(tmp_path):
     seen, _ = _constraint_menu(tmp_path, [], [])
-    offered = [item['label'] for item in seen['quickPicks'][1]['items']]
+    offered = [item['label'] for item in seen['quickPicks'][0]['items']]
     for label in ('$(add) sh:minInclusive', '$(add) sh:maxExclusive', '$(add) sh:pattern',
                   '$(add) sh:minLength', 'sh:maxCount 1'):
         assert label in offered, label
@@ -988,13 +988,13 @@ def test_test_coverage_is_one_column_and_the_model_marks_the_name(tmp_path):
     data does is a different question, answered beside the attribute's name."""
     html = _pump(tmp_path)['webviews'][0]['html'][-1]
     assert '>Test coverage</th>' in html and '<th>Status</th>' not in html
-    row = html.split('data-open="/pkg/shacl.ttl:50"', 1)[1].split('</tr>', 1)[0]
-    name, *cells = row.split('<td')
+    row = html.split('data-action="attribute"', 1)[1].split('</tr>', 1)[0]
+    _, name, *cells = row.split('<td')
     # A link: what violates it is in the main-model, and that has a page.
     assert 'class="violates" data-model=""' in name and '✗ 1</a>' in name
     assert 'Violated in the main-model by:\nurn:pump:2' in name
     coverage = next(c for c in cells if c.startswith(' class="coverage"'))
-    assert 'main-model' not in coverage and 'data-action="test"' in coverage
+    assert 'main-model' not in coverage and 'untested' in coverage
 
 
 def test_the_type_page_menu_keeps_the_rare_actions(tmp_path):
@@ -1338,8 +1338,8 @@ def test_one_row_with_each_shape_beneath_it(tmp_path):
     assert html.count('data-shape="https://x/MachineShape2"') == 1
     assert 'several shapes' in html and 'all apply' in html
     assert 'sh:maxExclusive 200: no effect' in html and 'sh:minCount 0: no effect' in html
-    assert html.count('class="contrib"') == 2
-    assert 'required · one' in html.split('class="contrib"')[0], 'the combined row first'
+    assert html.count('class="contrib pick"') == 2
+    assert 'required · one' in html.split('class="contrib pick"')[0], 'the combined row first'
 
 
 def test_editing_the_combined_row_asks_which_shape(tmp_path):
@@ -1359,9 +1359,8 @@ def test_a_shape_s_own_line_edits_that_shape(tmp_path):
     page['attributes'][0]['contributions'][0]['parameters'] = [
         {'parameter': 'sh:maxCount', 'value': '1', 'path': ['x:hasPressure'],
          'layer': 'attribute'}]
-    seen = _machine(tmp_path, picks=['$(edit) Constraints…', 'sh:maxCount 1',
-                                     '$(trash) Remove sh:maxCount'],
-                    webviewMessages=[{'command': 'menu', 'row': 0, 'contrib': 0}],
+    seen = _machine(tmp_path, picks=['sh:maxCount 1', '$(trash) Remove sh:maxCount'],
+                    webviewMessages=[{'command': 'params', 'row': 0, 'contrib': 0}],
                     replies={'semforge/typePage': page,
                              'semforge/setConstraint': {'ok': True},
                              'semforge/choices': {'choices': []}})
@@ -1375,7 +1374,7 @@ def test_each_shape_s_name_leads_its_own_line(tmp_path):
     """No Declared-in column: each shape's line beneath the combined row
     starts with the shape, where the attribute's name stands above."""
     html = _machine(tmp_path)['webviews'][0]['html'][-1]
-    line = html.split('<tr class="contrib">', 2)[1].split('</tr>', 1)[0]
+    line = html.split('<tr class="contrib pick"', 2)[1].split('</tr>', 1)[0]
     cells = line.split('<td')[1:]
     assert '↳' in cells[0] and 'data-shape="https://x/MachineShape"' in cells[0]
     assert len(cells) == 7, 'the table has seven columns'
@@ -1449,8 +1448,8 @@ VOCAB_VALUES = dict(VOCAB_PAGE, values=[
 
 def _state_menu(tmp_path, row, picks, inputs=None):
     page = dict(EDITABLE_SHAPE, attributes=[row])
-    seen = _shape(tmp_path, picks=['$(edit) Constraints…'] + picks, inputs=inputs or [],
-                  webviewMessages=[{'command': 'menu', 'row': 0}],
+    seen = _shape(tmp_path, picks=picks, inputs=inputs or [],
+                  webviewMessages=[{'command': 'params', 'row': 0}],
                   replies={'semforge/shapePage': page,
                            'semforge/setConstraint': {'ok': True, 'note': ''},
                            'semforge/vocabularyPage': VOCAB_VALUES,
@@ -1461,7 +1460,7 @@ def _state_menu(tmp_path, row, picks, inputs=None):
 
 def test_a_list_of_vocabulary_values_is_ticked(tmp_path):
     seen, asked = _state_menu(tmp_path, STATE_ROW, ['$(add) sh:in', ['state_ON']])
-    offered = [i['label'] for i in seen['quickPicks'][2]['items']]
+    offered = [i['label'] for i in seen['quickPicks'][1]['items']]
     assert offered == ['state_OFF', 'state_ON'], 'the vocabulary values'
     assert asked == [{'uri': 'file:///pkg/shacl.ttl', 'shape': 'https://x/MachineShape',
                       'path': ['x:hasState'], 'parameter': 'sh:in', 'value': ['x:state_ON'],
@@ -1480,7 +1479,7 @@ def test_an_existing_list_is_edited_with_its_values_ticked(tmp_path):
                                   'value': '( x:state_ON )'})
     seen, asked = _state_menu(tmp_path, row, ['sh:in ( x:state_ON )', '$(edit) Edit the list…',
                                               ['state_ON', 'state_OFF']])
-    ticks = {i['label']: i['picked'] for i in seen['quickPicks'][3]['items']}
+    ticks = {i['label']: i['picked'] for i in seen['quickPicks'][2]['items']}
     assert ticks == {'state_OFF': False, 'state_ON': True}
     assert asked[0]['value'] == ['x:state_OFF', 'x:state_ON']
     assert asked[0]['add'] is True, 'the list is written anew in place'

@@ -123,31 +123,16 @@ function severityText(row) {
     : '<span class="dim">violation (default)</span>';
 }
 
-const SEVERITY_TIP = 'sh:severity: how serious its results are when it fires — ' +
-  'violation, warning, info, or a level the package declares. Click to change.';
-
-function severityCell(row, index) {
-  // An inherited constraint is the supertype's shape's: shown, changed there
-  // (or overridden), like its presence and value.
-  return row.inherited ? severityText(row)
-    : `<a href="#" class="act" data-action="severity" data-row="${index}" ` +
-      `title="${escape(SEVERITY_TIP)}">${severityText(row)}</a>`;
-}
-
 /** How well the test cases prove an attribute's constraints -- and the way
  *  to a new test. What the model's data does is not this column's: it is
  *  marked beside the attribute's name. */
-function coverageCell(row, index) {
-  const tested = row.tested && row.tested !== 'untested'
+function coverageText(row) {
+  return row.tested && row.tested !== 'untested'
     ? chip(row.tested, TESTED_CLASS[row.tested],
       row.tested === 'never fired'
         ? 'No example makes this attribute\'s constraints fire. A constraint ' +
-          'that cannot fire looks exactly like one that is satisfied. Click: New test…'
-        : 'Click: New test…')
-    : '';
-  return `<a href="#" class="act" data-action="test" data-row="${index}" ` +
-    `title="New test for ${escape(row.label)}: valid, or one of its constraints firing">` +
-    `${tested || 'New test…'}</a>`;
+          'that cannot fire looks exactly like one that is satisfied.' : '')
+    : '<span class="dim">untested</span>';
 }
 
 function attributeRows(attributes, focused, options) {
@@ -172,10 +157,11 @@ function attributeRows(attributes, focused, options) {
     const verbatim = (row.verbatim.length
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '') +
       (row.expression ? expressionTree(row.expression) : '');
-    return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
-      `<td${indent}>${row.definedAt
-        ? `<a href="#" data-open="${escape(row.definedAt)}" title="${escape(row.term)}">` +
-          `${breakable(row.label)}</a>` : breakable(row.label)}` +
+    // The table says what holds; a click on the row opens the attribute
+    // editor beside the page (attributepanel.js) -- one place to change it.
+    return head + `<tr class="${classes} pick" data-action="attribute" data-row="${index}"` +
+      ` title="${escape(`${row.term || row.label} — click to edit`)}"${index === focused ? ' id="focus"' : ''}>` +
+      `<td${indent}>${breakable(row.label)}` +
       `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
         `Violated in the main-model by:\n${row.violations.join('\n')}\n\nClick: open the main-model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
@@ -183,18 +169,15 @@ function attributeRows(attributes, focused, options) {
       // that may be a scalar or a list (an OPC UA Variable's ValueRank).
       `<td class="kinds">${(row.kinds || [row.kind]).map((k) => `<span class="kind">${escape(k)}</span>`)
         .join(' <span class="dim">or</span> ')}</td>` +
-      `<td>${row.inherited ? escape(row.presence)
-        : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
+      `<td>${escape(row.presence)}</td>` +
       // The value wraps: "one of PortDirectionEnum, or a list of them (possibly
       // empty)" kept on one line pushed the coverage column -- "New test…" --
       // and the actions off the right of the page.
-      `<td class="value">${row.inherited ? escape(row.value)
-        : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
-          : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
+      `<td class="value"><span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>` +
       `${verbatim}` +
       `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
-      `<td class="sev">${severityCell(row, index)}</td>` +
-      `<td class="coverage">${coverageCell(row, index)}</td>` +
+      `<td class="sev">${severityText(row)}</td>` +
+      `<td class="coverage">${coverageText(row)}</td>` +
       `<td class="acts">${actions(row, index)}</td></tr>` +
       (row.contributions && grouped
         ? contributionRows(row, index, row.depth || 0) : '');
@@ -227,7 +210,7 @@ function contributionRows(row, index, depth) {
       : '';
     // The shape's name goes where every row says where it is declared; the
     // attribute column stays empty -- these lines are about the same one.
-    return `<tr class="contrib">` +
+    return `<tr class="contrib pick" data-action="attribute" data-row="${index}" data-contrib="${j}">` +
       `<td class="${indent}">↳ ${shapeLink(c.shapeName, c.shape)}` +
       `${c.inheritedFrom ? ` <span class="dim">· from ${escape(c.inheritedFrom)}</span>` : ''}` +
       `${c.condition ? ` <span class="cond">· ${escape(c.condition)}</span>` : ''}</td>` +
@@ -418,6 +401,7 @@ function renderTypePage(page, options) {
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   td.coverage { white-space: normal; }
+  tr.pick { cursor: pointer; }
   td.value { white-space: normal; min-width: 12em; overflow-wrap: anywhere; }
   td.kinds { white-space: normal; min-width: 7em; }
   /* The table fits the page: a long OPC UA attribute name, a severity with
@@ -730,6 +714,17 @@ class TypePages {
     if (!message || !this.current) {
       return;
     }
+    if (message.command === 'attribute') {
+      // A click on a row: the attribute editor on it, the whole row -- which
+      // shape a change goes to is asked when one is made.
+      const row = this.page && this.page.attributes ? this.page.attributes[message.row] : undefined;
+      if (row) {
+        const part = message.contrib !== undefined && row.contributions
+          ? row.contributions[message.contrib] : row;
+        await require('./attributepanel').openAttribute(this, part, message.row, message.contrib);
+      }
+      return;
+    }
     const edit = EDITS[message.command];
     if (edit) {
       let row = this.page && this.page.attributes
@@ -911,34 +906,6 @@ async function editPresence(pages, row) {
   }
   return Boolean(await request(pages, 'semforge/editAttribute',
     Object.assign({ shape: row.shape, path: row.path }, change)));
-}
-
-async function editValue(pages, row) {
-  if (!row || !row.valueEditable) {
-    if (row && row.valueLocked) {
-      vscode.window.showInformationMessage(`SemForge: ${row.label}'s value is ${row.valueLocked}.`);
-    }
-    return false;
-  }
-  // Already an expression: its editor. One plain value: the picker, with
-  // "Combine with another condition…" last for when one is not enough.
-  // More than one plain value -- an expression, a list, several forms, an
-  // sh:in -- is the value editor's (the server says which: row.simple).
-  if (!row.simple) {
-    return require('./expression').openExpression(pages, row);
-  }
-  const value = await pickValue(pages.clientHolder.client, pages.current.packageUri,
-    { kind: row.kind, term: row.term, label: row.label, combine: Boolean(row.combinable) });
-  if (value === undefined) {
-    return false;
-  }
-  if (value.combine) {
-    return require('./expression').combine(pages, row);
-  }
-  return Boolean(await request(pages, 'semforge/editAttribute', {
-    shape: row.shape, path: row.path,
-    value: value.datatype || value.valueClass ? value : { kind: 'any' }
-  }));
 }
 
 function describeParameter(parameter) {
@@ -1135,6 +1102,19 @@ async function editParameter(pages, row) {
   return Boolean(done);
 }
 
+/** The attribute editor on `row`: the page's own row, or one shape's part
+ *  of a row several shapes constrain. */
+function openEditor(pages, row) {
+  const rows = (pages.page && pages.page.attributes) || [];
+  let index = rows.indexOf(row);
+  let contrib;
+  if (index < 0) {
+    index = rows.findIndex((r) => (r.contributions || []).includes(row));
+    contrib = index < 0 ? undefined : rows[index].contributions.indexOf(row);
+  }
+  return require('./attributepanel').openAttribute(pages, row, index, contrib);
+}
+
 async function rowMenu(pages, row) {
   if (!row) {
     return false;
@@ -1143,38 +1123,10 @@ async function rowMenu(pages, row) {
   const choices = [
     { label: '$(beaker) New test…', description: 'valid, or one of its constraints firing',
       run: newTest },
-    { label: '$(edit) Constraints…', description: 'add, change or remove: ranges, datatype, class, length, pattern, counts',
-      run: editParameter },
-    { label: '$(warning) Severity…',
-      description: `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'} — how serious its results are`,
-      run: async () => Boolean(await require('./severity').chooseSeverity(
-        pages.clientHolder.client, pages.current.packageUri,
-        { shape: row.shape, path: row.path, label: row.label,
-          current: `${row.severity || 'violation'}${row.severityDeclared ? '' : ' (default)'}` })) },
-    // The units its instances may say (ngsild:unitCode): a Property's; a
-    // Relationship points at an entity and has none.
-    ...(row.kind === 'Relationship' ? [] : [{ label: '$(symbol-ruler) Unit…',
-      description: row.units && row.units.length
-        ? `${row.units.join(', ')}${row.unitRequired ? ', required' : ''} — the unitCode its instances may say`
-        : 'any — which unitCode its instances may say',
-      run: async () => require('./units').editUnits(pages.clientHolder.client,
-        pages.current.packageUri, row) }]),
-    // Any value as an expression -- any of, all of, exactly one of, not --
-    // in the panel beside the page; always here, whether it is one yet or not.
-    ...(row.expressionable ? [{ label: '$(symbol-operator) Value editor…',
-      description: 'its forms (Property, JsonProperty, a list, …) and what each must be',
-      run: async () => require('./expression').openExpression(pages, row) }] : []),
-    // A value that may also be a list -- an OPC UA array (its ValueRank) --
-    // is the choice `a scalar, or a list of them`; switched here, both ways.
-    ...(row.lists === 'single' ? [{ label: '$(list-unordered) Allow a list too',
-      description: `${row.kind === 'Relationship' ? 'ListRelationship' : 'ListProperty'}: ` +
-        'one value, or a list of them (possibly empty)',
-      run: async () => Boolean(await request(pages, 'semforge/editValueForms',
-        { shape: row.shape, path: row.path, action: { op: 'lists', value: true } })) }]
-      : row.lists === 'allowed' ? [{ label: '$(symbol-variable) One value only',
-        description: 'no list: the value is a single one again',
-        run: async () => Boolean(await request(pages, 'semforge/editValueForms',
-          { shape: row.shape, path: row.path, action: { op: 'lists', value: false } })) }] : []),
+    // Everything about the constraint -- presence, value, severity, unit --
+    // is changed in the attribute editor beside the page.
+    { label: '$(edit) Edit…', description: 'presence, value, severity, unit — in the attribute editor',
+      run: async () => openEditor(pages, row) },
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {
@@ -1374,9 +1326,12 @@ async function editSeverity(pages, row) {
     { shape: row.shape, path: row.path, label: row.label, current }));
 }
 
-const EDITS = { presence: editPresence, value: editValue, menu: rowMenu, test: newTest,
-  severity: editSeverity, createShape, newSubtype,
-  override, addAttribute };
+const EDITS = { presence: editPresence, menu: rowMenu, test: newTest,
+  severity: editSeverity, createShape, newSubtype, override, addAttribute,
+  // What the attribute editor asks of the page (attributepanel.js).
+  unit: async (pages, row) => Boolean(await require('./units').editUnits(
+    pages.clientHolder.client, pages.current.packageUri, row)),
+  params: editParameter };
 
 /** The entity type a tree row stands for, whichever tree it is in. */
 function typeOf(node) {

@@ -294,8 +294,8 @@ def test_unit_with_nothing_ticked_removes_the_constraint(tmp_path, pkg):
         'command': 'semforge.openTypePage',
         'node': {'raw': {'kind': 'type', 'targetClass': _machine(pkg), 'children': []},
                  'packageUri': 'file:///pkg/shacl.ttl'},
-        'webviewMessages': [{'command': 'menu', 'row': row}],
-        'picks': ['$(symbol-ruler) Unit…', []],
+        'webviewMessages': [{'command': 'unit', 'row': row}],
+        'picks': [[]],
         'replies': {'semforge/typePage': page, 'semforge/units': dict(UNITS, allowed=['CEL']),
                     'semforge/setUnits': {'ok': True}}})
     [sent] = _asked(seen, 'semforge/setUnits')

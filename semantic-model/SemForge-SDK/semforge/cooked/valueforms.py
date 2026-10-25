@@ -514,4 +514,19 @@ def to_payload(value):
                        'expression': to_json(normalize_root(f.root), _kind(f))}
                       for f in value.forms],
             'said': say(value), 'editable': value.editable, 'reason': value.reason,
-            'kinds': list(KINDS)}
+            'kinds': list(KINDS), 'lists': lists_switch(value)}
+
+
+def lists_switch(value):
+    """Which way the 'lists' edit goes from here: 'single' -- one value, which
+    may also become a list of the same ("Allow a list too"); 'allowed' -- one
+    value or a list of it ("One value only"); '' -- neither."""
+    if not value.editable:
+        return ''
+    scalars = [f for f in value.forms if not f.is_list]
+    lists = [f for f in value.forms if f.is_list]
+    if len(value.forms) == 1 and scalars and scalars[0].payload in LISTS:
+        return 'single'
+    if len(scalars) == 1 and lists and scalars[0].payload in LISTS:
+        return 'allowed'
+    return ''

@@ -119,10 +119,10 @@ def test_one_plain_value_is_not_an_expression(root):
     layer = _layer(root, EXPR, ['iffBaseEntities:hasNoteX'])
     assert not layer.complex
     row = _row(root, 'hasNoteX')
-    assert row['expression'] is None and row['combinable'] and row['valueEditable']
+    assert row['expression'] is None and row['valueEditable']
     # The kms number keeps its plain words on the page, and is an expression.
     strength = _row(root, 'hasStrength')
-    assert strength['expression'] and not strength['combinable']
+    assert strength['expression']
     assert strength['value'] == 'number · 0 – 100'
 
 
@@ -166,7 +166,7 @@ def test_combine_turns_one_value_into_any_of(root):
     layer = _layer(root, EXPR, chain)
     assert describe(layer) == 'any of: text | number (integer)'
     row = _row(root, 'hasNoteX')
-    assert row['expression'] and not row['combinable']
+    assert row['expression']
 
 
 def test_combine_needs_a_value_to_combine_with(root, tmp_path):
