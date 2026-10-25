@@ -261,6 +261,17 @@ def _payload_alternatives(package, slot, raw, raw_outer):
                         may_be_empty=empty),)
 
 
+def _lists(slot, found, blocked):
+    if found:
+        listed = [a.is_list for a in found]
+        return 'allowed' if any(listed) and not all(listed) else ''
+    if slot is None or blocked or slot.children and any(
+            c.kind not in ('constraint',) for c in slot.children):
+        return ''
+    return 'single' if payload_of(slot.path_chain[-1] if slot.path_chain else '') in (
+        'hasValue', 'hasObject') else ''
+
+
 def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     """One row per attribute node, its sub-attributes after it."""
     from .units import unit_text
@@ -328,13 +339,20 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
         'severityKnown': severity['known'],
         'path': list(node.path_chain), 'parameters': parameters,
         # The value picker rewrites class / datatype / nodeKind; a value
-        # written with sh:or or sh:in is a choice it cannot round-trip.
-        'valueEditable': slot is not None and not blocked,
-        'valueLocked': ('one of a list (sh:in): edit it in ⋯ → Constraints…'
-                        if blocked and blocked[0] == 'sh:in'
-                        else f'written with {blocked[0]}; edit it in the .ttl'
-                        if blocked else '' if slot is not None
-                        else 'no value layer; edit it in the .ttl'),
+        # written with sh:or or sh:in is a choice it cannot round-trip --
+        # unless it is one of the forms cooked/payloads.py reads exactly, which
+        # are written back in every form at once.
+        'valueEditable': bool(found) or (slot is not None and not blocked),
+        'valueLocked': '' if found else (
+            'one of a list (sh:in): edit it in ⋯ → Constraints…'
+            if blocked and blocked[0] == 'sh:in'
+            else f'written with {blocked[0]}; edit it in the .ttl'
+            if blocked else '' if slot is not None
+            else 'no value layer; edit it in the .ttl'),
+        # Whether its value may also be a list (an OPC UA array), and can be
+        # switched: 'allowed' -- a scalar or a list; 'single' -- one plain
+        # value; '' -- neither can be offered here.
+        'lists': _lists(slot, found, blocked),
         # The value's sh:in list, item by item, for the Constraints… editor.
         'inList': _in_list(raw, value_params, slot),
         # What the list contradicts on the same value, said on the row.

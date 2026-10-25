@@ -110,15 +110,22 @@ SHAPES = '''
                   sh:property [ sh:path ngsi-ld:hasObject ; sh:class iffBaseEntities:Filter ] ] ,
                 [ sh:path iffBaseEntities:hasListX ;
                   sh:property [ sh:path ngsi-ld:hasValueList ; sh:minCount 1 ; sh:maxCount 1 ;
-                                sh:or {listed} ] ] .
+                                sh:or {listed} ] ] ,
+                [ sh:path iffBaseEntities:hasPlainX ; sh:minCount 0 ; sh:maxCount 1 ;
+                  sh:property [ sh:path ngsi-ld:hasValue ; sh:minCount 1 ; sh:maxCount 1 ;
+                                sh:datatype xsd:string ; sh:maxLength 20 ] ] .
 '''
 
+KNOWLEDGE = ''.join(
+    f'\n<https://industryfusion.github.io/contexts/example/v0/base_entities/{name}> '
+    f'a <http://www.w3.org/2002/07/owl#ObjectProperty> ; '
+    f'<http://www.w3.org/2000/01/rdf-schema#domain> '
+    f'<https://industryfusion.github.io/contexts/example/v0/base_entities/Filter> .\n'
+    for name in ('hasCategoryX', 'hasLinkX', 'hasListX', 'hasPlainX'))
+FORMS = 'https://example.org/FormsShape'
 
-def test_the_type_page_says_the_forms(tmp_path, corpus):
-    from semforge.cooked.tree import build_tree
-    from semforge.cooked.typepage import PENDING, build_type_page
-    from semforge.package import load
 
+def _package(tmp_path, corpus):
     root = tmp_path / 'pkg'
     shutil.copytree(corpus.path, root, ignore=shutil.ignore_patterns('.semforge'))
     shapes = root / 'shacl.ttl'
@@ -126,9 +133,26 @@ def test_the_type_page_says_the_forms(tmp_path, corpus):
                       shapes.read_text() + SHAPES.format(
                           forms=scalar_or_list('sh:datatype xsd:string'),
                           listed=LIST_OF.format(member='sh:datatype xsd:double')))
+    knowledge = root / 'knowledge.ttl'
+    knowledge.write_text(knowledge.read_text() + KNOWLEDGE)
+    return root
+
+
+def _rows(root):
+    from semforge.cooked.typepage import PENDING, build_type_page
+    from semforge.package import load
+
+    page = build_type_page(load(str(root)), 'iffBaseEntities:Filter', PENDING)
+    return {r['label']: r for r in page['attributes']}
+
+
+def test_the_type_page_says_the_forms(tmp_path, corpus):
+    from semforge.cooked.tree import build_tree
+    from semforge.package import load
+
+    root = _package(tmp_path, corpus)
     package = load(str(root))
-    page = build_type_page(package, 'iffBaseEntities:Filter', PENDING)
-    rows = {r['label']: r for r in page['attributes']}
+    rows = _rows(root)
 
     category = rows['hasCategoryX']
     assert category['kinds'] == ['Property', 'ListProperty']
@@ -153,3 +177,102 @@ def test_the_type_page_says_the_forms(tmp_path, corpus):
     said = [n for top in build_tree(package) for n in nodes(top)
             if n.kind == 'raw' and n.label.startswith('value: ')]
     assert {n.label for n in said} >= {'value: Property or ListProperty', 'value: ListProperty'}
+    assert category['valueEditable'] and category['lists'] == 'allowed'
+    assert rows['hasPlainX']['lists'] == 'single'
+
+
+# --- editing them --------------------------------------------------------------------
+
+def _edit(root, attribute, value):
+    from semforge.cooked.constrain import edit_attribute
+    from semforge.package import load
+
+    return edit_attribute(load(str(root)), FORMS, [f'iffBaseEntities:{attribute}'], value=value)
+
+
+def test_a_new_type_goes_into_every_form(tmp_path, corpus):
+    root = _package(tmp_path, corpus)
+    before = (root / 'shacl.ttl').read_text()
+    _edit(root, 'hasCategoryX', {'datatype': 'xsd:double'})
+    after = (root / 'shacl.ttl').read_text()
+    rows = _rows(root)
+    assert rows['hasCategoryX']['value'] == 'number, or a list of them (possibly empty)'
+    assert rows['hasCategoryX']['kinds'] == ['Property', 'ListProperty']
+    # Only the sh:or changed: the corpus' own shapes, and the others here, did not.
+    head = before[:before.index('<https://example.org/FormsShape>')]
+    assert after.startswith(head)
+    assert after[after.index('iffBaseEntities:hasLinkX'):] == \
+        before[before.index('iffBaseEntities:hasLinkX'):]
+
+    _edit(root, 'hasCategoryX', {'kind': 'any'})
+    assert _rows(root)['hasCategoryX']['value'] == 'any value, or a list of them (possibly empty)'
+
+
+def test_a_list_values_members_are_edited(tmp_path, corpus):
+    root = _package(tmp_path, corpus)
+    _edit(root, 'hasListX', {'datatype': 'xsd:string'})
+    assert _rows(root)['hasListX']['value'] == 'a list of: text (possibly empty)'
+
+
+def test_a_single_value_may_become_a_list_and_back(tmp_path, corpus):
+    from semforge.cooked.constrain import set_lists
+    from semforge.package import load
+
+    root = _package(tmp_path, corpus)
+    made = set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)
+    assert made['changed']
+    row = _rows(root)['hasPlainX']
+    assert row['kinds'] == ['Property', 'ListProperty'] and row['lists'] == 'allowed'
+    assert row['value'] == 'text · at most 20 characters, or a list of them (possibly empty)'
+    # Again: nothing to do.
+    assert not set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)['changed']
+
+    set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], False)
+    row = _rows(root)['hasPlainX']
+    assert row['kinds'] == ['Property'] and row['lists'] == 'single'
+    assert row['value'] == 'text · at most 20 characters'
+
+
+def test_a_constraint_goes_into_the_value_layer_however_it_is_spelled(tmp_path, corpus):
+    """`ngsi-ld:hasValue` is the value layer: a constraint added to the value
+    goes into it, not into a second one beside it."""
+    from semforge.cooked.tree import add_constraint
+    from semforge.package import load
+
+    root = _package(tmp_path, corpus)
+    add_constraint(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], 'sh:minLength', '2')
+    text = (root / 'shacl.ttl').read_text()
+    plain = text[text.index('iffBaseEntities:hasPlainX'):]
+    assert plain.count('hasValue') == 1
+    assert _rows(root)['hasPlainX']['value'] == 'text · 2 – 20 characters'
+
+
+def test_what_is_written_validates_as_meant(tmp_path, corpus):
+    """A list of strings conforms to the rewritten shape; a list holding a
+    number, or a value too long, does not."""
+    import pyshacl
+    from rdflib import Graph, URIRef
+    from rdflib.namespace import SH
+
+    from semforge.cooked.constrain import set_lists
+    from semforge.package import load
+    from semforge.validate.shapes import subgraph_for
+
+    root = _package(tmp_path, corpus)
+    set_lists(load(str(root)), FORMS, ['iffBaseEntities:hasPlainX'], True)
+    shapes = subgraph_for(load(str(root)).shapes, [URIRef(FORMS)])
+
+    def violations(value):
+        data = Graph().parse(data=f'''
+            @prefix ngsi-ld: <https://uri.etsi.org/ngsi-ld/> .
+            @prefix e: <https://industryfusion.github.io/contexts/example/v0/base_entities/> .
+            <urn:f:1> a e:Filter ; e:hasPlainX [ {value} ] .''', format='turtle')
+        _, report, _ = pyshacl.validate(data, shacl_graph=shapes)
+        return [r for r in report.objects(None, SH.result)
+                if 'hasPlainX' in str(report.value(r, SH.resultPath))]
+
+    assert violations('ngsi-ld:hasValue "short"') == []
+    assert violations('ngsi-ld:hasValueList ( "a" "b" )') == []
+    assert violations('ngsi-ld:hasValueList ()') == []
+    assert violations('ngsi-ld:hasValueList ( "a" 3 )')
+    assert violations('ngsi-ld:hasValue "far too long for twenty characters"')

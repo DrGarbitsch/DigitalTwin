@@ -486,7 +486,6 @@ def apply_edit(package, shape, path_chain, parameter, value):
 # value -- a datatype or a range on the attribute node constrains the blank
 # node itself and can never be satisfied.
 ATTRIBUTE_LAYER = {'sh:minCount', 'sh:maxCount'}
-SLOTS = tuple(VALUE_PATHS)
 
 
 def _term(package, text, value):
@@ -622,12 +621,12 @@ def add_constraint(package, shape, path_chain, parameter, value, layer='value'):
     chain = list(path_chain)
     if layer == 'value':
         located = None
-        for slot in SLOTS:
-            try:
-                located = _locate(package, shape, chain + [slot])
-                break
-            except PackageError:
-                continue
+        # The value layer as THIS file spells its path: `ngsi-ld:hasValue` is
+        # one, and looking for `ngsild:hasValue` missed it and added a second.
+        _, _, attribute = _locate(package, shape, chain)
+        slot = next((c.path for c in attribute.children if c.path in VALUE_PATHS), None)
+        if slot is not None:
+            located = _locate(package, shape, chain + [slot])
         if located is None:
             # No value layer yet: create one around the parameter.
             source_path, text, target = _locate(package, shape, chain)
@@ -684,10 +683,10 @@ def _found_in(text, shape, chain):
     statement = TurtleIndex(text).block_for(str(shape))
     if statement is None:
         raise PackageError(f'{shape} is not in the text')
-    for slot in SLOTS:
-        block = find_block(property_blocks(text, statement), list(chain) + [slot])
-        if block is not None:
-            return slot, block
+    attribute = find_block(property_blocks(text, statement), list(chain))
+    for child in attribute.children if attribute is not None else ():
+        if child.path in VALUE_PATHS:
+            return child.path, child
     return None, None
 
 

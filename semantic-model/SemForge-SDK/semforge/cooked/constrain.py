@@ -534,7 +534,13 @@ def _group_in(text, shape, path_chain):
 
 def _value_slot(package, group):
     """The value layer's sh:path token inside an attribute group, or None."""
+    from ..ngsild.kinds import payload_of
+
     for child in group.children:
+        # `ngsi-ld:` first: the merged graph binds the namespace once, to
+        # `ngsild:` when SemForge's own prefixes are loaded too.
+        if payload_of(child.path):
+            return child.path
         resolved = str(_resolve(package, child.path) or '')
         if resolved in PAYLOAD_PATH.values():
             return child.path
@@ -584,8 +590,8 @@ def _remove_line(text, group, name):
     """
     from ..rdfio import remove_parameter
 
-    _, end, _ = group.parameter(name)
-    start = text.rfind(name, group.start, end)
+    value_start, _, _ = group.parameter(name)
+    start = text.rfind(name, group.start, value_start)   # not inside the value
     updated = remove_parameter(text, group, name)
     line_start = updated.rfind('\n', 0, start) + 1
     line_end = updated.find('\n', start)
@@ -666,7 +672,13 @@ def edit_attribute(package, shape, path_chain, presence=None, value=None, counts
         elif group.parameter(name) is not None:
             text = _remove_line(text, group, name)
 
-    if value is not None:
+    forms = _forms_at(package, text, shape, chain) if value is not None else None
+    if forms is not None:
+        # A value that may be a scalar or a list (cooked/payloads.py): what it
+        # must be changes in every form at once, and the sh:or is written back
+        # as it was read.
+        text = _rewrite_forms(package, text, shape, chain, forms, value)
+    elif value is not None:
         group = _group_in(text, shape, chain)
         slot = _value_slot(package, group)
         if slot is None:
@@ -706,6 +718,206 @@ def edit_attribute(package, shape, path_chain, presence=None, value=None, counts
     _write_verified(holder, text)
     group = _group_in(text, shape, chain)
     return {'file': holder, 'line': text.count('\n', 0, group.start) + 1}
+
+
+# --- a value that may be a scalar or a list ---------------------------------------
+#
+# cooked/payloads.py reads two forms of sh:or exactly: a choice of value layers on
+# the attribute (`text, or a list of them`), and a list payload's own value (its
+# members, or the empty list). Read exactly, they are written back exactly: the
+# sh:or is regenerated from what was read and the edit, and the rest of the
+# property shape -- its counts, comments and layout -- is left where it stands.
+# Every write is read back before it is kept: what it says must be what was meant.
+
+ENCODING = ('sh:class', 'sh:datatype', 'sh:nodeKind')
+LISTS = {'hasValue': 'hasValueList', 'hasObject': 'hasObjectList'}
+# What a list member can be checked for, as a value can.
+MEMBER_CHECKS = ENCODING + ('sh:minInclusive', 'sh:maxInclusive', 'sh:minExclusive',
+                            'sh:maxExclusive', 'sh:minLength', 'sh:maxLength', 'sh:pattern')
+
+
+def _turtle_name(text, iri):
+    from .knowledge import _turtle_name as spelled
+
+    return spelled(text, iri)
+
+
+def _forms_at(package, text, shape, chain):
+    """('attribute', alternatives) for a choice of value layers on the
+    attribute, (slot, alternatives) for a list payload's own sh:or, or None."""
+    from ..ngsild.kinds import payload_of
+    from .payloads import Alternative, alternatives, list_form, prefixes_of
+
+    group = _group_in(text, shape, chain)
+    written = group.parameter(_turtle_name(text, SH['or']))
+    if written is not None:
+        found = alternatives(written[2], prefixes_of(package))
+        return ('attribute', found) if found else None
+    slot = _value_slot(package, group)
+    if slot is None or payload_of(slot) not in ('hasValueList', 'hasObjectList'):
+        return None
+    layer = _group_in(text, shape, chain + [slot])
+    written = layer.parameter(_turtle_name(text, SH['or']))
+    read = written and list_form(written[2], prefixes_of(package))
+    if not read:
+        return None
+    kind = 'ListRelationship' if payload_of(slot) == 'hasObjectList' else 'ListProperty'
+    return slot, (Alternative(payload=payload_of(slot), kind=kind, member=read[0],
+                              may_be_empty=read[1]),)
+
+
+def _wanted(package, text, forms, value, label):
+    """What the value must now be, as [('sh:class', token), …]."""
+    from ..ngsild.kinds import is_relationship
+
+    if value.get('kind') == 'any':
+        return []
+    kind = 'Relationship' if any(is_relationship(a.kind) for a in forms) else 'Property'
+    pairs = _value_layer(package, kind, value.get('datatype') or None,
+                         value.get('valueClass') or None, label)
+    return [('sh:' + str(predicate)[len(str(SH)):], _turtle_name(text, obj))
+            for predicate, obj in pairs if predicate not in (SH.minCount, SH.maxCount)]
+
+
+def _member(old, wanted, scalar):
+    """A form's member constraints with the encoding replaced: ranges, lengths
+    and patterns stay. A list's members carry no nodeKind (the OPC UA tools
+    write none); a scalar literal keeps the sh:nodeKind sh:Literal it had."""
+    kept = [(k, v) for k, v in old if k not in ENCODING]
+    new = [(k, v) for k, v in wanted if scalar or k != 'sh:nodeKind']
+    had = dict(old).get('sh:nodeKind', '')
+    if scalar and had.endswith('Literal') and not any(k == 'sh:nodeKind' for k, _ in new) \
+            and any(k == 'sh:datatype' for k, _ in new):
+        new.append(('sh:nodeKind', had))
+    return tuple(sorted(kept + new))
+
+
+def _indent_of(text, at):
+    import re
+
+    line_start = text.rfind('\n', 0, at) + 1
+    return re.match(r'[ \t]*', text[line_start:]).group(0) + '    '
+
+
+def _check_forms(package, text, shape, chain, expected):
+    """Refuse a write whose sh:or does not read back as what was meant."""
+    found = _forms_at(package, text, shape, chain)
+    if found is None or tuple(found[1]) != tuple(expected):
+        raise PackageError('the rewritten value does not read back as intended; '
+                           'nothing was changed -- edit it in the .ttl')
+
+
+def _rewrite_forms(package, text, shape, chain, forms, value):
+    from dataclasses import replace
+
+    from ..rdfio import set_parameter
+    from .payloads import render, render_list_value
+
+    where, found = forms
+    entry = _attribute(package, str(_resolve(package, chain[-1])))
+    wanted = _wanted(package, text, found, value, entry.label)
+    new = tuple(replace(a, member=_member(a.member, wanted, not a.is_list)) for a in found)
+    name = _turtle_name(text, SH['or'])
+    if where == 'attribute':
+        group = _group_in(text, shape, chain)
+        start = group.parameter(name)[0]
+        text = set_parameter(text, group, name,
+                             render(new, lambda iri: _turtle_name(text, iri),
+                                    _indent_of(text, start)))
+    else:
+        layer = _group_in(text, shape, chain + [where])
+        text = set_parameter(text, layer, name,
+                             render_list_value(new[0].member, lambda iri: _turtle_name(text, iri)))
+    _check_forms(package, text, shape, chain, new)
+    return text
+
+
+def set_lists(package, shape, path_chain, allowed):
+    """Whether an attribute's value may also be a list -- an OPC UA array.
+
+    allowed: a plain value layer (`sh:property [ sh:path ngsild:hasValue ; … ]`)
+    becomes the choice `sh:or ( scalar | list of the same, possibly empty )`.
+    Not allowed: the choice becomes its scalar's plain value layer. Anything
+    this does not read exactly is refused. Returns {'file', 'line', 'changed'}.
+    """
+    from ..ngsild.kinds import payload_of
+    from .payloads import Alternative, render
+    from .remove_attribute import _remove_span
+    from .tree import _write_verified
+
+    shape = str(shape)
+    chain = list(path_chain)
+    holder = package.index('shapes').file_for(URIRef(shape))
+    if holder is None:
+        raise PackageError(f'{shape} is not in any shapes file')
+    with open(holder, encoding='utf-8') as handle:
+        text = handle.read()
+    label = local(str(_resolve(package, chain[-1])))
+    forms = _forms_at(package, text, shape, chain)
+    name = _turtle_name(text, SH['or'])
+
+    if allowed:
+        if forms is not None:
+            if forms[0] == 'attribute' and any(a.is_list for a in forms[1]):
+                return _unchanged(holder, text, shape, chain)
+            raise PackageError(f'the value of {label} is only a list; edit it in the .ttl')
+        group = _group_in(text, shape, chain)
+        slot = _value_slot(package, group)
+        if slot is None or payload_of(slot) not in LISTS:
+            raise PackageError(f'{label} has no single value to allow a list of')
+        layer = _group_in(text, shape, chain + [slot])
+        if layer.children:
+            raise PackageError(f'the value of {label} has nested shapes; edit it in the .ttl')
+        member = []
+        for written in layer.parameters:
+            iri = str(_resolve(package, written) or '')
+            key = 'sh:' + iri[len(str(SH)):] if iri.startswith(str(SH)) else written
+            if key in ('sh:path', 'sh:minCount', 'sh:maxCount', 'sh:order'):
+                continue
+            if key not in MEMBER_CHECKS:
+                raise PackageError(f'the value of {label} says {written}, which a list '
+                                   f'member cannot be checked for here; edit it in the .ttl')
+            member.append((key, layer.parameters[written][2].strip()))
+        member = tuple(sorted(member))
+        payload = payload_of(slot)
+        scalar = Alternative(payload=payload, kind='Relationship' if payload == 'hasObject'
+                             else 'Property', member=member, least='1', most='1')
+        listed = Alternative(payload=LISTS[payload], kind='ListRelationship'
+                             if payload == 'hasObject' else 'ListProperty',
+                             member=tuple((k, v) for k, v in member if k != 'sh:nodeKind'),
+                             least='1', most='1', may_be_empty=True)
+        text = _remove_span(text, layer, group.start, group.end)
+        group = _group_in(text, shape, chain)
+        start = group.start
+        text = _set(text, group, name, render((scalar, listed),
+                                              lambda iri: _turtle_name(text, iri),
+                                              _indent_of(text, start)))
+        _check_forms(package, text, shape, chain, (scalar, listed))
+    else:
+        if forms is None:
+            return _unchanged(holder, text, shape, chain)
+        if forms[0] != 'attribute':
+            raise PackageError(f'the value of {label} is only a list; edit it in the .ttl')
+        scalar = next((a for a in forms[1] if not a.is_list), None)
+        if scalar is None:
+            raise PackageError(f'the value of {label} has no single form to keep')
+        from .payloads import _layer
+
+        group = _group_in(text, shape, chain)
+        text = _remove_line(text, group, name)
+        group = _group_in(text, shape, chain)
+        text = _add_line(text, group, _turtle_name(text, SH.property),
+                         f'[ {_layer(scalar, lambda iri: _turtle_name(text, iri))} ]')
+        if _forms_at(package, text, shape, chain) is not None:
+            raise PackageError('the value did not become a single value; nothing was changed')
+    _write_verified(holder, text)
+    group = _group_in(text, shape, chain)
+    return {'file': holder, 'line': text.count('\n', 0, group.start) + 1, 'changed': True}
+
+
+def _unchanged(holder, text, shape, chain):
+    group = _group_in(text, shape, chain)
+    return {'file': holder, 'line': text.count('\n', 0, group.start) + 1, 'changed': False}
 
 
 def remove_property_group(package, shape, path_chain):

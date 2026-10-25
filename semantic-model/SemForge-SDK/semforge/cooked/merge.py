@@ -43,7 +43,7 @@ from rdflib.namespace import RDF, RDFS, SH
 from ..errors import PackageError
 from ..rdfio import TurtleIndex, property_blocks
 from ..validate.normalise import curie
-from .tree import EDITABLE, SLOTS
+from .tree import EDITABLE, VALUE_PATHS
 
 ALLOWED = {RDF.type, SH.targetClass, SH.targetNode, SH.targetSubjectsOf,
            SH.targetObjectsOf, SH.target, SH.property, SH.sparql, SH.rule,
@@ -98,7 +98,7 @@ def _plain(group):
     if set(group.parameters) - PLAIN:
         return False
     for child in group.children:
-        if child.path not in SLOTS or child.children or set(child.parameters) - PLAIN:
+        if child.path not in VALUE_PATHS or child.children or set(child.parameters) - PLAIN:
             return False
     return True
 

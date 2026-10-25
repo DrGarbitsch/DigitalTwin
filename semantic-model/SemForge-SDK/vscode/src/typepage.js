@@ -1094,6 +1094,17 @@ async function rowMenu(pages, row) {
         : 'any — which unitCode its instances may say',
       run: async () => require('./units').editUnits(pages.clientHolder.client,
         pages.current.packageUri, row) }]),
+    // A value that may also be a list -- an OPC UA array (its ValueRank) --
+    // is the choice `a scalar, or a list of them`; switched here, both ways.
+    ...(row.lists === 'single' ? [{ label: '$(list-unordered) Allow a list too',
+      description: `${row.kind === 'Relationship' ? 'ListRelationship' : 'ListProperty'}: ` +
+        'one value, or a list of them (possibly empty)',
+      run: async () => Boolean(await request(pages, 'semforge/setLists',
+        { shape: row.shape, path: row.path, allowed: true })) }]
+      : row.lists === 'allowed' ? [{ label: '$(symbol-variable) One value only',
+        description: 'no list: the value is a single one again',
+        run: async () => Boolean(await request(pages, 'semforge/setLists',
+          { shape: row.shape, path: row.path, allowed: false })) }] : []),
     { label: '$(add) Add a sub-attribute…', description: `nested inside ${row.label}`,
       run: async () => {
         await vscode.commands.executeCommand('semforge.addAttributeConstraint', {

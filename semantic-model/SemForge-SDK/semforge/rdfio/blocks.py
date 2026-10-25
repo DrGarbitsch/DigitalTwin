@@ -240,8 +240,11 @@ def remove_parameter(text, target, name):
     located = target.parameter(name)
     if located is None:
         raise KeyError(name)
-    _, end, _ = located
-    start = text.rfind(name, target.start, end)
+    value_start, end, _ = located
+    # The name stands before its value. Searched back from the value's END, a
+    # value holding the same name -- `sh:or ( … sh:or ( … ) … )` -- was cut
+    # from its inner one, and half of the outer value stayed behind.
+    start = text.rfind(name, target.start, value_start)
     after = end
     while after < target.end and text[after] in ' \t':
         after += 1

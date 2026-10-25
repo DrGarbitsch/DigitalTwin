@@ -2571,6 +2571,25 @@ def shapes_feature(ls, params):
         return {'roots': [], 'error': str(exc)}
 
 
+@server.feature('semforge/setLists')
+def set_lists_feature(ls, params):
+    """Whether an attribute's value may also be a list (type page)."""
+    from ..cooked.constrain import set_lists
+
+    root = package_root(_uri_to_path(_field(params, 'uri', '')))
+    if root is None:
+        return {'ok': False, 'error': 'not a SemForge package'}
+    try:
+        made = set_lists(_package_for(root), _field(params, 'shape'),
+                         list(_field(params, 'path') or []), bool(_field(params, 'allowed')))
+        if made['changed']:
+            _packages.pop(root, None)
+            _publish(ls, _path_to_uri(made['file']))
+        return dict(made, ok=True)
+    except Exception as exc:                       # noqa: BLE001
+        return {'ok': False, 'error': str(exc)}
+
+
 @server.feature('semforge/editAttribute')
 def edit_attribute_feature(ls, params):
     """Change an attribute's presence or what its value must be (type page)."""

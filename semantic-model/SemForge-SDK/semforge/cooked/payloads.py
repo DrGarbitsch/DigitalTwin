@@ -297,3 +297,47 @@ def describe(found, words):
 
 def kinds(found):
     return list(dict.fromkeys(a.kind for a in found))
+
+
+# --- writing them back -----------------------------------------------------------
+#
+# What alternatives() read, written as it read it: an edit of a value that may be
+# a scalar or a list changes the member constraints of every form at once, and
+# the shapes file says the same thing afterwards as an OPC UA tool would have.
+
+def _spelled(member, name):
+    return [f'{name(SH[key[3:]])} {value}' for key, value in member]
+
+
+def render_list_value(member, name):
+    """The sh:or of a list payload's own value: its members, or the empty list."""
+    path = f'( [ {name(SH.zeroOrMorePath)} {name(RDF.rest)} ] {name(RDF.first)} )'
+    inner = ' ; '.join([f'{name(SH.path)} {path}'] + _spelled(member, name))
+    return (f'( [ {name(SH.nodeKind)} {name(SH.BlankNode)} ; {name(SH.property)} [ {inner} ] ] '
+            f'[ {name(SH.hasValue)} () ] )')
+
+
+def _layer(alternative, name):
+    from ..ngsild.kinds import NGSILD
+
+    parts = [f'{name(SH.path)} {name(URIRef(NGSILD + alternative.payload))}']
+    parts += [f'{name(predicate)} {value}'
+              for predicate, value in ((SH.minCount, alternative.least),
+                                       (SH.maxCount, alternative.most)) if value]
+    if not alternative.is_list:
+        parts += _spelled(alternative.member, name)
+    elif alternative.may_be_empty:
+        parts.append(f'{name(OR)} {render_list_value(alternative.member, name)}')
+    else:
+        path = f'( [ {name(SH.zeroOrMorePath)} {name(RDF.rest)} ] {name(RDF.first)} )'
+        inner = ' ; '.join([f'{name(SH.path)} {path}'] + _spelled(alternative.member, name))
+        parts.append(f'{name(SH.nodeKind)} {name(SH.BlankNode)} ; {name(SH.property)} [ {inner} ]')
+    return ' ; '.join(parts)
+
+
+def render(found, name, indent=''):
+    """The text of an sh:or saying these alternatives, one per line under
+    `indent`. `name(iri)` spells an IRI as the file being written does (its
+    prefixes, else <…>)."""
+    forms = [f'[ {name(SH.property)} [ {_layer(a, name)} ] ]' for a in found]
+    return '( ' + f'\n{indent}  '.join(forms) + ' )'
