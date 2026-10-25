@@ -201,9 +201,9 @@ def test_severity_has_its_own_column_and_is_edited_in_it(tmp_path, kms):
     seen, _ = _row_menu(tmp_path, kms, [])
     html = seen['webviews'][0]['html'][-1]
     assert '>Severity</th>' in html
-    row = html.split('>hasStrength</a>', 1)[1].split('</tr>', 1)[0]
+    row = html.split('>has<wbr>Strength</a>', 1)[1].split('</tr>', 1)[0]
     assert 'data-action="severity"' in row and '>warning</a>' in row
-    other = html.split('>hasCartridge</a>', 1)[1].split('</tr>', 1)[0]
+    other = html.split('>has<wbr>Cartridge</a>', 1)[1].split('</tr>', 1)[0]
     assert '<span class="dim">violation (default)</span>' in other
 
 

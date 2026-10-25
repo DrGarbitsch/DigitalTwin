@@ -213,7 +213,7 @@ def test_the_page_opens_on_the_clicked_attribute(tmp_path):
     assert seen['errors'] == [], seen['errors']
     html = seen['webviews'][0]['html'][-1]
     assert html.count('id="focus"') == 1
-    assert '>hasStrength<' in html.split('id="focus"', 1)[1].split('</tr>', 1)[0]
+    assert '>has<wbr>Strength<' in html.split('id="focus"', 1)[1].split('</tr>', 1)[0]
 
 
 # --- step B: the symbol set ---------------------------------------------------------

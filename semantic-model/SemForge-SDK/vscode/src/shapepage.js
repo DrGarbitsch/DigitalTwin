@@ -271,12 +271,23 @@ function renderShapePage(page, options) {
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   td.coverage { white-space: normal; }
+  td.value { white-space: normal; min-width: 12em; overflow-wrap: anywhere; }
+  td.kinds { white-space: normal; min-width: 7em; }
+  tr td:first-child { white-space: normal; overflow-wrap: break-word; }
+  td.coverage .act { white-space: nowrap; }
+  td.sev, td.sev .severity { white-space: normal; }
   .violates { color: var(--vscode-errorForeground, #f14c4c); font-size: 0.9em; }
   tr.flag td:first-child { box-shadow: inset 3px 0 0 var(--vscode-errorForeground, #f14c4c); }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
   a.act:hover, a.act:focus-visible { color: var(--vscode-textLink-foreground); text-decoration: none; }
   td.acts { text-align: right; }
+  /* The row's actions -- ⋯ with "New test…" first -- stay at the right edge
+     while a narrow panel scrolls the table sideways. */
+  td.acts, tr > th:last-child { position: sticky; right: 0;
+                                background: var(--vscode-editor-background, Canvas);
+                                box-shadow: inset 1px 0 0 var(--vscode-panel-border, rgba(128,128,128,.25)); }
+  tr:hover td.acts { background: var(--vscode-list-hoverBackground); }
   td.acts button { padding: 0 8px; }
   td.depth1 { padding-left: 30px; } td.depth2 { padding-left: 48px; }
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }

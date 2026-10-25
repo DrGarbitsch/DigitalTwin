@@ -59,6 +59,13 @@ function openable(text, at, extra) {
     : escape(text);
 }
 
+/** A camelCase name that may break between its words, and only there:
+ *  "hasPowerLossDueToInternalLeakage" fits a narrow column as "hasPowerLoss…
+ *  / DueToInternal… / Leakage", not cut mid-word. */
+function breakable(text) {
+  return escape(text).replace(/([a-z0-9])([A-Z])/g, '$1<wbr>$2');
+}
+
 function action(name, index, text, title) {
   return `<a href="#" class="act" data-action="${name}" data-row="${index}"` +
     `${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`;
@@ -166,21 +173,27 @@ function attributeRows(attributes, focused, options) {
       ? `<div class="verbatim">${row.verbatim.map(escape).join('<br>')}</div>` : '') +
       (row.expression ? expressionTree(row.expression) : '');
     return head + `<tr class="${classes}"${index === focused ? ' id="focus"' : ''}>` +
-      `<td${indent}>${openable(row.label, row.definedAt, ` title="${escape(row.term)}"`)}` +
+      `<td${indent}>${row.definedAt
+        ? `<a href="#" data-open="${escape(row.definedAt)}" title="${escape(row.term)}">` +
+          `${breakable(row.label)}</a>` : breakable(row.label)}` +
       `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
         `Violated in the main-model by:\n${row.violations.join('\n')}\n\nClick: open the main-model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
       // Every kind the value may take: `Property or ListProperty` for a value
       // that may be a scalar or a list (an OPC UA Variable's ValueRank).
-      `<td><span class="kind">${escape((row.kinds || [row.kind]).join(' or '))}</span></td>` +
+      `<td class="kinds">${(row.kinds || [row.kind]).map((k) => `<span class="kind">${escape(k)}</span>`)
+        .join(' <span class="dim">or</span> ')}</td>` +
       `<td>${row.inherited ? escape(row.presence)
         : action('presence', index, row.presence, 'Change: optional or required')}</td>` +
-      `<td>${row.inherited ? escape(row.value)
+      // The value wraps: "one of PortDirectionEnum, or a list of them (possibly
+      // empty)" kept on one line pushed the coverage column -- "New test…" --
+      // and the actions off the right of the page.
+      `<td class="value">${row.inherited ? escape(row.value)
         : row.valueEditable ? action('value', index, row.value, 'Change what the value must be')
           : `<span title="${escape(row.valueLocked || '')}">${escape(row.value)}</span>`}` +
       `${verbatim}` +
       `${(row.notes || []).map((n) => `<div>${chip(n, 'bad')}</div>`).join('')}</td>` +
-      `<td>${severityCell(row, index)}</td>` +
+      `<td class="sev">${severityCell(row, index)}</td>` +
       `<td class="coverage">${coverageCell(row, index)}</td>` +
       `<td class="acts">${actions(row, index)}</td></tr>` +
       (row.contributions && grouped
@@ -405,6 +418,14 @@ function renderTypePage(page, options) {
   td { padding: 5px 12px; border-top: 1px solid var(--vscode-panel-border, rgba(128,128,128,.25));
        white-space: nowrap; vertical-align: top; }
   td.coverage { white-space: normal; }
+  td.value { white-space: normal; min-width: 12em; overflow-wrap: anywhere; }
+  td.kinds { white-space: normal; min-width: 7em; }
+  /* The table fits the page: a long OPC UA attribute name, a severity with
+     "(default)", wrap where they must -- the coverage column with "New
+     test…" and the actions stay on screen. */
+  tr td:first-child { white-space: normal; overflow-wrap: break-word; }
+  td.coverage .act { white-space: nowrap; }
+  td.sev, td.sev .severity { white-space: normal; }
   .severity { font-size: 0.86em; color: var(--vscode-descriptionForeground); white-space: nowrap; }
   .violates { color: var(--vscode-errorForeground, #f14c4c); font-size: 0.9em; }
   tr:hover td { background: var(--vscode-list-hoverBackground); }
@@ -438,6 +459,12 @@ function renderTypePage(page, options) {
   a.act { color: inherit; border-bottom: 1px dashed var(--vscode-descriptionForeground); }
   a.act:hover, a.act:focus-visible { color: var(--vscode-textLink-foreground); text-decoration: none; }
   td.acts { text-align: right; }
+  /* The row's actions -- ⋯ with "New test…" first -- stay at the right edge
+     while a narrow panel scrolls the table sideways. */
+  td.acts, tr > th:last-child { position: sticky; right: 0;
+                                background: var(--vscode-editor-background, Canvas);
+                                box-shadow: inset 1px 0 0 var(--vscode-panel-border, rgba(128,128,128,.25)); }
+  tr:hover td.acts { background: var(--vscode-list-hoverBackground); }
   button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
                    border-color: var(--vscode-button-background); }
   button.primary:hover { background: var(--vscode-button-hoverBackground); }
