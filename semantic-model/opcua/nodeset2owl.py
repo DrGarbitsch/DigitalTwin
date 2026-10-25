@@ -76,8 +76,8 @@ Schema/Opc.Ua.Types.xsd')
     parser.add_argument('--strict-classification', required=False, action='store_true',
                         help='Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata '
                              'rule) and R5 (default fallback: types and instance declarations static, instances '
-                             'dynamic). Disables the heuristic overrides R1 (instance-with-Variables), R2 '
-                             '(ParentNodeId) and the heuristic fallback R4 (definition fallback), see README.')
+                             'dynamic). Disables the heuristic override R1 (instance-with-Variables) and the '
+                             'heuristic fallbacks R2 (ParentNodeId) and R4 (definition fallback), see README.')
     parser.add_argument('--classification-report', required=False, default=None,
                         help='Write the nodes which the heuristics classify differently than the standard rules '
                              '(static -> dynamic and dynamic -> static) to this TSV file.')

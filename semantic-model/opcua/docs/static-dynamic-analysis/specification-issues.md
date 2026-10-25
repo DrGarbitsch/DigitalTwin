@@ -2,7 +2,7 @@
 
 Change requests derived from the evaluation of the 20 nodesets of `translate_default_nodesets.make` (UA-Nodeset
 UA-1.05.03-2023-12-15). Each item names the nodes (NodeIds in the namespace of the nodeset, `ns=1` unless noted), the
-evidence and the requested change. Fixed in the specifications, the corresponding heuristic overrides of nodeset2owl.py
+evidence and the requested change. Fixed in the specifications, the corresponding heuristics of nodeset2owl.py
 disappear (see [classification-changes.md](classification-changes.md); rules in the
 [README](../../README.md#static-and-dynamic-nodes) and [heuristic-outliers.md](heuristic-outliers.md)).
 
@@ -19,7 +19,7 @@ and OPC 11030 §7.11 (UA Modelling Best Practices) for standardized instances wh
 **C1. Server specific content inside the static ranges.** Core's NamespaceMetadata (`i=15957`,
 StaticNumericNodeIdRange `i=15963`, 36 ranges) excludes the Server object and its classic children (ServerStatus,
 ServerCapabilities, Namespaces, …), but the later additions to the Server object are inside the static ranges although
-their values are server specific. nodeset2owl.py reclassifies 240 core nodes (R1/R2); the instances are:
+their values are server specific. nodeset2owl.py reclassifies 232 core nodes (R1); the instances are:
 
 | Instance | NodeId | Server specific content (examples) |
 |---|---|---|
@@ -46,9 +46,10 @@ identity and value (a static declaration, server specific values on server speci
 **C1a. Missing ParentNodeId.** `Dictionaries` (`i=17594`, HasComponent of the Server object), `AuthorizationServices`
 (`i=17732`) and `KeyCredentialConfiguration` (`i=18155`, both HasComponent of ServerConfiguration) and `Resources`
 (`i=24226`, HasComponent of the Server object) have no ParentNodeId, unlike the other components of these instances
-(e.g. `CertificateGroups` `i=14053` with `ParentNodeId="i=12637"`). nodeset2owl.py derives the coupling to a parent
-from the ParentNodeId only (R2), so they stay static although their parents are server specific.
-*Request:* add the ParentNodeId (and exclude them from the static ranges, see C1).
+(e.g. `CertificateGroups` `i=14053` with `ParentNodeId="i=12637"`). The ParentNodeId expresses the coupling to
+the parent (nodeset2owl.py follows it in R2); today it has no effect on the classification, because the static ranges
+decide these nodes (see C1).
+*Request:* add the ParentNodeId for consistency.
 
 **C2. Prototypes exported as nodes.** The nodeset contains 66 Objects/Variables without parent and without any
 incoming reference, which define standard BrowseNames or structures rather than nodes of a server, e.g.

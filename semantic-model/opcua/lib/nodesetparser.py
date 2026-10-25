@@ -1300,11 +1300,12 @@ Did you forget to import it?")
         """key -> (static, formally static, reason of a difference).
 
         The first matching rule decides, in the order R1 to R5:
-          overrides (heuristic, they overrule R3):
+          override (heuristic, it overrules R3):
           R1 instance-with-Variables override: an instance which has Variables is dynamic together with its
              Variables, except definition nodes.
-          R2 ParentNodeId override: a node whose ParentNodeId (in the nodeset) is dynamic is dynamic, except
-             Methods and definition nodes.
+          fallback (heuristic, only where R3 does not decide):
+          R2 ParentNodeId fallback: a node whose ParentNodeId (in the nodeset) is dynamic is dynamic, except
+             Methods, instance declarations and definition nodes.
           standard rule:
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           fallbacks (only where R3 does not decide):
@@ -1358,10 +1359,11 @@ Did you forget to import it?")
             is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif static and tag(key) in ('UAObject', 'UAVariable', 'UAView') and parent is not None and \
+            elif undecided and static and tag(key) in ('UAObject', 'UAVariable', 'UAView') and parent is not None and \
                     not is_definition(key) and \
                     not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
-                static, reason = False, f'R2: child of dynamic parent {self.node_label(parent, xml_nodes)}'
+                static, reason = False, \
+                    f'R2: child of dynamic parent {self.node_label(parent, xml_nodes)} (fallback)'
             elif undecided and not static and tag(key) in instance_tags:
                 if is_object and is_definition(key):
                     static, reason = True, 'R4: definition node (fallback)'

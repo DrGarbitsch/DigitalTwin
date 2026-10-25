@@ -2570,6 +2570,15 @@ opcua:aT0xNA a uardf:DataType ;
     uardf:nodeId "i=14" ;
     uardf:symbolicName "Guid" .
 
+opcua:aT0xNDA1Mw a uardf:Object ;
+    uardf:browseName "CertificateGroups" ;
+    uardf:displayName "CertificateGroups"@en ;
+    uardf:hasTypeDefinition opcua:CertificateGroupFolderType ;
+    uardf:name "CertificateGroups" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=14053" ;
+    uardf:symbolicName "CertificateGroups" .
+
 opcua:aT0xNDI3Mw a uardf:DataType ;
     opcua:HasEncoding opcua:aT0xNDMxOQ,
         opcua:aT0xNDMyMw,
@@ -3467,6 +3476,15 @@ opcua:aT0xNzIyNQ a uardf:ObjectType ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=17225" ;
     uardf:symbolicName "AuditConditionSuppressionEventType" .
+
+opcua:aT0xNzM3MQ a uardf:Object ;
+    uardf:browseName "PublishedDataSets" ;
+    uardf:displayName "PublishedDataSets"@en ;
+    uardf:hasTypeDefinition opcua:DataSetFolderType ;
+    uardf:name "PublishedDataSets" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=17371" ;
+    uardf:symbolicName "PublishedDataSets" .
 
 opcua:aT0xNzQ2Nw a uardf:DataType ;
     opcua:HasEncoding opcua:aT0xNzQ2OA,
@@ -4408,6 +4426,24 @@ opcua:aT0yMzY0 a uardf:Object ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=2364" ;
     uardf:symbolicName "AggregateFunction_WorstQuality" .
+
+opcua:aT0yMzY1OA a uardf:Object ;
+    uardf:browseName "SubscribedDataSets" ;
+    uardf:displayName "SubscribedDataSets"@en ;
+    uardf:hasTypeDefinition opcua:SubscribedDataSetFolderType ;
+    uardf:name "SubscribedDataSets" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=23658" ;
+    uardf:symbolicName "SubscribedDataSets" .
+
+opcua:aT0yMzY4NQ a uardf:Object ;
+    uardf:browseName "DataSetClasses" ;
+    uardf:displayName "DataSetClasses"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "DataSetClasses" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=23685" ;
+    uardf:symbolicName "DataSetClasses" .
 
 opcua:aT0yMzYw a uardf:Object ;
     uardf:browseName "DurationGood" ;
@@ -5500,6 +5536,15 @@ opcua:aT0zMjUzMA a uardf:Object ;
     uardf:nodeId "i=32530" ;
     uardf:symbolicName "Quantities" .
 
+opcua:aT0zMjY0Mw a uardf:Object ;
+    uardf:browseName "AggregateFunctions" ;
+    uardf:displayName "AggregateFunctions"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "AggregateFunctions" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=32643" ;
+    uardf:symbolicName "AggregateFunctions" .
+
 opcua:aT0zMjY1OQ a uardf:DataType ;
     opcua:HasEncoding opcua:aT0zMjY2MQ,
         opcua:aT0zMjY2OQ,
@@ -5561,6 +5606,15 @@ opcua:aT0zMjc1MA a uardf:Variable ;
     uardf:nodeId "i=32750" ;
     uardf:symbolicName "OptionSetLength" ;
     base:hasDatatype opcua:UInt32 .
+
+opcua:aT0zMjc1NQ a uardf:Object ;
+    uardf:browseName "EventTypes" ;
+    uardf:displayName "EventTypes"@en ;
+    uardf:hasTypeDefinition opcua:FolderType ;
+    uardf:name "EventTypes" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=32755" ;
+    uardf:symbolicName "EventTypes" .
 
 opcua:aT0zMjc1OA a uardf:ObjectType ;
     uardf:browseName "AuditHistoryConfigurationChangeEventType" ;
@@ -13739,16 +13793,6 @@ opcua:aT0xNTMwNA a uardf:Object ;
     uardf:nodeId "i=15304" ;
     uardf:symbolicName "DefaultJson" .
 
-opcua:aT0xNTQ0Nw a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNTQ0OA ;
-    opcua:hasInputArguments opcua:aT0xNTQ0OA ;
-    uardf:browseName "RemoveSecurityGroup" ;
-    uardf:displayName "RemoveSecurityGroup"@en ;
-    uardf:name "RemoveSecurityGroup" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=15447" ;
-    uardf:symbolicName "RemoveSecurityGroup" .
-
 opcua:aT0xNTQ3OQ a uardf:Object ;
     opcua:HasDescription opcua:aT0xNTUyNA ;
     uardf:browseName "Default Binary" ;
@@ -17344,16 +17388,6 @@ opcua:aT0yNTIzOQ a uardf:Object ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
     uardf:nodeId "i=25239" ;
     uardf:symbolicName "DefaultBinary" .
-
-opcua:aT0yNTQ0NA a uardf:Method ;
-    opcua:HasProperty opcua:aT0yNTQ0NQ ;
-    opcua:hasInputArguments opcua:aT0yNTQ0NQ ;
-    uardf:browseName "RemovePushTarget" ;
-    uardf:displayName "RemovePushTarget"@en ;
-    uardf:name "RemovePushTarget" ;
-    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=25444" ;
-    uardf:symbolicName "RemovePushTarget" .
 
 opcua:aT0yNTQ2Mg a uardf:Method ;
     opcua:HasProperty opcua:aT0yNTQ2Mw ;
@@ -29275,17 +29309,18 @@ opcua:aT0xNTQ0Mg a uardf:Variable ;
     base:hasValueList ( "{\"xsd:TypeId\": {\"xsd:Identifier\": \"i=297\"}, \"xsd:Body\": {\"xsd:Argument\": {\"xsd:Name\": \"SecurityGroupNodeId\", \"xsd:DataType\": {\"xsd:Identifier\": \"i=17\"}, \"xsd:ValueRank\": -1, \"xsd:ArrayDimensions\": null}}}"^^rdf:JSON ) ;
     base:hasValueRank 1 .
 
-opcua:aT0xNTQ0NA a uardf:Method ;
-    opcua:HasProperty opcua:aT0xNTQ0NQ,
-        opcua:aT0xNTQ0Ng ;
-    opcua:hasInputArguments opcua:aT0xNTQ0NQ ;
-    opcua:hasOutputArguments opcua:aT0xNTQ0Ng ;
-    uardf:browseName "AddSecurityGroup" ;
-    uardf:displayName "AddSecurityGroup"@en ;
-    uardf:name "AddSecurityGroup" ;
+opcua:aT0xNTQ0Mw a uardf:Object ;
+    opcua:HasComponent opcua:aT0xNTQ0NA,
+        opcua:aT0xNTQ0Nw ;
+    opcua:hasAddSecurityGroup opcua:aT0xNTQ0NA ;
+    opcua:hasRemoveSecurityGroup opcua:aT0xNTQ0Nw ;
+    uardf:browseName "SecurityGroups" ;
+    uardf:displayName "SecurityGroups"@en ;
+    uardf:hasTypeDefinition opcua:SecurityGroupFolderType ;
+    uardf:name "SecurityGroups" ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=15444" ;
-    uardf:symbolicName "AddSecurityGroup" .
+    uardf:nodeId "i=15443" ;
+    uardf:symbolicName "SecurityGroups" .
 
 opcua:aT0xNTQ0NQ a uardf:Variable ;
     uardf:browseName "InputArguments" ;
@@ -44360,17 +44395,18 @@ opcua:aT0yNTMxNw a uardf:Variable ;
     base:hasDatatype opcua:String ;
     base:hasValueRank 1 .
 
-opcua:aT0yNTQ0MQ a uardf:Method ;
-    opcua:HasProperty opcua:aT0yNTQ0Mg,
-        opcua:aT0yNTQ0Mw ;
-    opcua:hasInputArguments opcua:aT0yNTQ0Mg ;
-    opcua:hasOutputArguments opcua:aT0yNTQ0Mw ;
-    uardf:browseName "AddPushTarget" ;
-    uardf:displayName "AddPushTarget"@en ;
-    uardf:name "AddPushTarget" ;
+opcua:aT0yNTQ0MA a uardf:Object ;
+    opcua:HasComponent opcua:aT0yNTQ0MQ,
+        opcua:aT0yNTQ0NA ;
+    opcua:hasAddPushTarget opcua:aT0yNTQ0MQ ;
+    opcua:hasRemovePushTarget opcua:aT0yNTQ0NA ;
+    uardf:browseName "KeyPushTargets" ;
+    uardf:displayName "KeyPushTargets"@en ;
+    uardf:hasTypeDefinition opcua:PubSubKeyPushTargetFolderType ;
+    uardf:name "KeyPushTargets" ;
     uardf:namespaceUri "http://opcfoundation.org/UA/" ;
-    uardf:nodeId "i=25441" ;
-    uardf:symbolicName "AddPushTarget" .
+    uardf:nodeId "i=25440" ;
+    uardf:symbolicName "KeyPushTargets" .
 
 opcua:aT0yNTQ0Mg a uardf:Variable ;
     uardf:browseName "InputArguments" ;
@@ -49925,17 +49961,11 @@ opcua:BuiltInType a owl:NamedIndividual,
 opcua:CartesianCoordinatesType a owl:Class ;
     rdfs:subClassOf opcua:BaseDataVariableType .
 
-opcua:CertificateGroupFolderType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
-
 opcua:ConditionType a owl:Class ;
     rdfs:subClassOf opcua:BaseEventType .
 
 opcua:DataSetFieldFlags a owl:Class ;
     rdfs:subClassOf opcua:UInt16 .
-
-opcua:DataSetFolderType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
 
 opcua:DataSetMetaData a owl:NamedIndividual,
         base:Field ;
@@ -50112,9 +50142,6 @@ opcua:PubSubGroupDataType a owl:Class ;
 opcua:PubSubGroupType a owl:Class ;
     rdfs:subClassOf opcua:BaseObjectType .
 
-opcua:PubSubKeyPushTargetFolderType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
-
 opcua:PubSubStatusEventType a owl:Class ;
     rdfs:subClassOf opcua:SystemEventType .
 
@@ -50153,9 +50180,6 @@ opcua:RequestedDeliveryGuarantee a owl:NamedIndividual,
         base:Field ;
     base:hasDatatype opcua:BrokerTransportQualityOfService ;
     base:hasFieldName "RequestedDeliveryGuarantee" .
-
-opcua:SecurityGroupFolderType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
 
 opcua:SecurityGroupId a owl:NamedIndividual,
         base:Field ;
@@ -50205,9 +50229,6 @@ opcua:StructureDefinition a owl:Class,
         opcua:Fields,
         opcua:StructureType ;
     base:hasFieldName "StructureDefinition" .
-
-opcua:SubscribedDataSetFolderType a owl:Class ;
-    rdfs:subClassOf opcua:FolderType .
 
 opcua:SystemOffNormalAlarmType a owl:Class ;
     rdfs:subClassOf opcua:OffNormalAlarmType .
@@ -52981,6 +53002,17 @@ opcua:aT0xNTMxOA a uardf:VariableType ;
     uardf:symbolicName "BaseAnalogType" ;
     base:hasDatatype opcua:Number ;
     base:hasValueRank -2 .
+
+opcua:aT0xNTQ0Nw a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTQ0OA ;
+    opcua:hasInputArguments opcua:aT0xNTQ0OA ;
+    uardf:browseName "RemoveSecurityGroup" ;
+    uardf:displayName "RemoveSecurityGroup"@en ;
+    uardf:name "RemoveSecurityGroup" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15447" ;
+    uardf:parent opcua:aT0xNTQ0Mw ;
+    uardf:symbolicName "RemoveSecurityGroup" .
 
 opcua:aT0xNTQ1Nw a uardf:Method ;
     opcua:HasProperty opcua:aT0xNTQ1OA ;
@@ -57162,6 +57194,17 @@ opcua:aT0yNTMxNQ a uardf:Method ;
     uardf:parent opcua:aT0xNTQ1Mg ;
     uardf:symbolicName "RemoveSecurityGroupFolder" .
 
+opcua:aT0yNTQ0NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ0NQ ;
+    opcua:hasInputArguments opcua:aT0yNTQ0NQ ;
+    uardf:browseName "RemovePushTarget" ;
+    uardf:displayName "RemovePushTarget"@en ;
+    uardf:name "RemovePushTarget" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25444" ;
+    uardf:parent opcua:aT0yNTQ0MA ;
+    uardf:symbolicName "RemovePushTarget" .
+
 opcua:aT0yNTQxNA a uardf:Method ;
     opcua:HasProperty opcua:aT0yNTQxNQ ;
     opcua:hasInputArguments opcua:aT0yNTQxNQ ;
@@ -57991,6 +58034,9 @@ opcua:AuthenticationProfileUri a owl:NamedIndividual,
     base:hasDatatype opcua:String ;
     base:hasFieldName "AuthenticationProfileUri" .
 
+opcua:CertificateGroupFolderType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
+
 opcua:CertificateType a owl:Class ;
     rdfs:subClassOf opcua:BaseObjectType .
 
@@ -58007,6 +58053,9 @@ opcua:ConnectionTransportType a owl:Class ;
 
 opcua:DataItemType a owl:Class ;
     rdfs:subClassOf opcua:BaseDataVariableType .
+
+opcua:DataSetFolderType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
 
 opcua:DataSetMessageContentMask a owl:NamedIndividual,
         base:Field ;
@@ -58100,6 +58149,9 @@ opcua:NetworkMessageContentMask a owl:NamedIndividual,
 opcua:NonExclusiveLimitAlarmType a owl:Class ;
     rdfs:subClassOf opcua:LimitAlarmType .
 
+opcua:PubSubKeyPushTargetFolderType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
+
 opcua:PublishedDataSetType a owl:Class ;
     rdfs:subClassOf opcua:BaseObjectType .
 
@@ -58136,6 +58188,9 @@ opcua:RolePermissionType a owl:Class ;
     rdfs:subClassOf opcua:Structure ;
     base:hasField opcua:Permissions,
         opcua:RoleId .
+
+opcua:SecurityGroupFolderType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
 
 opcua:SecurityTokenRequestType a owl:Class ;
     rdfs:subClassOf opcua:Enumeration .
@@ -58181,6 +58236,9 @@ opcua:SimpleAttributeOperand a owl:Class ;
         opcua:BrowsePath,
         opcua:IndexRange,
         opcua:TypeDefinitionId .
+
+opcua:SubscribedDataSetFolderType a owl:Class ;
+    rdfs:subClassOf opcua:FolderType .
 
 opcua:TimeZoneDataType a owl:Class ;
     rdfs:subClassOf opcua:Structure ;
@@ -59166,6 +59224,19 @@ opcua:aT0xNTExOA a uardf:Method ;
     uardf:parent opcua:aT0xNTExMQ ;
     uardf:symbolicName "RemoveTargetVariables" .
 
+opcua:aT0xNTQ0NA a uardf:Method ;
+    opcua:HasProperty opcua:aT0xNTQ0NQ,
+        opcua:aT0xNTQ0Ng ;
+    opcua:hasInputArguments opcua:aT0xNTQ0NQ ;
+    opcua:hasOutputArguments opcua:aT0xNTQ0Ng ;
+    uardf:browseName "AddSecurityGroup" ;
+    uardf:displayName "AddSecurityGroup"@en ;
+    uardf:name "AddSecurityGroup" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=15444" ;
+    uardf:parent opcua:aT0xNTQ0Mw ;
+    uardf:symbolicName "AddSecurityGroup" .
+
 opcua:aT0xNTQ1NA a uardf:Method ;
     opcua:HasProperty opcua:aT0xNTQ1NQ,
         opcua:aT0xNTQ1Ng ;
@@ -60108,6 +60179,19 @@ opcua:aT0yNTMxMg a uardf:Method ;
     uardf:nodeId "i=25312" ;
     uardf:parent opcua:aT0xNTQ1Mg ;
     uardf:symbolicName "AddSecurityGroupFolder" .
+
+opcua:aT0yNTQ0MQ a uardf:Method ;
+    opcua:HasProperty opcua:aT0yNTQ0Mg,
+        opcua:aT0yNTQ0Mw ;
+    opcua:hasInputArguments opcua:aT0yNTQ0Mg ;
+    opcua:hasOutputArguments opcua:aT0yNTQ0Mw ;
+    uardf:browseName "AddPushTarget" ;
+    uardf:displayName "AddPushTarget"@en ;
+    uardf:name "AddPushTarget" ;
+    uardf:namespaceUri "http://opcfoundation.org/UA/" ;
+    uardf:nodeId "i=25441" ;
+    uardf:parent opcua:aT0yNTQ0MA ;
+    uardf:symbolicName "AddPushTarget" .
 
 opcua:aT0yNTQxMQ a uardf:Method ;
     opcua:HasProperty opcua:aT0yNTQxMg,
@@ -67213,9 +67297,6 @@ opcua:aT0xMTUwOA a uardf:Object ;
 opcua:ByteString a owl:Class ;
     rdfs:subClassOf opcua:BaseDataType .
 
-opcua:FolderType a owl:Class ;
-    rdfs:subClassOf opcua:BaseObjectType .
-
 opcua:aT0yOTE1 a uardf:ObjectType ;
     opcua:HasAlarmSuppressionGroup opcua:aT0xNjM5OQ ;
     opcua:HasComponent opcua:aT05MTE4,
@@ -67382,6 +67463,9 @@ opcua:aT0yMTk3 a uardf:VariableType ;
     uardf:nodeId "i=2197" ;
     uardf:symbolicName "SessionDiagnosticsVariableType" ;
     base:hasDatatype opcua:SessionDiagnosticsDataType .
+
+opcua:FolderType a owl:Class ;
+    rdfs:subClassOf opcua:BaseObjectType .
 
 opcua:aT0xMjA5OA a uardf:Variable ;
     opcua:HasComponent opcua:aT0xMjA5OQ,

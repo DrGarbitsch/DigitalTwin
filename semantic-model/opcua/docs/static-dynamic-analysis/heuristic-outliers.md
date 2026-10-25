@@ -5,14 +5,14 @@ Evaluation of the static/dynamic classification of nodeset2owl.py on the 20 node
 
 ## The rules
 
-The first matching rule decides, in the order R1 to R5. R1 and R2 are *overrides* (they overrule the
-NamespaceMetadata), R4 and R5 *fallbacks* (they only apply where the NamespaceMetadata does not decide). R3 and R5 are
+The first matching rule decides, in the order R1 to R5. R1 is an *override* (it overrules the
+NamespaceMetadata), R2, R4 and R5 are *fallbacks* (they only apply where the NamespaceMetadata does not decide). R3 and R5 are
 the rules of the OPC UA standard (`--strict-classification`), R1, R2 and R4 heuristics (default).
 
 | Rule | Name | Statement |
 |---|---|---|
 | R1 | instance-with-Variables override (heuristic) | An instance which has (direct) Variables is dynamic together with its Variables. Definition nodes are excluded. |
-| R2 | ParentNodeId override (heuristic) | A node whose ParentNodeId (nodeset attribute, not HasChild) is dynamic is dynamic. Methods and definition nodes are excluded. |
+| R2 | ParentNodeId fallback (heuristic) | A node whose ParentNodeId (nodeset attribute, not HasChild) is dynamic is dynamic. Methods, instance declarations and definition nodes are excluded. Only where R3 does not decide. |
 | R3 | NamespaceMetadata rule (standard) | The NamespaceMetadata of the namespace decides. |
 | R4 | definition fallback (heuristic) | Definition nodes, i.e. Objects and Variables which are definitions rather than data, are static: DataType encodings, dictionary entries, ModellingRules and the legacy type dictionaries (instances of DataTypeEncodingType, DictionaryEntryType, ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType and subtypes, with the Variables of the type dictionaries). Types refer to them by NodeId. Only where R3 does not decide. |
 | R5 | default fallback (standard) | Types and instance declarations are static, instances dynamic. |
@@ -27,15 +27,15 @@ TypeDefinition are not considered either (see the limitations below).
 
 | | R1 static → dynamic | R2 static → dynamic | R4 instead of R5: dynamic → static |
 |---|---|---|---|
-| core | 232 | 8 | 0 |
+| core | 232 | 0 | 0 |
 | every other companion specification with NamespaceMetadata | 8–14 (its NamespaceMetadata object; DI also `OnlineAccess`, `MaxInactiveLockTime`; DEXPI also `DEXPISupplementaryData`) | 0 | 0 |
 | Dictionary/IRDI | 0 | 0 | 51 dictionary entries |
 | PackML | 0 | 0 | 28 (12 encodings, 16 type dictionary nodes) |
 | ISA95 | 0 | 0 | 20 (8 encodings, 12 type dictionary nodes) |
 | the 4 instance examples | 0 | 0 | 0 |
-| **Total** | **337** | **8** | **99** |
+| **Total** | **337** | **0** | **99** |
 
-All 444 nodes are listed in [classification-changes.md](classification-changes.md), the core findings are in
+R2 never decides a node on its own: where R3 does not decide, the default fallback R5 already makes every instance dynamic, and the nodes R5 makes static (types and instance declarations) are excluded from R2. All 436 nodes are listed in [classification-changes.md](classification-changes.md), the core findings are in
 [core-heuristic-changes.md](core-heuristic-changes.md).
 
 ## Outlier checks
@@ -45,14 +45,18 @@ All 444 nodes are listed in [classification-changes.md](classification-changes.m
 | S1 | dynamic node referenced from a static type-level node (HasEncoding, HasDescription, HasModellingRule, HasDictionaryEntry, …) – should be static | 79 | **0** |
 | S2 | dynamic instance of a definition type (encoding, dictionary entry, type dictionary, …) – should be static | 95 | **0** |
 | D2 | static instance Variable without a value fixed by the specification, outside dynamic structures – should be dynamic | 7 | **0** |
-| D1 | static node below a dynamic node (HasChild ancestor) – possibly dynamic | 615 | **331** |
+| D1 | static node below a dynamic node (HasChild ancestor) – possibly dynamic | 615 | **339** |
 
-The 331 remaining D1 nodes:
+The 339 remaining D1 nodes:
 
 - **150 method signatures** (`InputArguments`/`OutputArguments`): constants fixed by the specification; their
   ParentNodeId is a static Method.
 - **126 Methods** of the dynamic objects (`AddIdentity`, `Open`, `CloseAndUpdate`, …): no state; a call addresses
   Object and Method, the server context comes with the Object. R2 does not apply to Methods.
+- **8 core folders with a dynamic ParentNodeId** (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`,
+  `SubscribedDataSets`, `DataSetClasses`, `KeyPushTargets`, `AggregateFunctions`, `EventTypes`): core's
+  NamespaceMetadata declares them static, and R2 as a fallback does not overrule it, see
+  [specification-issues.md](specification-issues.md) C1.
 - **51 IRDI dictionary entries** below core's `Server/Dictionaries`: global definitions which PADIM refers to, static
   by design (R4).
 - **4 core folders without ParentNodeId** (`Dictionaries`, `AuthorizationServices`, `KeyCredentialConfiguration`,
@@ -89,8 +93,6 @@ definition types, Variables without fixed value, containment), not every semanti
 
 ## Outliers found and fixed during the evaluation
 
-- **Server content folders** (8 core folders, e.g. `SecurityGroups`, `PublishedDataSets`, `CertificateGroups`):
-  static by R3, but their ParentNodeId is a dynamic instance. Fixed by R2.
 - **ModellingRules in nodesets without NamespaceMetadata** (test nodeset `test_references_special`): dynamic by
   R5, so a copy of `Mandatory` (`i=78`) and all `HasModellingRule` references to it were dropped from the static
   export. Static by R4.
@@ -105,7 +107,7 @@ Not fixed: the root-less core prototype `HA Configuration` (`i=11202`) is made d
 | Rule | Implementation (`lib/nodesetparser.py`) | Unit tests (`tests/test_libidentification.py`) |
 |---|---|---|
 | R1 | `instances_with_variables` (direct HasChild Variables, also of instances of other nodesets) | `test_heuristic_instance_with_variables`, `test_r1_ignores_typedefinition` |
-| R2 | `classify_with_heuristics` (ParentNodeId dynamic; no Methods) | `test_heuristic_instance_with_variables` (folder `4200`, Method `4500`, HasComponent folder `4600` without ParentNodeId, organized folder `4400`) |
+| R2 | `classify_with_heuristics` (ParentNodeId dynamic; only where R3 does not decide; no Methods) | `test_heuristic_instance_with_variables` (folder `4200` in the static range, Method `4500`, HasComponent folder `4600` without ParentNodeId, organized folder `4400`) |
 | R3 | `scan_namespace_metadata`, `explicit_static` | `test_namespace_metadata_decides`, `test_explicit_static_undecided` |
 | R4 | `definition_types`, `is_definition_type` (with subtypes), only where R3 does not decide | `test_heuristic_cases_without_metadata`, `test_r4_does_not_overrule_r3`, dictionary entry `4300` |
 | R5 | `is_static_node`, `is_instance_declaration` | `test_fallback_rule_without_server_uri`, `test_default_rule_without_metadata` |
@@ -113,8 +115,8 @@ Not fixed: the root-less core prototype `HA Configuration` (`i=11202`) is made d
 
 HasChild is resolved via the ReferenceType hierarchy (`haschild_reference_types`; a custom subtype of HasComponent is
 tested), Organizes is never followed. End to end, the final classification of the 20 default nodesets was compared with
-an independent build under the standard rules: the nodes whose classification differs are exactly the 444 nodes of the
+an independent build under the standard rules: the nodes whose classification differs are exactly the 436 nodes of the
 classification reports, in every nodeset.
 
-The change requests to the specification owners which would make the heuristic overrides unnecessary are collected in
+The change requests to the specification owners which would make the heuristics unnecessary are collected in
 [specification-issues.md](specification-issues.md).
