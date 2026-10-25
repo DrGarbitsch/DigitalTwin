@@ -26,6 +26,7 @@ go on a dedicated channel instead; none are needed yet.
 """
 
 import asyncio
+import gc
 import os
 import re
 import threading
@@ -607,7 +608,38 @@ def _package_for(root):
             _stamps[root] = stamp
             _previous[root] = (_packages[root], _role_stamps(_packages[root]))
             _watch_renames(root, _packages[root])
+            # The package's graphs stay for every request that follows: two
+            # million objects on the OPC UA pumps, which each full pass of the
+            # cycle collector walked again -- a second, at random, inside a
+            # click. Frozen, the collector leaves them alone (as the
+            # validation worker does, editor/incremental.py).
+            gc.freeze()
+            _tidy_later()
         return _packages[root]
+
+
+# Frozen objects are never collected: the graphs an edit replaced would stay
+# for the whole session. So once the edits have been quiet for a while, the
+# collector is given one pass over everything -- a second, while nobody is
+# clicking -- and what is left frozen again.
+TIDY_AFTER = 20.0
+_tidy_timer = None
+
+
+def _tidy_later():
+    global _tidy_timer
+    if _tidy_timer is not None:
+        _tidy_timer.cancel()
+    _tidy_timer = threading.Timer(TIDY_AFTER, _tidy)
+    _tidy_timer.daemon = True
+    _tidy_timer.start()
+
+
+def _tidy():
+    with _load_lock:
+        gc.unfreeze()
+        gc.collect()
+        gc.freeze()
 
 
 # The last package loaded, with its knowledge and shapes files as (path, mtime,
@@ -645,6 +677,13 @@ def _reusable(root):
             continue
         if now == before:
             reuse[role] = ([path for path, _, _ in before], getattr(package, role))
+        elif role == 'shapes' and len(before) == 1:
+            # One shapes file a cooked edit just wrote: its graph patched
+            # rather than parsed again (package/patches.py), when certain.
+            from ..package import patches
+            graph = patches.patched(before[0][0], package.shapes)
+            if graph is not None:
+                reuse[role] = ([before[0][0]], graph)
     return reuse
 
 

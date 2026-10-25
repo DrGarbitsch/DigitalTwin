@@ -437,6 +437,45 @@ def impossible_counts(graph):
     return sorted(out)
 
 
+def _changed_statements(old, new):
+    """(the statements of `new` an edit of `old` touched, the same statements
+    of `old`) -- each with the file's prefixes, a Turtle document of its own --
+    or None when that cannot be said: the edit touches a prefix, falls between
+    statements, or the statements around it no longer line up."""
+    from ..rdfio.turtle_index import _prefixes, _statement_spans
+
+    if old is None or old == new:
+        return None
+    head, limit = 0, min(len(old), len(new))
+    while head < limit and old[head] == new[head]:
+        head += 1
+    tail = 0
+    while tail < limit - head and old[-1 - tail] == new[-1 - tail]:
+        tail += 1
+
+    def touched(text, end):
+        spans = _statement_spans(text)
+        inside = [(a, b) for a, b in spans if a <= max(end, head) and b >= head]
+        outside = [text[a:b] for a, b in spans if (a, b) not in inside]
+        return inside, outside
+
+    new_inside, new_outside = touched(new, len(new) - tail)
+    old_inside, old_outside = touched(old, len(old) - tail)
+    if not new_inside or not old_inside or new_outside != old_outside:
+        return None
+    statements = [new[a:b] for a, b in new_inside] + [old[a:b] for a, b in old_inside]
+    if any(s.lstrip().lower().startswith(('@prefix', '@base', 'prefix', 'base'))
+           for s in statements):
+        return None
+
+    def document(text, inside):
+        prefixes, base = _prefixes(text)
+        frame = ''.join(f'@prefix {p}: <{n}> .\n' for p, n in prefixes.items())
+        frame = (f'@base <{base}> .\n' if base else '') + frame
+        return frame + '\n'.join(text[a:b] for a, b in inside) + '\n'
+    return document(new, new_inside), document(old, old_inside)
+
+
 def _write_verified(source_path, text):
     """Write only after the result parses -- and asks nothing impossible.
 
@@ -448,13 +487,22 @@ def _write_verified(source_path, text):
     """
     from rdflib import Graph
 
-    graph = Graph().parse(data=text, format='turtle')
+    old = None
+    if os.path.exists(source_path):
+        with open(source_path, encoding='utf-8') as handle:
+            old = handle.read()
+    changed = _changed_statements(old, text)
+    # Only what changed is parsed: every other statement is, byte for byte,
+    # what the file held -- and parsed -- before. A whole OPC UA shapes file
+    # (21,000 lines) took 2.3 s to parse for one edited property shape.
+    graph = Graph().parse(data=changed[0] if changed else text, format='turtle')
     impossible = impossible_counts(graph)
     if impossible:
         before = []
-        if os.path.exists(source_path):
+        if old is not None:
             try:
-                before = impossible_counts(Graph().parse(source_path, format='turtle'))
+                before = impossible_counts(Graph().parse(
+                    data=changed[1] if changed else old, format='turtle'))
             except Exception:                      # noqa: BLE001
                 before = []
         for found in before:
@@ -467,6 +515,13 @@ def _write_verified(source_path, text):
             f'and at most {most} instances -- no data can satisfy that. Nothing written.')
     with open(source_path, 'w', encoding='utf-8') as handle:
         handle.write(text)
+    # The reload after this write patches the graph rather than parse the file
+    # again (package/patches.py) -- when it is certainly the same.
+    from ..package import patches
+    if changed:
+        patches.record(source_path, text, changed[1], changed[0])
+    else:
+        patches.forget(source_path)
 
 
 def apply_edit(package, shape, path_chain, parameter, value):

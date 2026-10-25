@@ -36,6 +36,7 @@ Each of those is a row with a severity, not a separate report, so the thing you
 need to fix is next to the thing it is about.
 """
 
+import functools
 import json
 import os
 import re
@@ -923,18 +924,25 @@ def _namespace_of(iri):
     return text[:cut + 1] if cut >= 0 else text
 
 
+@functools.lru_cache(maxsize=8)
+def _prefix_lines(text):
+    """(prefix, namespace) of every prefix line of a file's text. One edit
+    asks for dozens of names in the same text: the 21,000 lines of the OPC UA
+    shapes were scanned again for each."""
+    from ..package.prefixes import PREFIX_LINE
+
+    return tuple((match.group(2) or '', match.group(3)) for match in PREFIX_LINE.finditer(text))
+
+
 def _turtle_name(text, iri):
     """A prefixed name valid in THIS file, or the IRI in angle brackets.
 
     A full IRI always parses, so a file that binds no prefix for the namespace
     still gets a legal statement rather than a broken one.
     """
-    from ..package.prefixes import PREFIX_LINE
-
     text_iri = str(iri)
     best = None
-    for match in PREFIX_LINE.finditer(text):
-        prefix, namespace = match.group(2) or '', match.group(3)
+    for prefix, namespace in _prefix_lines(text):
         if text_iri.startswith(namespace) and len(text_iri) > len(namespace):
             rest = text_iri[len(namespace):]
             if re.match(r'^[\w-]+$', rest) and \
