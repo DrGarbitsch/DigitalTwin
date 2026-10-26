@@ -257,6 +257,11 @@ def _fixes_for(diagnostic, uri):
                {'uri': uri, 'kind': 'assert', 'file': data.get('file'),
                 'case': data.get('case'), 'index': data.get('index'),
                 'label': subject}, preferred=not data.get('suggest'))
+    elif code == 'model-violation':
+        # The page that shows it with its entity, its value and what says so.
+        action('Show it on the Main page', 'semforge.openModelPage',
+               {'packageUri': uri, 'focus': data.get('entity'),
+                'attribute': data.get('attribute') or None}, preferred=True)
     elif code == 'severity-unlinked':
         action(f'Declare {local(subject)} a kind of sh:Severity', 'semforge.linkSeverityClass',
                {'packageUri': uri, 'cls': subject}, preferred=True)

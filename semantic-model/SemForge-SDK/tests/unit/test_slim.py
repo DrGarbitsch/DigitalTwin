@@ -151,7 +151,7 @@ def test_instances_are_main_then_tests(full):
     assert [n['label'] for n in slim] == ['Main', 'Tests']
     main, tests = slim
     assert main['detail'] == '8 entities · 3 violation(s)'
-    assert main['severity'] == 'warning'
+    assert main['severity'] == 'violation'
     suites = [n for n in tests['children'] if n['kind'] == 'suite']
     assert 'FilterShape' in [s['label'] for s in suites]
     assert all(s.get('term', '').startswith('test_') for s in suites)

@@ -22,7 +22,8 @@
 
 const assert = require('assert');
 const vscode = require('vscode');
-const { semforge, until, request } = require('./helpers');
+const path = require('path');
+const { WORKSPACE, semforge, until, request, rows } = require('./helpers');
 
 const ENT = 'https://industryfusion.github.io/contexts/example/v0/base_entities/';
 
@@ -69,6 +70,28 @@ describe('Validation in the background', () => {
     }, 'the verdicts: Main’s workpiece at 100 now violates hasWidth');
     assert.ok(width(judged).violations.some((id) => /workpiece/i.test(id) && !already.includes(id)),
       width(judged).violations);
+    const entity = width(judged).violations.find((id) => !already.includes(id));
+
+    // The ways to it. A problem on its row in the data, for F8 ...
+    const model = await vscode.workspace.openTextDocument(path.join(WORKSPACE, 'model-instance.jsonld'));
+    await vscode.window.showTextDocument(model);
+    const problem = await until(() => vscode.languages.getDiagnostics(model.uri).find((d) =>
+      String(d.code && (d.code.value || d.code)) === 'model-violation' &&
+      d.message.startsWith(`${entity} · hasWidth:`)), 'a problem on the hasWidth row');
+    assert.match(model.lineAt(problem.range.start.line).text, /hasWidth/);
+    // ... the Main page's list, which leads to the row ...
+    await vscode.commands.executeCommand('semforge.openModelPage');
+    const listed = await until(() => api.pages.case.page && api.pages.case.page.kind === 'model' &&
+      /<h2>Violations/.test(api.pages.case.panel.webview.html) && api.pages.case.panel.webview.html,
+    'the Violations list');
+    assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*>${entity} · hasWidth</a>`));
+    // ... and the tree, which says it first.
+    const tree = api.trees.model;
+    const row = await until(async () => (await rows(tree)).find((node) =>
+      node.raw.kind === 'attribute' && node.raw.label === 'hasWidth' && node.raw.entity === entity &&
+      node.raw.severity === 'violation'), 'the violating row in the tree');
+    assert.match(tree.getTreeItem(row).description, /^✗ hasWidth is above its maximum/);
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 
     await setMaximum(api, '100');
     await until(async () => {

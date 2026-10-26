@@ -648,7 +648,11 @@ async function runItems() {
         icon: item.iconPath && item.iconPath.id,
         color: item.iconPath && item.iconPath.color && item.iconPath.color.id,
         typeClass: child.raw.typeClass || '',
-        expanded: item.collapsibleState === 2
+        expanded: item.collapsibleState === 2,
+        // What the row says: its description, and its label as drawn (a
+        // violating row's name is highlighted).
+        description: item.description || '',
+        drawn: item.label
       });
       await walk(child);
     }

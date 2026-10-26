@@ -352,7 +352,9 @@ def test_a_clean_package_publishes_no_identity_diagnostics(corpus_path):
             assert {f.code for f in items} == {'severity-unlinked'}, items
             continue
         assert path.endswith('model-instance.jsonld'), path
-        assert {f.kind for f in items} == {'vocabulary'}
+        # And each violation of the model on its row (the corpus' Main lacks
+        # the required hasXXXWorkpiece): no identity finding among them.
+        assert {f.kind for f in items} == {'vocabulary', 'violation'}
 
 
 def test_no_entity_row_is_marked_for_a_reused_id(corpus):

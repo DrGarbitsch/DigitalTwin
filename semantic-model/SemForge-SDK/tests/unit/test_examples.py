@@ -122,7 +122,8 @@ def test_a_violating_entity_is_marked_and_carries_the_message(corpus):
     node = _find(tree, 'urn:cutter:1', 'entity')
     assert node.severity == 'violation'
     assert 'violation(s)' in node.detail
-    assert node.messages and any('Count' in m for m in node.messages)
+    # In the pages' words, the shape that says so after it.
+    assert node.messages == ['hasXXXWorkpiece is required but missing (MachineShape)']
 
 
 def test_a_clean_entity_is_not_marked(corpus):

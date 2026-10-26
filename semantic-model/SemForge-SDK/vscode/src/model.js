@@ -415,6 +415,20 @@ class ModelTreeProvider {
       }
     }
 
+    // A violation says so first: its name highlighted, the description
+    // opening with what is wrong -- a red icon and "· 1 violation(s)" at the
+    // end of a grey line looked like every other row.
+    if (raw.severity === 'violation' && ['attribute', 'dataset', 'instance', 'entity']
+      .includes(raw.kind)) {
+      const said = String((raw.messages || [])[0] || '').replace(/^\w+ConstraintComponent: /, '');
+      const name = typeof item.label === 'string' ? item.label : raw.label;
+      item.label = { label: name, highlights: [[0, name.length]] };
+      const rest = String(item.description || '').replace(/(^| · )\d+ violation\(s\)/, '').trim();
+      item.description = raw.kind === 'entity'
+        ? `✗ ${(raw.messages || []).length || ''} violation(s)${rest ? ` · ${rest}` : ''}`
+        : `✗ ${said || 'violated'}${rest ? ` · ${rest}` : ''}`;
+    }
+
     // The id is not an address: the same one appears in several example files,
     // which is legitimate -- the file is the rest of it. So say which file.
     const lines = (raw.messages || []).slice();
@@ -1070,8 +1084,19 @@ function register(context, clientHolder, session, onChanged) {
         await vscode.commands.executeCommand('semforge.openCasePage', holder,
           { focus: selected.raw.entity || undefined, preserveFocus: true });
       } else if (model) {
-        await vscode.commands.executeCommand('semforge.openModelPage', model,
-          { focus: selected.raw.entity || undefined, preserveFocus: true });
+        // A violating row opens the page at its row; Main with violations
+        // opens it showing only what violates -- the count is a way in.
+        const raw = selected.raw;
+        const options = { focus: raw.entity || undefined, preserveFocus: true };
+        if (raw.severity && raw.kind !== 'entity' && raw.kind !== 'group') {
+          // The page's rows carry the short name: hasWidth, not ex:hasWidth.
+          options.attribute = String(raw.attributePath ? attributeNames(raw).pop() : raw.label)
+            .split(/[/#:]/).pop();
+        }
+        if (raw.kind === 'group' && raw.severity) {
+          options.only = true;
+        }
+        await vscode.commands.executeCommand('semforge.openModelPage', model, options);
       } else if (selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }

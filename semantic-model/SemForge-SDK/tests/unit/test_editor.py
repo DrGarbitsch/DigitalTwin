@@ -67,7 +67,8 @@ def test_findings_about_shapes_land_on_the_shapes_file(corpus_path):
             assert {f.code for f in items} == {'severity-unlinked'}, items
         else:
             assert path.endswith('.jsonld'), path
-            assert kinds <= {'identity', 'vocabulary'}, kinds
+            # A violation of the model also lands on the row it is about.
+            assert kinds <= {'identity', 'vocabulary', 'violation'}, kinds
 
 
 def test_every_finding_has_a_real_line(analysis):

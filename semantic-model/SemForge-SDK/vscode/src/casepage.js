@@ -93,8 +93,10 @@ function attributeRows(rows, file, depth, at, type, chain) {
         'the rule, Open in .jsonld">⋯</button>' : '';
     const rel = row.kind === 'Relationship' && row.value && !row.superseded
       ? ` data-rel="${escape(row.value)}" data-relname="${escape(row.name)}"` : '';
+    const address = here !== undefined ? ` data-at="${here}"` : '';
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}` +
-      `${row.superseded ? ' superseded' : ''}"${rel}>` +
+      `${row.superseded ? ' superseded' : ''}${row.violations.length ? ' violates' : ''}"` +
+      `${rel}${address} data-name="${escape(row.name)}">` +
       `<span class="name">${attributeName(row.display || row.name, type,
         (chain || []).concat(row.name), row.term)}</span>` +
       `<span class="value">${value}` +
@@ -199,6 +201,35 @@ function entityIndex(files) {
   return out;
 }
 
+/** Every violation on the page, in card order: where it is (`at`, a row's
+ *  address or its card's), on what, what is wrong, which shape says so. */
+function violationsOf(files) {
+  const out = [];
+  const rows = (card, list, prefix) => (list || []).forEach((row, r) => {
+    const at = `${prefix}.${r}`;
+    row.violations.forEach((v) => out.push({ at, entity: card.id, attribute: row.name,
+      text: v.text, shape: v.shape }));
+    rows(card, row.children, at);
+  });
+  files.forEach((file, f) => file.cards.forEach((card, c) => {
+    card.violations.forEach((v) => out.push({ at: `${f}.${c}`, entity: card.id, attribute: '',
+      text: v.text, shape: v.shape }));
+    rows(card, card.attributes, `${f}.${c}`);
+  }));
+  return out;
+}
+
+/** The list at the top: the way to each violation, not just their count. */
+function violationList(found) {
+  if (!found.length) {
+    return '';
+  }
+  return `<h2>Violations <span class="dim">· ${found.length}</span></h2>
+<ul class="vlist">${found.map((v) => `<li><a href="#" data-jump="${v.at}" title="Show it">` +
+    `${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
+    `${escape(v.text)} <span class="dim">· ${escape(v.shape)}</span></li>`).join('')}</ul>`;
+}
+
 /** Cards | Graph, and the filter -- closed until asked for. */
 function entityBar(entities) {
   const types = [...new Set(entities.map((e) => e.type).filter(Boolean))].sort();
@@ -210,6 +241,7 @@ function entityBar(entities) {
     <label>Type <select id="ftype"><option value="">any</option>${options(types)}</select></label>
     <label>Has attribute <select id="fattr"><option value="">any</option>${options(attrs)}</select></label>
     <label>Id contains <input id="fid" type="search" spellcheck="false"></label>
+    <label><input id="fbad" type="checkbox"> only what violates</label>
     <button class="mini" data-clearfilter="1">Clear</button>
   </details>
   <span class="dim" id="fcount"></span>
@@ -362,7 +394,14 @@ function renderCasePage(page, options) {
            border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .trail .sep { color: var(--vscode-descriptionForeground); }
   .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
-${BUSY_CSS}</style></head><body data-page="${escape(page.file || page.case || '')}">
+  .vlist { margin: 4px 0 12px; padding-left: 18px; }
+  .vlist li { margin: 2px 0; }
+  .vlist a { color: var(--vscode-errorForeground, #f14c4c); }
+  .attr.violates > .name { color: var(--vscode-errorForeground, #f14c4c); }
+  .attr.violates > .name::before { content: '✗ '; }
+${BUSY_CSS}</style></head><body data-page="${escape(page.file || page.case || '')}"` +
+    `${options && options.only ? ' data-only="1"' : ''}` +
+    `${options && options.attribute ? ` data-focusattr="${escape(options.attribute)}"` : ''}>
 <div class="crumbs">${crumbs}</div>
 <h1>${page.kind === 'model' ? 'Entities' : 'Test case'}: ${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
@@ -396,6 +435,7 @@ ${claims.length || unasserted.length
     : `<p class="dim">This case asserts nothing${page.expect === 'valid'
       ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}`}
 
+${violationList(violationsOf(files))}
 <h2>${model ? 'Entities' : 'Data'}</h2>
 ${entityBar(entities)}
 <script type="application/json" id="entities">${JSON.stringify(entities).replace(/</g, '\\u003c')}</script>
@@ -424,10 +464,15 @@ ${BUSY_SCRIPT}
   const saved = (vscode.getState() || {})[pageKey] || {};
   const ui = { view: saved.view || 'cards', type: saved.type || '', attr: saved.attr || '',
                id: saved.id || '', open: !!saved.open,
+               bad: !!saved.bad,
                tree: saved.tree || { roots: {}, rels: {} }, scroll: saved.scroll || 0 };
+  // Opened from a violation count: only what violates.
+  const opened = (document.body && document.body.dataset) || {};
+  if (opened.only) { ui.bad = true; ui.open = true; }
   const ftype = document.getElementById('ftype');
   const fattr = document.getElementById('fattr');
   const fid = document.getElementById('fid');
+  const fbad = document.getElementById('fbad');
   const filterBox = document.getElementById('filter');
   const graph = document.getElementById('graph');
   const cardview = document.getElementById('cardview');
@@ -436,8 +481,9 @@ ${BUSY_SCRIPT}
     all[pageKey] = ui;
     vscode.setState(all);
   }
-  function filtering() { return !!(ui.type || ui.attr || ui.id); }
+  function filtering() { return !!(ui.type || ui.attr || ui.id || ui.bad); }
   function matches(e) {
+    if (ui.bad && !e.bad) { return false; }
     if (ui.type && e.type !== ui.type) { return false; }
     if (ui.attr && (e.attrs || []).indexOf(ui.attr) < 0) { return false; }
     if (ui.id && e.id.toLowerCase().indexOf(ui.id.toLowerCase()) < 0) { return false; }
@@ -447,7 +493,8 @@ ${BUSY_SCRIPT}
     let shown = 0;
     document.querySelectorAll('.card[data-card]').forEach(function (card) {
       const ok = matches({ id: card.dataset.id || '', type: card.dataset.ftype || '',
-                           attrs: (card.dataset.attrs || '').split('|') });
+                           attrs: (card.dataset.attrs || '').split('|'),
+                           bad: card.classList.contains('bad') });
       card.hidden = !ok;
       if (ok) { shown += 1; }
     });
@@ -702,6 +749,22 @@ ${BUSY_SCRIPT}
     });
     if (ui.view === 'graph') { drawGraph(); }
   }
+  // A violation in the list: its row (or, for a missing attribute, its
+  // card) -- in the cards, whatever the filter or the view hid.
+  function jumpTo(at) {
+    const node = document.querySelector('.attr[data-at="' + at + '"]') ||
+      document.querySelector('.card[data-card="' + at + '"]');
+    if (!node) { return; }
+    const card = node.closest('.card');
+    if (card && card.hidden) {
+      ui.type = ''; ui.attr = ''; ui.id = ''; ui.bad = false;
+      ftype.value = ''; fattr.value = ''; fid.value = ''; fbad.checked = false;
+      remember();
+      applyFilter();
+    }
+    if (ui.view !== 'cards') { setView('cards'); }
+    flash(node);
+  }
   function flash(node) {
     node.scrollIntoView({ block: 'center' });
     node.classList.add('flash');
@@ -715,6 +778,8 @@ ${BUSY_SCRIPT}
     ftype.addEventListener('change', function () { ui.type = ftype.value; remember(); applyFilter(); });
     fattr.addEventListener('change', function () { ui.attr = fattr.value; remember(); applyFilter(); });
     fid.addEventListener('input', function () { ui.id = fid.value; remember(); applyFilter(); });
+    fbad.checked = ui.bad;
+    fbad.addEventListener('change', function () { ui.bad = fbad.checked; remember(); applyFilter(); });
     filterBox.addEventListener('toggle', function () { ui.open = filterBox.open; remember(); });
     graph.addEventListener('toggle', function (event) {
       const card = event.target;
@@ -728,6 +793,14 @@ ${BUSY_SCRIPT}
     }, true);
     setView(ui.view);
     applyFilter();
+    // Opened at an attribute (a violation's "Show it on the Main page"):
+    // its row on the marked card.
+    const wanted = opened.focusattr;
+    if (wanted && focused) {
+      const row = Array.from(focused.querySelectorAll('.attr[data-name]'))
+        .find(function (r) { return r.dataset.name === wanted; });
+      if (row) { flash(row); }
+    }
   }
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.
@@ -796,12 +869,14 @@ ${BUSY_SCRIPT}
     if (view) { event.preventDefault(); setView(view.dataset.view); return; }
     const reltoggle = event.target.closest('[data-reltoggle]');
     if (reltoggle) { event.preventDefault(); event.stopPropagation(); openRel(reltoggle.closest('.attr')); return; }
+    const jump = event.target.closest('[data-jump]');
+    if (jump) { event.preventDefault(); jumpTo(jump.dataset.jump); return; }
     const goto = event.target.closest('[data-goto]');
     if (goto) { event.preventDefault(); goTo(goto.dataset.goto); return; }
     if (event.target.closest('[data-clearfilter]')) {
       event.preventDefault();
-      ui.type = ''; ui.attr = ''; ui.id = '';
-      ftype.value = ''; fattr.value = ''; fid.value = '';
+      ui.type = ''; ui.attr = ''; ui.id = ''; ui.bad = false;
+      ftype.value = ''; fattr.value = ''; fid.value = ''; fbad.checked = false;
       remember();
       applyFilter();
       return;
@@ -857,15 +932,17 @@ class CasePages {
 
   /** `focus` is an entity id to mark; `preserveFocus` keeps the keyboard in
    *  the tree the click came from. */
-  async show(packageUri, caseFile, focus, preserveFocus) {
+  async show(packageUri, caseFile, focus, preserveFocus, extra) {
+    const more = extra || {};
     if (!this.clientHolder.client || !packageUri || (!caseFile && caseFile !== MODEL)) {
       vscode.window.showWarningMessage(
         'SemForge: no package is open, or the language server is not running.');
       return;
     }
     const same = this.panel && this.current && this.current.packageUri === packageUri &&
-      this.current.caseFile === caseFile && this.current.focus === focus;
-    this.current = { packageUri, caseFile, focus };
+      this.current.caseFile === caseFile && this.current.focus === focus &&
+      this.current.attribute === more.attribute && this.current.only === more.only;
+    this.current = { packageUri, caseFile, focus, attribute: more.attribute, only: more.only };
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
         'semforgeCasePage', 'Test case',
@@ -917,7 +994,8 @@ class CasePages {
     this.panel.title = page.kind === 'model'
       ? 'Entities: Main' : `Test case: ${page.name.replace(/\.jsonld$/, '')}`;
     this.panel.webview.html = renderCasePage(page,
-      { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
+      { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus,
+        attribute: this.current.attribute, only: this.current.only });
   }
 
   /**
@@ -1226,8 +1304,11 @@ function register(context, clientHolder, session) {
     }),
     vscode.commands.registerCommand('semforge.openModelPage', async (node, options) => {
       const packageUri = (node && node.packageUri) || session.uri;
-      await pages.show(packageUri, MODEL, options && options.focus,
-        !!(options && options.preserveFocus));
+      // From options, or from the node when a quick fix (one argument) or a
+      // violation count sends it: the entity, its attribute, only what violates.
+      const given = Object.assign({}, node || {}, options || {});
+      await pages.show(packageUri, MODEL, given.focus, !!given.preserveFocus,
+        { attribute: given.attribute || undefined, only: !!given.only });
     }),
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );

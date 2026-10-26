@@ -325,7 +325,9 @@ def tests_view(roots):
             violations += int(found.group(1)) if found else 0
         data['detail'] = f'{len(entities)} entities · ' + (
             f'{violations} violation(s)' if violations else 'all valid')
-        data['severity'] = 'warning' if violations else ''
+        # Red, as each violating entity beneath it is: a count in warning
+        # yellow read as a lesser thing than the rows it counts.
+        data['severity'] = 'violation' if violations else ''
         out.insert(0, data)
     return out
 

@@ -61,7 +61,7 @@ class EditorFinding:
     line: int                 # 1-based
     severity: str             # error | warning | info | hint
     kind: str                 # capability | view | unexercised | fires |
-    #                           identity | vocabulary | prefix | sanity
+    #                           violation | identity | vocabulary | prefix | sanity
     message: str
     subject: str = ''
     # What a quick fix needs: a stable code naming the kind of problem, and
@@ -213,6 +213,19 @@ def analyse(root, profile_name='shacl2flink', package=None, verdicts=None):
                        for r in results[:3])
            + (f' and {len(results) - 3} more' if len(results) > 3 else '')
            + f'  [{len(resources)} entity/entities]')
+
+    # And each one where it is written: the per-shape line above says a
+    # shape fires; this is where -- the row in the data, which F8 steps to.
+    from ..cooked.casepage import located_violations
+
+    for found in located_violations(package, report):
+        where = f' · {found["attribute"]}' if found['attribute'] else ''
+        findings.setdefault(os.path.abspath(found['file']), []).append(EditorFinding(
+            line=found['line'], severity='warning', kind='violation',
+            message=f'{found["entity"]}{where}: {found["text"]} ({found["shape"]})',
+            subject=found['entity'], code='model-violation',
+            data={'code': 'model-violation', 'subject': found['entity'],
+                  'entity': found['entity'], 'attribute': found['attribute']}))
 
     entries = coverage([(Example(path=os.path.basename(package.sources['model'])),
                          report)])

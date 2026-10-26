@@ -46,6 +46,16 @@ VALUE_KEYS = ('value', 'object', 'valueList', 'json')
 META_KEYS = ('observedAt', 'unitCode', 'datasetId')
 
 
+def _said(result):
+    """A violation as the pages word it -- "hasWidth is above its maximum
+    (WorkpieceShape)" -- not pyshacl's "Less than 1 values on [ <…> ]->…",
+    which a tree row cannot show."""
+    from .casepage import _explain
+
+    explained = _explain(result)
+    return f'{explained["text"]} ({explained["shape"]})'
+
+
 @dataclass
 class ExampleNode:
     # kind: example | entity | attribute | dataset | instance | meta
@@ -568,7 +578,7 @@ def _entity_nodes(path, report=None, editable=True, notes=None,
     for result in (report.violations if report is not None else []):
         findings.setdefault((result.resource, result.attribute),
                             ['violation', []])[1].append(
-            f'{result.component}: {result.message or ""}'.strip())
+            _said(result))
         counts[result.resource] = counts.get(result.resource, 0) + 1
 
     out = []
@@ -654,7 +664,7 @@ def build_examples(package, report=None):
         for result in report.violations:
             key = (result.resource, result.attribute)
             entry = findings.setdefault(key, ['violation', []])
-            entry[1].append(f'{result.component}: {result.message or ""}'.strip())
+            entry[1].append(_said(result))
 
     by_entity = {}
     for result in (report.violations if report is not None else []):

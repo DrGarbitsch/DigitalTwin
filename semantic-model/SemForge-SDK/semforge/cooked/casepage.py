@@ -305,15 +305,12 @@ def _case_report(package, example, verdicts):
                            package.knowledge, strict=False)
 
 
-def build_model_page(package, verdicts=None):
-    """The model data -- main.jsonld or the model files -- as cards, each
-    entity with what is wrong with it, edited like a case. No claims: the
-    model declares nothing and cannot fail; its violations are information.
-    `verdicts` as for build_type_page."""
-    report = _model_report(package, verdicts)
-    pending = report is None
+def _model_files(package, report):
+    """The model's files as cards, each violation of `report` on the row it
+    is about -- or on its card, when the entity does not carry the attribute
+    (a missing one). `report` None: still evaluating, no violations."""
     violations = {}
-    for result in ([] if pending else report.violations):
+    for result in ([] if report is None else report.violations):
         violations.setdefault((str(result.resource), result.attribute or None),
                               []).append(_explain(result))
     files = []
@@ -328,6 +325,41 @@ def build_model_page(package, verdicts=None):
         for (resource, attribute) in list(violations):
             if resource == card['id']:
                 card['violations'].extend(violations.pop((resource, attribute)))
+    return files
+
+
+def located_violations(package, report):
+    """Every violation of the model, where it is written: [{file, line,
+    entity, attribute, text, shape}] -- the row it is about, or its entity's
+    line. What the Main page shows on its rows, for the Problems panel."""
+    out = []
+
+    def rows(card, attributes, file):
+        for row in attributes:
+            for violation in row['violations']:
+                out.append({'file': file, 'line': row['line'] or card['line'],
+                            'entity': card['id'], 'attribute': row['name'],
+                            'text': violation['text'], 'shape': violation['shape']})
+            rows(card, row.get('children') or [], file)
+
+    for model in _model_files(package, report):
+        for card in model['cards']:
+            file = card.get('file') or model['path']
+            for violation in card['violations']:
+                out.append({'file': file, 'line': card['line'], 'entity': card['id'],
+                            'attribute': '', 'text': violation['text'],
+                            'shape': violation['shape']})
+            rows(card, card['attributes'], file)
+    return out
+
+
+def build_model_page(package, verdicts=None):
+    """The model data -- main.jsonld or the model files -- as cards, each
+    entity with what is wrong with it, edited like a case. No claims: the
+    model declares nothing and cannot fail; its violations are information.
+    `verdicts` as for build_type_page."""
+    report = _model_report(package, verdicts)
+    files = _model_files(package, report)
     attach_editing(package, files, verdicts)
     return {
         'kind': 'model', 'name': 'Main', 'case': '', 'expect': '', 'group': '',
@@ -338,7 +370,7 @@ def build_model_page(package, verdicts=None):
         'residuePinned': False, 'file': files[0]['path'] if files else '',
         'expectations': '', 'files': files,
         'summary': {'entities': sum(len(f['cards']) for f in files),
-                    'violations': None if pending else len(report.violations),
+                    'violations': None if report is None else len(report.violations),
                     'includes': 0},
     }
 

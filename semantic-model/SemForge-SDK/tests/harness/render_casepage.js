@@ -35,7 +35,9 @@ Module._load = function (request, parent, isMain) {
 
 const { renderCasePage } = require(path.join(process.argv[2], 'casepage.js'));
 const page = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
-let html = renderCasePage(page, { nonce: 'n' });
+// `__options` on the payload: what the extension passes besides the nonce
+// (focus, the attribute to mark, only what violates).
+let html = renderCasePage(page, Object.assign({}, page.__options || {}, { nonce: 'n' }));
 // What the page posts is kept on <html data-posted="[…]">, for a dumped DOM to show.
 const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage(m) { ' +
   'var all = JSON.parse(document.documentElement.dataset.posted || "[]"); all.push(m); ' +
