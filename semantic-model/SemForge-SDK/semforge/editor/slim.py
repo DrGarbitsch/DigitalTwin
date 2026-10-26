@@ -195,7 +195,7 @@ def slim_constraints(roots, payload=None):
 
 
 def types_tree(by_type, types):
-    """The Types view: the entity type hierarchy, each type with its OWN
+    """The Entity Types & Constraints view: the entity type hierarchy, each type with its OWN
     attributes and one Rules row, its subtypes beneath it.
 
     Shapes are not a level here -- they have their own view, where a shape
@@ -298,7 +298,7 @@ def slim_model(roots, payload=None):
 
 
 def tests_view(roots):
-    """The Instances view: two groups, Main (the model's own data) first and
+    """The Entities & Test Cases view: two groups, Main (the model's own data) first and
     Tests (the cases) after it -- both are instance data, judged differently.
 
     Main says in one line how many entities it holds and whether any is
@@ -387,7 +387,7 @@ def slim_knowledge(roots, payload=None):
         for child in node['children']:
             walk(child)
 
-    # The entity type hierarchy is the Types view's; here it would be the
+    # The entity type hierarchy is the Entity Types & Constraints view's; here it would be the
     # same tree a second time, answering differently.
     roots = [root for root in roots if not (
         root.get('kind') == 'group' and root.get('label') == 'Entity types')]

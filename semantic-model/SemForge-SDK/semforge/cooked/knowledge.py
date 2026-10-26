@@ -965,7 +965,7 @@ def _resolve_namespace(package, namespace):
     if text not in known:
         raise PackageError(
             f'{text}: is not a namespace this package knows. Define the prefix '
-            f'in the Project view (or semforge.yaml) first, or pick one of: '
+            f'in the Package view (or semforge.yaml) first, or pick one of: '
             f'{", ".join(sorted(p for p in known if p))}')
     return known[text]
 

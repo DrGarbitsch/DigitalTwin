@@ -51,7 +51,7 @@ EXPECTED = {
     'semforge.newSuite', 'semforge.openSparqlBench', 'semforge.addSparqlConstraint',
     'semforge.removeSparqlQuery',
     'semforge.sparqlApply', 'semforge.sparqlInspect', 'semforge.nestForFlink',
-    'semforge.openHealthPage',
+    'semforge.openHealthPage', 'semforge.openPackagePage',
     'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
     'semforge.openVocabularyPage', 'semforge.newVocabularyClass', 'semforge.newAttributeTest',
     'semforge.newShape', 'semforge.newTestCase', 'semforge.mergeShape',

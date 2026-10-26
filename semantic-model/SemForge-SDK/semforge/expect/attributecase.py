@@ -16,7 +16,7 @@
 
 """A test for one attribute: valid, or making one of its constraints fire.
 
-Asked from the attribute itself -- a row in the Types view, a row on the
+Asked from the attribute itself -- a row in the Entity Types & Constraints view, a row on the
 type page -- because that is where the question arises: "hasPressure is new,
 what proves its constraints work?". The answer is one case per constraint
 that can fire, and one where everything holds.

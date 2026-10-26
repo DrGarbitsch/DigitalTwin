@@ -754,7 +754,7 @@ def shape_at_feature(ls, params):
 
 @server.feature('semforge/shapes')
 def shapes_feature(ls, params):
-    """Every named shape with its target in words, for the Shapes view."""
+    """Every named shape with its target in words, for the SHACL Shapes view."""
     from ..cooked.shapes import build_shapes
 
     root = package_root(uri_to_path(field(params, 'uri', '')))

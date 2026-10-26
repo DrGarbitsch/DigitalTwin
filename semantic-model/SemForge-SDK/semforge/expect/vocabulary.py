@@ -36,7 +36,7 @@ The shipped kms has five, and they are worth reading as a set:
 Where it is used decides how loud it is. A declared case that uses an
 undeclared term proves nothing, so that is an error. The scratchpad is the
 place to try things and cannot fail by design, so there it is reported and
-left alone -- the same rule the Model view already draws between Tests and
+left alone -- the same rule the Entities & Test Cases view already draws between Tests and
 Main.
 """
 

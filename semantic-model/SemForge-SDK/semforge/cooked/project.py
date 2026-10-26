@@ -270,7 +270,7 @@ def _contents(package):
     try:
         declared = load_expectations(package.path).examples
     except Exception:                              # noqa: BLE001
-        declared = []                              # the Model view reports why
+        declared = []                              # the Entities & Test Cases view reports why
     suites = sorted({example.suite for example in declared if example.suite})
     where = examples_root(package.path)
     rows.append(ProjectNode(

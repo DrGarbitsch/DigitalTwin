@@ -333,7 +333,7 @@ def build_suite(package, expectations=None, verdicts=None):
 
     roots.extend(loose)
 
-    # Two sections of the Instances view, because they answer different
+    # Two sections of the Entities & Test Cases view, because they answer different
     # questions and are judged by different rules. A case declares what it is for and passes or fails; the
     # main model declares nothing and cannot fail -- it is where you try a
     # violation to see what a constraint does.

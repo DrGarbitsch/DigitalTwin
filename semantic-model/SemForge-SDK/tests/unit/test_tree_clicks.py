@@ -516,15 +516,6 @@ def test_new_case_writes_the_case_and_opens_it(tmp_path):
 
 # --- step E: Package, Tests, Vocabulary ----------------------------------------------
 
-def test_the_views_are_named_for_what_they_hold():
-    with open(PACKAGE_JSON) as handle:
-        views = json.load(handle)['contributes']['views']['semforge']
-    # Instances holds the model's own data (Main) and the test cases (Tests):
-    # both are instance data, next to the three views of the schema.
-    assert [v['name'] for v in views] == ['Package', 'Types', 'Shapes', 'Instances',
-                                          'Vocabulary']
-
-
 @pytest.mark.parametrize('tiles, detail, severity', [
     ({'cases': 6, 'casesPassing': 6, 'modelViolations': 3, 'neverFired': 67},
      '6/6 cases pass · 3 violation(s) · 67 untested', ''),

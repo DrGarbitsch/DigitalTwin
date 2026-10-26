@@ -19,7 +19,7 @@
 A shape is not tied to an entity type. It selects focus nodes by class, by
 named node, by the subjects or objects of a predicate, by a SPARQL query, or
 implicitly when the shape is itself a class -- or it has no target and is
-reached from another shape through sh:node. The Types view reads constraints
+reached from another shape through sh:node. The Entity Types & Constraints view reads constraints
 by type; this is the other half, every shape whatever it targets, so a shape
 that belongs to no type still has somewhere to be found.
 """
@@ -374,7 +374,7 @@ def load_fresh(package):
 
 
 def build_shapes(package, report=None):
-    """One row per named shape, for the Shapes view."""
+    """One row per named shape, for the SHACL Shapes view."""
     from ..validate import validate_package
     from .tree import shape_node
 
