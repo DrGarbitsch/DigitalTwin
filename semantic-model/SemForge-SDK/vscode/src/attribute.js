@@ -132,7 +132,15 @@ async function constrainAttribute(client, packageUri, option, target, optional) 
     `SemForge: ${option.label} added to ${target.label}` +
       ((result.domainAdded || []).length
         ? ` — its domain now includes ${result.domainAdded.join(', ')}` : ''), 5000);
-  if (result.line) {
+  // Shown where it is changed: its type's page, the new row marked and
+  // its editor open. The .ttl is one click away there (⋯ → Open in .ttl).
+  if (result.targetClass) {
+    const local = (term) => String(term).split(/[/#:]/).pop();
+    await vscode.commands.executeCommand('semforge.openTypePage',
+      { raw: { targetClass: result.targetClass,
+        focusNames: (target.parentPath || []).concat(option.term || option.iri).map(local) },
+      packageUri }, { edit: true });
+  } else if (result.line) {
     await showLocation(`${result.file}:${result.line}`, false);
   }
   return result;

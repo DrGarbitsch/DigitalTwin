@@ -238,6 +238,15 @@ function healthRow(page) {
   };
 }
 
+/** What was written, said; its line in the file one click away, not opened
+ *  in front of the view it was changed from. */
+async function offerFile(said, written) {
+  const open = await vscode.window.showInformationMessage(said, 'Open semforge.yaml');
+  if (open) {
+    await showLocation(`${written.file}:${written.line}`, true);
+  }
+}
+
 function register(context, clientHolder, session, onChanged) {
   const provider = new ProjectTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeProject', {
@@ -296,7 +305,7 @@ function register(context, clientHolder, session, onChanged) {
         // so they are re-read rather than left showing the old answer.
         onChanged();
       }
-      await showLocation(`${result.file}:${result.line}`, false);
+      await offerFile(`SemForge: ${result.key || 'the setting'} written.`, result);
     }),
 
     vscode.commands.registerCommand('semforge.addNamespace', async (node) => {
@@ -313,7 +322,7 @@ function register(context, clientHolder, session, onChanged) {
       if (onChanged) {
         onChanged();
       }
-      await showLocation(`${made.file}:${made.line}`, false);
+      await offerFile(`SemForge: ${made.prefix || 'the namespace'}: agreed for the package.`, made);
     }),
 
     vscode.commands.registerCommand('semforge.removeNamespace', async (node) => {

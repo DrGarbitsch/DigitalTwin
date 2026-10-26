@@ -79,7 +79,9 @@ def _row(**overrides):
 
 # --- the shape jump ----------------------------------------------------------
 
-def test_the_shape_icon_asks_for_the_attribute_and_opens_the_line(tmp_path):
+def test_the_shape_icon_shows_the_rule_on_the_type_page(tmp_path):
+    """The rule where it is read and changed -- not the .ttl, a dead end
+    without its verdicts and its editor."""
     seen = _drive(tmp_path, {
         'command': 'semforge.goToShape', 'node': _row(),
         'replies': {'semforge/shapeFor': SHAPE_REPLY},
@@ -89,10 +91,22 @@ def test_the_shape_icon_asks_for_the_attribute_and_opens_the_line(tmp_path):
     assert asked[0]['params']['attribute'] == 'iffBaseEntities:hasStrength'
     assert asked[0]['params']['entityType'] == 'iffBaseEntities:Filter'
     assert asked[0]['params']['create'] is False
+    assert seen['shown'] == []
+    opened = _executed(seen, 'semforge.openTypePage')
+    assert opened[0][0]['raw'] == {'targetClass': 'iffBaseEntities:Filter',
+                                   'focusNames': ['iffBaseEntities:hasStrength']}
+    assert seen['warnings'] == [] and seen['errors'] == []
+
+
+def test_its_rule_in_the_ttl_is_a_command_of_its_own(tmp_path):
+    seen = _drive(tmp_path, {
+        'command': 'semforge.goToShapeSource', 'node': _row(),
+        'replies': {'semforge/shapeFor': SHAPE_REPLY},
+    })
     # Line 105 of the file, zero-based in the editor.
     assert seen['shown'] == [{'file': '/pkg/shacl.ttl', 'line': 104,
                               'preserveFocus': False}]
-    assert seen['warnings'] == [] and seen['errors'] == []
+    assert not _executed(seen, 'semforge.openTypePage')
 
 
 def test_a_sub_attribute_jumps_to_its_own_shape_not_its_parents(tmp_path):
@@ -827,13 +841,14 @@ def _setting(**overrides):
     return {'raw': raw, 'packageUri': 'file:///pkg/shacl.ttl'}
 
 
-def test_editing_a_setting_writes_it_and_opens_the_line(tmp_path):
+def test_editing_a_setting_writes_it_and_offers_the_line(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.editSetting', 'node': _setting(),
-        'input': 'https://example.org/v1/context.jsonld',
+        'input': 'https://example.org/v1/context.jsonld', 'answer': 'Open semforge.yaml',
         'replies': {'semforge/setSetting': {
-            'ok': True, 'file': '/pkg/semforge.yaml', 'line': 11}},
+            'ok': True, 'key': 'context.published', 'file': '/pkg/semforge.yaml', 'line': 11}},
     })
+    assert 'SemForge: context.published written.' in seen['info']
     wrote = [r for r in seen['requests'] if r['method'] == 'semforge/setSetting']
     assert wrote, seen['requests']
     assert wrote[0]['params']['key'] == 'context.published'
@@ -963,8 +978,9 @@ def test_a_missing_type_is_declared_in_the_knowledge_first(tmp_path):
     assert declared[0]['params'] == {'uri': 'file:///pkg/shacl.ttl',
                                      'name': 'Waterjetcutter',
                                      'parent': 'e:Filter'}
-    # The new class is shown: one added out of sight is one nobody reviews.
-    assert seen['shown'][0]['file'] == '/pkg/knowledge.ttl'
+    # Said where it went, not opened over the page the flow goes on in.
+    assert seen['shown'] == []
+    assert 'SemForge: Waterjetcutter declared in knowledge.ttl' in seen['messages']
     used = [r for r in seen['requests'] if r['method'] == 'semforge/addEntity']
     assert used[0]['params']['entityType'] == 'e:Waterjetcutter'
 
@@ -1062,7 +1078,8 @@ def test_a_missing_attribute_is_declared_in_the_knowledge_first(tmp_path):
         # No namespace asked (this canned server offers none): the server's
         # default, the carrying type's namespace.
         'namespace': None}
-    assert seen['shown'][0]['file'] == '/pkg/knowledge.ttl'
+    assert seen['shown'] == []
+    assert 'SemForge: e:hasPressure declared in knowledge.ttl' in seen['messages']
     used = [r for r in seen['requests'] if r['method'] == 'semforge/addAttribute']
     assert used[0]['params']['name'] == 'e:hasPressure'
 
@@ -1176,7 +1193,7 @@ def test_a_prefix_can_be_defined_from_the_project_view(tmp_path):
         'command': 'semforge.addNamespace',
         'node': {'raw': {'kind': 'namespaces', 'label': 'namespaces'},
                  'packageUri': 'file:///pkg/shacl.ttl'},
-        'inputs': ['plant', 'https://example.org/plant/'],
+        'inputs': ['plant', 'https://example.org/plant/'], 'answer': 'Open semforge.yaml',
         'replies': {'semforge/addNamespace': {
             'ok': True, 'prefix': 'plant',
             'namespace': 'https://example.org/plant/',
@@ -1186,7 +1203,8 @@ def test_a_prefix_can_be_defined_from_the_project_view(tmp_path):
     assert asked[0]['params'] == {'uri': 'file:///pkg/shacl.ttl',
                                   'prefix': 'plant',
                                   'namespace': 'https://example.org/plant/'}
-    assert seen['shown'][0]['file'] == '/pkg/semforge.yaml'
+    assert 'SemForge: plant: agreed for the package.' in seen['info']
+    assert seen['shown'][0]['file'] == '/pkg/semforge.yaml', 'opened when asked'
 
 
 def test_a_refused_prefix_is_reported(tmp_path):
@@ -1462,7 +1480,8 @@ def test_adding_an_attribute_asks_presence_and_value_then_writes(tmp_path):
                 {'choices': [{'value': 'iffFilterKnowledge:Wasteclass',
                               'label': 'Wasteclass', 'detail': 'vocabulary class'}]}],
             'semforge/addAttributeConstraint': {
-                'ok': True, 'file': '/pkg/shacl.ttl', 'line': 45},
+                'ok': True, 'file': '/pkg/shacl.ttl', 'line': 45,
+                'targetClass': 'http://example.com/Cartridge'},
         },
     })
     assert seen['errors'] == []
@@ -1477,7 +1496,13 @@ def test_adding_an_attribute_asks_presence_and_value_then_writes(tmp_path):
     assert params['required'] is True
     assert params['valueClass'] == 'iffFilterKnowledge:Wasteclass'
     assert params['datatype'] is None
-    assert seen['shown'], 'the new constraint was not opened'
+    # Shown where it is changed: its type's page, the new row marked and its
+    # editor open -- not the .ttl.
+    assert seen['shown'] == []
+    opened = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.openTypePage']
+    assert opened[0][0]['raw'] == {'targetClass': 'http://example.com/Cartridge',
+                                   'focusNames': ['hasWasteclass']}
+    assert opened[0][1] == {'edit': True}
 
 
 def test_picking_an_attribute_already_constrained_explains_and_writes_nothing(tmp_path):
@@ -2167,7 +2192,7 @@ def test_a_new_entity_type_needs_no_entity(tmp_path):
     assert declared == [{'uri': f'file://{tmp_path}/shacl.ttl', 'name': 'Waterjetcutter',
                          'parent': 'e:Filter'}]
     assert not [r for r in seen['requests'] if r['method'] == 'semforge/addEntity']
-    assert seen['shown'][0]['file'] == '/pkg/knowledge.ttl'
+    assert seen['shown'] == [], 'the .ttl is a button on the message, not opened'
     assert any('kind of e:Filter' in message for message in seen['info'])
     shaped = _executed(seen, 'semforge.newShape')
     assert shaped[0][0]['raw'] == {'kind': 'type', 'label': 'Waterjetcutter',

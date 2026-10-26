@@ -36,11 +36,13 @@ function chip(text, tone, title) {
     `${escape(text)}</span>`;
 }
 
-function open(text, file, line, title) {
-  return file
-    ? `<a href="#" data-open="${escape(`${file}:${line || 1}`)}"` +
-      `${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`
-    : escape(text);
+/** An attribute's name: a click shows it on its type's page, where its
+ *  constraints, verdicts and editor are. Its line in the .jsonld is in ⋯. */
+function attributeName(text, type, names, term) {
+  return type
+    ? `<a href="#" data-type="${escape(type)}" data-names="${escape(JSON.stringify(names))}"` +
+      ` title="${escape(`${term} — show it on the ${type} page`)}">${escape(text)}</a>`
+    : `<span title="${escape(term)}">${escape(text)}</span>`;
 }
 
 function problem(violation) {
@@ -53,7 +55,7 @@ function problem(violation) {
  * the editing messages ("file.card.row.row"); a value the data lets be edited
  * is a link, and every row with a Tests-tree row behind it has a ⋯.
  */
-function attributeRows(rows, file, depth, at) {
+function attributeRows(rows, file, depth, at, type, chain) {
   // Only the latest observation of each datasetId is shown -- the one that is
   // validated; the earlier ones fold under it behind "+N earlier", so a
   // series does not crowd the card. A series is (attribute, datasetId).
@@ -86,20 +88,22 @@ function attributeRows(rows, file, depth, at) {
       ? ` <a href="#" class="history" data-history="${series(row)}" title="${older} earlier ` +
         'observation(s) of this instance. Only the latest is validated; click to show them.">' +
         `+${older} earlier</a>` : '';
-    const menu = here !== undefined && (row.node || row.attributeNode)
+    const menu = here !== undefined
       ? ` <button class="mini" data-rowmenu="${here}" title="More: sub-attribute, observation, ` +
-        'the rule">⋯</button>' : '';
+        'the rule, Open in .jsonld">⋯</button>' : '';
     const rel = row.kind === 'Relationship' && row.value && !row.superseded
       ? ` data-rel="${escape(row.value)}" data-relname="${escape(row.name)}"` : '';
     return `<div class="attr${depth ? ` depth${Math.min(depth, 4)}` : ''}` +
       `${row.superseded ? ' superseded' : ''}"${rel}>` +
-      `<span class="name">${open(row.display || row.name, file, row.line, row.term)}</span>` +
+      `<span class="name">${attributeName(row.display || row.name, type,
+        (chain || []).concat(row.name), row.term)}</span>` +
       `<span class="value">${value}` +
       `${row.unitText ? ` <span class="unit" title="unitCode ${escape(row.unitCode)}">${escape(row.unitText)}</span>` : ''}` +
       `${row.instances > 1 && !(row.dataset && row.dataset !== '@none') ? ' <span class="dim">· default</span>' : ''}` +
       `${time}${superseded}${menu}</span>` +
       `${row.violations.map(problem).join('')}</div>` +
-      attributeRows(row.children || [], file, depth + 1, here);
+      attributeRows(row.children || [], file, depth + 1, here, type,
+        (chain || []).concat(row.name));
   };
   // Each current row, then -- folded -- the earlier observations of its series.
   return rows.map((row, index) => {
@@ -130,13 +134,13 @@ function card(entity, focused, at) {
     // type page for, and the whole card carrying it made a click anywhere on
     // it -- on a relationship to another type, too -- open this card's type.
     ` data-ftype="${escape(entity.type || '')}" data-attrs="${escape(names)}">` +
-    `<div class="title">${open(entity.id || '(no id)', entity.file, entity.line)}` +
+    `<div class="title"><span class="mono">${escape(entity.id || '(no id)')}</span>` +
     `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
       ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}` +
     `<span class="acts">${add}</span></div>` +
     `${entity.error ? `<div class="problem">${escape(entity.error)}</div>` : ''}` +
     `${entity.violations.map(problem).join('')}` +
-    `${attributeRows(entity.attributes, entity.file, 0, at) ||
+    `${attributeRows(entity.attributes, entity.file, 0, at, entity.type, []) ||
       '<div class="dim">no attributes</div>'}</div>`;
 }
 
@@ -398,11 +402,12 @@ ${entityBar(entities)}
 <div id="cardview">
 ${files.map((file, f) => `<div class="file"><div class="head">
   ${chip(file.role === 'case' ? 'this case' : file.role === 'model' ? 'model' : 'included')}
-  ${open(file.relative, file.path, 1)}
+  <span class="mono">${escape(file.relative)}</span>
   ${file.sharedBy.length ? `<span class="dim" title="${escape(file.sharedBy.join('\n'))}">· shared with ` +
     `${file.sharedBy.length} other case(s) — an edit here changes them too</span>` : ''}
   <span class="acts"><button class="mini" data-addentity="${f}" title="Add an entity to this file">` +
-  `+ Entity</button></span>
+  `+ Entity</button><button class="mini" data-open="${escape(file.path)}:1" ` +
+  `title="Open ${escape(file.relative)} in the editor">Open .jsonld</button></span>
 </div><div class="cards">${file.cards.map((c, j) => card(c, mark(c), `${f}.${j}`)).join('')}</div></div>`).join('')}
 </div>
 
@@ -830,7 +835,10 @@ ${BUSY_SCRIPT}
       vscode.postMessage({ command: 'assert', index: Number(target.dataset.assert) });
     }
     else if (target.dataset.open) { vscode.postMessage({ command: 'open', at: target.dataset.open }); }
-    else if (target.dataset.type) { vscode.postMessage({ command: 'type', name: target.dataset.type }); }
+    else if (target.dataset.type) {
+      vscode.postMessage({ command: 'type', name: target.dataset.type,
+        names: target.dataset.names ? JSON.parse(target.dataset.names) : undefined });
+    }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -965,8 +973,10 @@ class CasePages {
     } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
     } else if (message.command === 'type' && message.name) {
+      // An attribute's name: its type's page, the attribute marked.
       await vscode.commands.executeCommand('semforge.openTypePage',
-        { raw: { targetClass: message.name }, packageUri: this.current.packageUri });
+        { raw: { targetClass: message.name, focusNames: message.names },
+          packageUri: this.current.packageUri });
     } else if (message.command === 'refresh') {
       await this.render();
     } else if (['retargetAssert', 'removeAssert'].includes(message.command) && this.page) {
@@ -1102,8 +1112,10 @@ class CasePages {
           run: () => run('semforge.setDatasetId', instance) });
       }
       if (row.node) {
-        items.push({ label: '$(symbol-ruler) Go to the SHACL rule',
-          run: () => run('semforge.goToShape', row.node) });
+        items.push({ label: '$(symbol-ruler) Show its rule', description: 'on the type page',
+          run: () => run('semforge.goToShape', row.node) },
+        { label: '$(go-to-file) Open its rule in .ttl',
+          run: () => run('semforge.goToShapeSource', row.node) });
       }
       items.push({ label: '$(go-to-file) Open in .jsonld',
         run: () => showLocation(`${card ? card.file : file.path}:${row.line || 1}`, true) });

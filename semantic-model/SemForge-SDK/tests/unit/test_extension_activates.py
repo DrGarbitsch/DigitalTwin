@@ -59,7 +59,7 @@ EXPECTED = {
     'semforge.deleteShape', 'semforge.cloneTestCase', 'semforge.deleteTestCase',
     'semforge.deleteSuite', 'semforge.removeCaseValue', 'semforge.linkSeverityClass',
     'semforge.editValue', 'semforge.refreshModel', 'semforge.addAttribute',
-    'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape',
+    'semforge.addEntity', 'semforge.addObservation', 'semforge.goToShape', 'semforge.goToShapeSource',
     'semforge.addInstance', 'semforge.setDatasetId',
     'semforge.findUnit', 'semforge.newUnit', 'semforge.setUnitCode',
     'semforge.setObservedAt', 'semforge.sortObservations',

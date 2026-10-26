@@ -25,6 +25,7 @@
  * visible where the change was made.
  */
 
+const path = require('path');
 const vscode = require('vscode');
 const { askDatasetId } = require('./datasetid');
 
@@ -112,6 +113,90 @@ function attributeOf(raw) {
     part !== 'value' && part !== 'object' && part !== 'json' &&
     part !== 'valueList');
   return names.length ? names[names.length - 1] : undefined;
+}
+
+/** The attribute's names from the entity down, as the data spells them. */
+function attributeNames(raw) {
+  // attributePath is the attribute's own address; `path` repeats it down to
+  // the value, so it is only the fallback.
+  const address = (raw.attributePath || []).length ? raw.attributePath : raw.path || [];
+  return address.filter((part) =>
+    typeof part === 'string' && !['value', 'object', 'json', 'valueList'].includes(part));
+}
+
+/** Where the rule for a row's attribute is: shown on its type's page, or
+ *  -- `source` -- its lines in the .ttl. An attribute nothing constrains
+ *  gets an empty property shape, on a yes. */
+async function goToShape(clientHolder, node, source, onChanged) {
+  const raw = node && node.raw;
+  const attribute = raw && attributeOf(raw);
+  if (!raw || !attribute || !raw.entityType) {
+    vscode.window.showWarningMessage(
+      'SemForge: this row has no attribute and entity type to look a shape ' +
+        `up with (attribute ${attribute || '—'}, type ` +
+        `${(raw && raw.entityType) || '—'}). Reload the window if the ` +
+        'language server is older than the extension.'
+    );
+    return;
+  }
+  const ask = async (create) => {
+    try {
+      return await clientHolder.client.sendRequest('semforge/shapeFor', {
+        uri: node.packageUri,
+        entityType: raw.entityType,
+        attribute,
+        create
+      });
+    } catch (error) {
+      // A rejected request used to vanish: no jump, no message, nothing in
+      // the log. That is indistinguishable from the command not running.
+      return { ok: false, error: `${error.message || error}` };
+    }
+  };
+  let result = await ask(false);
+  if (!result.ok && result.exists === false) {
+    // Nothing constrains this attribute. Offer to write the empty property
+    // shape, because a jump to a rule that does not exist is useless --
+    // but write it only on a yes: this edits shacl.ttl.
+    const answer = await vscode.window.showInformationMessage(
+      `No shape constrains ${attribute} on ${raw.entityType}.`,
+      { modal: true },
+      'Create an empty one'
+    );
+    if (answer !== 'Create an empty one') {
+      return;
+    }
+    result = await ask(true);
+  }
+  if (!result.ok) {
+    vscode.window.showErrorMessage(`SemForge: ${result.error}`);
+    return;
+  }
+  if (source) {
+    await showLocation(`${result.file}:${result.line}`, true);
+  } else {
+    // The rule where it is read and changed: its type's page, the
+    // attribute marked. The .ttl is the other command.
+    await vscode.commands.executeCommand('semforge.openTypePage', {
+      raw: { targetClass: raw.entityType, focusNames: attributeNames(raw) },
+      packageUri: node.packageUri });
+  }
+  if (result.how === 'created') {
+    vscode.window.showInformationMessage(
+      `SemForge: added an empty sh:property for ${attribute} in ` +
+        `${result.shapeName}. It constrains nothing yet — change it on the ` +
+        'type page.'
+    );
+    if (onChanged) {
+      onChanged();
+    }
+  } else if (result.inherited) {
+    vscode.window.setStatusBarMessage(
+      `SemForge: ${attribute} is constrained by ${result.shapeName}, ` +
+        'which this type inherits from.',
+      6000
+    );
+  }
 }
 
 class ModelTreeProvider {
@@ -697,11 +782,12 @@ async function declareEntityType(client, packageUri, types, parent) {
     );
     return undefined;
   }
-  // Show what was written: a class added out of sight is a class nobody
-  // reviews, and this one is now part of the ontology.
-  await showLocation(`${made.file}:${made.line}`, false);
+  // Said, not opened: the flow goes on to where the type is used, and its
+  // line in the knowledge is one click away (Open in .ttl).
+  vscode.window.setStatusBarMessage(
+    `SemForge: ${made.label} declared in ${path.basename(made.file)}`, 6000);
   return { term: made.term, iri: made.iri, label: made.label, parent: made.parent,
-    instances: 0 };
+    instances: 0, file: made.file, line: made.line };
 }
 
 /**
@@ -741,8 +827,10 @@ async function newEntityType(clientHolder, session, node) {
   const next = await vscode.window.showInformationMessage(
     `SemForge: ${made.label} declared as a kind of ${made.parent}. Every shape of ` +
       `${made.parent} checks it already; give it a shape of its own for rules only it has.`,
-    'Create its shape', 'Open its type page');
-  if (next === 'Create its shape') {
+    'Create its shape', 'Open its type page', 'Open in .ttl');
+  if (next === 'Open in .ttl') {
+    await showLocation(`${made.file}:${made.line}`, true);
+  } else if (next === 'Create its shape') {
     await vscode.commands.executeCommand('semforge.newShape',
       { raw: { kind: 'type', targetClass: made.iri, label: made.label }, packageUri });
   } else if (next === 'Open its type page') {
@@ -934,7 +1022,9 @@ async function declareAttribute(client, packageUri, entityType, given) {
     );
     return undefined;
   }
-  await showLocation(`${made.file}:${made.line}`, false);
+  // Said, not opened: the attribute is constrained next, on its type's page.
+  vscode.window.setStatusBarMessage(
+    `SemForge: ${made.term} declared in ${path.basename(made.file)}`, 6000);
   return { term: made.term, kind: made.kind, label: made.label };
 }
 
@@ -1073,69 +1163,11 @@ function register(context, clientHolder, session, onChanged) {
       return result;
     }),
 
-    vscode.commands.registerCommand('semforge.goToShape', async (node) => {
-      const raw = node && node.raw;
-      const attribute = raw && attributeOf(raw);
-      if (!raw || !attribute || !raw.entityType) {
-        vscode.window.showWarningMessage(
-          'SemForge: this row has no attribute and entity type to look a shape ' +
-            `up with (attribute ${attribute || '—'}, type ` +
-            `${(raw && raw.entityType) || '—'}). Reload the window if the ` +
-            'language server is older than the extension.'
-        );
-        return;
-      }
-      const ask = async (create) => {
-        try {
-          return await clientHolder.client.sendRequest('semforge/shapeFor', {
-            uri: node.packageUri,
-            entityType: raw.entityType,
-            attribute,
-            create
-          });
-        } catch (error) {
-          // A rejected request used to vanish: no jump, no message, nothing in
-          // the log. That is indistinguishable from the command not running.
-          return { ok: false, error: `${error.message || error}` };
-        }
-      };
-      let result = await ask(false);
-      if (!result.ok && result.exists === false) {
-        // Nothing constrains this attribute. Offer to write the empty property
-        // shape, because a jump to a rule that does not exist is useless --
-        // but write it only on a yes: this edits shacl.ttl.
-        const answer = await vscode.window.showInformationMessage(
-          `No shape constrains ${attribute} on ${raw.entityType}.`,
-          { modal: true },
-          'Create an empty one'
-        );
-        if (answer !== 'Create an empty one') {
-          return;
-        }
-        result = await ask(true);
-      }
-      if (!result.ok) {
-        vscode.window.showErrorMessage(`SemForge: ${result.error}`);
-        return;
-      }
-      await showLocation(`${result.file}:${result.line}`, true);
-      if (result.how === 'created') {
-        vscode.window.showInformationMessage(
-          `SemForge: added an empty sh:property for ${attribute} in ` +
-            `${result.shapeName}. It constrains nothing yet — add parameters ` +
-            'in the Constraints view.'
-        );
-        if (onChanged) {
-          onChanged();
-        }
-      } else if (result.inherited) {
-        vscode.window.setStatusBarMessage(
-          `SemForge: ${attribute} is constrained by ${result.shapeName}, ` +
-            'which this type inherits from.',
-          6000
-        );
-      }
-    }),
+    // Its rule on the type page; or, asked for by name, in the .ttl.
+    vscode.commands.registerCommand('semforge.goToShape',
+      (node) => goToShape(clientHolder, node, false, onChanged)),
+    vscode.commands.registerCommand('semforge.goToShapeSource',
+      (node) => goToShape(clientHolder, node, true, onChanged)),
 
     vscode.commands.registerCommand('semforge.refreshModel', () =>
       provider.refresh()

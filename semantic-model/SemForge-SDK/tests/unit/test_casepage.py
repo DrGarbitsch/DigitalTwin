@@ -406,7 +406,8 @@ def test_add_attribute_and_add_entity_use_the_tree_commands(tmp_path, without):
     (4, 'semforge.setUnitCode', 'attributeNode'),
     (5, 'semforge.setDatasetId', 'attributeNode'),
     (6, 'semforge.goToShape', 'node'),
-    (8, 'semforge.removeCaseValue', 'attributeNode')])
+    (7, 'semforge.goToShapeSource', 'node'),
+    (9, 'semforge.removeCaseValue', 'attributeNode')])
 def test_the_row_menu(tmp_path, without, pick, command, which):
     at, _, row = _first_editable(without)
     seen = _edit(tmp_path, without, [{'command': 'rowMenu', 'at': at}], pick=pick)
@@ -414,7 +415,7 @@ def test_the_row_menu(tmp_path, without, pick, command, which):
     assert labels == ['$(edit) Edit value', '$(add) Add sub-attribute',
                       '$(history) Add observation', '$(layers) Add instance…',
                       '$(symbol-ruler) Unit…', '$(symbol-key) Change datasetId…',
-                      '$(symbol-ruler) Go to the SHACL rule',
+                      '$(symbol-ruler) Show its rule', '$(go-to-file) Open its rule in .ttl',
                       '$(go-to-file) Open in .jsonld', f'$(trash) Remove {row["name"]}…']
     ran = _ran(seen, command)[0]['raw']
     if command == 'semforge.setUnitCode':

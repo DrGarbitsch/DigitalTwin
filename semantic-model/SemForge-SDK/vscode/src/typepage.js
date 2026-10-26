@@ -53,12 +53,6 @@ function chip(text, tone, title) {
     `${escape(text)}</span>`;
 }
 
-function openable(text, at, extra) {
-  return at
-    ? `<a href="#" data-open="${escape(at)}"${extra || ''}>${escape(text)}</a>`
-    : escape(text);
-}
-
 /** A camelCase name that may break between its words, and only there:
  *  "hasPowerLossDueToInternalLeakage" fits a narrow column as "hasPowerLoss…
  *  / DueToInternal… / Leakage", not cut mid-word. */
@@ -93,6 +87,20 @@ function focusIndex(attributes, focus) {
   });
   if (best < 0 && focus.attribute) {
     best = attributes.findIndex((row) => row.attribute === focus.attribute);
+  }
+  // By name, as the data spells it: a case page knows `hasState` /
+  // `hasXXXWorkpiece`, not the shapes' prefixes. The deepest row whose path
+  // the names begin with.
+  if (best < 0 && (focus.names || []).length) {
+    const local = (term) => String(term).split(/[/#:]/).pop();
+    attributes.forEach((row, index) => {
+      const path = (row.path || []).map(local);
+      if (path.length > length && path.length <= focus.names.length &&
+          path.every((step, at) => step === local(focus.names[at]))) {
+        best = index;
+        length = path.length;
+      }
+    });
   }
   return best;
 }
@@ -607,8 +615,10 @@ class TypePages {
    * {attribute} from the Knowledge tree). `preserveFocus` leaves the keyboard
    * where it was: a click in a tree opens the page beside the reader's
    * browsing, and the next arrow key should move in the tree, not the page.
+   * `edit` also opens the attribute editor on the marked row: an attribute
+   * just added is shown where it is changed, not in the .ttl.
    */
-  async show(packageUri, entityType, focus, preserveFocus) {
+  async show(packageUri, entityType, focus, preserveFocus, edit) {
     const client = this.clientHolder.client;
     if (!client || !packageUri || !entityType) {
       vscode.window.showWarningMessage(
@@ -628,11 +638,17 @@ class TypePages {
       this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
     } else {
       this.panel.reveal(undefined, !!preserveFocus);
-      if (same) {
-        return;                        // clicked again: already showing it
+    }
+    if (!same) {                       // clicked again: already showing it
+      await this.render();
+    }
+    if (edit && this.page) {
+      const rows = this.page.attributes || [];
+      const index = focusIndex(rows, focus);
+      if (index >= 0) {
+        await require('./attributepanel').openAttribute(this, rows[index], index);
       }
     }
-    await this.render();
   }
 
   async render() {
@@ -1351,7 +1367,9 @@ function focusOf(node) {
   }
   const path = Array.isArray(raw.path) && raw.path.length ? raw.path : undefined;
   const attribute = raw.kind === 'attribute' && raw.iri ? raw.iri : undefined;
-  return path || attribute ? { path, attribute } : undefined;
+  // From a case page or a new attribute: the attribute by its names.
+  const names = Array.isArray(raw.focusNames) && raw.focusNames.length ? raw.focusNames : undefined;
+  return path || attribute || names ? { path, attribute, names } : undefined;
 }
 
 async function pickType(client, packageUri) {
@@ -1376,7 +1394,7 @@ function register(context, clientHolder, session) {
       const entityType = node && node.raw ? typeOf(node) : await pickType(client, packageUri);
       if (entityType) {
         await pages.show(packageUri, entityType, focusOf(node),
-          !!(options && options.preserveFocus));
+          !!(options && options.preserveFocus), !!(options && options.edit));
       }
     }),
     // + Attribute on a type row in the Types view: its own shapes are the

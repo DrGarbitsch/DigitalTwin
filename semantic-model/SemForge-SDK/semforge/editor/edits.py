@@ -111,7 +111,7 @@ def set_setting(ls, params):
     except OSError as exc:
         return {'ok': False, 'error': str(exc)}
     session.forget(root)                      # it must be re-read
-    return {'ok': True, 'file': where, 'line': line,
+    return {'ok': True, 'key': key, 'file': where, 'line': line,
             'uri': path_to_uri(where)}
 
 
@@ -531,13 +531,15 @@ def add_attribute_constraint_feature(ls, params):
     try:
         package = session.package_for(root)
         shape = field(params, 'shape')
+        entity_type = field(params, 'entityType', '') or ''
         if not shape:
-            entity_type = field(params, 'entityType', '')
             shape = own_shape(package, entity_type)
             if shape is None:
                 return {'ok': False,
                         'error': f'no shape targets {entity_type} itself, so '
                                  f'there is nowhere to constrain it'}
+        # Whose page shows it: the client opens it there, the new row marked.
+        target = entity_type or _target_class(package, shape)
         parent_path = list(field(params, 'parentPath') or [])
         if parent_path:
             made = add_sub_attribute_constraint(
@@ -547,7 +549,7 @@ def add_attribute_constraint_feature(ls, params):
                 value_class=field(params, 'valueClass') or None)
             session.forget(root)
             validation.publish(ls, path_to_uri(made['file']))
-            return dict(made, ok=True, uri=path_to_uri(made['file']))
+            return dict(made, ok=True, uri=path_to_uri(made['file']), targetClass=target)
         made = add_attribute_constraint(
             package, shape, field(params, 'attribute'),
             required=bool(field(params, 'required', False)),
@@ -559,9 +561,19 @@ def add_attribute_constraint_feature(ls, params):
         if made.get('domainAdded'):
             for path in session.package_for(root).files('knowledge'):
                 validation.publish(ls, path_to_uri(path))
-        return dict(made, ok=True, uri=path_to_uri(made['file']))
+        return dict(made, ok=True, uri=path_to_uri(made['file']), targetClass=target)
     except Exception as exc:                       # noqa: BLE001
         return {'ok': False, 'error': str(exc)}
+
+
+def _target_class(package, shape):
+    """The class a shape targets, '' when none: the type whose page shows it."""
+    from rdflib import URIRef
+
+    from ..validate.shapes import class_targets
+
+    found = sorted(str(c) for c in class_targets(package.shapes, URIRef(shape)))
+    return found[0] if found else ''
 
 
 def _vocabulary_write(params, write):

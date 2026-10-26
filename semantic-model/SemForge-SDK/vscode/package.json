@@ -233,8 +233,13 @@
       },
       {
         "command": "semforge.goToShape",
-        "title": "SemForge: Go to the SHACL rule for this attribute",
+        "title": "SemForge: Show the SHACL rule for this attribute",
         "icon": "$(law)"
+      },
+      {
+        "command": "semforge.goToShapeSource",
+        "title": "SemForge: Open the SHACL rule for this attribute in .ttl",
+        "icon": "$(go-to-file)"
       },
       {
         "command": "semforge.refreshKnowledge",
@@ -651,6 +656,11 @@
           "command": "semforge.goToShape",
           "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/",
           "group": "2_row@8"
+        },
+        {
+          "command": "semforge.goToShapeSource",
+          "when": "view == semforgeModel && viewItem =~ /^(exampleEditable|exampleDataset|exampleSeries|attributeReadOnly)$/",
+          "group": "2_row@9"
         },
         {
           "command": "semforge.goToShape",

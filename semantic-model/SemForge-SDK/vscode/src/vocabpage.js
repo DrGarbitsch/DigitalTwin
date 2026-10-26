@@ -45,12 +45,6 @@ function chip(text, tone, title) {
     `${escape(text)}</span>`;
 }
 
-function openable(text, at, title) {
-  return at
-    ? `<a href="#" data-open="${escape(at)}"${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`
-    : escape(text);
-}
-
 function usedChips(uses) {
   if (!uses.total) {
     return chip('unused', 'warn', 'No data, shape, query or knowledge statement names it.');
@@ -94,7 +88,8 @@ function valueRows(values, focus) {
             : 'not named yet'}</span>`}</td><td></td></tr>`;
     }
     return `<tr${focused ? ' class="focus" id="focus"' : ''}>` +
-      `<td>${openable(row.name, row.definedAt, row.iri)}</td>` +
+      // The value is this row; its lines in the .ttl are in ⋯.
+      `<td><span class="mono" title="${escape(row.iri)}">${escape(row.name)}</span></td>` +
       `<td><a href="#" class="act" data-action="label" data-row="${index}" ` +
       `title="Change the label">${row.label ? escape(row.label) : '<span class="dim">add…</span>'}</a></td>` +
       `<td>${row.properties.map(propertyText).join('')}</td>` +
@@ -200,7 +195,9 @@ ${values.length ? `<div class="table"><table>
 ${drawn.length > 1 ? `<details class="fold" open><summary>Drawn from by (${drawn.length})</summary>` +
   `<ul>${drawn.map((d) => `<li>${drawer(d)}</li>`).join('')}</ul></details>` : ''}
 ${relations.length ? `<details class="fold"><summary>Properties of its values (${relations.length})</summary>` +
-  `<ul>${relations.map((r) => `<li>${openable(r.name, r.definedAt)} <span class="dim">· ` +
+  `<ul>${relations.map((r) => `<li><span class="mono">${escape(r.name)}</span>` +
+    `${r.definedAt ? ` <a href="#" class="dim" data-open="${escape(r.definedAt)}" ` +
+      'title="Open its declaration in the .ttl">.ttl</a>' : ''} <span class="dim">· ` +
     `${escape(r.domain || '(no domain declared)')} → ${escape(r.range || '(no range declared)')}` +
     '</span></li>').join('')}</ul></details>` : ''}
 ${subclasses.length ? `<details class="fold"><summary>Subclasses (${subclasses.length})</summary>` +

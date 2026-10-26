@@ -98,6 +98,18 @@ class KnowledgeTreeProvider {
     return this.parents.get(node.key);
   }
 
+  /** The nearest row above `node` that has a page: an entity type, or a
+   *  vocabulary class. */
+  pageAbove(node) {
+    for (let up = this.getParent(node); up; up = this.getParent(up)) {
+      if (up.raw.role === 'entityType' ||
+          (up.raw.kind === 'class' && up.raw.role === 'vocabulary')) {
+        return up;
+      }
+    }
+    return undefined;
+  }
+
   getTreeItem(node) {
     const raw = node.raw;
     const children = raw.children || [];
@@ -207,6 +219,21 @@ class KnowledgeTreeProvider {
   }
 }
 
+/** Open the page `selected` sits in, if any. True when one opened. */
+async function openNearestPage(provider, selected) {
+  const up = provider.pageAbove(selected);
+  if (!up) {
+    return false;
+  }
+  if (up.raw.role === 'entityType') {
+    await vscode.commands.executeCommand('semforge.openTypePage', up, { preserveFocus: true });
+  } else {
+    await vscode.commands.executeCommand('semforge.openVocabularyPage', up,
+      { cls: up.raw.iri, preserveFocus: true });
+  }
+  return true;
+}
+
 function register(context, clientHolder, session, onShape, onEntity) {
   const provider = new KnowledgeTreeProvider(clientHolder);
   const view = vscode.window.createTreeView('semforgeKnowledge', {
@@ -271,6 +298,9 @@ function register(context, clientHolder, session, onShape, onEntity) {
           focus: holder ? raw.iri : undefined,
           preserveFocus: true
         });
+      } else if (treeClick() === 'page' && await openNearestPage(provider, selected)) {
+        // A row with no page of its own -- a relation, a plain class -- shows
+        // the page it sits in; its .ttl is the context menu's Open source.
       } else if (raw.definedAt) {
         await showLocation(raw.definedAt, false);
       }
