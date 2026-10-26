@@ -554,4 +554,9 @@ async function openAttribute(pages, row, index, contrib) {
   return false;          // the page draws itself again when something changes
 }
 
-module.exports = { openAttribute, renderAttributePanel, summaryBox, CONDITIONS };
+/** The open editor, if any: what the end-to-end tests drive. */
+function current() {
+  return panel;
+}
+
+module.exports = { openAttribute, renderAttributePanel, summaryBox, CONDITIONS, current };

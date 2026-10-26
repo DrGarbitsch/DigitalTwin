@@ -23,6 +23,9 @@ const vscode = require('vscode');
 
 const WORKSPACE = process.env.SEMFORGE_E2E_WORKSPACE;
 const PACKAGE_URI = vscode.Uri.file(path.join(WORKSPACE, 'shacl.ttl')).toString();
+// The OPC UA pump slice, copied beside the workspace (run.js).
+const OPCUA = process.env.SEMFORGE_E2E_OPCUA;
+const OPCUA_URI = OPCUA ? vscode.Uri.file(path.join(OPCUA, 'shacl.ttl')).toString() : undefined;
 
 async function until(check, what, timeout = 45000) {
   const started = Date.now();
@@ -218,5 +221,5 @@ async function restoreShapeName(api, from, to, suite) {
   return done;
 }
 
-module.exports = { WORKSPACE, PACKAGE_URI, until, semforge, request, rows, row, answering, read,
-  restoreShapeName };
+module.exports = { WORKSPACE, PACKAGE_URI, OPCUA, OPCUA_URI, until, semforge, request, rows, row,
+  answering, read, restoreShapeName };

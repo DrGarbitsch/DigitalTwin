@@ -466,7 +466,9 @@ function activate(context) {
     session,
     trees: { project, constraints, shapes, model, knowledge },
     pages: { type: typeViews, case: caseViews, sparql: sparqlBench, shape: shapeViews,
-      vocabulary: vocabularyViews, health: healthView, package: packageView }
+      vocabulary: vocabularyViews, health: healthView, package: packageView,
+      // The attribute editor beside a page, while it is open.
+      get attribute() { return require('./attributepanel').current(); } }
   };
 }
 

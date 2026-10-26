@@ -47,7 +47,9 @@ async function main() {
   // ../ontology/ngsild.ttl, so the shared copy sits beside it.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'semforge-e2e-'));
   const workspace = path.join(root, 'kms');
-  for (const part of ['kms', 'ontology']) {
+  // The OPC UA pump slice beside it: a second package the server answers for
+  // by its own uri, so a suite can open its pages without a second window.
+  for (const part of ['kms', 'ontology', 'opcua-pumps']) {
     fs.cpSync(path.join(sdk, 'tests', 'corpus', part), path.join(root, part), {
       recursive: true,
       dereference: true,
@@ -88,7 +90,8 @@ async function main() {
       cachePath: path.join(extensionDevelopmentPath, '.vscode-test'),
       // Packages a test creates declare the default vocabulary: the shared
       // copy, never the network.
-      extensionTestsEnv: { SEMFORGE_E2E_WORKSPACE: workspace, SEMFORGE_NGSILD: ngsild },
+      extensionTestsEnv: { SEMFORGE_E2E_WORKSPACE: workspace, SEMFORGE_NGSILD: ngsild,
+        SEMFORGE_E2E_OPCUA: path.join(root, 'opcua-pumps') },
       launchArgs: [workspace, '--disable-extensions', '--disable-workspace-trust',
         '--skip-welcome', '--skip-release-notes', '--disable-gpu']
     });
