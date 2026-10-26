@@ -362,7 +362,9 @@ ${lists}
       return;
     }
     const target = event.target.closest('[data-act]');
-    if (!target || target.tagName === 'SELECT') { return; }
+    // A choice or a tick box acts on its 'change', below: preventing its click
+    // here would cancel the tick itself -- "may be empty" never changed.
+    if (!target || target.tagName === 'SELECT' || target.tagName === 'INPUT') { return; }
     event.preventDefault();
     const act = target.dataset.act;
     const boxNode = target.closest('[data-addr]');

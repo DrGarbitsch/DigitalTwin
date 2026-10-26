@@ -199,6 +199,19 @@ def test_the_panel_draws_each_form_with_its_own_conditions(root, tmp_path):
     assert '<option value="xsd:double">number</option>' in page
 
 
+def test_clicking_may_be_empty_ticks_it_and_sends_it(root, tmp_path):
+    """A person CLICKS the box. The panel's click handler took every
+    [data-act] and prevented its default -- which for a tick box is the tick:
+    it never changed, and no 'change' ever came."""
+    _, dom = _panel(tmp_path, _state(root), '''
+var box = document.querySelector('[data-form="1"] input[data-act=empty]');
+box.click();
+document.documentElement.dataset.ticked = String(box.checked);
+''')
+    assert re.search(r'<html[^>]* data-ticked="false"', dom), 'the click unticked it'
+    assert [m['action'] for m in _posted(dom)] == [{'op': 'empty', 'value': False, 'form': 1}]
+
+
 def test_a_value_read_only_shows_no_tools(root, tmp_path):
     page, _ = _panel(tmp_path, dict(_state(root), editable=False,
                                     reason='a comment inside it would be lost'))
