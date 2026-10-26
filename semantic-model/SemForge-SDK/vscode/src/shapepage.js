@@ -293,7 +293,7 @@ function renderShapePage(page, options) {
   td.depth3 { padding-left: 66px; } td.depth4 { padding-left: 84px; }
 ${BUSY_CSS}</style></head><body>
 <div class="crumbs">Shapes › <span class="mono">${escape(page.name)}</span></div>
-<div class="head"><h1>${escape(page.label)}</h1>
+<div class="head"><h1>SHACL shape: ${escape(page.label)}</h1>
   <div class="acts">${primary}<button data-action="pageMenu" title="Open in .ttl, the type page, + Target, Rename…, Merge into…, Delete…, Refresh">⋯</button></div></div>
 <p class="status">${status}</p>
 
@@ -401,7 +401,7 @@ class ShapePages {
       return;
     }
     this.page = page;
-    this.panel.title = `${page.label} · shape`;
+    this.panel.title = `SHACL shape: ${page.label}`;
     this.panel.webview.html = renderShapePage(page,
       { nonce: crypto.randomBytes(16).toString('base64') });
   }

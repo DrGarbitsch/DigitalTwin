@@ -143,7 +143,7 @@ function renderPackagePage(payload, options) {
            border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; margin-left: 4px; }
   button:hover { background: var(--vscode-button-secondaryHoverBackground); }
 </style></head><body>
-<h1>${escape(name)} <span class="dim">· package</span></h1>
+<h1>Package: ${escape(name)}</h1>
 <div class="dim mono">${escape(payload.root || '')}</div>
 <div class="bar">
   <button data-act="health" title="Cases, violations, untested constraints">Health</button>
@@ -225,7 +225,7 @@ class PackagePage {
     this.payload = Object.assign({}, payload,
       { manifest: manifest ? manifest.definedAt.replace(/:\d+$/, '') : '' });
     const name = ((payload.roots || []).find((r) => r.kind === 'project') || {}).detail;
-    this.panel.title = `${name || 'Package'} · package`;
+    this.panel.title = name ? `Package: ${name}` : 'Package';
     this.panel.webview.html = renderPackagePage(this.payload,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.focus });
   }

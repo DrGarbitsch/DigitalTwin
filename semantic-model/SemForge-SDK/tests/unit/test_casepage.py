@@ -188,7 +188,7 @@ def test_a_case_row_opens_its_page_and_a_type_link_opens_the_type_page(tmp_path,
     assert seen['errors'] == [], seen['errors']
     asked = [r['params'] for r in seen['requests'] if r['method'] == 'semforge/casePage']
     assert asked[0]['case'] == without['file']
-    assert seen['webviews'][0]['title'] == 'without-cartridge · test case'
+    assert seen['webviews'][0]['title'] == 'Test case: without-cartridge'
     typed = [e for e in seen['executed'] if e['command'] == 'semforge.openTypePage']
     assert typed[0]['args'][0]['raw']['targetClass'] == 'Filter'
     assert seen['shown'][0]['file'] == without['file']
@@ -225,7 +225,7 @@ def test_the_main_row_opens_the_main_page(tmp_path):
         'replies': {'semforge/modelPage': page}}, 'extension.js')
     assert seen['errors'] == [], seen['errors']
     assert [r['method'] for r in seen['requests']] == ['semforge/modelPage']
-    assert seen['webviews'][0]['title'] == 'Main · instances'
+    assert seen['webviews'][0]['title'] == 'Entities: Main'
 
 
 # --- "Assert it" ------------------------------------------------------------------------

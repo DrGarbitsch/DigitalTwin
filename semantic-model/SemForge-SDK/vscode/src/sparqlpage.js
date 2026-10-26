@@ -159,7 +159,7 @@ function renderSparqlBench(page, options) {
 </style></head><body>
 <div class="dim crumbs">SPARQL workbench · <a href="#" data-shape="1">${escape(page.shapeName)}</a></div>
 <div class="head">
-  <h1>${escape(page.label)}</h1>
+  <h1>SPARQL: ${escape(page.label)}</h1>
   <span class="dim">${escape(holder.kind)}</span>
   ${rule ? '' : severityLabel(holder.severity, !!severity)}
   <span class="right"><span class="chip warn" id="dirty"${state.dirty ? '' : ' hidden'}
@@ -600,7 +600,7 @@ class SparqlBench {
     if (!this.panel || !this.page) {
       return;
     }
-    this.panel.title = `${this.page.label} · SPARQL`;
+    this.panel.title = `SPARQL: ${this.page.label}`;
     this.panel.webview.html = renderSparqlBench(this.page, {
       nonce: crypto.randomBytes(16).toString('base64'), snapshots: this.snapshotList(),
       dirty: this.dirty, file: this.uri ? this.uri.path.slice(1) : undefined });

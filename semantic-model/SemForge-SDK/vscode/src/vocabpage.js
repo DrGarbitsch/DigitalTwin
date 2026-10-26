@@ -180,7 +180,7 @@ function renderVocabularyPage(page, options) {
 <div class="crumbs">Vocabulary${parents.map((p) => ' › ' + (p.page
     ? `<a href="#" data-vocab="${escape(p.iri)}">${escape(p.label)}</a>` : escape(p.label))).join('')}` +
   ` › <span class="mono">${escape(page.term)}</span></div>
-<div class="head"><h1>${escape(page.label)}</h1>
+<div class="head"><h1>Vocabulary: ${escape(page.label)}</h1>
   <div class="acts"><button class="primary" data-action="addValue">+ Value</button>
   <button data-action="pageMenu" title="Open in .ttl, Refresh">⋯</button></div></div>
 ${page.comment && page.comment !== page.label ? `<p class="comment">${escape(page.comment)}</p>` : ''}
@@ -285,7 +285,7 @@ class VocabularyPages {
       return;
     }
     this.page = page;
-    this.panel.title = `${page.label} · vocabulary`;
+    this.panel.title = `Vocabulary: ${page.label}`;
     this.panel.webview.html = renderVocabularyPage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }

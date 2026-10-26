@@ -364,7 +364,7 @@ function renderCasePage(page, options) {
   .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
 ${BUSY_CSS}</style></head><body data-page="${escape(page.file || page.case || '')}">
 <div class="crumbs">${crumbs}</div>
-<h1>${escape(page.name)}</h1>
+<h1>${page.kind === 'model' ? 'Entities' : 'Test case'}: ${escape(page.name)}</h1>
 ${page.description ? `<p class="lede">${escape(page.description)}</p>` : ''}
 ${verdictNote(page.verdicts || { state: 'ready' })
     ? `<p class="lede">${verdictNote(page.verdicts)}</p>` : ''}
@@ -915,7 +915,7 @@ class CasePages {
     }
     this.page = page;
     this.panel.title = page.kind === 'model'
-      ? 'Main · instances' : `${page.name.replace(/\.jsonld$/, '')} · test case`;
+      ? 'Entities: Main' : `Test case: ${page.name.replace(/\.jsonld$/, '')}`;
     this.panel.webview.html = renderCasePage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }

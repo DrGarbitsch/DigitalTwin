@@ -44,7 +44,7 @@ describe('every page, in a real VS Code', () => {
     await vscode.commands.executeCommand('semforge.openShapePage',
       { raw: { shape: `${BASE}WorkpieceShape` }, packageUri: PACKAGE_URI });
     const panel = await rendered(api.pages.shape, 'the shape page');
-    assert.strictEqual(panel.title, 'WorkpieceShape · shape');
+    assert.strictEqual(panel.title, 'SHACL shape: WorkpieceShape');
     const text = body(panel);
     for (const part of ['Checks', 'Applies to', 'Tested by', '+ Add check ▾', 'Edit targets']) {
       assert.ok(text.includes(part), part);

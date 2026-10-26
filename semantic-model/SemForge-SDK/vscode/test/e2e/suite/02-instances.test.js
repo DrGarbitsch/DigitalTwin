@@ -61,13 +61,13 @@ describe('Instances view', () => {
         const api = await semforge();
         const main = await row(api.trees.model, (raw) => raw.label === 'Main', 'Main');
         await click(api, main);
-        let panel = await pageTitled(api, 'Main · instances');
+        let panel = await pageTitled(api, 'Entities: Main');
         assert.ok(panel.webview.html.includes('Open the model file'));
         assert.ok(!panel.webview.html.includes('<h2>Claims</h2>'), 'the model has no claims');
 
         const file = (await api.trees.model.getChildren(main))[0];
         await click(api, file);
-        await pageTitled(api, 'Main · instances');
+        await pageTitled(api, 'Entities: Main');
 
         const entity = (await rows(api.trees.model)).find((node) =>
           node.raw.kind === 'entity' && api.trees.model.getParent(node) &&
@@ -86,7 +86,7 @@ describe('Instances view', () => {
           (raw) => raw.kind === 'example' && raw.file, 'a case');
         await click(api, found);
         const panel = await until(() => api.pages.case.panel &&
-          api.pages.case.panel.title.endsWith('· test case') && api.pages.case.panel, 'a case page');
+          api.pages.case.panel.title.startsWith('Test case: ') && api.pages.case.panel, 'a case page');
         assert.ok(panel.webview.html.includes('<h2>Claims</h2>'));
       });
     });
@@ -102,7 +102,7 @@ describe('the Main page', () => {
   it('offers editing on every card and file', async () => {
     const api = await semforge();
     await vscode.commands.executeCommand('semforge.openModelPage');
-    const panel = await pageTitled(api, 'Main · instances');
+    const panel = await pageTitled(api, 'Entities: Main');
     const page = api.pages.case.page;
     const html = panel.webview.html;
     assert.strictEqual(page.kind, 'model');

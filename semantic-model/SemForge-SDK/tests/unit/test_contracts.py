@@ -149,7 +149,7 @@ def test_the_main_page_payload_renders_with_its_edits(tmp_path, kms):
                             {'command': 'addAttribute', 'at': '0.0'}]})
     assert seen['errors'] == [], seen['errors']
     html = seen['webviews'][0]['html'][0]
-    assert seen['webviews'][0]['title'] == 'Main · instances'
+    assert seen['webviews'][0]['title'] == 'Entities: Main'
     assert 'data-addentity="0"' in html and 'data-edit="0.' in html
     assert _executed(seen, 'semforge.addEntity')[0][0]['raw']['file'] == page['files'][0]['path']
     raw = _executed(seen, 'semforge.addAttribute')[0][0]['raw']

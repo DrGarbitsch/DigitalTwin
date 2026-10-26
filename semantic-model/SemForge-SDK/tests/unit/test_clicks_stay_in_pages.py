@@ -159,7 +159,7 @@ def test_an_attribute_just_added_opens_its_editor(tmp_path, pages):
                                             'said': 'any value'},
                     'semforge/choices': {'choices': []}}}, 'extension.js')
     editors = [w for w in seen['webviews'] if w['viewType'] == 'semforgeAttribute']
-    assert editors and editors[0]['title'] == 'hasCartridge · attribute'
+    assert editors and editors[0]['title'] == 'Attribute: hasCartridge'
     assert seen['shown'] == []
 
 

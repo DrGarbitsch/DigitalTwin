@@ -381,7 +381,7 @@ def test_the_shape_page_says_its_target_and_links_onwards(tmp_path):
         'replies': {'semforge/shapePage': SHAPE_PAGE}})
     assert seen['errors'] == [], seen['errors']
     page = seen['webviews'][0]
-    assert page['title'] == 'HighPressureShape · shape'
+    assert page['title'] == 'SHACL shape: HighPressureShape'
     html = page['html'][-1]
     for text in ('sh:target', 'the nodes a SPARQL query selects', 'FILTER(?o &gt; 5)',
                  'data-type="https://x/Pump"', 'urn:pump:2', 'never fired',
@@ -586,7 +586,7 @@ def _vocab(tmp_path, **scenario):
 def test_the_vocabulary_page_shows_values_uses_and_what_draws_from_it(tmp_path):
     seen = _vocab(tmp_path)
     page = seen['webviews'][0]
-    assert page['title'] == 'MachineState · vocabulary'
+    assert page['title'] == 'Vocabulary: MachineState'
     html = page['html'][-1]
     for text in ('2 values', '1 unused', 'drawn from by', 'unused',
                  '7 in data', '6 in queries', 'data-shape="https://x/MachineShape"',
@@ -696,7 +696,7 @@ def test_a_new_vocabulary_class_is_reachable_and_written(tmp_path):
     asked = [r['params'] for r in seen['requests']
              if r['method'] == 'semforge/addVocabularyClass']
     assert asked[0]['name'] == 'Shift' and asked[0]['parent'] is None
-    assert seen['webviews'][0]['title'] == 'Shift · vocabulary'
+    assert seen['webviews'][0]['title'] == 'Vocabulary: Shift'
 
 
 # --- New test… for an attribute --------------------------------------------------------

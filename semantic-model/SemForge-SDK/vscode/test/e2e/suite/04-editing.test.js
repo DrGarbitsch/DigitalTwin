@@ -38,7 +38,7 @@ function entity(id) {
 
 async function mainPage(api) {
   await vscode.commands.executeCommand('semforge.openModelPage');
-  return until(() => api.pages.case.panel && api.pages.case.panel.title === 'Main · instances' &&
+  return until(() => api.pages.case.panel && api.pages.case.panel.title === 'Entities: Main' &&
     api.pages.case.page && api.pages.case.page.kind === 'model' && api.pages.case.page,
   'the Main page');
 }
@@ -166,7 +166,7 @@ describe('a new subtype, then its first own attribute', () => {
       { kind: 'message', button: 'Open its type page' }],
     () => vscode.commands.executeCommand('semforge.newSubtype', cutter));
     assert.match(read('knowledge.ttl'), /Watercutter a owl:Class ;\s+rdfs:subClassOf \S*Cutter/);
-    await until(() => api.pages.type.panel && api.pages.type.panel.title === 'Watercutter · type',
+    await until(() => api.pages.type.panel && api.pages.type.panel.title === 'Entity type: Watercutter',
       'its type page');
     assert.ok(api.pages.type.page.attributes.length, 'what it inherits from Cutter');
     await row(api.trees.constraints, (raw) => raw.kind === 'type' && raw.label === 'Watercutter',

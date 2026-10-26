@@ -113,7 +113,7 @@ function renderHealthPage(page, options) {
   @media (max-width: 640px) { .item { grid-template-columns: 1fr; } }
 </style></head><body>
 <div class="head">
-  <div><h1>${escape(page.name)}</h1><div class="dim">${escape(page.path)}</div></div>
+  <div><h1>Package health: ${escape(page.name)}</h1><div class="dim">${escape(page.path)}</div></div>
   <div class="bar"><button data-rescan="1">Rescan</button><button data-refresh="1">Refresh</button></div>
 </div>
 <div class="tiles">${tiles}</div>
@@ -191,7 +191,7 @@ class HealthPage {
         `padding:20px"><p>SemForge: ${escape(page.error)}</p></body></html>`;
       return;
     }
-    this.panel.title = `${page.name} · health`;
+    this.panel.title = `Package health: ${page.name}`;
     this.panel.webview.html = renderHealthPage(page,
       { nonce: crypto.randomBytes(16).toString('base64') });
   }

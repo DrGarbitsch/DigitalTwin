@@ -468,7 +468,7 @@ ${BUSY_CSS}</style></head><body>
 <div class="crumbs">${crumbs}<b>${escape(page.label)}</b> · <span class="mono">${escape(page.term)}</span>${
   subtypes.length ? ` <span class="sep">·</span> subtypes: ${subtypes.map((name) =>
     `<a href="#" data-type="${escape(name)}">${escape(name)}</a>`).join(', ')}` : ''}</div>
-<div class="head"><h1>${escape(page.label)}</h1>
+<div class="head"><h1>Entity type: ${escape(page.label)}</h1>
   <div class="acts"><button class="primary" data-action="addAttribute" title="${page.ownShape
     ? `Add an attribute to ${escape(page.ownShapeName)}`
     : `${escape(page.label)} has no shape of its own yet: one is created for it first`}">+ Attribute</button>
@@ -677,7 +677,7 @@ class TypePages {
       return;
     }
     this.page = page;
-    this.panel.title = `${page.label} · type`;
+    this.panel.title = `Entity type: ${page.label}`;
     this.panel.webview.html = renderTypePage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus });
   }

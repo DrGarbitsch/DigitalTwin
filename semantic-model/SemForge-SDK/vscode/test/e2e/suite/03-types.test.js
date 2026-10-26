@@ -35,7 +35,7 @@ async function menu(api) {
 async function typePage(api, label) {
   return until(() => {
     const panel = api.pages.type.panel;
-    return panel && panel.title === `${label} · type` && api.pages.type.page &&
+    return panel && panel.title === `Entity type: ${label}` && api.pages.type.page &&
       api.pages.type.page.label === label && panel;
   }, `the ${label} page`);
 }

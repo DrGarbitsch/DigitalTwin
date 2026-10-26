@@ -259,7 +259,7 @@ function renderAttributePanel(state, options) {
   .primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
              border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
 </style></head><body>
-<h1>${escape(state.label)}</h1>
+<h1>Attribute: ${escape(state.label)}</h1>
 ${state.row ? `<div class="dim">${escape(state.row.term || '')}</div>` : ''}
 ${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
 ${summaryBox(state.row)}
@@ -508,7 +508,7 @@ class AttributePanel {
     }
     this.row = this.fresh();
     const read = await this.request('semforge/valueForms', { shape: this.row.shape, path: this.row.path });
-    this.panel.title = `${this.row.label} · attribute`;
+    this.panel.title = `Attribute: ${this.row.label}`;
     const state = Object.assign({ label: this.row.label, row: this.row }, this.choices,
       read.ok ? read : { editable: false, reason: read.error }, { error: this.error });
     this.panel.webview.html = renderAttributePanel(state,

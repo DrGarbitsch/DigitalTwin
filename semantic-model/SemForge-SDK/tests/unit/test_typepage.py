@@ -254,7 +254,7 @@ def test_a_type_row_opens_its_page_and_links_navigate(tmp_path, filter_page):
     assert asked[0]['entityType'] == filter_page['iri']
     assert asked[1]['entityType'] == 'Machine', 'a breadcrumb opens that type'
     assert len(seen['webviews']) == 1, 'one panel, reused'
-    assert seen['webviews'][0]['title'] == 'Filter · type'
+    assert seen['webviews'][0]['title'] == 'Entity type: Filter'
     assert seen['shown'][0]['file'] == '/pkg/shacl.ttl'
 
 

@@ -240,7 +240,7 @@ def test_clicking_a_row_opens_the_attribute_editor_beside(tmp_path, page):
         'path': ['iffBaseEntities:hasCartridge']}]
     editor = seen['webviews'][-1]
     assert editor['viewType'] == 'semforgeAttribute'
-    assert editor['title'] == 'hasCartridge · attribute'
+    assert editor['title'] == 'Attribute: hasCartridge'
     html = editor['html'][-1]
     for asks in ('data-cmd="presence"', 'data-cmd="severity"', 'data-cmd="test"',
                  'data-cmd="open"', 'data-cmd="params"'):

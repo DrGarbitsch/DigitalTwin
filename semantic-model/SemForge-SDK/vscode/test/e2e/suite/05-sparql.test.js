@@ -56,7 +56,7 @@ describe('the SPARQL workbench', () => {
     const api = await semforge();
     const posted = recording(api.pages.sparql);
     const page = await open(api, CUTTER);
-    assert.strictEqual(api.pages.sparql.panel.title, 'StateOnCutterShape · SPARQL');
+    assert.strictEqual(api.pages.sparql.panel.title, 'SPARQL: StateOnCutterShape');
     assert.strictEqual(page.holder.kind, 'constraint');
     const result = await until(() => posted.find((m) => m.type === 'result'),
       'the page script to ask for a run (it runs on load)');

@@ -156,7 +156,7 @@ def test_the_query_opens_as_a_document_read_from_shacl_ttl(tmp_path, page):
     assert seen['errors'] == [], seen['errors']
     assert _asked(seen, 'semforge/sparqlQuery') == [{'uri': PACKAGE, 'shape': CUTTER,
                                                     'holder': 0}]
-    assert seen['webviews'][0]['title'] == 'StateOnCutterShape · SPARQL'
+    assert seen['webviews'][0]['title'] == 'SPARQL: StateOnCutterShape'
     assert 'StateOnCutterShape.rq' in seen['webviews'][0]['html'][0]
 
 
