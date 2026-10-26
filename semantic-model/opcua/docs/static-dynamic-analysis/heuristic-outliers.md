@@ -5,19 +5,20 @@ Evaluation of the static/dynamic classification of nodeset2owl.py on the 20 node
 
 ## The rules
 
-The first matching rule decides, in the order R1 to R5. R1 is an *override* (it overrules the
-NamespaceMetadata), R2, R4 and R5 are *fallbacks* (they only apply where the NamespaceMetadata does not decide). R3 and R5 are
-the rules of the OPC UA standard (`--strict-classification`), R1, R2 and R4 heuristics (default).
+The first matching rule decides, in the order R1, R3, R4, R5. R1 is an *override* (it overrules the
+NamespaceMetadata), R4 and R5 are *fallbacks* (they only apply where the NamespaceMetadata does not decide). R3 and R5
+are the rules of the OPC UA standard (`--strict-classification`), R1 and R4 heuristics (default). A former rule R2
+(a node whose ParentNodeId is dynamic is dynamic) was removed: as an override it contradicted the NamespaceMetadata,
+as a fallback it never decided a node (where R3 does not decide, R5 already makes every instance dynamic).
 
 | Rule | Name | Statement |
 |---|---|---|
 | R1 | instance-with-Variables override (heuristic) | An instance which has (direct) Variables is dynamic together with its Variables. Definition nodes are excluded. |
-| R2 | ParentNodeId fallback (heuristic) | A node whose ParentNodeId (nodeset attribute, not HasChild) is dynamic is dynamic. Methods, instance declarations and definition nodes are excluded. Only where R3 does not decide. |
 | R3 | NamespaceMetadata rule (standard) | The NamespaceMetadata of the namespace decides. |
 | R4 | definition fallback (heuristic) | Definition nodes, i.e. Objects and Variables which are definitions rather than data, are static: DataType encodings, dictionary entries, ModellingRules and the legacy type dictionaries (instances of DataTypeEncodingType, DictionaryEntryType, ModellingRuleType, DataTypeSystemType, DataTypeDictionaryType, DataTypeDescriptionType and subtypes, with the Variables of the type dictionaries). Types refer to them by NodeId. Only where R3 does not decide. |
 | R5 | default fallback (standard) | Types and instance declarations are static, instances dynamic. |
 
-R2 follows the ParentNodeId of the nodeset (not part of the AddressSpace), R1 HasChild. HasChild means HasChild and all its subtypes, resolved via the ReferenceType hierarchy (nodeset and imported
+R1 follows HasChild. HasChild means HasChild and all its subtypes, resolved via the ReferenceType hierarchy (nodeset and imported
 ontologies). Organizes, like every other reference which is not HasChild, never influences the classification:
 organizing a node does not make it part of the organizer. R1 looks at the direct Variables of the instance on purpose: transitively
 it would make static entry points such as core's `Objects` folder dynamic. The Variables declared by its
@@ -25,17 +26,17 @@ TypeDefinition are not considered either (see the limitations below).
 
 ## Differences to the standard classification
 
-| | R1 static → dynamic | R2 static → dynamic | R4 instead of R5: dynamic → static |
-|---|---|---|---|
-| core | 232 | 0 | 0 |
-| every other companion specification with NamespaceMetadata | 8–14 (its NamespaceMetadata object; DI also `OnlineAccess`, `MaxInactiveLockTime`; DEXPI also `DEXPISupplementaryData`) | 0 | 0 |
-| Dictionary/IRDI | 0 | 0 | 51 dictionary entries |
-| PackML | 0 | 0 | 28 (12 encodings, 16 type dictionary nodes) |
-| ISA95 | 0 | 0 | 20 (8 encodings, 12 type dictionary nodes) |
-| the 4 instance examples | 0 | 0 | 0 |
-| **Total** | **337** | **0** | **99** |
+| | R1 static → dynamic | R4 instead of R5: dynamic → static |
+|---|---|---|
+| core | 232 | 0 |
+| every other companion specification with NamespaceMetadata | 8–14 (its NamespaceMetadata object; DI also `OnlineAccess`, `MaxInactiveLockTime`; DEXPI also `DEXPISupplementaryData`) | 0 |
+| Dictionary/IRDI | 0 | 51 dictionary entries |
+| PackML | 0 | 28 (12 encodings, 16 type dictionary nodes) |
+| ISA95 | 0 | 20 (8 encodings, 12 type dictionary nodes) |
+| the 4 instance examples | 0 | 0 |
+| **Total** | **337** | **99** |
 
-R2 never decides a node on its own: where R3 does not decide, the default fallback R5 already makes every instance dynamic, and the nodes R5 makes static (types and instance declarations) are excluded from R2. All 436 nodes are listed in [classification-changes.md](classification-changes.md), the core findings are in
+All 436 nodes are listed in [classification-changes.md](classification-changes.md), the core findings are in
 [core-heuristic-changes.md](core-heuristic-changes.md).
 
 ## Outlier checks
@@ -52,26 +53,23 @@ The 339 remaining D1 nodes:
 - **150 method signatures** (`InputArguments`/`OutputArguments`): constants fixed by the specification; their
   ParentNodeId is a static Method.
 - **126 Methods** of the dynamic objects (`AddIdentity`, `Open`, `CloseAndUpdate`, …): no state; a call addresses
-  Object and Method, the server context comes with the Object. R2 does not apply to Methods.
-- **8 core folders with a dynamic ParentNodeId** (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`,
-  `SubscribedDataSets`, `DataSetClasses`, `KeyPushTargets`, `AggregateFunctions`, `EventTypes`): core's
-  NamespaceMetadata declares them static, and R2 as a fallback does not overrule it, see
-  [specification-issues.md](specification-issues.md) C1.
+  Object and Method, the server context comes with the Object.
+- **12 core folders below dynamic instances** (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`,
+  `SubscribedDataSets`, `DataSetClasses`, `KeyPushTargets`, `AggregateFunctions`, `EventTypes`, `Dictionaries`,
+  `AuthorizationServices`, `KeyCredentialConfiguration`, `Resources`): core's NamespaceMetadata declares them static
+  and no heuristic overrules it for Objects without Variables, see [specification-issues.md](specification-issues.md)
+  C1.
 - **51 IRDI dictionary entries** below core's `Server/Dictionaries`: global definitions which PADIM refers to, static
   by design (R4).
-- **4 core folders without ParentNodeId** (`Dictionaries`, `AuthorizationServices`, `KeyCredentialConfiguration`,
-  `Resources`): HasComponent children of dynamic instances; R2 follows the ParentNodeId only, so R3 decides (static),
-  see [specification-issues.md](specification-issues.md) C1a.
 
 The checks are heuristics as well: they cover what the specifications allow to detect (references from type level,
 definition types, Variables without fixed value, containment), not every semantic intention of a node.
 
 ## Known limitations
 
-- **Components without ParentNodeId** (4 core folders, static by R3): `Dictionaries` (`i=17594`), `Resources`
-  (`i=24226`), `AuthorizationServices` (`i=17732`) and `KeyCredentialConfiguration` (`i=18155`) are HasComponent
-  children of dynamic instances, but R2 only follows the ParentNodeId, which the OPC UA nodesets use to express the
-  coupling of a node to its parent.
+- **Folders below dynamic instances** (12 core folders, static by R3, e.g. `CertificateGroups`, `SecurityGroups`,
+  `Dictionaries`, `Resources`): components of dynamic instances, but without Variables; core's NamespaceMetadata
+  decides, see the D1 check above.
 - **Folders only organized by dynamic instances** (9 core folders, static by R3): `TagVariables` (`i=23479`) and
   `Topics` (`i=23488`) by `Aliases`; `Communication` (`i=24227`) by `Resources`, and below it `MappingTables`
   (`i=24228`), `NetworkInterfaces` (`i=24229`), `Streams` (`i=24230`), `TalkerStreams` (`i=24231`),
@@ -106,8 +104,7 @@ Not fixed: the root-less core prototype `HA Configuration` (`i=11202`) is made d
 
 | Rule | Implementation (`lib/nodesetparser.py`) | Unit tests (`tests/test_libidentification.py`) |
 |---|---|---|
-| R1 | `instances_with_variables` (direct HasChild Variables, also of instances of other nodesets) | `test_heuristic_instance_with_variables`, `test_r1_ignores_typedefinition` |
-| R2 | `classify_with_heuristics` (ParentNodeId dynamic; only where R3 does not decide; no Methods) | `test_heuristic_instance_with_variables` (folder `4200` in the static range, Method `4500`, HasComponent folder `4600` without ParentNodeId, organized folder `4400`) |
+| R1 | `instances_with_variables` (direct HasChild Variables, also of instances of other nodesets) | `test_heuristic_instance_with_variables` (also: folders `4200`/`4600`, Method `4500`, organized folder `4400` of the dynamic instance stay static), `test_r1_ignores_typedefinition` |
 | R3 | `scan_namespace_metadata`, `explicit_static` | `test_namespace_metadata_decides`, `test_explicit_static_undecided` |
 | R4 | `definition_types`, `is_definition_type` (with subtypes), only where R3 does not decide | `test_heuristic_cases_without_metadata`, `test_r4_does_not_overrule_r3`, dictionary entry `4300` |
 | R5 | `is_static_node`, `is_instance_declaration` | `test_fallback_rule_without_server_uri`, `test_default_rule_without_metadata` |

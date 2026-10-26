@@ -47,8 +47,7 @@ identity and value (a static declaration, server specific values on server speci
 (`i=17732`) and `KeyCredentialConfiguration` (`i=18155`, both HasComponent of ServerConfiguration) and `Resources`
 (`i=24226`, HasComponent of the Server object) have no ParentNodeId, unlike the other components of these instances
 (e.g. `CertificateGroups` `i=14053` with `ParentNodeId="i=12637"`). The ParentNodeId expresses the coupling to
-the parent (nodeset2owl.py follows it in R2); today it has no effect on the classification, because the static ranges
-decide these nodes (see C1).
+the parent; nodeset2owl.py does not use it for the classification.
 *Request:* add the ParentNodeId for consistency.
 
 **C2. Prototypes exported as nodes.** The nodeset contains 66 Objects/Variables without parent and without any

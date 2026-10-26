@@ -113,8 +113,8 @@ options:
   --strict-classification
                         Classify static/dynamic nodes strictly by the standard rules R3 (NamespaceMetadata rule) and
                         R5 (default fallback: types and instance declarations static, instances dynamic). Disables the
-                        heuristic override R1 (instance-with-Variables) and the heuristic fallbacks R2 (ParentNodeId)
-                        and R4 (definition fallback), see README.
+                        heuristic override R1 (instance-with-Variables) and the heuristic fallback R4 (definition
+                        fallback), see README.
   --classification-report CLASSIFICATION_REPORT
                         Write the nodes which the heuristics classify differently than the standard rules (static ->
                         dynamic and dynamic -> static) to this TSV file.
@@ -155,10 +155,11 @@ declared in the meta ontology [uardf.ttl](./uardf.ttl), which every output impor
 A node is *static* when it is the same in every server (types, instance declarations,
 well-known nodes) and *dynamic* when it is server specific (e.g. the instances of a
 machine). nodeset2owl.py decides it with the following named rules; the first matching rule
-decides, in the order R1 to R5. R1 is an *override*, which overrules the NamespaceMetadata
-(R3); R2, R4 and R5 are *fallbacks*, which only apply where the NamespaceMetadata does not
-decide. R3 and R5 are the rules of the OPC UA standard (`--strict-classification` keeps only
-these), R1, R2 and R4 are heuristics.
+decides, in the order R1, R3, R4, R5 (a former rule R2, which followed the ParentNodeId, was
+removed: as a fallback it never decided a node). R1 is an *override*, which overrules the
+NamespaceMetadata (R3); R4 and R5 are *fallbacks*, which only apply where the NamespaceMetadata
+does not decide. R3 and R5 are the rules of the OPC UA standard (`--strict-classification`
+keeps only these), R1 and R4 are heuristics.
 
 Override (heuristic, it overrules R3):
 
@@ -172,18 +173,6 @@ Override (heuristic, it overrules R3):
   TypeDefinition are not considered (an instance whose Variables the nodeset does not contain
   keeps the classification of R3). Definition nodes (see R4) are excluded, e.g. every
   ModellingRule has a NamingRule property.
-Fallback (heuristic, only where R3 does not decide):
-
-- **R2 ParentNodeId fallback.** A node whose `ParentNodeId` (an attribute of the nodeset, not
-  part of the AddressSpace) is dynamic is dynamic as well: the ParentNodeId expresses the tight
-  coupling of a node to its parent (it is deleted together with the parent). R2 follows the
-  ParentNodeId only, not the HasChild references. Methods (and so their arguments), instance
-  declarations and definition nodes are excluded. Where the NamespaceMetadata declares a node
-  static, R2 does not apply, e.g. core's `CertificateGroups` below the dynamic
-  ServerConfiguration stays static. R2 never decides a node on its own: where R3 does not
-  decide, the default fallback R5 already makes every instance dynamic, and the nodes R5
-  makes static (types and instance declarations) are excluded from R2.
-
 Standard rule:
 
 - **R3 NamespaceMetadata rule.** The `NamespaceMetadata` of the nodeset decides per namespace
@@ -204,7 +193,7 @@ Fallbacks (only where R3 does not decide):
   HasChild parent (ParentNodeId, otherwise the inverse HasChild reference) is a type or an
   instance declaration.
 
-R2 follows the ParentNodeId, R1 and R5 follow HasChild only, including all its subtypes
+R1 and R5 follow HasChild only, including all its subtypes
 (HasComponent, HasProperty, HasOrderedComponent, HasAddIn, ...), also those of companion
 specifications, resolved via the ReferenceType hierarchy. Organizes (hierarchical, but no
 HasChild), like every other reference which is not HasChild, never influences the

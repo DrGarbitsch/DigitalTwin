@@ -12,15 +12,14 @@ rule and area, is in [classification-changes.md](classification-changes.md#core)
   - **232 by R1** (instance-with-Variables override): 46 instances with their Variables – ServerConfiguration and the
     certificate management, the RoleSet roles, PubSub, the historian defaults, core's NamespaceMetadata,
     UserManagement, `Aliases`, `ProvisionableDevice`.
-  - Not reclassified: the folders whose ParentNodeId is a dynamic instance (`CertificateGroups`, `SecurityGroups`,
-    `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`, `KeyPushTargets`, `AggregateFunctions`,
-    `EventTypes`): R2 is a fallback and does not overrule core's NamespaceMetadata. The same holds for the folders
-    `Dictionaries` (`i=17594`), `AuthorizationServices` (`i=17732`), `KeyCredentialConfiguration` (`i=18155`) and
-    `Resources` (`i=24226`), components (HasComponent) of dynamic instances without ParentNodeId, and for the 126
-    Methods of the dynamic instances (e.g. `AddIdentity`, `RemoveEndpoint` of the 11 roles), which R2 excludes. Folders which are only organized by dynamic
+  - Not reclassified: the 12 folders which are components of dynamic instances, but have no Variables
+    (`CertificateGroups`, `SecurityGroups`, `PublishedDataSets`, `SubscribedDataSets`, `DataSetClasses`,
+    `KeyPushTargets`, `AggregateFunctions`, `EventTypes`, `Dictionaries` `i=17594`, `AuthorizationServices`
+    `i=17732`, `KeyCredentialConfiguration` `i=18155`, `Resources` `i=24226`), and the 126 Methods of the dynamic
+    instances (e.g. `AddIdentity`, `RemoveEndpoint` of the 11 roles): core's NamespaceMetadata decides. Folders which are only organized by dynamic
     instances (`TagVariables`, `Topics`, `Quantities`, `Communication` and below it) stay static: Organizes does not
     influence the classification.
-- The fallbacks R2, R4 and R5 change nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
+- The fallbacks R4 and R5 change nothing in core: R3 decides every core node (and declares core's ModellingRules, encodings and type
   dictionaries static anyway).
 - **All but 7** are reachable from `Root/Objects`: below the Server object (`i=2253`) or the `Aliases` folder. The 7
   others are `HA Configuration` (`i=11202`) and its children, which are not reachable at all (see below).

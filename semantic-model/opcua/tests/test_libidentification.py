@@ -391,16 +391,11 @@ class TestClassification(unittest.TestCase):
         self.assertEqual(parser.heuristic_overrides[self.key(parser, '5001')], 'R1: instance with Variables')
         self.assertIn('R1: Variable of instance nsu=http://opcfoundation.org/UA/;i=2268',
                       parser.heuristic_overrides[self.key(parser, '4100')])
-        # R2 is a fallback: the folder 4200 with the dynamic ParentNodeId 5001 is in the static range, R3 decides
-        self.assertIn(self.key(parser, '4200'), parser.static_nodes)
-        self.assertNotIn(self.key(parser, '4200'), parser.heuristic_overrides)
-        # the Method 4500 of the dynamic instance 5001 keeps the classification of R3
-        self.assertIn(self.key(parser, '4500'), parser.static_nodes)
-        self.assertNotIn(self.key(parser, '4500'), parser.heuristic_overrides)
-        self.assertIn(self.key(parser, '4300'), parser.static_nodes)
-        # R2 follows the ParentNodeId only: the HasComponent child 4600 without ParentNodeId stays static
-        self.assertIn(self.key(parser, '4600'), parser.static_nodes)
-        self.assertNotIn(self.key(parser, '4600'), parser.heuristic_overrides)
+        # children of the dynamic instance 5001 which are no Variables keep the classification of R3: the folder 4200
+        # (ParentNodeId 5001), the Method 4500, the dictionary entry 4300 and the HasComponent child 4600
+        for static in ('4200', '4300', '4500', '4600'):
+            self.assertIn(self.key(parser, static), parser.static_nodes, static)
+            self.assertNotIn(self.key(parser, static), parser.heuristic_overrides, static)
         # Organizes does not influence the classification: the folder organized by 5001 stays static
         self.assertIn(self.key(parser, '4400'), parser.static_nodes)
         self.assertNotIn(self.key(parser, '4400'), parser.heuristic_overrides)

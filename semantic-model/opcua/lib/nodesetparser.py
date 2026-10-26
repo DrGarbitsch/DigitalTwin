@@ -118,7 +118,7 @@ type_tags = ('UAObjectType', 'UAVariableType', 'UADataType', 'UAReferenceType')
 # Definition types (rule R4): their instances are definitions rather than data, which types and data types refer to
 # by NodeId (HasEncoding, HasDictionaryEntry, HasModellingRule, HasDescription): DataType encodings, dictionary
 # entries, ModellingRules and the legacy type dictionaries. Where the NamespaceMetadata (R3) does not decide, R4 makes
-# them static; the heuristic rules R1 and R2 never make them dynamic (e.g. every ModellingRule has a NamingRule
+# them static; the heuristic rule R1 never makes them dynamic (e.g. every ModellingRule has a NamingRule
 # property).
 definition_types = {'77': 'ModellingRuleType', '75': 'DataTypeSystemType', '72': 'DataTypeDictionaryType',
                     '69': 'DataTypeDescriptionType', '76': 'DataTypeEncodingType', '17589': 'DictionaryEntryType'}
@@ -1299,22 +1299,18 @@ Did you forget to import it?")
     def classify_with_heuristics(self, xml_nodes):
         """key -> (static, formally static, reason of a difference).
 
-        The first matching rule decides, in the order R1 to R5:
+        The first matching rule decides, in the order R1, R3, R4, R5 (R2, a ParentNodeId rule, was removed):
           override (heuristic, it overrules R3):
           R1 instance-with-Variables override: an instance which has Variables is dynamic together with its
              Variables, except definition nodes.
-          fallback (heuristic, only where R3 does not decide):
-          R2 ParentNodeId fallback: a node whose ParentNodeId (in the nodeset) is dynamic is dynamic, except
-             Methods, instance declarations and definition nodes.
           standard rule:
           R3 NamespaceMetadata rule: the NamespaceMetadata of the namespace decides.
           fallbacks (only where R3 does not decide):
           R4 definition fallback (heuristic): definition nodes - instances of the definition types (definition_types
              and their subtypes) and the Variables of the type dictionaries - are static.
           R5 default fallback (standard): types and instance declarations are static, instances dynamic.
-        --strict-classification keeps the standard rules R3 and R5 only. R1 considers HasChild (and its subtypes), R2
-        the ParentNodeId only: Organizes (or any other reference which is not HasChild) never influences the
-        classification.
+        --strict-classification keeps the standard rules R3 and R5 only. R1 considers HasChild (and its subtypes):
+        Organizes (or any other reference which is not HasChild) never influences the classification.
         """
         formal = {key: self.is_static_node(key, node, xml_nodes) for key, node in xml_nodes.items()}
         if self.strict_classification:
@@ -1336,54 +1332,21 @@ Did you forget to import it?")
             return parent in xml_nodes and parent not in seen and tag(parent) == 'UAVariable' and \
                 is_typesystem_variable(parent, set(seen) | {key})
 
-        def parent_static(parent, visiting):
-            if parent is None:
-                return True
-            if parent in xml_nodes:
-                return parent in visiting or classify(parent, visiting)[0]
-            return self.is_foreign_static(parent)
-
-        def classify(key, visiting=frozenset()):
-            if key in result:
-                return result[key]
-            node = xml_nodes[key]
+        for key in xml_nodes:
             static = formal[key]
             reason = None
             index, canonical = key
             idt, identifier = canonical.split('=', 1)
             undecided = self.explicit_static(self.opcua_ns[index], idt, identifier) is None
-            visiting = visiting | {key}
-            # R2 follows the ParentNodeId of the nodeset only, not the HasChild references; Methods are excluded
-            parent = node.get('ParentNodeId')
-            parent = self.key_from_nodeid_string(parent) if parent is not None else None
-            is_object = tag(key) in ('UAObject', 'UAView')
             if key in rule1:
                 static, reason = False, rule1[key]
-            elif undecided and static and tag(key) in ('UAObject', 'UAVariable', 'UAView') and parent is not None and \
-                    not is_definition(key) and \
-                    not self.is_instance_declaration(key, xml_nodes) and not parent_static(parent, visiting):
-                static, reason = False, \
-                    f'R2: child of dynamic parent {self.node_label(parent, xml_nodes)} (fallback)'
             elif undecided and not static and tag(key) in instance_tags:
-                if is_object and is_definition(key):
+                if tag(key) in ('UAObject', 'UAView') and is_definition(key):
                     static, reason = True, 'R4: definition node (fallback)'
                 elif tag(key) == 'UAVariable' and is_typesystem_variable(key):
                     static, reason = True, 'R4: Variable of a type dictionary (fallback)'
             result[key] = (static, formal[key], reason if static != formal[key] else None)
-            return result[key]
-
-        for key in xml_nodes:
-            classify(key)
         return result
-
-    def is_foreign_static(self, key):
-        """Classification of a node of another nodeset: static if its imported ontology exports it without server
-        URI or nothing is known about its namespace, dynamic if the static export of its namespace lacks it."""
-        index, canonical = key
-        if index >= len(self.nodeIds) or index not in self.imported_namespace_indices:
-            return True
-        iri = self.nodeIds[index].get(canonical.split('=', 1)[1])
-        return iri is not None and (iri, UARDF['serverUri'], None) not in self.ig
 
     def is_static_node(self, key, node, xml_nodes):
         index, canonical = key
