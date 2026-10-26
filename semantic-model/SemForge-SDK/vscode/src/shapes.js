@@ -29,6 +29,9 @@
 
 const vscode = require('vscode');
 
+// What this view is, at its top: its name alone left it to be guessed.
+const HEADING = 'The SHACL shapes as written, one row per shape with what it targets. A shape opens its shape page.';
+
 const { noPackageMessage } = require('./locate');
 const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
 
@@ -60,7 +63,7 @@ class ShapesTreeProvider {
 
   message(text) {
     if (this.view) {
-      this.view.message = text;
+      this.view.message = text || HEADING;
     }
   }
 
@@ -301,6 +304,7 @@ function register(context, clientHolder, session) {
   const view = vscode.window.createTreeView('semforgeShapes', {
     treeDataProvider: provider
   });
+  view.message = HEADING;
   provider.view = view;
   context.subscriptions.push(view);
 

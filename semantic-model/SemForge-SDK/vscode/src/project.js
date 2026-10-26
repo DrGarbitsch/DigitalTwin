@@ -30,6 +30,9 @@
 
 const vscode = require('vscode');
 
+// What this view is, at its top: its name alone left it to be guessed.
+const HEADING = 'This package: its settings, its health and what it is made of. A row opens the package page.';
+
 const { noPackageMessage } = require('./locate');
 const { showLocation, icon, treeClick } = require('./reveal');
 
@@ -184,7 +187,7 @@ class ProjectTreeProvider {
       this.view.message = `SemForge: ${result.error}`;
       return [];
     }
-    this.view.message = undefined;
+    this.view.message = HEADING;
     this.parents = new Map();
     const rows = (result.roots || []).map((raw, position) =>
       this.wrap(raw, keyOf(raw, '', position)));
@@ -252,6 +255,7 @@ function register(context, clientHolder, session, onChanged) {
   const view = vscode.window.createTreeView('semforgeProject', {
     treeDataProvider: provider
   });
+  view.message = HEADING;
   provider.view = view;
   context.subscriptions.push(view);
 

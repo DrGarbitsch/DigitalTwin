@@ -141,3 +141,21 @@ def test_the_views_are_named_for_what_they_show():
         'semforgeModel': 'Entities & Test Cases',
         'semforgeKnowledge': 'Knowledge (Ontology)',
     }
+
+
+def test_every_view_says_what_it_is_at_its_top(tmp_path):
+    """Its name alone left it to be guessed: each view opens with a heading."""
+    seen = _node(tmp_path, {
+        'mode': 'select', 'view': 'semforgeProject', 'config': {},
+        'node': {'key': 'root/0', 'raw': {'kind': 'health', 'label': 'Health', 'children': []},
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/project': {'roots': []}, 'semforge/health': {'ok': False}}},
+        'extension.js')
+    said = {view: (seen['views'].get(view) or {}).get('message') for view in (
+        'semforgeProject', 'semforgeConstraints', 'semforgeShapes', 'semforgeModel',
+        'semforgeKnowledge')}
+    assert said['semforgeProject'].startswith('This package:'), said
+    assert said['semforgeConstraints'].startswith('Every entity type'), said
+    assert said['semforgeShapes'].startswith('The SHACL shapes as written'), said
+    assert said['semforgeModel'].startswith('The data:'), said
+    assert said['semforgeKnowledge'].startswith('What the terms mean'), said
