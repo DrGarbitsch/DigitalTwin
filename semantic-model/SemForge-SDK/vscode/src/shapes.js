@@ -17,7 +17,7 @@
 /*
  * Every shape, whatever it targets.
  *
- * The Types view reads constraints by entity type. But a SHACL shape is not
+ * The Entity Types & Constraints view reads constraints by entity type. But a SHACL shape is not
  * tied to one: it selects focus nodes by class, by named node, by the subjects
  * or objects of a predicate, by a SPARQL query -- or it has no target and is
  * reached from another shape through sh:node. A shape of that second kind

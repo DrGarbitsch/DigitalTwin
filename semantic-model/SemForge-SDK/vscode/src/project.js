@@ -31,7 +31,7 @@
 const vscode = require('vscode');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, icon } = require('./reveal');
+const { showLocation, icon, treeClick } = require('./reveal');
 
 class ProjectTreeNode {
   constructor(key, raw, packageUri) {
@@ -255,13 +255,17 @@ function register(context, clientHolder, session, onChanged) {
   provider.view = view;
   context.subscriptions.push(view);
 
-  // Selecting a row that names a line opens it. A setting's row points at its
-  // own line in semforge.yaml, so reading the comment around it is one click.
+  // A click opens the package page, the row marked: each setting with what
+  // it decides and Edit…. semforge.yaml is its Open button (or, with
+  // semforge.trees.click = source, the click).
   context.subscriptions.push(
     view.onDidChangeSelection(async (event) => {
       const selected = event.selection && event.selection[0];
       if (selected && selected.raw.kind === 'health') {
         await vscode.commands.executeCommand('semforge.openHealthPage', selected);
+      } else if (selected && treeClick() === 'page') {
+        await vscode.commands.executeCommand('semforge.openPackagePage', selected,
+          { preserveFocus: true });
       } else if (selected && selected.raw.definedAt) {
         await showLocation(selected.raw.definedAt, false);
       }

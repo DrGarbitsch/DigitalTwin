@@ -124,7 +124,7 @@ class CookedTreeProvider {
   }
 
   /** The non-inherited node declaring the same thing, if the tree has one.
-   *  Nothing before the Types view first loads (it may never have been
+   *  Nothing before the Entity Types & Constraints view first loads (it may never have been
    *  opened): a jump from elsewhere then just opens the file. */
   findCanonical(raw) {
     for (const candidate of this.nodes ? this.nodes.keys() : []) {

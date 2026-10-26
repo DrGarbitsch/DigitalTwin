@@ -1049,7 +1049,7 @@ class CasePages {
   }
 
   /**
-   * Editing from the page goes through the Instances view's own commands, given
+   * Editing from the page goes through the Entities & Test Cases view's own commands, given
    * the tree row the server attached -- so the page asks the same questions
    * (the shape's allowed values, a known attribute) and writes the same way.
    * Afterwards the case re-runs and the page shows what the change did.

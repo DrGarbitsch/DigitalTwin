@@ -48,6 +48,22 @@ It refuses to write into a directory that already holds artifacts.
 code semantic-model/kms        # or the repo root, or anything between
 ```
 
+### The five views
+
+Each view is one way into the same package; its name says which, and the
+package it shows stands beside it.
+
+| View | Shows | From | A click opens |
+|---|---|---|---|
+| **Package** | the package itself: name, contexts, namespaces, contents, health | `semforge.yaml` | the package page, the row marked |
+| **Entity Types & Constraints** | every entity type, inherited ones included, with what its shapes require of each attribute | the shapes, read per type | the type page, the attribute marked |
+| **SHACL Shapes** | the shapes as written, one row per named shape and rule | the shapes files | the shape page |
+| **Entities & Test Cases** | the Main model's entities, then the test suites and their cases | the model and `examples/` | the Main page or the case page, the entity marked |
+| **Knowledge (Ontology)** | entity types, attributes, value lists (vocabularies), units | the knowledge files | the type or vocabulary page |
+
+Every page has its file one click away — an **Open …** button or ⋯ entry —
+but a click never lands in the file by itself.
+
 ### If the trees are empty
 
 Run **`SemForge: Doctor`** from the Command Palette (`Ctrl+Shift+P`). It prints
@@ -153,8 +169,8 @@ Only the id is typed, and it is prefilled from the type (`urn:filter:3`).
 ### Adding a type or a subtype
 
 A type does not need an entity to exist. **New entity type…** (the class icon
-in the Types view's title bar, or the palette) asks for a name and its parent;
-**New subtype…** (right-click a type in Types, or a type page's `⋯`)
+in the Entity Types & Constraints view's title bar, or the palette) asks for a name and its parent;
+**New subtype…** (right-click a type in Entity Types & Constraints, or a type page's `⋯`)
 asks only for the name — the parent is the type you started from. Every type
 has a parent: a top-level one sits under the root of the hierarchy.
 
@@ -173,7 +189,7 @@ lacks is a shape of its own, so the message offers **Create its shape**
 type page**.
 
 **+ Attribute** works on such a type anyway — on its type page and on its
-row in Types. The attribute has to live in a shape of the type's own, so when
+row in Entity Types & Constraints. The attribute has to live in a shape of the type's own, so when
 there is none yet the shape is written first (its name asked, prefilled with
 e.g. `WatercutterShape`), and the attribute picker opens on it straight away.
 Attributes a parent's shape already constrains are marked *inherited* there:
@@ -398,7 +414,7 @@ If you keep your interpreter somewhere the search will not find, set
 
 ---
 
-### The Vocabulary view (formerly Knowledge)
+### The Knowledge (Ontology) view (formerly Vocabulary)
 
 Three groups, for the three things `knowledge.ttl` declares:
 
@@ -523,7 +539,7 @@ Three layers, each catching what the one before cannot:
 | **unit** (`tests/unit/test_*.py`) | `make test` | the SDK: validation, the cooked trees and pages, every edit written as text and checked by parsing |
 | **harness** (`tests/harness/drive.js`, driven from pytest) | `make test` | the extension's logic against a stubbed VS Code: what each command asks, sends and opens. `test_contracts.py` feeds it payloads from the **real server handlers**, in both tree modes, so the two sides cannot drift apart unnoticed |
 | **protocol** (`test_lsp_protocol.py`, `test_lsp_sweep.py`) | `make test` | the **real language server over stdio**, on a copy of the corpus: every `semforge/…` request as the extension sends it (parameters it leaves out left out), every write checked on the files it changes, and a SPARQL query document through open, change, squiggles, completion, hover, formatting, quick fixes and close |
-| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Instances view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Clone… of a case into its twin, Delete… of a case and a suite, Remove… of an attribute from a case, Severity… with a new level, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
+| **end-to-end** (`vscode/test/e2e`) | `make test-e2e` | the extension in a **real VS Code** with its real language server, on a throwaway copy of the kms corpus: the Entities & Test Cases view, every page opening, editing from the Main page, + Entity, New subtype…, + Attribute, the SPARQL workbench (Apply, Inspect, Save, Revert, snapshots, Remove…) and its editor (completion, squiggles and their fixes, hover, formatting, the NGSI-LD checks, Ctrl+Enter / Ctrl+S), Rename… of a shape (menu, F2, and a rename typed and saved, with the stale assert's quick fix), a case and a suite, Clone… of a case into its twin, Delete… of a case and a suite, Remove… of an attribute from a case, Severity… with a new level, Delete… of a shape with its asserts and cases, an attribute shared with an unrelated type (its domain becoming a union), Restart Language Server, Revalidate |
 
 The end-to-end run downloads VS Code once into `vscode/.vscode-test` and needs
 a display (a desktop, WSLg, or `xvfb-run make test-e2e`); a VS Code window
@@ -857,7 +873,7 @@ the two questions above. The same flow is **SemForge: New attribute…**, which
 starts by asking for the type instead and is reachable without the tree: the
 Command Palette, the SemForge item in the status bar, right-click on a `.ttl`
 or `.jsonld` (editor or Explorer) → **SemForge**, and the **symbol** button in
-the Constraints and Vocabulary view titles. VS Code gives an extension no menu of
+the Entity Types & Constraints and Knowledge view titles. VS Code gives an extension no menu of
 its own beside *File* and *Edit*, so these are the places one can live. Started
 that way it offers **Not now** too — declaring alone is a fine place to stop —
 and a type with no shape of its own is declared and told so, rather than having
@@ -872,7 +888,7 @@ constrains, and one a supertype's shape constrains — that is an override, and
 
 **Sub-attributes.** In NGSI-LD an attribute can carry attributes of its own —
 the kms's `hasTrust` hangs off `hasFilter`, `hasXXXWorkpiece` off `hasState`.
-The **+** on an *attribute* row in the Types view adds one: it offers what
+The **+** on an *attribute* row in the Entity Types & Constraints view adds one: it offers what
 the knowledge allows inside that attribute (a sub-attribute's `rdfs:domain` is
 the parent's kind of node, `ngsild:Relationship` or `ngsild:Property`), ends in
 **New sub-attribute…** to declare one carried by that attribute, and writes the
@@ -891,14 +907,14 @@ same two layers an attribute gets, *inside* the parent's `sh:property [ … ]`:
                 sh:datatype xsd:double ] ] ]
 ```
 
-In the Instances view, right-click an attribute → **SemForge: Add Sub-attribute**
+In the Entities & Test Cases view, right-click an attribute → **SemForge: Add Sub-attribute**
 puts one into that attribute instance — the one the row shows, chosen by its
 datasetId when the attribute has several. An entity attribute is refused
 inside another attribute, a sub-attribute is refused inside a parent of the
 wrong kind, and a duplicate is refused; none of them write anything.
 
 **Deleting an attribute** is a right-click on its row in the Knowledge or
-Types view (**SemForge: Delete attribute…**; from the palette it asks
+Entity Types & Constraints view (**SemForge: Delete attribute…**; from the palette it asks
 which). An attribute is never in one place, so nothing is removed before you
 have seen all of them:
 
@@ -956,7 +972,7 @@ one page that puts side by side what `test`, `validate`, `check` and
 
 **Rescan** on the page rebuilds everything from scratch, ignoring the cache.
 
-**New test case… — adding a test file.** The `+` in the Instances view title (also:
+**New test case… — adding a test file.** The `+` in the Entities & Test Cases view title (also:
 right-click a suite or the **Tests** group, the status bar menu) asks:
 
 - **which suite** — an existing one, a new one for a shape that has none yet
@@ -970,7 +986,7 @@ right-click a suite or the **Tests** group, the status bar menu) asks:
 - **its name** (suggested).
 
 **New suite… — a new test-case folder.** Right-click **Tests** in the
-Instances view → **New suite…** (or pick it at the bottom of the suite list
+Entities & Test Cases view → **New suite…** (or pick it at the bottom of the suite list
 above). A suite is a folder under `examples/` named `test_…`; type `pump
 limits` and it becomes `test_pump-limits` — letters, digits, `_`, `-` and `.`,
 `test_` added when missing. A folder only exists with something in it, so the
@@ -988,7 +1004,7 @@ it is.
 
 **Clone… — a case's twin.** The usual way to a bad case is the same scene
 with one thing broken; the usual way to a good one, a bad case repaired.
-Right-click a case in Instances (or the case page's `⋯`) → **Clone…** asks one
+Right-click a case in Entities & Test Cases (or the case page's `⋯`) → **Clone…** asks one
 thing — **Expect the opposite** (a `good/` case's twin goes to `bad/`, a `bad/`
 case's to `good/`) or **Expect the same** — and a name (`filter-on-violates`,
 `filter-off-conforms`, `…-copy`). The clone stays in the case's suite, its data
@@ -1018,7 +1034,7 @@ of its files, which would then point at nothing. The case page and editors
 of deleted files close.
 
 **New test… for an attribute.** A new attribute needs cases that prove its
-constraints work. Right-click it in the Types view (**SemForge: New test for
+constraints work. Right-click it in the Entity Types & Constraints view (**SemForge: New test for
 this attribute…**), or use its row on the type page — the **Tested** cell
 ("New test…" while untested) or the row's `⋯` menu. It asks what the test
 should prove:
@@ -1044,7 +1060,7 @@ mechanically (a Relationship that is not an IRI) say what to edit instead.
 
 **The test case page.** A case answers three questions — what it claims,
 whether the claims hold, what data it uses — and the Model tree spread them
-over up to nine levels. A click on a case in the Instances view, or on
+over up to nine levels. A click on a case in the Entities & Test Cases view, or on
 any row inside it (or **SemForge: Open test case page**), opens a page that answers them in
 that order:
 
@@ -1086,7 +1102,7 @@ in the graph the matching entities become the roots. The view, the filter and
 whether it is open are remembered per page.
 
 **Editing on the page.** The data is edited where you read it, through the
-same commands as the Instances view (so the same pickers: a known attribute, the
+same commands as the Entities & Test Cases view (so the same pickers: a known attribute, the
 values the shape allows):
 
 - a value you can change is a link — click it to edit it;
@@ -1097,7 +1113,7 @@ values the shape allows):
 
 **Remove…** takes out what the row stands for, after asking: the whole
 attribute, one datasetId's instances, one observation of a series, or one
-metadata key (`observedAt`, `unitCode`) — also from the Instances view's
+metadata key (`observedAt`, `unitCode`) — also from the Entities & Test Cases view's
 right-click. An attribute left with nothing goes entirely. Removing an
 attribute a shape requires makes the case violate it — which is how a bad
 case tests that it is required. In an included file the question says which
@@ -1109,7 +1125,7 @@ the file's header says how many.
 
 **The Main page.** The package's own `main.jsonld` (or
 `model-instance.jsonld`) has no claims, but it has entities and violations. A
-click on **Main** in the Instances view, or on any row inside it, opens the same
+click on **Main** in the Entities & Test Cases view, or on any row inside it, opens the same
 cards for it: entity and violation counts instead of *expects/passes*, no
 claims, and the same editing. Violations here are information — the model
 declares nothing, so it cannot fail.
@@ -1289,7 +1305,7 @@ thing, said once (the `semforge.trees.detail` setting, `summary`):
 | Types | the entity type hierarchy; under each type its OWN attributes (`hasCartridge — required · one · → FilterCartridge`, an inverse path as `inverse of hasCartridge`) and one **Rules** row, then its subtypes. Inherited attributes are on the type page, not repeated under every subtype | types → shapes → every SHACL parameter as a row, editable in place (192 rows for the kms) |
 | Shapes | every shape, prefixes dropped where unique | every shape, full names |
 | Instances | **Main** first (`8 entities · 3 violation(s)`), then **Tests** with its suites by shape (`FilterShape — 1 case(s) · all ok`); an entity's type in its row, each value once (`hasStrength — 0.6`) | the same two groups, suites as `test_FilterShape`, a separate `type` row, `0.6 — 0.6 · Property` |
-| Vocabulary | no Entity types group (that is the Types view); a vocabulary class counts its values (`MachineState — 7 values`); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
+| Knowledge | no Entity types group (that is the Entity Types & Constraints view); a vocabulary class counts its values (`MachineState — 7 values`); `3 shape(s)` instead of a list; an id in several files is one row | every group, every file's row |
 
 Prefixes are dropped wherever the local name is unambiguous in that tree; the
 two `CartridgeShape`s keep theirs. In summary mode **Override…** and right-click
@@ -1305,7 +1321,7 @@ SHACL-AF), implicitly when the shape is itself a class — or it has no target
 and is reached from another shape through `sh:node`. So constraints have two
 views:
 
-- **Types** (formerly Constraints) answers *what must a Filter carry*: the hierarchy, a click opening
+- **Entity Types & Constraints** (formerly Types, before that Constraints) answers *what must a Filter carry*: the hierarchy, a click opening
   the type page. The page **collects every constraint that applies** to the
   type — its own shapes', the inherited ones (`· from Machine`), and those of
   shapes that reach it by another target, in the same tables, marked with the
@@ -1324,8 +1340,8 @@ views:
   - **Attributes**, grouped by where they come from — *Own · FilterShape*,
     *From Machine · MachineShape*, a shape's condition — instead of a column
     repeating it on every row. The **Test coverage** column says how well
-    the cases prove it (*never fired*, *fires only*, *both ways*; a click
-    writes a new test). What the model's data does is another question,
+    the cases prove it (*never fired*, *fires only*, *both ways*; New
+    test… is in the attribute editor). What the model's data does is another question,
     marked beside the attribute's name: *hasXXXWorkpiece ✗ 2*, the violating
     entities in its tooltip. Own rows have a `⋯`; inherited ones a quiet
     **override…**. The shape page's table has the same columns.
@@ -1337,7 +1353,7 @@ views:
     cases with theirs, one row each; a case opens its case page.
 
   *Shapes that apply under a condition* is folded at the bottom.
-- **Shapes** answers *what does this shape check and what does it reach*: one
+- **SHACL Shapes** answers *what does this shape check and what does it reach*: one
   row per shape, its target in words (`targets Filter`, `targets subjects of
   hasValve`, `targets urn:valve:1`, `SPARQL target`, `no target · used by
   ValveNodeShape`). A click opens the **shape page**: the target (a SPARQL
@@ -1375,11 +1391,11 @@ views:
   scope them to); New test… there needs a type, so it says to start from the
   type page of an entity the shape reaches. A shape that is itself a class
   (`ex:Gauge a rdfs:Class, sh:NodeShape` — an implicit class target) counts
-  as that type's own shape everywhere: in the Types tree, as the shape the
+  as that type's own shape everywhere: in the Entity Types & Constraints view, as the shape the
   type page edits and **+ Attribute** writes into, never as one that applies
   "under a condition".
 
-**New shape….** The `+` in the Shapes view title (also: right-click a type in
+**New shape….** The `+` in the SHACL Shapes view title (also: right-click a type in
 Types, the status bar menu) asks what the shape selects — an entity type,
 one entity, everything that has an attribute, or everything a Relationship
 points at — then the target and a name (suggested: `PumpShape`), and writes
@@ -1407,7 +1423,7 @@ base:severityMajor a owl:NamedIndividual, base:AlarmLevel ;
 ```
 
 A level is said by its `rdfs:label` (else its name). **`sh:Severity` is in the
-Vocabulary view** as SHACL's own class — its three levels marked *SHACL*,
+Knowledge view** as SHACL's own class — its three levels marked *SHACL*,
 violation *the default* — with the package's levels of it and the classes
 derived from it beneath. Its page shows SHACL's levels read-only (never
 "unused": not naming one is no gap) and the constraints that name a severity;
@@ -1480,7 +1496,7 @@ label, each value's `⋯` (Label…, Open in .ttl, Delete…), and the page's `�
   where first and needs **Delete anyway**; each use left behind then names an
   undeclared value, which the Problems panel reports. Adding and deleting an
   unused value leaves the file byte-identical.
-- **New vocabulary class…** — in the Vocabulary view's `…` menu (its `+` is New
+- **New vocabulary class…** — in the Knowledge view's `…` menu (its `+` is New
   attribute), on the *Vocabulary classes* row, in the status bar menu —
   declares `ns:Name a owl:Class`, on its own or under another vocabulary class,
   and opens its page.
@@ -1502,8 +1518,8 @@ are refused when typed: a level named `sh:Major` would claim to be SHACL's.
 
 **The entity type page.** The trees are for finding things; reading one type's
 whole story in them took three views and, for Filter, 39 rows. A click
-on a type or attribute in the Types view, or on an entity type in the
-Vocabulary view (also: right-click an entity in the Instances view, or
+on a type or attribute in the Entity Types & Constraints view, or on an entity type in the
+Knowledge view (also: right-click an entity in the Entities & Test Cases view, or
 **SemForge: Open entity type page** in the palette) opens one page in the
 editor area — its tab reads `Filter · type` — with all of it:
 
@@ -1549,7 +1565,7 @@ it the others outdo. Contradictions are said in red — two datatypes no literal
 can have at once, bounds or counts that admit nothing. A shape that applies
 only under a condition is listed beneath the row but not merged into it.
 Clicking the presence or value of the combined row asks **which shape** to
-change; each shape's own line — `↳` and its name — has its own `⋯`. The Types tree shows the attribute once (`2 shapes, all apply`).
+change; each shape's own line — `↳` and its name — has its own `⋯`. The Entity Types & Constraints view shows the attribute once (`2 shapes, all apply`).
 
 **A shape's name has a random part.** The shape's IRI is its identity, and a
 bare `MachineShape` reads like a description — it gets renamed, merged or
@@ -1612,7 +1628,7 @@ FilterCheckShape** and **Remove**. Where several shapes declare it (four kms
 shapes have a SPARQL constraint), the case page decides by what fires on the
 asserted entity; nothing less certain is guessed.
 
-A **test case** (right-click it in Instances, or the case page's `⋯`) is its
+A **test case** (right-click it in Entities & Test Cases, or the case page's `⋯`) is its
 file: Rename… moves it, and its expectations entry and any `include` naming it
 follow; its asserts and residue do not change, since a case's name is not in
 any digest. A **suite** (right-click it) is its folder: nothing inside changes,
@@ -1643,7 +1659,7 @@ redeploy — the dialog says so.
 
 **Merge into….** Two shapes selecting the same nodes can become one: the shape
 page's **Merge into…** button, `⋯ → Merge … into…` on a row, or right-click a
-shape in the Shapes view. It offers only shapes with exactly the same targets,
+shape in the SHACL Shapes view. It offers only shapes with exactly the same targets,
 says what will happen before it writes — per attribute, which parameter is
 added, which replaces a weaker one, which is already there or has no effect —
 and then:
@@ -1830,7 +1846,7 @@ are structure rather than a parameter, and a SPARQL body is not a form. They
 appear so the tree does not lie about what the shape contains; edit them in the
 `.ttl`.
 
-**The Instances view** (formerly Tests, before that Model) shows the instance
+**The Entities & Test Cases view** (formerly Instances, before that Tests and Model) shows the instance
 data the constraints judge — the model's own and the test cases' — in two
 groups, because they are judged by different rules:
 
@@ -1946,7 +1962,7 @@ instances as an array, but it is a dictionary keyed by `datasetId`, and
 `sh:minCount` / `sh:maxCount` count its keys — distinct live `datasetId`s, as
 shacl2flink does. Observations of one `datasetId` are one instance.
 
-- **Add instance…** — on a dataset row in the Model view, and in a case page
+- **Add instance…** — on a dataset row in the Entities & Test Cases view, and in a case page
   row's `⋯` — asks for a `datasetId` (suggesting one the attribute does not
   have yet) and adds a copy of the current instance under it: valid in
   everything but the count.
@@ -2014,7 +2030,7 @@ them**: *temperature* finds `CEL`, `FAH`, `KEL`; *celsius* or *°C* finds `CEL`.
   constraints are named after the attribute — `…/hasTemperature.unitCode/InConstraintComponent`
   — so two attributes' units never share a name, and their violations show on
   the attribute's row.
-- **In the data — Unit…** on a dataset row (Model view) or a case page row sets
+- **In the data — Unit…** on a dataset row (Entities & Test Cases view) or a case page row sets
   or removes the `unitCode` of that instance, every observation of it along;
   the shape's units come first. **Add Attribute** asks for the unit when the
   shape names some. A case page shows the unit after the value: `21.5 °C`.
@@ -2085,7 +2101,7 @@ declares `sh:class`, the picker lists the individuals of that class — and for 
 relationship, the entity ids of that type — spelled the way the file needs them
 (`{"@id": "base:state_ON"}` for a Property with an IRI value, a bare IRI for a
 Relationship). This is a different question from the `sh:class` picker in the
-Types view: that one asks what the *constraint* may say, this one what the
+Entity Types & Constraints view: that one asks what the *constraint* may say, this one what the
 *datum* may be. **Type a value** stays at the bottom.
 
 You can also just type into the picker: what you type becomes an entry of its
@@ -2137,7 +2153,7 @@ When one is wanted:
   (or its ◷) opens a date-and-time panel under the row — UTC, to the
   millisecond — with **Set** (or Enter), **Now**, **Just after the latest**
   of its `datasetId`, **Remove**, and × (or Esc);
-- in the Model view, **Timestamp…** on an instance row offers Now, Just after
+- in the Entities & Test Cases view, **Timestamp…** on an instance row offers Now, Just after
   the latest, or a time of your own (any ISO 8601 with its zone);
 - **Add Attribute** offers the `datasetId`s the attribute already has: picking
   one adds *another observation* of it, and asks for its time — one none of
@@ -2156,7 +2172,7 @@ An entity that violates something is marked, and carries the message on hover �
 a `minCount` violation is about an attribute that is *not there*, so there is no
 attribute node to hang it on.
 
-**The Vocabulary view** — the third tree, and the third ingredient. Shapes say
+**The Knowledge view** — the third tree, and the third ingredient. Shapes say
 what must hold, examples are what holds; neither says what the model *is*.
 
 ```
@@ -2265,11 +2281,11 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
 | `SemForge: Go to the shape for this class` | the ⚖ icon on a knowledge class |
 | `SemForge: Add an entity` | the + on a case or file; the type is picked from the knowledge, never typed |
 | `SemForge: Add an attribute` | the + on an entity; the attribute is picked from the knowledge, filtered by `rdfs:domain` |
-| `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Vocabulary view title |
+| `SemForge: New attribute…` | declares an attribute in the knowledge, then (optionally) constrains it on its type's own shape — one flow, from the palette, the status bar menu, the SemForge submenu on a `.ttl`/`.jsonld`, or the Constraints/Knowledge view title |
 | `SemForge: Rescan (ignore the cache)` | throws away everything known about the package and analyses it from scratch; also the 🔄 on the Package view's Cache row |
 | `SemForge: Delete cache…` | removes the package's cache (optionally the downloaded JSON-LD contexts too), after saying what and where; also the 🗑 on the Cache row |
-| `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Types view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
-| `SemForge: Add Attribute to Shape` | the + on a shape in the Types view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
+| `SemForge: Delete attribute…` | right-click an attribute in the Knowledge or Entity Types & Constraints view (or the palette, status bar menu, SemForge submenu); shows every dependent first and removes them all, or names what must be edited by hand |
+| `SemForge: Add Attribute to Shape` | the + on a shape in the Entity Types & Constraints view; writes both NGSI-LD layers, optional or required, with the value's class or datatype |
 
 ## Settings
 
@@ -2294,7 +2310,7 @@ in `shacl.ttl` is meaningless without the ontology and the examples.
   declares, and the ⚖ icon on an example attribute will create an *empty*
   `sh:property` for an unconstrained attribute — but filling it in is still a
   `.ttl` edit. There is no "add a parameter" command yet.
-- **The Vocabulary view is read-only.** It shows the ontology and the joins; a
+- **The Knowledge view is read-only.** It shows the ontology and the joins; a
   new class or member is a `knowledge.ttl` edit.
 - **`instance(s)` and `used in` count the examples, not the world.** They say
   what the suite exercises. A term no case uses may still be perfectly valid —

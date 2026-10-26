@@ -23,7 +23,7 @@
  * case is one Enter; the package's other namespaces follow; "New namespace…"
  * defines a prefix and its IRI right there and continues with it. Before this
  * a term silently went into whatever namespace its neighbours used, and a new
- * namespace meant a trip to the Project view -- after which nothing here
+ * namespace meant a trip to the Package view -- after which nothing here
  * offered it anyway.
  */
 

@@ -76,7 +76,7 @@ function keyOf(raw, parentKey, position) {
  * named the parent -- the jump would land on the wrong shape and the value
  * picker would offer the wrong class.
  */
-// The model's own data in the Instances view. "Model data" is what an older
+// The model's own data in the Entities & Test Cases view. "Model data" is what an older
 // language server called it in summary mode.
 const DATA = ['Main', 'Model data'];
 
@@ -91,7 +91,7 @@ function caseOf(provider, node) {
 }
 
 /**
- * The model's own data holding a node, or undefined. In the Instances view that
+ * The model's own data holding a node, or undefined. In the Entities & Test Cases view that
  * is the "Main" GROUP, under it one example per model file
  * (labelled by the file, e.g. main.jsonld) -- an example without a case file.
  */

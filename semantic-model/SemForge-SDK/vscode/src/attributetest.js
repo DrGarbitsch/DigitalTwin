@@ -17,7 +17,7 @@
 /*
  * New test… for one attribute of an entity type.
  *
- * Asked where the question arises -- an attribute row in the Types view, a
+ * Asked where the question arises -- an attribute row in the Entity Types & Constraints view, a
  * row on the type page -- because that is where "hasPressure is new, what
  * proves its constraints work?" comes up. It offers what a test can prove:
  * the attribute valid, or one of its constraints firing. The SDK writes the
@@ -42,7 +42,7 @@ async function newAttributeTest(clientHolder, session, node) {
   if (!client || !packageUri || !raw || !entityType || !Array.isArray(raw.path)) {
     vscode.window.showWarningMessage(
       'SemForge: New test… works on an attribute of an entity type — right-click ' +
-        'one in the Types view, or use the row on its type page.');
+        'one in the Entity Types & Constraints view, or use the row on its type page.');
     return false;
   }
   const offered = await client.sendRequest('semforge/attributeTestOptions',

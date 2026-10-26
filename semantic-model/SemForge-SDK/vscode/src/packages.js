@@ -20,7 +20,7 @@
  * The three views used to answer this separately: each one called
  * findPackageUri() on activation and each one followed the active editor with
  * its own rule -- and the knowledge view's rule was different from the other
- * two's. So the Constraints view could be showing one package while Knowledge
+ * two's. So the Entity Types & Constraints view could be showing one package while Knowledge
  * showed another, with nothing on screen naming either. Opening a file quietly
  * moved a view to a different package; nothing said so.
  *

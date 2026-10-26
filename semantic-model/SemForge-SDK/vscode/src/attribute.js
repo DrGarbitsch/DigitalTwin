@@ -25,8 +25,8 @@
  *
  * VS Code has no extension-owned top-level menu, so the flow is reachable from
  * everywhere an extension IS allowed to put it: the Command Palette, the
- * SemForge submenu (Explorer and editor right-click, the Project view title),
- * the status bar menu, and the + picker in the Constraints view.
+ * SemForge submenu (Explorer and editor right-click, the Package view title),
+ * the status bar menu, and the + picker in the Entity Types & Constraints view.
  */
 
 const vscode = require('vscode');
@@ -177,7 +177,7 @@ async function pickEntityType(client, packageUri) {
 
 /**
  * The whole flow. `preset` may already name the type ({entityType, shape,
- * label}) -- the Constraints view's + knows which shape it was clicked on.
+ * label}) -- the Entity Types & Constraints view's + knows which shape it was clicked on.
  */
 /**
  * The name and namespace a quick fix already knows, from the term as the use

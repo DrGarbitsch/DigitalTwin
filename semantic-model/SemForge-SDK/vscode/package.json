@@ -357,6 +357,11 @@
         "icon": "$(pulse)"
       },
       {
+        "command": "semforge.openPackagePage",
+        "title": "SemForge: Open package settings",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "semforge.openSource",
         "title": "SemForge: Open source",
         "icon": "$(go-to-file)"
@@ -478,22 +483,22 @@
         },
         {
           "id": "semforgeConstraints",
-          "name": "Types",
+          "name": "Entity Types & Constraints",
           "contextualTitle": "SemForge"
         },
         {
           "id": "semforgeShapes",
-          "name": "Shapes",
+          "name": "SHACL Shapes",
           "contextualTitle": "SemForge"
         },
         {
           "id": "semforgeModel",
-          "name": "Instances",
+          "name": "Entities & Test Cases",
           "contextualTitle": "SemForge"
         },
         {
           "id": "semforgeKnowledge",
-          "name": "Vocabulary",
+          "name": "Knowledge (Ontology)",
           "contextualTitle": "SemForge"
         }
       ]
@@ -562,6 +567,11 @@
         },
         {
           "command": "semforge.openHealthPage",
+          "when": "view == semforgeProject",
+          "group": "navigation@0"
+        },
+        {
+          "command": "semforge.openPackagePage",
           "when": "view == semforgeProject",
           "group": "navigation@0"
         },

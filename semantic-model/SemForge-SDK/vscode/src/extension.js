@@ -47,6 +47,7 @@ const testCases = require('./testcases');
 const casePages = require('./casepage');
 const sparqlPage = require('./sparqlpage');
 const healthPage = require('./healthpage');
+const packagePage = require('./packagepage');
 const shapesTree = require('./shapes');
 const shapePages = require('./shapepage');
 const rename = require('./rename');
@@ -342,6 +343,8 @@ function activate(context) {
   rename.register(context, clientHolder, session, sparqlBench);
   // The package at a glance: what needs attention first.
   const healthView = healthPage.register(context, clientHolder, session);
+  // The package's settings as a page: what each decides, and Edit… beside it.
+  const packageView = packagePage.register(context, clientHolder, session);
   // One page per shape: its target in words, what it checks, what it reaches.
   const shapeViews = shapePages.register(context, clientHolder, session);
   shapeDelete.register(context, clientHolder, session,
@@ -463,7 +466,7 @@ function activate(context) {
     session,
     trees: { project, constraints, shapes, model, knowledge },
     pages: { type: typeViews, case: caseViews, sparql: sparqlBench, shape: shapeViews,
-      vocabulary: vocabularyViews, health: healthView }
+      vocabulary: vocabularyViews, health: healthView, package: packageView }
   };
 }
 
