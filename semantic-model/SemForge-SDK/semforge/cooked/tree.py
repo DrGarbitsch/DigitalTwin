@@ -181,8 +181,48 @@ def _constraint_nodes(block, shape, chain, locate=None, is_value_slot=False):
 
 
 def _short(path):
-    """`iffBaseEntities:hasFilter` and `<http://…/hasFilter>` both read hasFilter."""
-    return local(path.strip('<>')).split(':')[-1]
+    """`iffBaseEntities:hasFilter` and `<http://…/hasFilter>` both read hasFilter;
+    a complex path reads as a SPARQL property path of short names --
+    `( [ sh:inversePath ngsild:hasObject ] [ sh:inversePath e:hasCartridge ] )`
+    is `^hasObject/^hasCartridge`, where cutting at the last ':' made it
+    `hasCartridge ] )`."""
+    text = path.strip()
+    if not text.startswith(('(', '[')):
+        return local(text.strip('<>')).split(':')[-1]
+    import re
+
+    tokens = re.findall(r'<[^>]*>|[()\[\]]|[^\s()\[\]]+', text)
+    at = [0]
+
+    def name(token):
+        return local(token.strip('<>')).split(':')[-1]
+
+    def one():
+        token = tokens[at[0]]
+        at[0] += 1
+        if token == '(':
+            parts = []
+            while at[0] < len(tokens) and tokens[at[0]] != ')':
+                parts.append(one())
+            at[0] += 1
+            return '/'.join(parts)
+        if token == '[':
+            kind = tokens[at[0]]
+            at[0] += 1
+            inner = one()
+            while at[0] < len(tokens) and tokens[at[0]] != ']':
+                at[0] += 1                 # anything else in the node: not a path
+            at[0] += 1
+            said = {'sh:inversePath': f'^{inner}', 'sh:alternativePath': inner.replace('/', '|'),
+                    'sh:zeroOrMorePath': f'{inner}*', 'sh:oneOrMorePath': f'{inner}+',
+                    'sh:zeroOrOnePath': f'{inner}?'}.get(kind, inner)
+            return f'({said})' if '/' in said and kind != 'sh:alternativePath' else said
+        return name(token)
+
+    try:
+        return one()
+    except IndexError:
+        return text
 
 
 def _name_forms(nodes, prefixes, list_payload=''):

@@ -266,3 +266,12 @@ def test_a_failed_page_says_why_in_the_panel(tmp_path):
         'replies': {'semforge/typePage': {'ok': False,
                                           'error': 'http://x/Nope is not an entity type'}}})
     assert 'is not an entity type' in seen['webviews'][0]['html'][-1]
+
+
+def test_a_complex_path_reads_as_a_property_path(corpus):
+    """`( [ sh:inversePath ngsild:hasObject ] [ sh:inversePath e:hasCartridge ] )`
+    was labelled `hasCartridge ] )`: cut at its last colon."""
+    page = build_type_page(corpus, 'iffBaseEntities:FilterCartridge')
+    labels = [row['label'] for row in page['attributes']]
+    assert '^hasObject/^hasCartridge' in labels, labels
+    assert not any(']' in label or ')' in label for label in labels), labels

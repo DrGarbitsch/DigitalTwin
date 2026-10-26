@@ -320,8 +320,9 @@ def _attribute_rows(package, node, kind_of, depth, coverage, violated):
     severity = describe(package, str(_resolve_token(package, severity_token))
                         if severity_token else None)
     fields = _value_fields(value, kind)
+    from .tree import _short as path_label     # a complex path reads as a property path
     rows = [{
-        'attribute': iri, 'label': _short(token), 'term': token, 'kind': kind,
+        'attribute': iri, 'label': path_label(token), 'term': token, 'kind': kind,
         'presence': presence(own.get('sh:minCount'), own.get('sh:maxCount')),
         'value': ' · '.join(p for p in (
             fields['value'],
