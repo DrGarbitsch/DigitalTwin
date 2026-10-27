@@ -91,7 +91,7 @@ describe('Validation in the background', () => {
       /<h2 id="violations">Violations/.test(api.pages.case.panel.webview.html) &&
       api.pages.case.panel.webview.html,
     'the Violations list');
-    assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*><a href="#">${entity} · hasWidth</a>`));
+    assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*><a tabindex="0" role="link">${entity} · hasWidth</a>`));
     // ... and the tree, which says it first.
     const tree = api.trees.model;
     const row = await until(async () => (await rows(tree)).find((node) =>

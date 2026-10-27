@@ -38,6 +38,8 @@
 const crypto = require('crypto');
 const vscode = require('vscode');
 
+const { LINK_CSS, LINK_SCRIPT } = require('./typepage');
+
 // What a condition may be, in the order a reader thinks of them.
 const CONDITIONS = [
   { parameter: 'sh:datatype', label: 'datatype', hint: 'xsd:double, xsd:string, …', list: 'datatypes' },
@@ -83,8 +85,8 @@ function box(node, address, own, editable) {
     const chips = node.conditions.map((c) =>
       `<span class="chip" data-param="${escape(c.parameter)}" data-value="${escape(c.value)}">` +
       `<span class="p">${escape(conditionLabel(c.parameter))}</span> ${escape(c.value)}` +
-      (editable ? `<a href="#" class="x" data-act="change" title="Change it">✎</a>` +
-        `<a href="#" class="x" data-act="unset" title="Remove this condition">×</a>` : '') +
+      (editable ? `<a tabindex="0" role="link" class="x" data-act="change" title="Change it">✎</a>` +
+        `<a tabindex="0" role="link" class="x" data-act="unset" title="Remove this condition">×</a>` : '') +
       '</span>').join('');
     const tools = editable ? '<span class="tools">' +
       button('set', '+ Condition', 'Add a condition: all of them must hold') +
@@ -258,7 +260,7 @@ function renderAttributePanel(state, options) {
   form input { min-width: 16em; }
   .primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
              border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; }
-</style></head><body>
+${LINK_CSS}</style></head><body>
 <h1>Attribute: ${escape(state.label)}</h1>
 ${state.row ? `<div class="dim">${escape(state.row.term || '')}</div>` : ''}
 ${state.error ? `<div class="error">${escape(state.error)}</div>` : ''}
@@ -273,6 +275,7 @@ ${add}
 ${lists}
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${LINK_SCRIPT}
   const CONDITIONS = ${JSON.stringify(CONDITIONS)};
   const CONNECTIVES = ${JSON.stringify(CONNECTIVES)};
   // Every request names the form it is about: the card it comes from.

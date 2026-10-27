@@ -35,7 +35,7 @@ const vscode = require('vscode');
 const { pickVocabularyNamespace, NAME, CLASS_NAME } = require('./namespacepick');
 
 const { showLocation } = require('./reveal');
-const { escape } = require('./typepage');
+const { escape, LINK_CSS, LINK_SCRIPT } = require('./typepage');
 
 const REFRESH_VIEWS = ['semforge.refreshKnowledge', 'semforge.refreshTree',
   'semforge.refreshShapes'];
@@ -60,8 +60,8 @@ function usedChips(uses) {
 
 /** A value's properties as a reader says them: valid for Filter. */
 function propertyText(p) {
-  const value = p.link ? `<a href="#" data-vocab="${escape(p.link)}">${escape(p.shortValue || p.value)}</a>`
-    : p.type ? `<a href="#" data-type="${escape(p.type)}" title="Open the type page">` +
+  const value = p.link ? `<a tabindex="0" role="link" data-vocab="${escape(p.link)}">${escape(p.shortValue || p.value)}</a>`
+    : p.type ? `<a tabindex="0" role="link" data-type="${escape(p.type)}" title="Open the type page">` +
       `${escape(p.shortValue || p.value)}</a>`
       : escape(p.shortValue || p.value);
   return `<div title="${escape(`${p.property} ${p.value}`)}"><span class="dim">` +
@@ -90,7 +90,7 @@ function valueRows(values, focus) {
     return `<tr${focused ? ' class="focus" id="focus"' : ''}>` +
       // The value is this row; its lines in the .ttl are in ⋯.
       `<td><span class="mono" title="${escape(row.iri)}">${escape(row.name)}</span></td>` +
-      `<td><a href="#" class="act" data-action="label" data-row="${index}" ` +
+      `<td><a tabindex="0" role="link" class="act" data-action="label" data-row="${index}" ` +
       `title="Change the label">${row.label ? escape(row.label) : '<span class="dim">add…</span>'}</a></td>` +
       `<td>${row.properties.map(propertyText).join('')}</td>` +
       `<td>${usedChips(row.uses)}</td>` +
@@ -109,7 +109,7 @@ function renderVocabularyPage(page, options) {
   const relations = page.relations || [];
   const subclasses = page.subclasses || [];
   const parents = page.parents || [];
-  const drawer = (d) => `<a href="#" data-shape="${escape(d.shape)}" class="mono">` +
+  const drawer = (d) => `<a tabindex="0" role="link" data-shape="${escape(d.shape)}" class="mono">` +
     `${escape(d.shapeName.split(':').pop())}</a>${d.attribute ? ` › ${escape(d.attribute)}` : ''}` +
     ` <span class="dim">(${escape(d.how)})</span>`;
   const status = [
@@ -176,9 +176,9 @@ function renderVocabularyPage(page, options) {
   details.fold > summary { cursor: pointer; font-size: 0.78em; font-weight: 600; letter-spacing: .08em;
                            text-transform: uppercase; color: var(--vscode-descriptionForeground); }
   details.fold ul { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
-</style></head><body>
+${LINK_CSS}</style></head><body>
 <div class="crumbs">Vocabulary${parents.map((p) => ' › ' + (p.page
-    ? `<a href="#" data-vocab="${escape(p.iri)}">${escape(p.label)}</a>` : escape(p.label))).join('')}` +
+    ? `<a tabindex="0" role="link" data-vocab="${escape(p.iri)}">${escape(p.label)}</a>` : escape(p.label))).join('')}` +
   ` › <span class="mono">${escape(page.term)}</span></div>
 <div class="head"><h1>Vocabulary: ${escape(page.label)}</h1>
   <div class="acts"><button class="primary" data-action="addValue">+ Value</button>
@@ -196,16 +196,17 @@ ${drawn.length > 1 ? `<details class="fold" open><summary>Drawn from by (${drawn
   `<ul>${drawn.map((d) => `<li>${drawer(d)}</li>`).join('')}</ul></details>` : ''}
 ${relations.length ? `<details class="fold"><summary>Properties of its values (${relations.length})</summary>` +
   `<ul>${relations.map((r) => `<li><span class="mono">${escape(r.name)}</span>` +
-    `${r.definedAt ? ` <a href="#" class="dim" data-open="${escape(r.definedAt)}" ` +
+    `${r.definedAt ? ` <a tabindex="0" role="link" class="dim" data-open="${escape(r.definedAt)}" ` +
       'title="Open its declaration in the .ttl">.ttl</a>' : ''} <span class="dim">· ` +
     `${escape(r.domain || '(no domain declared)')} → ${escape(r.range || '(no range declared)')}` +
     '</span></li>').join('')}</ul></details>` : ''}
 ${subclasses.length ? `<details class="fold"><summary>Subclasses (${subclasses.length})</summary>` +
   `<div class="chips">${subclasses.map((c) => c.page
-    ? `<a href="#" data-vocab="${escape(c.iri)}">${chip(c.label)}</a>` : chip(c.label)).join('')}</div></details>` : ''}
+    ? `<a tabindex="0" role="link" data-vocab="${escape(c.iri)}">${chip(c.label)}</a>` : chip(c.label)).join('')}</div></details>` : ''}
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${LINK_SCRIPT}
   const focused = document.getElementById('focus');
   if (focused) { focused.scrollIntoView({ block: 'center' }); }
   document.addEventListener('click', (event) => {

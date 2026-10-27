@@ -40,7 +40,7 @@ function chip(text, tone, title) {
  *  constraints, verdicts and editor are. Its line in the .jsonld is in ⋯. */
 function attributeName(text, type, names, term) {
   return type
-    ? `<a href="#" data-type="${escape(type)}" data-names="${escape(JSON.stringify(names))}"` +
+    ? `<a tabindex="0" role="link" data-type="${escape(type)}" data-names="${escape(JSON.stringify(names))}"` +
       ` title="${escape(`${term} — show it on the ${type} page`)}">${escape(text)}</a>`
     : `<span title="${escape(term)}">${escape(text)}</span>`;
 }
@@ -71,13 +71,13 @@ function attributeRows(rows, file, depth, at, type, chain) {
     const here = at === undefined ? undefined : `${at}.${index}`;
     const editable = here !== undefined && row.node && row.node.editable;
     const value = editable
-      ? `<a href="#" class="act" data-edit="${here}" title="Change the value">` +
+      ? `<a tabindex="0" role="link" class="act" data-edit="${here}" title="Change the value">` +
         `${escape(row.value) || '<span class="dim">(none)</span>'}</a>`
       : escape(row.value);
     // When it was observed: a click opens the date-and-time picker. An
     // instance without one counts as now, as on the platform.
     const time = here !== undefined && row.stamp && row.kind
-      ? ` <a href="#" class="stamp" data-stamp="${here}"` +
+      ? ` <a tabindex="0" role="link" class="stamp" data-stamp="${here}"` +
         ` data-current="${escape(row.observedAt)}" data-latest="${escape(row.latestAt || '')}"` +
         ` title="${row.observedAt ? `observedAt ${escape(row.observedAt)} — click to change`
           : 'No observedAt: it counts as now. Click to give it a time'}">` +
@@ -85,7 +85,7 @@ function attributeRows(rows, file, depth, at, type, chain) {
           : '◷'}</a>` : '';
     const older = !row.superseded && earlier[seriesOf(row)] ? earlier[seriesOf(row)].length : 0;
     const superseded = older
-      ? ` <a href="#" class="history" data-history="${series(row)}" title="${older} earlier ` +
+      ? ` <a tabindex="0" role="link" class="history" data-history="${series(row)}" title="${older} earlier ` +
         'observation(s) of this instance. Only the latest is validated; click to show them.">' +
         `+${older} earlier</a>` : '';
     const menu = here !== undefined
@@ -137,7 +137,7 @@ function card(entity, focused, at) {
     // it -- on a relationship to another type, too -- open this card's type.
     ` data-ftype="${escape(entity.type || '')}" data-attrs="${escape(names)}">` +
     `<div class="title"><span class="mono">${escape(entity.id || '(no id)')}</span>` +
-    `${entity.type ? ` <a href="#" class="dim" data-type="${escape(entity.type)}"` +
+    `${entity.type ? ` <a tabindex="0" role="link" class="dim" data-type="${escape(entity.type)}"` +
       ` title="Open the ${escape(entity.type)} page">· ${escape(entity.type)}</a>` : ''}` +
     `<span class="acts">${add}</span></div>` +
     `${entity.error ? `<div class="problem">${escape(entity.error)}</div>` : ''}` +
@@ -230,9 +230,9 @@ function violationList(found, model) {
 ${model ? '<p class="dim">Click one to go to it. Each is also listed in VS Code\u2019s ' +
     '<b>Problems</b> panel (Ctrl+Shift+M, or the warning count in the status bar), on its line ' +
     'in the .jsonld: F8 steps from one to the next. ' +
-    '<a href="#" data-problems="1">Open the Problems panel</a></p>' : ''}
+    '<a tabindex="0" role="link" data-problems="1">Open the Problems panel</a></p>' : ''}
 <ul class="vlist">${found.map((v) => `<li data-jump="${v.at}" title="Click: go to it">` +
-    `<a href="#">${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
+    `<a tabindex="0" role="link">${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
     `${escape(v.text)} <span class="dim">· ${escape(v.shape)}</span></li>`).join('')}</ul>`;
 }
 
@@ -420,7 +420,7 @@ ${model ? `<div class="chips">
   ${chip(`${(page.summary || {}).entities || 0} entities`)}
   ${(page.summary || {}).violations === null ? ''
     : (page.summary || {}).violations
-    ? `<a href="#" class="chiplink" data-jumplist="1" title="Show them">` +
+    ? `<a tabindex="0" role="link" class="chiplink" data-jumplist="1" title="Show them">` +
       chip(`${page.summary.violations} violation(s)`, 'warn',
         'Click: the list of them, below. The model declares nothing and cannot fail: ' +
         'these are information.') + '</a>'
@@ -562,7 +562,8 @@ ${BUSY_SCRIPT}
   function typeLink(type, cls) {
     if (!type) { return el('span', cls, '(no type)'); }
     const link = el('a', cls, type);
-    link.href = '#';
+    link.tabIndex = 0;
+    link.setAttribute('role', 'link');
     link.title = 'Open the ' + type + ' page';
     link.dataset.type = type;
     return link;
@@ -607,7 +608,8 @@ ${BUSY_SCRIPT}
     body.querySelectorAll('.attr[data-rel]').forEach(function (row) {
       const target = byId.get(row.dataset.rel);
       const toggle = el('a', 'reltoggle' + (target ? '' : ' missing'), target ? '▸' : '·');
-      toggle.href = '#';
+      toggle.tabIndex = 0;
+    toggle.setAttribute('role', 'link');
       toggle.title = target ? 'Open its ' + (target.type || 'entity') + ' here'
         : row.dataset.rel + ' is not on this page';
       if (target) { toggle.dataset.reltoggle = '1'; }
@@ -665,7 +667,8 @@ ${BUSY_SCRIPT}
     if (present(existing)) {
       const ref = el('a', 'tref', '↩ ' + (target.type || '') + ' ' + shortId(target.id) +
         ' is open elsewhere on this page — go there');
-      ref.href = '#';
+      ref.tabIndex = 0;
+    ref.setAttribute('role', 'link');
       ref.title = target.id;
       ref.dataset.goto = target.id;
       holder.append(ref);
@@ -733,7 +736,8 @@ ${BUSY_SCRIPT}
       if (i) { trail.append(el('span', 'sep', ' › ' + c.dataset.via + ' › ')); }
       const e = byId.get(c.dataset.id) || { id: c.dataset.id };
       const crumb = el('a', 'crumb', e.type || shortId(e.id));
-      crumb.href = '#';
+      crumb.tabIndex = 0;
+    crumb.setAttribute('role', 'link');
       crumb.title = e.id;
       crumb.dataset.goto = e.id;
       trail.append(crumb);
@@ -840,22 +844,7 @@ ${BUSY_SCRIPT}
     if (ui.view !== 'cards') { setView('cards'); }
     const node = row || focused;
     flash(node);
-    settle(node, wanted || '');
-  }
-  // VS Code puts back the scroll position the webview had before its new
-  // content -- after the page's own script ran, sometimes, so the jump was
-  // undone sometimes. Again on load and a little later, until the reader
-  // scrolls; then the page says where it landed (what the e2e test reads).
-  function settle(node, attribute) {
-    let moved = false;
-    ['wheel', 'keydown', 'mousedown', 'touchstart'].forEach(function (name) {
-      window.addEventListener(name, function () { moved = true; }, { once: true, capture: true });
-    });
-    const again = function () { if (!moved) { node.scrollIntoView({ block: 'center' }); } };
-    requestAnimationFrame(again);
-    if (document.readyState !== 'complete') { window.addEventListener('load', again, { once: true }); }
-    [150, 400, 1000].forEach(function (ms) { setTimeout(again, ms); });
-    report(node, focused.dataset.id, attribute, 'open');
+    report(node, focused.dataset.id, wanted || '', 'open');
   }
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.

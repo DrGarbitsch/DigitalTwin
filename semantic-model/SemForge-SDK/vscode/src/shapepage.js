@@ -46,7 +46,7 @@ function chip(text, tone, title) {
 }
 
 function shapeLink(name, iri) {
-  return `<a href="#" data-shape="${escape(iri)}">${escape(name)}</a>`;
+  return `<a tabindex="0" role="link" data-shape="${escape(iri)}">${escape(name)}</a>`;
 }
 
 /** The type page's rows, actions and all: a shape's attributes are edited
@@ -138,7 +138,7 @@ function appliesTo(page) {
         'title="Take this target off the shape">Remove</button>' : '<span></span>') +
     '</div>').join('');
   const types = (page.types || []).filter((t) => t.page).map((t) =>
-    `<a href="#" data-type="${escape(t.iri)}" title="Open the ${escape(t.label)} type page">` +
+    `<a tabindex="0" role="link" data-type="${escape(t.iri)}" title="Open the ${escape(t.label)} type page">` +
     `${escape(t.label)}</a>`).join(', ');
   return `<p class="line" title="The node selector: which nodes the checks run on">${said}` +
     `${types ? ` <span class="dim">· type</span> ${types}` : ''}</p>` +
@@ -155,7 +155,7 @@ function testedBy(page, cases) {
       (c.fired === null ? chip('evaluating…', 'dim', 'The package is being validated') :
         chip(c.fired ? 'fires' : 'holds', c.fired ? 'ok' : '',
           c.fired ? `reports it ${c.fired}× here` : 'evaluated here, conforming')) +
-      `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
+      `<a tabindex="0" role="link" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
       `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
       `<span class="dim">${c.firedOn && c.firedOn.length
         ? `on ${escape(c.firedOn.join(', '))}` : ''}</span>` +

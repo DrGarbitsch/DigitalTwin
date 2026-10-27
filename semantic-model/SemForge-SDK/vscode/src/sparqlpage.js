@@ -39,7 +39,7 @@ const crypto = require('crypto');
 const vscode = require('vscode');
 
 const { showLocation } = require('./reveal');
-const { escape } = require('./typepage');
+const { escape, LINK_CSS, LINK_SCRIPT } = require('./typepage');
 
 const REFRESH_VIEWS = ['semforge.refreshTree', 'semforge.refreshShapes',
   'semforge.refreshModel', 'semforge.refreshKnowledge'];
@@ -156,8 +156,8 @@ function renderSparqlBench(page, options) {
   kbd { font-family: var(--vscode-editor-font-family); font-size: 0.9em; padding: 0 4px;
         border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 3px; }
   .keys div { margin: 2px 0; }
-</style></head><body>
-<div class="dim crumbs">SPARQL workbench · <a href="#" data-shape="1">${escape(page.shapeName)}</a></div>
+${LINK_CSS}</style></head><body>
+<div class="dim crumbs">SPARQL workbench · <a tabindex="0" role="link" data-shape="1">${escape(page.shapeName)}</a></div>
 <div class="head">
   <h1>SPARQL: ${escape(page.label)}</h1>
   <span class="dim">${escape(holder.kind)}</span>
@@ -208,7 +208,7 @@ ${selects ? `<details class="fold" id="fold-selects"><summary>What it selects <s
 ${page.data.derivedTriples ? `<details class="inner"><summary>Derived by rules (${page.data.derivedTriples})</summary>` +
   `<pre>${escape(page.data.derived)}</pre></details>` : ''}</details>
 <details class="fold" id="fold-keys"><summary>Shortcuts <span class="dim">· in
-  <a href="#" data-editor="1" title="Show the query's editor">${escape(file)}</a></span></summary>
+  <a tabindex="0" role="link" data-editor="1" title="Show the query's editor">${escape(file)}</a></span></summary>
 <div class="dim keys">
   <div><kbd>Ctrl+Space</kbd> completes · <kbd>Shift+Alt+F</kbd> formats</div>
   <div><kbd>Ctrl+Enter</kbd> applies · <kbd>Ctrl+Shift+Enter</kbd> inspects</div>
@@ -216,6 +216,7 @@ ${page.data.derivedTriples ? `<details class="inner"><summary>Derived by rules (
 
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+${LINK_SCRIPT}
   const state = ${JSON.stringify(state).replace(/</g, '\\u003c')};
   const apply = document.getElementById('apply');
   const cancel = document.getElementById('cancel');
@@ -337,11 +338,11 @@ ${page.data.derivedTriples ? `<details class="inner"><summary>Derived by rules (
       ', this session only' : '';
     document.getElementById('snapshots').innerHTML = !list.length ? '' :
       '<div class="snap"><span class="name">Saved in shacl.ttl</span>' +
-      '<a href="#" data-load="saved">Load</a></div>' +
+      '<a tabindex="0" role="link" data-load="saved">Load</a></div>' +
       list.map((s) => '<div class="snap"><span class="name">' + esc(s.name) + '</span>' +
         '<span class="dim">' + esc(s.verdict) + ' · ' + esc(s.at) + '</span>' +
-        '<a href="#" data-load="' + s.id + '">Load</a>' +
-        '<a href="#" data-drop="' + s.id + '">Delete</a></div>').join('');
+        '<a tabindex="0" role="link" data-load="' + s.id + '">Load</a>' +
+        '<a tabindex="0" role="link" data-drop="' + s.id + '">Delete</a></div>').join('');
   }
   function mark(held) {
     return held === true ? '<td class="yes">✓</td>' : held === false ? '<td class="no">✗</td>'

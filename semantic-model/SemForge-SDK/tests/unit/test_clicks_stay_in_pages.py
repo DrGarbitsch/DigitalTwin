@@ -103,7 +103,7 @@ def test_an_attribute_on_the_main_page_opens_its_type_page(tmp_path, pages):
     html = _render(tmp_path, 'casepage.js', 'renderCasePage', page)
     card = next(c for f in page['files'] for c in f['cards']
                 if any(r['name'] == 'hasState' for r in c['attributes']))
-    name = re.search(r'<a href="#" data-type="([^"]+)" data-names="([^"]+)"[^>]*>hasState</a>',
+    name = re.search(r'<a tabindex="0" role="link" data-type="([^"]+)" data-names="([^"]+)"[^>]*>hasState</a>',
                      html)
     assert name, 'the attribute name is not a type-page link'
     assert name.group(1) == card['type']

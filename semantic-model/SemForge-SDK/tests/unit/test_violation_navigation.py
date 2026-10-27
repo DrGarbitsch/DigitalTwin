@@ -143,9 +143,9 @@ def test_the_page_lists_each_violation_with_the_way_to_it(tmp_path):
     # The count at the top leads to the list.
     assert re.search(r'data-jumplist="1"[^>]*><span class="chip warn"[^>]*>2 violation', html)
     # The whole line goes there, not only its link: the message is most of it.
-    assert re.search(r'<li data-jump="0\.1\.1"[^>]*><a href="#">urn:b · hasWidth</a> '
+    assert re.search(r'<li data-jump="0\.1\.1"[^>]*><a tabindex="0" role="link">urn:b · hasWidth</a> '
                      r'hasWidth is above its maximum', html)
-    assert re.search(r'<li data-jump="0\.2"[^>]*><a href="#">urn:c</a> hasPort is required', html)
+    assert re.search(r'<li data-jump="0\.2"[^>]*><a tabindex="0" role="link">urn:c</a> hasPort is required', html)
     assert 'class="attr violates" data-at="0.1.1" data-name="hasWidth"' in html
     assert '<input id="fbad" type="checkbox"> only what violates' in html
 
@@ -253,6 +253,48 @@ setTimeout(function () {
 }, 200);
 """ + LANDED.replace('WAIT', '700'), _long_page())
     assert re.search(r'<html[^>]* data-inview="true"', dom)
+
+
+# What VS Code's webview host does on a click of a link (handleInnerClick in its
+# pre/index.html), the defaultPrevented of the page's own handler ignored. It
+# acts on trusted clicks only, so here it is installed for the synthetic one.
+VSCODE_LINKS = """
+window.addEventListener('click', function (event) {
+  for (const node of event.composedPath()) {
+    if (node.tagName && node.tagName.toLowerCase() === 'a' && node.href) {
+      if (node.getAttribute('href') === '#') { event.view.scrollTo(0, 0); }
+      event.preventDefault();
+      return;
+    }
+  }
+});
+"""
+
+
+def test_a_link_in_the_list_is_not_undone_by_vscode(tmp_path):
+    """The user's case: the entity link of a line in the list. VS Code
+    scrolled the page back to its top after the jump, for every href="#"."""
+    page = _long_page(__options={})
+    dom = _dom(tmp_path, VSCODE_LINKS + """
+setTimeout(function () {
+  document.querySelector('li[data-jump="0.41.1"] a').click();
+}, 200);
+""" + LANDED.replace('WAIT', '900'), page)
+    assert re.search(r'<html[^>]* data-flashed="true"', dom)
+    assert re.search(r'<html[^>]* data-inview="true"', dom), 'still at the row'
+
+
+def test_no_page_links_to_hash():
+    """Every page: a link to "#" scrolls it to the top in VS Code, whatever
+    the page's handler does. Links have no href (role=link, tabindex 0)."""
+    found = []
+    for name in sorted(os.listdir(SRC)):
+        if name.endswith('.js'):
+            with open(os.path.join(SRC, name), encoding='utf-8') as handle:
+                source = handle.read()
+            if re.search(r"""href=\\?["']#|\.href = ["']#""", source):
+                found.append(name)
+    assert not found, found
 
 
 def test_opened_from_a_count_it_shows_only_what_violates(tmp_path):

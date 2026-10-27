@@ -647,7 +647,7 @@ def test_a_value_s_type_opens_the_type_page(tmp_path):
     seen = _vocab(tmp_path, webviewMessages=[{'command': 'type', 'iri': 'https://x/Machine'}],
                   replies={'semforge/vocabularyPage': page})
     html = seen['webviews'][0]['html'][-1]
-    assert '<span class="dim">valid for</span> <a href="#" data-type="https://x/Machine"' in html
+    assert '<span class="dim">valid for</span> <a tabindex="0" role="link" data-type="https://x/Machine"' in html
     assert _opened(seen, 'semforge.openTypePage')[0][0]['raw']['targetClass'] == \
         'https://x/Machine'
 
@@ -988,11 +988,11 @@ def test_the_type_page_says_the_essentials_first(tmp_path):
         assert rare not in body, rare
     # Subtypes are navigation, next to the crumbs.
     crumbs = body.split('<div class="crumbs">', 1)[1].split('</div>', 1)[0]
-    assert 'subtypes: <a href="#" data-type="BigPump">' in crumbs
+    assert 'subtypes: <a tabindex="0" role="link" data-type="BigPump">' in crumbs
     # The sections, in reading order.
     assert body.index('>Attributes</h2>') < body.index('>Rules</h2>') < body.index('>Instances</h2>')
     # A rule says what it checks first, then where; inherited ones grouped.
-    assert 'Pump running dry <span class="dim">·</span> <a href="#" class="mono" ' \
+    assert 'Pump running dry <span class="dim">·</span> <a tabindex="0" role="link" class="mono" ' \
         'data-shape="https://x/PumpRuleShape"' in body
     assert '<div class="group">From Machine</div>' in body
     assert 'data-action="addSparql"' in body
@@ -1179,7 +1179,7 @@ def test_the_type_page_marks_a_conditional_row_and_sends_it_to_its_shape(tmp_pat
     html = seen['webviews'][0]['html'][-1]
     assert 'only when it has hasValve' in html
     assert 'Open shape' in html and 'data-action="override"' not in html
-    assert '<tr class="group"><td colspan="7"><a href="#" class="mono" ' \
+    assert '<tr class="group"><td colspan="7"><a tabindex="0" role="link" class="mono" ' \
         'data-shape="https://x/HasValveShape"' in html, 'grouped under its shape'
     assert '>Rules</h2>' in html
 

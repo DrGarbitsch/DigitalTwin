@@ -160,7 +160,7 @@ def test_a_path_opens_card_by_card_and_a_cycle_ends_in_a_reference(tmp_path):
     assert 'urn:gone is not on this page' in graph
     # The row names what the card below is: type and id -- the type a link to
     # the TARGET's type page.
-    assert '<a class="dim" href="#" title="Open the ex:Port page" data-type="ex:Port">' \
+    assert '<a class="dim" tabindex="0" role="link" title="Open the ex:Port page" data-type="ex:Port">' \
         'ex:Port</a> <span title="urn:b">urn:b</span>' in graph
 
 

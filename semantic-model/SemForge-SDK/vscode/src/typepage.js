@@ -61,7 +61,7 @@ function breakable(text) {
 }
 
 function action(name, index, text, title) {
-  return `<a href="#" class="act" data-action="${name}" data-row="${index}"` +
+  return `<a tabindex="0" role="link" class="act" data-action="${name}" data-row="${index}"` +
     `${title ? ` title="${escape(title)}"` : ''}>${escape(text)}</a>`;
 }
 
@@ -170,7 +170,7 @@ function attributeRows(attributes, focused, options) {
     return head + `<tr class="${classes} pick" data-action="attribute" data-row="${index}"` +
       ` title="${escape(`${row.term || row.label} — click to edit`)}"${index === focused ? ' id="focus"' : ''}>` +
       `<td${indent}>${breakable(row.label)}` +
-      `${row.violations.length ? ` <a href="#" class="violates" data-model="" title="${escape(
+      `${row.violations.length ? ` <a tabindex="0" role="link" class="violates" data-model="" title="${escape(
         `Violated in the main-model by:\n${row.violations.join('\n')}\n\nClick: open the main-model`)}">✗ ${row.violations.length}</a>`
         : ''}</td>` +
       // Every kind the value may take: `Property or ListProperty` for a value
@@ -200,7 +200,7 @@ function actions(row, index, contrib) {
       'Open shape</button>';
   }
   if (row.inherited && !row.contributions) {
-    return `<a href="#" class="act" data-action="override" ${at} title="Declare a stricter ` +
+    return `<a tabindex="0" role="link" class="act" data-action="override" ${at} title="Declare a stricter ` +
       'constraint on this type\'s own shape">override…</a>';
   }
   return `<button data-action="menu" ${at} title="More actions">⋯</button>`;
@@ -234,7 +234,7 @@ function contributionRows(row, index, depth) {
 function shapeLink(name, iri) {
   const short = String(name || '').split(':').pop();
   return iri
-    ? `<a href="#" class="mono" data-shape="${escape(iri)}" title="${escape(name)}">${escape(short)}</a>`
+    ? `<a tabindex="0" role="link" class="mono" data-shape="${escape(iri)}" title="${escape(name)}">${escape(short)}</a>`
     : `<span class="mono">${escape(short)}</span>`;
 }
 
@@ -271,19 +271,19 @@ function ruleRows(rules) {
 function instanceRows(page) {
   const model = (page.instances || []).map((i) => i.violations === null ? `<div class="inst">` +
     '<span class="dim">…</span>' +
-    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
+    `<a tabindex="0" role="link" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
     `<span class="dim">main-model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
     '<span class="dim">evaluating…</span></div>' : `<div class="inst">` +
     `<span class="${i.violations.length ? 'bad-text' : 'ok-text'}">${i.violations.length ? '✗' : '✓'}</span>` +
-    `<a href="#" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
+    `<a tabindex="0" role="link" class="mono" data-model="${escape(i.id)}" title="Open it in the main-model">${escape(i.id)}</a>` +
     `<span class="dim">main-model${i.type !== page.label ? ` · ${escape(i.type)}` : ''}</span>` +
-    `<span>${i.violations.length ? `<a href="#" data-model="${escape(i.id)}">` + i.violations.map((v) =>
+    `<span>${i.violations.length ? `<a tabindex="0" role="link" data-model="${escape(i.id)}">` + i.violations.map((v) =>
       chip(v.split('/').slice(1).join(' · ').replace('ConstraintComponent', ''), 'bad', v)).join(' ') +
       '</a>' : '<span class="dim">valid</span>'}</span></div>`).join('');
   const cases = (page.exercisedBy || []).map((c) => `<div class="inst">` +
     (c.passed === null ? '<span class="dim">…</span>'
       : `<span class="${c.passed ? 'ok-text' : 'bad-text'}">${c.passed ? '✓' : '✗'}</span>`) +
-    `<a href="#" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
+    `<a tabindex="0" role="link" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
     `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
     `<span class="dim">${escape(c.expect)}</span>` +
     `<span>${c.passed ? '<span class="dim">passes</span>' : chip('FAILS', 'bad')}</span></div>`).join('');
@@ -340,7 +340,7 @@ function renderTypePage(page, options) {
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
   const summary = page.summary || {};
   const crumbs = (page.crumbs || []).map((name) =>
-    `<a href="#" data-type="${escape(name)}">${escape(name)}</a> › `).join('');
+    `<a tabindex="0" role="link" data-type="${escape(name)}">${escape(name)}</a> › `).join('');
   const attributes = page.attributes || [];
   const rules = page.rules || [];
   const subtypes = page.subtypes || [];
@@ -467,7 +467,7 @@ function renderTypePage(page, options) {
 ${BUSY_CSS}</style></head><body>
 <div class="crumbs">${crumbs}<b>${escape(page.label)}</b> · <span class="mono">${escape(page.term)}</span>${
   subtypes.length ? ` <span class="sep">·</span> subtypes: ${subtypes.map((name) =>
-    `<a href="#" data-type="${escape(name)}">${escape(name)}</a>`).join(', ')}` : ''}</div>
+    `<a tabindex="0" role="link" data-type="${escape(name)}">${escape(name)}</a>`).join(', ')}` : ''}</div>
 <div class="head"><h1>Entity type: ${escape(page.label)}</h1>
   <div class="acts"><button class="primary" data-action="addAttribute" title="${page.ownShape
     ? `Add an attribute to ${escape(page.ownShapeName)}`
@@ -555,7 +555,21 @@ function showLoading(panel, what, switching) {
  * shows nothing meanwhile looks frozen. Navigation is not marked: only what
  * writes (field actions, menus, Assert it, + Attribute …).
  */
-const BUSY_SCRIPT = `
+// VS Code's webview host scrolls the page to its top on a click of any
+// link to "#", whatever the page's own handler prevented (handleInnerClick
+// in the webview's pre/index.html): a jump down the page was undone by the
+// link that asked for it. So a page's links have no href -- role=link,
+// tabindex 0 -- and Enter clicks them, as it did.
+const LINK_CSS = 'a[role="link"] { cursor: pointer; }';
+const LINK_SCRIPT = `
+  document.addEventListener('keydown', function (event) {
+    const link = event.key === 'Enter' && event.target.closest &&
+      event.target.closest('a[role="link"]');
+    if (link) { event.preventDefault(); link.click(); }
+  });
+`;
+
+const BUSY_SCRIPT = LINK_SCRIPT + `
   const BUSY_TARGETS = '[data-action],[data-edit],[data-assert],[data-dropassert],' +
     '[data-retarget],[data-rowmenu],[data-addattr],[data-addentity],[data-pagemenu],[data-newcase]';
   function markBusy(node) {
@@ -580,7 +594,7 @@ const BUSY_SCRIPT = `
   });
 `;
 
-const BUSY_CSS = `
+const BUSY_CSS = LINK_CSS + `
   .busy { opacity: 0.55; transition: opacity 0.15s; }
   .updating { color: var(--vscode-textLink-foreground, #3794ff); font-size: 0.86em; margin-left: 8px;
               white-space: nowrap; opacity: 1; }
@@ -1426,5 +1440,6 @@ function register(context, clientHolder, session) {
   return pages;
 }
 
-module.exports = { register, renderTypePage, verdictNote, showLoading, BUSY_SCRIPT, BUSY_CSS, TypePages, typeOf, focusOf, focusIndex, escape,
+module.exports = { register, renderTypePage, verdictNote, showLoading, BUSY_SCRIPT, BUSY_CSS,
+  LINK_CSS, LINK_SCRIPT, TypePages, typeOf, focusOf, focusIndex, escape,
   attributeRows, EDITS };
