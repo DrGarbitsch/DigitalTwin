@@ -23,6 +23,7 @@ purpose to see errors arrive at the top with the right action.
 """
 
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -181,3 +182,19 @@ def test_package_health_is_the_first_thing_in_the_status_bar_menu():
         source = handle.read()
     menu = source.split('const MENU = [', 1)[1]
     assert menu.index("'semforge.openHealthPage'") < menu.index("'semforge.selectPackage'")
+
+
+def test_the_violations_count_is_a_way_to_them(tmp_path, health):
+    """A count that leads nowhere: the tile is a button while there is
+    something behind it, and opens the Main page showing only that."""
+    assert health['tiles']['modelViolations'], 'the corpus model violates something'
+    html = _render(tmp_path, health)
+    assert re.search(r'<button class="tile warn" data-act="violations"', html)
+    clean = _render(tmp_path, dict(health, tiles=dict(health['tiles'], modelViolations=0)))
+    assert 'data-act="violations"' not in clean
+    seen = _node(tmp_path, {
+        'command': 'semforge.openHealthPage', 'node': {'packageUri': 'file:///pkg/shacl.ttl'},
+        'webviewMessages': [{'command': 'violations'}],
+        'replies': {'semforge/health': dict(health, ok=True)}}, 'extension.js')
+    opened = [e['args'] for e in seen['executed'] if e['command'] == 'semforge.openModelPage']
+    assert opened and opened[0][1] == {'only': True}

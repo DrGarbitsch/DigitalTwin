@@ -357,6 +357,26 @@
         "icon": "$(pulse)"
       },
       {
+        "command": "semforge.clickPackageRow",
+        "title": "SemForge: Open this row"
+      },
+      {
+        "command": "semforge.clickTypesRow",
+        "title": "SemForge: Open this row"
+      },
+      {
+        "command": "semforge.clickShapesRow",
+        "title": "SemForge: Open this row"
+      },
+      {
+        "command": "semforge.clickEntitiesRow",
+        "title": "SemForge: Open this row"
+      },
+      {
+        "command": "semforge.clickKnowledgeRow",
+        "title": "SemForge: Open this row"
+      },
+      {
         "command": "semforge.openPackagePage",
         "title": "SemForge: Open package settings",
         "icon": "$(settings-gear)"
@@ -1093,6 +1113,26 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "semforge.clickPackageRow",
+          "when": "false"
+        },
+        {
+          "command": "semforge.clickTypesRow",
+          "when": "false"
+        },
+        {
+          "command": "semforge.clickShapesRow",
+          "when": "false"
+        },
+        {
+          "command": "semforge.clickEntitiesRow",
+          "when": "false"
+        },
+        {
+          "command": "semforge.clickKnowledgeRow",
+          "when": "false"
+        },
         {
           "command": "semforge.removeSparqlQuery",
           "when": "false"

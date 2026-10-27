@@ -29,7 +29,7 @@ const vscode = require('vscode');
 const HEADING = 'Every entity type, with what its shapes require of each attribute — its own and inherited ones together. A type opens its type page.';
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon, rowClicks } = require('./reveal');
 const { constrainAttribute, newAttribute } = require('./attribute');
 
 // Candidate values come from the server, never from a list in here. Which
@@ -511,7 +511,7 @@ function register(context, clientHolder, session) {
   // file:line -- an attribute, a single parameter, not just the shape -- so
   // this lands on the line you picked rather than the top of the block.
   context.subscriptions.push(
-    view.onDidChangeSelection(async (event) => {
+    rowClicks(view, provider, 'semforge.clickTypesRow', async (event) => {
       const selected = event.selection && event.selection[0];
       if (!selected) {
         return;

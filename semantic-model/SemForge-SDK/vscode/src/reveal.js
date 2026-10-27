@@ -87,4 +87,44 @@ function icon(name, tone) {
     : new vscode.ThemeIcon(name);
 }
 
-module.exports = { splitLocation, showLocation, treeDetail, treeClick, icon };
+/**
+ * What a row of a view does when it is clicked -- EVERY time it is clicked.
+ *
+ * A view's selection changes only when another row is chosen: a click on the
+ * row already selected -- "Main · 2 violation(s)", clicked again after the
+ * page was closed -- did nothing at all. So each row also carries a command
+ * that runs `handler` on a click, and the selection still runs it for the
+ * keyboard. A click that also changes the selection would run it twice; the
+ * second, for the same row within moments, is skipped.
+ */
+function rowClicks(view, provider, command, handler) {
+  let last = { node: undefined, at: 0 };
+  const once = async (node) => {
+    if (!node) {
+      return;
+    }
+    const now = Date.now();
+    if (last.node === node && now - last.at < 600) {
+      return;
+    }
+    last = { node, at: now };
+    await handler({ selection: [node] });
+  };
+  const original = provider.getTreeItem.bind(provider);
+  provider.getTreeItem = (node) => {
+    const attach = (item) => {
+      if (item && !item.command) {
+        item.command = { command, title: 'Open', arguments: [node] };
+      }
+      return item;
+    };
+    const item = original(node);
+    return item && typeof item.then === 'function' ? item.then(attach) : attach(item);
+  };
+  const registered = vscode.commands.registerCommand(command, once);
+  const selected = view.onDidChangeSelection((event) =>
+    once(event && event.selection && event.selection[0]));
+  return { dispose: () => { registered.dispose(); selected.dispose(); } };
+}
+
+module.exports = { splitLocation, showLocation, treeDetail, treeClick, icon, rowClicks };

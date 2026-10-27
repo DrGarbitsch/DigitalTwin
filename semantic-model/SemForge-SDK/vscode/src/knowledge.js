@@ -30,7 +30,7 @@ const vscode = require('vscode');
 const HEADING = 'What the terms mean: entity types, attributes, value lists and units, from the knowledge files. A row opens its type or vocabulary page.';
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon, rowClicks } = require('./reveal');
 
 class KnowledgeTreeNode {
   constructor(key, raw, packageUri) {
@@ -250,7 +250,7 @@ function register(context, clientHolder, session, onShape, onEntity) {
   // instance moves the .jsonld to the entity. Same rule as the other two views,
   // and as there the row also unfolds rather than toggling shut.
   context.subscriptions.push(
-    view.onDidChangeSelection(async (event) => {
+    rowClicks(view, provider, 'semforge.clickKnowledgeRow', async (event) => {
       const selected = event.selection && event.selection[0];
       if (!selected) {
         return;

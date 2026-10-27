@@ -33,7 +33,7 @@ const vscode = require('vscode');
 const HEADING = 'The SHACL shapes as written, one row per shape with what it targets. A shape opens its shape page.';
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon, rowClicks } = require('./reveal');
 
 class ShapeNode {
   constructor(raw, packageUri) {
@@ -309,7 +309,7 @@ function register(context, clientHolder, session) {
   context.subscriptions.push(view);
 
   context.subscriptions.push(
-    view.onDidChangeSelection(async (event) => {
+    rowClicks(view, provider, 'semforge.clickShapesRow', async (event) => {
       const selected = event.selection && event.selection[0];
       if (!selected) {
         return;

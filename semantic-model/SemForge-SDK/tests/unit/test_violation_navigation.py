@@ -135,7 +135,11 @@ def _dom(tmp_path, after, page=PAGE):
 
 def test_the_page_lists_each_violation_with_the_way_to_it(tmp_path):
     html = _render(tmp_path).read_text()
-    assert '<h2>Violations <span class="dim">· 2</span></h2>' in html
+    assert '<h2 id="violations">Violations <span class="dim">· 2</span></h2>' in html
+    # What the Problems panel is, and the way to it: nothing said either.
+    assert 'data-problems="1">Open the Problems panel</a>' in html
+    # The count at the top leads to the list.
+    assert re.search(r'data-jumplist="1"[^>]*><span class="chip warn"[^>]*>2 violation', html)
     assert re.search(r'data-jump="0\.1\.1"[^>]*>urn:b · hasWidth</a> hasWidth is above its maximum',
                      html)
     assert re.search(r'data-jump="0\.2"[^>]*>urn:c</a> hasPort is required but missing', html)
@@ -255,3 +259,12 @@ def test_a_violating_attribute_opens_the_page_at_its_row(tmp_path):
     [args] = _click(tmp_path, attribute, entity)
     assert args[1]['focus'] == 'urn:w:1' and args[1]['attribute'] == 'hasWidth'
     assert 'only' not in args[1]
+
+
+def test_the_count_at_the_top_leads_to_the_list(tmp_path):
+    dom = _dom(tmp_path, """
+document.querySelector('[data-jumplist]').click();
+document.documentElement.dataset.flashed =
+  String(document.getElementById('violations').classList.contains('flash'));
+""")
+    assert re.search(r'<html[^>]* data-flashed="true"', dom)

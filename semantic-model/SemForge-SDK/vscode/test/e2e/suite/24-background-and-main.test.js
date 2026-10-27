@@ -82,7 +82,8 @@ describe('Validation in the background', () => {
     // ... the Main page's list, which leads to the row ...
     await vscode.commands.executeCommand('semforge.openModelPage');
     const listed = await until(() => api.pages.case.page && api.pages.case.page.kind === 'model' &&
-      /<h2>Violations/.test(api.pages.case.panel.webview.html) && api.pages.case.panel.webview.html,
+      /<h2 id="violations">Violations/.test(api.pages.case.panel.webview.html) &&
+      api.pages.case.panel.webview.html,
     'the Violations list');
     assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*>${entity} · hasWidth</a>`));
     // ... and the tree, which says it first.
@@ -139,6 +140,48 @@ describe('The Main page with many entities', () => {
     await api.pages.case.receive({ command: 'type', name: card.type });
     await until(() => api.pages.type.panel &&
       api.pages.type.panel.title === `Entity type: ${card.type.split(':').pop()}`, 'its type page');
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  });
+});
+
+describe('A count is a way in', () => {
+  it('every row of every view runs its click, every time it is clicked', async () => {
+    const api = await semforge();
+    const views = { project: 'semforge.clickPackageRow', constraints: 'semforge.clickTypesRow',
+      shapes: 'semforge.clickShapesRow', model: 'semforge.clickEntitiesRow',
+      knowledge: 'semforge.clickKnowledgeRow' };
+    for (const [name, command] of Object.entries(views)) {
+      const tree = api.trees[name];
+      const [first] = await until(async () => (await tree.getChildren()) || [], `${name} rows`);
+      const item = await tree.getTreeItem(first);
+      assert.strictEqual(item.command && item.command.command, command, name);
+    }
+    // Main, which counts violations, clicked; the page closed; clicked
+    // again -- the selection does not change, and it did nothing.
+    const tree = api.trees.model;
+    const main = await until(async () => (await rows(tree)).find((node) =>
+      node.raw.kind === 'group' && node.raw.label === 'Main' && node.raw.severity), 'Main');
+    const click = (await tree.getTreeItem(main)).command;
+    for (const time of [1, 2]) {
+      await vscode.commands.executeCommand(click.command, ...click.arguments);
+      await until(() => api.pages.case.panel && api.pages.case.current &&
+        api.pages.case.current.only === true, `the Main page, only what violates (click ${time})`);
+      assert.match(api.pages.case.panel.webview.html, /data-only="1"/);
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+      await until(() => !api.pages.case.panel, 'the page closed');
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+  });
+
+  it('the Health page\u2019s violations tile opens them', async () => {
+    const api = await semforge();
+    await vscode.commands.executeCommand('semforge.openHealthPage');
+    const html = await until(() => api.pages.health.panel && api.pages.health.panel.webview.html
+      .includes('data-act="violations"') && api.pages.health.panel.webview.html, 'the tile');
+    assert.match(html, /<button class="tile warn" data-act="violations"/);
+    await api.pages.health.receive({ command: 'violations' });
+    await until(() => api.pages.case.panel && api.pages.case.current &&
+      api.pages.case.current.only === true, 'the Main page, only what violates');
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 });

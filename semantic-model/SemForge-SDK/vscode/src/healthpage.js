@@ -32,9 +32,12 @@ const { escape } = require('./typepage');
 
 const SEVERITY_CLASS = { error: 'bad', warning: 'warn', note: '' };
 
-function tile(value, label, tone, title) {
-  return `<div class="tile ${tone || ''}"${title ? ` title="${escape(title)}"` : ''}>` +
-    `<span class="n">${escape(value)}</span><span class="s">${escape(label)}</span></div>`;
+function tile(value, label, tone, title, act) {
+  // A count with something behind it is a way in: a button, not a label.
+  const tag = act ? 'button' : 'div';
+  return `<${tag} class="tile ${tone || ''}"${act ? ` data-act="${act}"` : ''}` +
+    `${title ? ` title="${escape(title)}"` : ''}>` +
+    `<span class="n">${escape(value)}</span><span class="s">${escape(label)}</span></${tag}>`;
 }
 
 function action(item) {
@@ -62,7 +65,9 @@ function renderHealthPage(page, options) {
       t.cases === 0 ? 'No test case is declared: nothing proves a constraint can fire.' : ''),
     tile(t.modelViolations, t.modelViolations === 1 ? 'violation in the model'
       : 'violations in the model', t.modelViolations ? 'warn' : 'good',
-    t.modelConstraints ? `from ${t.modelConstraints} constraint(s)` : ''),
+    (t.modelConstraints ? `from ${t.modelConstraints} constraint(s). ` : '') +
+      (t.modelViolations ? 'Click: show them on the Main page.' : ''),
+    t.modelViolations ? 'violations' : ''),
     tile(t.evaluated, 'constraints evaluated'),
     tile(t.neverFired, `never fired, in ${t.neverFiredShapes} shape(s)`,
       t.neverFired ? 'warn' : 'good',
@@ -93,6 +98,7 @@ function renderHealthPage(page, options) {
            padding: 2px 10px; border-radius: 2px; cursor: pointer; white-space: nowrap; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
            gap: 10px; margin-top: 14px; }
+  button.tile { font: inherit; color: inherit; text-align: left; cursor: pointer; }
   .tile { border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); border-radius: 4px;
           padding: 10px 12px; display: grid; gap: 2px; }
   .tile .n { font-size: 1.7em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; }
@@ -137,6 +143,7 @@ ${items.length ? `<div class="items">${items.map((item) => `<div class="item">` 
     else if (d.case) { vscode.postMessage({ command: 'case', file: d.case }); }
     else if (d.type) { vscode.postMessage({ command: 'type', name: d.type }); }
     else if (d.rescan) { vscode.postMessage({ command: 'rescan' }); }
+    else if (d.act === 'violations') { vscode.postMessage({ command: 'violations' }); }
     else { vscode.postMessage({ command: 'refresh' }); }
   });
 </script>
@@ -209,6 +216,9 @@ class HealthPage {
     } else if (message.command === 'type' && message.name) {
       await vscode.commands.executeCommand('semforge.openTypePage',
         node({ targetClass: message.name }));
+    } else if (message.command === 'violations') {
+      // The model's violations, and nothing else, on the Main page.
+      await vscode.commands.executeCommand('semforge.openModelPage', node({}), { only: true });
     } else if (message.command === 'rescan') {
       await vscode.commands.executeCommand('semforge.rescan', { packageUri: this.packageUri });
       await this.render();

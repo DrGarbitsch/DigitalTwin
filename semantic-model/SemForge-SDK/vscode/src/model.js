@@ -33,7 +33,7 @@ const HEADING = 'The data: the Main model’s entities, then the test cases that
 const { askDatasetId } = require('./datasetid');
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, treeDetail, treeClick, icon } = require('./reveal');
+const { showLocation, treeDetail, treeClick, icon, rowClicks } = require('./reveal');
 
 // The contextValue vocabulary, spelled out. `when: viewItem == x` matches a
 // string and nothing else: a row whose contextValue drifts from what
@@ -1059,7 +1059,7 @@ function register(context, clientHolder, session, onChanged) {
   // file:line now, so this lands on the entity, the attribute or the single
   // observation you picked.
   context.subscriptions.push(
-    view.onDidChangeSelection(async (event) => {
+    rowClicks(view, provider, 'semforge.clickEntitiesRow', async (event) => {
       const selected = event.selection && event.selection[0];
       if (!selected) {
         return;

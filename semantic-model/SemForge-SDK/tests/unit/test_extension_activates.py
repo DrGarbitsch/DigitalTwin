@@ -52,6 +52,8 @@ EXPECTED = {
     'semforge.removeSparqlQuery',
     'semforge.sparqlApply', 'semforge.sparqlInspect', 'semforge.nestForFlink',
     'semforge.openHealthPage', 'semforge.openPackagePage',
+    'semforge.clickPackageRow', 'semforge.clickTypesRow', 'semforge.clickShapesRow',
+    'semforge.clickEntitiesRow', 'semforge.clickKnowledgeRow',
     'semforge.openSource', 'semforge.openShapePage', 'semforge.refreshShapes',
     'semforge.openVocabularyPage', 'semforge.newVocabularyClass', 'semforge.newAttributeTest',
     'semforge.newShape', 'semforge.newTestCase', 'semforge.mergeShape',

@@ -219,12 +219,18 @@ function violationsOf(files) {
   return out;
 }
 
-/** The list at the top: the way to each violation, not just their count. */
-function violationList(found) {
+/** The list at the top: the way to each violation, not just their count.
+ *  On the Main page, where each is also a problem on its line, the way to
+ *  VS Code's Problems panel too -- nothing said what or where it was. */
+function violationList(found, model) {
   if (!found.length) {
     return '';
   }
-  return `<h2>Violations <span class="dim">· ${found.length}</span></h2>
+  return `<h2 id="violations">Violations <span class="dim">· ${found.length}</span></h2>
+${model ? '<p class="dim">Click one to go to it. Each is also listed in VS Code\u2019s ' +
+    '<b>Problems</b> panel (Ctrl+Shift+M, or the warning count in the status bar), on its line ' +
+    'in the .jsonld: F8 steps from one to the next. ' +
+    '<a href="#" data-problems="1">Open the Problems panel</a></p>' : ''}
 <ul class="vlist">${found.map((v) => `<li><a href="#" data-jump="${v.at}" title="Show it">` +
     `${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
     `${escape(v.text)} <span class="dim">· ${escape(v.shape)}</span></li>`).join('')}</ul>`;
@@ -395,6 +401,7 @@ function renderCasePage(page, options) {
   .trail .sep { color: var(--vscode-descriptionForeground); }
   .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
   .vlist { margin: 4px 0 12px; padding-left: 18px; }
+  .chiplink { text-decoration: none; }
   .vlist li { margin: 2px 0; }
   .vlist a { color: var(--vscode-errorForeground, #f14c4c); }
   .attr.violates > .name { color: var(--vscode-errorForeground, #f14c4c); }
@@ -411,8 +418,10 @@ ${model ? `<div class="chips">
   ${chip(`${(page.summary || {}).entities || 0} entities`)}
   ${(page.summary || {}).violations === null ? ''
     : (page.summary || {}).violations
-    ? chip(`${page.summary.violations} violation(s)`, 'warn',
-      'The model declares nothing and cannot fail: these are information.')
+    ? `<a href="#" class="chiplink" data-jumplist="1" title="Show them">` +
+      chip(`${page.summary.violations} violation(s)`, 'warn',
+        'Click: the list of them, below. The model declares nothing and cannot fail: ' +
+        'these are information.') + '</a>'
     : chip('all valid', 'ok')}
 </div>` : `<div class="chips">
   ${chip(`expects ${page.expect}`)}
@@ -435,7 +444,7 @@ ${claims.length || unasserted.length
     : `<p class="dim">This case asserts nothing${page.expect === 'valid'
       ? ' beyond being valid.' : '. A bad case that asserts nothing is an unfinished test.'}</p>`}`}
 
-${violationList(violationsOf(files))}
+${violationList(violationsOf(files), model)}
 <h2>${model ? 'Entities' : 'Data'}</h2>
 ${entityBar(entities)}
 <script type="application/json" id="entities">${JSON.stringify(entities).replace(/</g, '\\u003c')}</script>
@@ -869,6 +878,17 @@ ${BUSY_SCRIPT}
     if (view) { event.preventDefault(); setView(view.dataset.view); return; }
     const reltoggle = event.target.closest('[data-reltoggle]');
     if (reltoggle) { event.preventDefault(); event.stopPropagation(); openRel(reltoggle.closest('.attr')); return; }
+    if (event.target.closest('[data-jumplist]')) {
+      event.preventDefault();
+      const list = document.getElementById('violations');
+      if (list) { flash(list); }
+      return;
+    }
+    if (event.target.closest('[data-problems]')) {
+      event.preventDefault();
+      vscode.postMessage({ command: 'problems' });
+      return;
+    }
     const jump = event.target.closest('[data-jump]');
     if (jump) { event.preventDefault(); jumpTo(jump.dataset.jump); return; }
     const goto = event.target.closest('[data-goto]');
@@ -1050,6 +1070,8 @@ class CasePages {
       await this.assert(message.index);
     } else if (message.command === 'open' && message.at) {
       await showLocation(message.at, true);
+    } else if (message.command === 'problems') {
+      await vscode.commands.executeCommand('workbench.actions.view.problems');
     } else if (message.command === 'type' && message.name) {
       // An attribute's name: its type's page, the attribute marked.
       await vscode.commands.executeCommand('semforge.openTypePage',

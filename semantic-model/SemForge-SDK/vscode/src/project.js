@@ -34,7 +34,7 @@ const vscode = require('vscode');
 const HEADING = 'This package: its settings, its health and what it is made of. A row opens the package page.';
 
 const { noPackageMessage } = require('./locate');
-const { showLocation, icon, treeClick } = require('./reveal');
+const { showLocation, icon, treeClick, rowClicks } = require('./reveal');
 
 class ProjectTreeNode {
   constructor(key, raw, packageUri) {
@@ -263,7 +263,7 @@ function register(context, clientHolder, session, onChanged) {
   // it decides and Edit…. semforge.yaml is its Open button (or, with
   // semforge.trees.click = source, the click).
   context.subscriptions.push(
-    view.onDidChangeSelection(async (event) => {
+    rowClicks(view, provider, 'semforge.clickPackageRow', async (event) => {
       const selected = event.selection && event.selection[0];
       if (selected && selected.raw.kind === 'health') {
         await vscode.commands.executeCommand('semforge.openHealthPage', selected);

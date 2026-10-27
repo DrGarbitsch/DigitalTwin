@@ -138,6 +138,7 @@ def test_clicking_a_row_does_not_open_an_editor_prompt(source):
         os.path.abspath(__file__))), '..', 'vscode', 'src', source)
     with open(os.path.abspath(path)) as handle:
         text = handle.read()
-    assert 'onDidChangeSelection' in text, 'selection must reveal the row'
+    # A click and the selection both open the row (reveal.rowClicks).
+    assert 'rowClicks(view, provider' in text, 'a click must open the row'
     assert "command: 'semforge.editValue'" not in text
     assert "command: 'semforge.editConstraint'," not in text

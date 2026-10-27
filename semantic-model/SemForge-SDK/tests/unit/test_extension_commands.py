@@ -1944,7 +1944,11 @@ def test_remove_this_use_is_not_in_the_palette():
                       'semforge.renameTestCase', 'semforge.renameSuite',
                       'semforge.deleteShape', 'semforge.cloneTestCase',
                       'semforge.deleteTestCase', 'semforge.deleteSuite',
-                      'semforge.removeCaseValue', 'semforge.linkSeverityClass'}
+                      'semforge.removeCaseValue', 'semforge.linkSeverityClass',
+                      # A click on a row of a view: the row it was clicked on.
+                      'semforge.clickPackageRow', 'semforge.clickTypesRow',
+                      'semforge.clickShapesRow', 'semforge.clickEntitiesRow',
+                      'semforge.clickKnowledgeRow'}
 
 
 # --- sub-attributes ---------------------------------------------------------------
