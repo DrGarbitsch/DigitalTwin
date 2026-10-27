@@ -159,6 +159,23 @@ def _prime_in_worker(root, data):
     return _worker_session.prime(root, from_json(data))
 
 
+def _watch_parent(parent):
+    """Runs in the worker: exit when the server that started it is gone.
+
+    A spawned worker holds both ends of its task queue, so a server that dies
+    -- a window reload, a crash -- never closes it: the worker waited on it
+    forever, the package it holds in memory with it. 409 of them, 28 GB, had
+    piled up on one machine in two days.
+    """
+    def watch():
+        while True:
+            time.sleep(2)
+            if os.getppid() != parent:
+                os._exit(0)
+
+    threading.Thread(target=watch, daemon=True, name='semforge-parent-watch').start()
+
+
 class ProcessRunner:
     """run(root, stamp) in one long-lived worker process.
 
@@ -180,7 +197,8 @@ class ProcessRunner:
         with self._lock:
             if self._pool is None:
                 self._pool = ProcessPoolExecutor(
-                    max_workers=1, mp_context=multiprocessing.get_context('spawn'))
+                    max_workers=1, mp_context=multiprocessing.get_context('spawn'),
+                    initializer=_watch_parent, initargs=(os.getpid(),))
             return self._pool
 
     def __call__(self, root, stamp):

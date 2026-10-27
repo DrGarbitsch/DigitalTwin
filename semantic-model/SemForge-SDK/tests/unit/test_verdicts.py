@@ -218,6 +218,43 @@ def test_a_failing_prime_costs_nothing_but_the_head_start(package):
     assert second.get(package.path)[1].state == 'ready'
 
 
+SERVER = '''
+import os, sys, time
+from semforge.editor.verdicts import ProcessRunner
+runner = ProcessRunner()
+print(runner._executor().submit(os.getpid).result(timeout=60), flush=True)
+time.sleep(600)
+'''
+
+
+def test_the_worker_dies_with_the_server():
+    """A server killed outright -- a window reload -- left its worker waiting
+    on a queue nobody would close: 409 of them, 28 GB, on one machine."""
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    server = subprocess.Popen([sys.executable, '-c', SERVER], stdout=subprocess.PIPE, text=True)
+    try:
+        worker = int(server.stdout.readline())
+        os.kill(worker, 0)                                    # alive
+        server.send_signal(signal.SIGKILL)
+        server.wait(timeout=10)
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            try:
+                os.kill(worker, 0)
+            except ProcessLookupError:
+                return
+            time.sleep(0.5)
+        os.kill(worker, signal.SIGKILL)
+        pytest.fail('the worker outlived its server')
+    finally:
+        if server.poll() is None:
+            server.kill()
+
+
 def test_the_worker_process_takes_them(package):
     """Through the real worker: primed, its next run on the same version is
     the kept one."""
