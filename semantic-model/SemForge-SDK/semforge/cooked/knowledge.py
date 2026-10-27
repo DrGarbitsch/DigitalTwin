@@ -235,7 +235,9 @@ def _data_graph(package):
     for path in example_files(package):
         try:
             document, _ = resolve_model_document(package.path, path, config)
-            graph.parse(data=json.dumps(document), format='json-ld')
+            from ..rdfio.relative import BASE, absolute_contexts
+            graph.parse(data=json.dumps(absolute_contexts(document, path)), format='json-ld',
+                        base=BASE)
         except Exception:                          # noqa: BLE001
             continue                               # reported by the examples view
     return graph if len(graph) else package.model

@@ -603,7 +603,10 @@ def build_type_page(package, entity_type, verdicts=None):
     else:
         report = validate_package(package, strict=False)
     pending = report is None
-    model_types = {str(s): {str(o) for o in package.model.objects(s, RDF.type)}
+    from ..rdfio.relative import as_written
+
+    # Keyed by the id as written, as a violation names its entity.
+    model_types = {as_written(s): {str(o) for o in package.model.objects(s, RDF.type)}
                    for s in set(package.model.subjects(RDF.type, None))}
     violated = {}
     for violation in ([] if pending else report.violations):
@@ -626,7 +629,7 @@ def build_type_page(package, entity_type, verdicts=None):
             known_constraints(package))}
     exercised = []
     for example, graph, case_report in cases:
-        typed = sorted({str(s) for s, o in graph.subject_objects(RDF.type)
+        typed = sorted({as_written(s) for s, o in graph.subject_objects(RDF.type)
                         if str(o) in family})
         if not typed:
             continue

@@ -424,6 +424,7 @@ def _scene(package, entry):
     purpose, and a test started from it inherits the breakage -- on the OPC
     UA pumps a valid hasVoltage case came out with power-factor-too-many's
     two power factors."""
+    from ..rdfio.relative import as_written
     from .newcase import _model_document
 
     family = _family(package, entry.iri)
@@ -435,7 +436,7 @@ def _scene(package, entry):
             graph = compose(package, example)
         except PackageError:
             continue
-        typed = sorted({str(s) for s, o in graph.subject_objects(RDF.type)
+        typed = sorted({as_written(s) for s, o in graph.subject_objects(RDF.type)
                         if str(o) in family})
         if not typed:
             continue
@@ -449,13 +450,41 @@ def _scene(package, entry):
         entity = next((t for t in typed if t in ids), None)
         if entity is not None:
             return documents, entity, example.path
-    typed = sorted({str(s) for s, o in package.model.subject_objects(RDF.type)
+    typed = sorted({as_written(s) for s, o in package.model.subject_objects(RDF.type)
                     if str(o) in family})
     for entity in typed:
         document = _model_document(package, entity)
-        if document is not None:
-            return [document], entity, 'the model'
+        if document is None:
+            continue
+        # The entities it points at come along: a relationship's sh:class is
+        # judged on its target, and alone in the case the target has no type.
+        # One that points outside the model is no scene.
+        scene = [document]
+        for target in _targets(document):
+            found = _model_document(package, target) if target != entity else document
+            if found is None:
+                scene = None
+                break
+            if found not in scene:
+                scene.append(found)
+        if scene:
+            return scene, entity, 'the model'
     return None, None, None
+
+
+def _targets(node):
+    """The ids an entity's relationships point at, sub-attributes included."""
+    found = []
+    for key, value in (node.items() if isinstance(node, dict) else []):
+        if key in ('@context', 'id', '@id', 'type', '@type'):
+            continue
+        for item in value if isinstance(value, list) else [value]:
+            if not isinstance(item, dict):
+                continue
+            if item.get('type') == 'Relationship' and isinstance(item.get('object'), str):
+                found.append(item['object'])
+            found += _targets(item)
+    return list(dict.fromkeys(found))
 
 
 def _fresh(package, entry):

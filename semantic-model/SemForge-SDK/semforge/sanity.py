@@ -46,6 +46,9 @@ line that holds it:
   json-never-holds   sh:datatype rdf:JSON anywhere but a JsonProperty's json
                      (a warning): a JSON object elsewhere is read as nodes,
                      so no NGSI-LD data satisfies it
+  id-not-iri         an entity id in the data that is not an absolute IRI:
+                     NGSI-LD requires one, and every reader resolves a
+                     relative id against a base of its own
   dataset-not-iri    a datasetId in the data that is not an IRI: the context
                      reads it as one, so a plain word silently becomes another
   dataset-none       an explicit "datasetId": "@none" -- the platform's name
@@ -548,6 +551,50 @@ def _attribute_instances(document):
                             start, [])
 
 
+def _id_checks(package):
+    """id-not-iri: an entity whose id is not an absolute IRI."""
+    import json
+
+    from .cooked.examples import DATASET_IRI
+    from .cooked.jsonloc import locate
+    from .expect.identity import example_files
+
+    out = []
+    for source in example_files(package):
+        try:
+            with open(source, encoding='utf-8') as handle:
+                raw = handle.read()
+            document = json.loads(raw)
+            lines = locate(raw)
+        except Exception:                          # noqa: BLE001
+            continue
+        entities = document if isinstance(document, list) else [document]
+        bad = []
+        for position, entity in enumerate(entities):
+            if not isinstance(entity, dict):
+                continue
+            identifier = entity.get('id', entity.get('@id'))
+            if identifier is None or DATASET_IRI.match(str(identifier).strip()):
+                continue
+            bad.append((lines.get((position, 'id')) or lines.get((position, '@id')) or
+                        lines.get((position,)) or 1, str(identifier)))
+        if not bad:
+            continue
+        # One finding per file: a generator writes every id the same way, and
+        # twenty identical errors would bury what else the file has.
+        shown = ', '.join(i if len(i) <= 24 else i[:21] + '...' for _, i in bad[:2])
+        said = (f'"{bad[0][1]}" is not an IRI' if len(bad) == 1 else
+                f'{len(bad)} entity ids in this file are not IRIs ({shown}'
+                f'{", ..." if len(bad) > 2 else ""})')
+        out.append(SanityFinding(
+            file=source, line=bad[0][0], severity='error', code='id-not-iri',
+            subject=bad[0][1],
+            message=f'{said}. NGSI-LD requires an entity id to be an absolute URI '
+                    f'(urn:..., https://...); a relative one is resolved against wherever it '
+                    f'is read, so the platform and every tool see a different entity.'))
+    return out
+
+
 def _dataset_checks(package):
     import json
 
@@ -760,6 +807,7 @@ def sanity(package):
                   lambda: _expectation_checks(package),
                   lambda: _severity_checks(package),
                   lambda: _dataset_checks(package),
+                  lambda: _id_checks(package),
                   lambda: _count_checks(package),
                   lambda: _json_checks(package),
                   lambda: _vocabulary_checks(package),

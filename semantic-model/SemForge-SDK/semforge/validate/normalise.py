@@ -123,9 +123,11 @@ def owner_and_edge(node, graph, seen=None):
     entity: a constraint on a sub-attribute is named after the sub-attribute
     (`bolt`), not after its grandparent (`assembly`).
     """
+    from ..rdfio.relative import as_written
+
     seen = seen if seen is not None else set()
     if isinstance(node, URIRef):
-        return str(node), None
+        return as_written(node), None
     if node in seen:
         return None, None
     seen.add(node)

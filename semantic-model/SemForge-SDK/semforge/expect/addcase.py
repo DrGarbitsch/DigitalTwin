@@ -61,7 +61,9 @@ def case_options(package):
     undeclared = [p for p in discover(package.path)
                   if os.path.normpath(p) not in declared | included
                   and not p.replace('\\', '/').startswith('subobjects/')]
-    entities = sorted({str(s) for s in package.model.subjects(RDF.type, None)
+    from ..rdfio.relative import as_written
+
+    entities = sorted({as_written(s) for s in package.model.subjects(RDF.type, None)
                        if isinstance(s, URIRef)})
     return {
         'root': root,
