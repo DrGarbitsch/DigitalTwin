@@ -140,9 +140,10 @@ def test_the_page_lists_each_violation_with_the_way_to_it(tmp_path):
     assert 'data-problems="1">Open the Problems panel</a>' in html
     # The count at the top leads to the list.
     assert re.search(r'data-jumplist="1"[^>]*><span class="chip warn"[^>]*>2 violation', html)
-    assert re.search(r'data-jump="0\.1\.1"[^>]*>urn:b · hasWidth</a> hasWidth is above its maximum',
-                     html)
-    assert re.search(r'data-jump="0\.2"[^>]*>urn:c</a> hasPort is required but missing', html)
+    # The whole line goes there, not only its link: the message is most of it.
+    assert re.search(r'<li data-jump="0\.1\.1"[^>]*><a href="#">urn:b · hasWidth</a> '
+                     r'hasWidth is above its maximum', html)
+    assert re.search(r'<li data-jump="0\.2"[^>]*><a href="#">urn:c</a> hasPort is required', html)
     assert 'class="attr violates" data-at="0.1.1" data-name="hasWidth"' in html
     assert '<input id="fbad" type="checkbox"> only what violates' in html
 
@@ -171,7 +172,9 @@ def test_a_violation_in_the_list_goes_to_its_row(tmp_path):
     dom = _dom(tmp_path, '''
 document.getElementById('fid').value = 'urn:a';
 document.getElementById('fid').dispatchEvent(new Event('input'));
-document.querySelector('[data-jump="0.1.1"]').click();
+// The message part of the line -- clicking it did nothing when only the
+// entity and attribute were the link.
+document.querySelector('li[data-jump="0.1.1"] .dim').click();
 var row = document.querySelector('.attr[data-at="0.1.1"]');
 document.documentElement.dataset.flashed = String(row.classList.contains('flash'));
 document.documentElement.dataset.shown = String(!row.closest('.card').hidden);
@@ -268,3 +271,24 @@ document.documentElement.dataset.flashed =
   String(document.getElementById('violations').classList.contains('flash'));
 """)
     assert re.search(r'<html[^>]* data-flashed="true"', dom)
+
+
+# --- the Problems panel, with nothing open --------------------------------------------
+
+def test_without_an_open_file_the_problems_still_come(monkeypatch, corpus_path):
+    """The pages are where a package is worked on: waiting for an open .ttl
+    left the Problems panel empty while the Main page counted violations."""
+    from semforge.editor import validation
+
+    sent = []
+
+    class Workspace:
+        text_documents = {}
+
+    class Server:
+        workspace = Workspace()
+
+    monkeypatch.setattr(validation, 'server', Server())
+    monkeypatch.setattr(validation, 'publish', lambda ls, uri: sent.append(uri))
+    validation._republish(corpus_path)
+    assert sent == ['file://' + os.path.join(corpus_path, 'shacl.ttl')]

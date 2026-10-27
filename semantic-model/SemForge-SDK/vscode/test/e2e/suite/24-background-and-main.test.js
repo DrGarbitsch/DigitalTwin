@@ -72,8 +72,14 @@ describe('Validation in the background', () => {
       width(judged).violations);
     const entity = width(judged).violations.find((id) => !already.includes(id));
 
-    // The ways to it. A problem on its row in the data, for F8 ...
-    const model = await vscode.workspace.openTextDocument(path.join(WORKSPACE, 'model-instance.jsonld'));
+    // The ways to it. A problem on its row in the data, for F8 -- in the
+    // Problems panel before the file is opened ...
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    const modelUri = vscode.Uri.file(path.join(WORKSPACE, 'model-instance.jsonld'));
+    await until(() => vscode.languages.getDiagnostics(modelUri).some((d) =>
+      String(d.code && (d.code.value || d.code)) === 'model-violation' &&
+      d.message.startsWith(`${entity} · hasWidth:`)), 'the problem with no file open');
+    const model = await vscode.workspace.openTextDocument(modelUri);
     await vscode.window.showTextDocument(model);
     const problem = await until(() => vscode.languages.getDiagnostics(model.uri).find((d) =>
       String(d.code && (d.code.value || d.code)) === 'model-violation' &&
@@ -85,7 +91,7 @@ describe('Validation in the background', () => {
       /<h2 id="violations">Violations/.test(api.pages.case.panel.webview.html) &&
       api.pages.case.panel.webview.html,
     'the Violations list');
-    assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*>${entity} · hasWidth</a>`));
+    assert.match(listed, new RegExp(`data-jump="[0-9.]+"[^>]*><a href="#">${entity} · hasWidth</a>`));
     // ... and the tree, which says it first.
     const tree = api.trees.model;
     const row = await until(async () => (await rows(tree)).find((node) =>

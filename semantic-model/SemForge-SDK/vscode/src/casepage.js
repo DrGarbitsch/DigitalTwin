@@ -231,8 +231,8 @@ ${model ? '<p class="dim">Click one to go to it. Each is also listed in VS Code\
     '<b>Problems</b> panel (Ctrl+Shift+M, or the warning count in the status bar), on its line ' +
     'in the .jsonld: F8 steps from one to the next. ' +
     '<a href="#" data-problems="1">Open the Problems panel</a></p>' : ''}
-<ul class="vlist">${found.map((v) => `<li><a href="#" data-jump="${v.at}" title="Show it">` +
-    `${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
+<ul class="vlist">${found.map((v) => `<li data-jump="${v.at}" title="Click: go to it">` +
+    `<a href="#">${escape(v.entity || '(no id)')}${v.attribute ? ` · ${escape(v.attribute)}` : ''}</a> ` +
     `${escape(v.text)} <span class="dim">· ${escape(v.shape)}</span></li>`).join('')}</ul>`;
 }
 
@@ -399,10 +399,12 @@ function renderCasePage(page, options) {
            background: var(--vscode-editor-background); overflow-wrap: anywhere; font-size: 0.92em;
            border-bottom: 1px solid var(--vscode-panel-border, rgba(128,128,128,.35)); }
   .trail .sep { color: var(--vscode-descriptionForeground); }
-  .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px; }
+  .flash { outline: 2px solid var(--vscode-focusBorder, #0078d4); outline-offset: 2px;
+           background: var(--vscode-editor-findMatchHighlightBackground, rgba(234,92,0,.33)); }
   .vlist { margin: 4px 0 12px; padding-left: 18px; }
   .chiplink { text-decoration: none; }
-  .vlist li { margin: 2px 0; }
+  .vlist li { margin: 2px 0; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .vlist li:hover { background: var(--vscode-list-hoverBackground, rgba(128,128,128,.15)); }
   .vlist a { color: var(--vscode-errorForeground, #f14c4c); }
   .attr.violates > .name { color: var(--vscode-errorForeground, #f14c4c); }
   .attr.violates > .name::before { content: '✗ '; }
@@ -777,7 +779,7 @@ ${BUSY_SCRIPT}
   function flash(node) {
     node.scrollIntoView({ block: 'center' });
     node.classList.add('flash');
-    setTimeout(function () { node.classList.remove('flash'); }, 1200);
+    setTimeout(function () { node.classList.remove('flash'); }, 3000);
   }
   if (filterBox && graph && cardview) {
     ftype.value = ui.type;

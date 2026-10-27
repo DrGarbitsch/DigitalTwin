@@ -38,6 +38,7 @@ SEVERITY = {
 }
 
 
+_offered = set()            # roots whose cached verdicts went to the Problems panel
 _published = {}            # root -> uris that were last sent findings
 
 
@@ -169,7 +170,13 @@ def verdicts_for(root):
         _loop = asyncio.get_running_loop()
     except RuntimeError:
         pass
-    return service().get(root)
+    found = service().get(root)
+    # Verdicts from the disk cache bring no notification: the first time a
+    # page asks for them, the Problems panel gets them too.
+    if found[1].state == 'ready' and root not in _offered and _loop is not None:
+        _offered.add(root)
+        _loop.call_soon(_republish, root)
+    return found
 
 
 def verdict_page(root, key, build):
@@ -206,9 +213,18 @@ def _notify_verdicts(root, state):
 
 
 def _republish(root):
-    """The verdicts are in: the package's diagnostics again, now with them."""
-    for uri in list(server.workspace.text_documents):
-        path = uri_to_path(uri)
-        if path and package_root(path) == root:
-            publish(server, uri)
-            return
+    """The verdicts are in: the package's diagnostics again, now with them --
+    whether or not one of its files is open. The pages and views are where a
+    package is worked on; waiting for an open .ttl left the Problems panel
+    empty while the Main page counted violations."""
+    try:
+        for uri in list(server.workspace.text_documents):
+            path = uri_to_path(uri)
+            if path and package_root(path) == root:
+                publish(server, uri)
+                return
+        shapes = session.package_for(root).files('shapes')
+        if shapes:
+            publish(server, path_to_uri(shapes[0]))
+    except Exception:                              # noqa: BLE001 -- no client, no panel
+        pass
