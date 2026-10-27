@@ -80,7 +80,9 @@ function severityLabel(severity, declared) {
 /** How well the cases prove this shape: both ways, only one, or not at all. */
 function provenChip(cases) {
   const fires = cases.filter((c) => c.fired).length;
-  const holds = cases.length - fires;
+  // A case where it held of nothing -- the entity has none of its
+  // attributes -- proves nothing; `held` says whether anything was checked.
+  const holds = cases.filter((c) => !c.fired && c.held !== false).length;
   if (!cases.length) {
     return chip('no case reaches it', 'warn', 'Nothing proves it can fire.');
   }
@@ -153,8 +155,10 @@ function testedBy(page, cases) {
   const rows = cases.slice().sort((a, b) => (b.fired ? 1 : 0) - (a.fired ? 1 : 0))
     .map((c) => `<div class="case">` +
       (c.fired === null ? chip('evaluating…', 'dim', 'The package is being validated') :
-        chip(c.fired ? 'fires' : 'holds', c.fired ? 'ok' : '',
-          c.fired ? `reports it ${c.fired}× here` : 'evaluated here, conforming')) +
+        c.fired ? chip('fires', 'ok', `reports it ${c.fired}× here`) :
+        c.held === false ? chip('nothing to check', 'dim', 'Its entity here has none of the ' +
+          'attributes this shape constrains: it holds of nothing, which proves nothing') :
+        chip('holds', '', 'evaluated here, conforming')) +
       `<a tabindex="0" role="link" data-case="${escape(c.file)}" title="${escape(c.description || '')}">` +
       `${escape(c.case.split('/').slice(-3).join(' / '))}</a>` +
       `<span class="dim">${c.firedOn && c.firedOn.length

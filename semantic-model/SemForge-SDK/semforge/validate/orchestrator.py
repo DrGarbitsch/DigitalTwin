@@ -32,6 +32,32 @@ from .applicable import enumerate_pairs
 from .results import Report, Result, Status
 
 
+def _attributes_of(graph, entity):
+    """The local names of every attribute an entity has: its own, its
+    attributes' sub-attributes (NGSI-LD attributes are blank nodes), and
+    the attributes pointing at it (an inverse path names one of those)."""
+    from rdflib import BNode
+
+    names, seen, todo = set(), set(), [entity]
+    while todo:
+        node = todo.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        for predicate, value in graph.predicate_objects(node):
+            names.add(normalise.local(predicate))
+            if isinstance(value, BNode):
+                todo.append(value)
+    # Pointed at: a relationship reaches its object through the attribute's
+    # node (hasCartridge [ hasObject <cartridge> ]), so the attribute's name
+    # is one step further back.
+    for source, predicate in graph.subject_predicates(entity):
+        names.add(normalise.local(predicate))
+        if isinstance(source, BNode):
+            names.update(normalise.local(p) for _, p in graph.subject_predicates(source))
+    return names
+
+
 def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
                     rules=True, cut=True, only=None, near=True):
     """Validate one already-loaded package. Returns a Report.
@@ -116,11 +142,15 @@ def validate_graphs(data_graph, shapes_graph, knowledge_graph=None, strict=True,
     # conformed -- and can now be SAID to have conformed, rather than inferred
     # from silence.
     fired = {r.key() for r in report.results if r.status is Status.VIOLATED}
+    present = {}
     for resource, attribute, component, shape in sorted(expected - fired):
+        if resource not in present:
+            present[resource] = _attributes_of(data_graph, URIRef(resource))
         report.results.append(Result(
             resource=resource, attribute=attribute, component=component,
             shape=shape, severity='info', status=Status.CONFORMANT,
-            shape_curie=normalise.curie(shapes_graph, shape)))
+            shape_curie=normalise.curie(shapes_graph, shape),
+            vacuous=bool(attribute) and attribute.split('.')[0] not in present[resource]))
 
     # The drift check. A reported result the enumerator did not predict means
     # the enumerator is wrong, and an enumerator that quietly under-counts turns

@@ -33,6 +33,7 @@ from rdflib.namespace import RDF, RDFS, SH
 
 from ..errors import PackageError
 from ..validate.normalise import curie, local
+from ..validate.results import Status
 from .shapes import is_rule_only, target_short, targets, used_by
 from .typepage import (PENDING, _attribute_rows, _cases, _coverage, _examples_root,
                        _rules, _short)
@@ -189,11 +190,17 @@ def build_shape_page(package, shape, verdicts=None):
         firing = [] if case_report is None else \
             [v for v in case_report.violations if str(v.shape) == str(shape)]
         fired = None if case_report is None else len(firing)
+        # Holds only where something was checked: an entity without any of
+        # the shape's attributes satisfies it of nothing (Result.vacuous).
+        held = None if case_report is None else any(
+            r.status is Status.CONFORMANT and not r.vacuous and str(r.shape) == str(shape)
+            for r in case_report.results)
         outcome = outcomes.get(example.path)
         exercised.append({
             'case': example.path, 'description': example.description,
             'expect': example.expect, 'entities': sorted(nodes)[:LISTED],
-            'fired': fired, 'firedOn': sorted({str(v.resource) for v in firing}),
+            'fired': fired, 'held': held,
+            'firedOn': sorted({str(v.resource) for v in firing}),
             'passed': None if cases_pending else bool(outcome and outcome.passed),
             'file': os.path.join(_examples_root(package), example.path)})
 

@@ -482,6 +482,23 @@ RULE_PAGE = dict(
                   'fired': 0, 'firedOn': [], 'passed': True}])
 
 
+def test_a_case_with_nothing_to_check_does_not_say_it_holds(tmp_path):
+    """Its entity has none of the shape's attributes: held of nothing."""
+    page = dict(RULE_PAGE, checks=[], exercisedBy=[
+        dict(RULE_PAGE['exercisedBy'][0], case='test_X/good/empty.jsonld', held=False),
+        dict(RULE_PAGE['exercisedBy'][0], case='test_X/good/full.jsonld', held=True)])
+    seen = _drive(tmp_path, {
+        'command': 'semforge.openShapePage',
+        'node': {'raw': dict(SHAPE_ROW, shape=page['iri']),
+                 'packageUri': 'file:///pkg/shacl.ttl'},
+        'replies': {'semforge/shapePage': page}})
+    html = seen['webviews'][0]['html'][-1]
+    empty = html.split('good / empty.jsonld')[0].rsplit('<div class="case">', 1)[1]
+    full = html.split('good / full.jsonld')[0].rsplit('<div class="case">', 1)[1]
+    assert '>nothing to check</span>' in empty and '>holds</span>' not in empty
+    assert '>holds</span>' in full
+
+
 def test_a_rule_that_never_fired_offers_a_new_case(tmp_path):
     seen = _drive(tmp_path, {
         'command': 'semforge.openShapePage',

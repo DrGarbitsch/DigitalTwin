@@ -152,6 +152,11 @@ def coverage(examples_and_reports):
         for result in report.results:
             if result.status not in (Status.VIOLATED, Status.CONFORMANT):
                 continue
+            # Held of an attribute the entity does not have: nothing was
+            # checked. Leaving it out tests presence -- and that is proven
+            # by a case where its absence makes minCount FIRE.
+            if result.status is Status.CONFORMANT and getattr(result, 'vacuous', False):
+                continue
             ref = constraint_ref(result)
             entry = entries.setdefault(ref, CoverageEntry(constraint=ref))
             target = (entry.firing_examples if result.status is Status.VIOLATED

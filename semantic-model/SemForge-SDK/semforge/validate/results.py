@@ -51,6 +51,10 @@ class Result:
     message: str = ''
     view: str = 'current'
     shape_curie: str = ''    # prefixed shape name, for display and expectations
+    # CONFORMANT with nothing to check: the entity has no such attribute, so
+    # its maxCount, datatype, value form... hold of nothing. Not evidence that
+    # a constraint holds -- coverage does not count it (expect/runner.py).
+    vacuous: bool = False
 
     @property
     def shape_name(self):
