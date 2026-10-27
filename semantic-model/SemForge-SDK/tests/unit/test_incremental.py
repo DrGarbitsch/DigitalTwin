@@ -258,3 +258,22 @@ def test_a_statement_that_does_not_parse_alone_matters(tmp_path):
 def test_nothing_changed_does_not_matter(tmp_path):
     text = HEAD + 'ex:x a ex:C ; ex:read [ ex:deep 1 ] .\n'
     assert not _matters(tmp_path, text, text)
+
+
+def test_verdicts_from_disk_make_the_first_edit_incremental(root, monkeypatch):
+    """After a restart the verdicts come from disk and the worker held no run:
+    the first edit validated everything (5-6 s on the OPC UA pumps). Primed
+    with them, it is compared with that version like any later edit."""
+    import semforge.editor.incremental as incremental
+
+    stored = compute(load(root), 'v1')             # what the disk cache holds
+    session = Session(load)
+    assert session.prime(root, stored)
+    assert not session.prime(root, stored), 'once per version'
+    full = []
+    monkeypatch.setattr(incremental, 'compute',
+                        lambda package, stamp: full.append(stamp) or compute(package, stamp))
+    _replace(root, 'model-instance.jsonld', '"urn:cutter:1"', '"urn:cutter:1" ')
+    after = session.run(root, 'v2')
+    assert full == [], 'the first edit after the restart validated everything'
+    assert _keys(after) == _keys(compute(load(root), 'v2'))

@@ -147,6 +147,18 @@ def _compute_in_worker(root, stamp):
     return to_json(_worker_session.run(root, stamp))
 
 
+def _prime_in_worker(root, data):
+    """Runs in the worker process: verdicts read from disk become its last
+    run, so the first edit is incremental (Session.prime)."""
+    global _worker_session
+    from ..package import load
+    from .incremental import Session
+
+    if _worker_session is None:
+        _worker_session = Session(load)
+    return _worker_session.prime(root, from_json(data))
+
+
 class ProcessRunner:
     """run(root, stamp) in one long-lived worker process.
 
@@ -180,6 +192,12 @@ class ProcessRunner:
             with self._lock:
                 self._pool = None      # the worker died: the next run starts a new one
             raise
+
+    def prime(self, root, verdicts):
+        """Hand the worker verdicts from disk to compare the next edit with --
+        started now, waited for by nobody (an edit queues behind it)."""
+        future = self._executor().submit(_prime_in_worker, root, to_json(verdicts))
+        future.add_done_callback(lambda done: done.exception())   # a failed prime: a full run later
 
     def shutdown(self):
         with self._lock:
@@ -223,6 +241,7 @@ class VerdictService:
         self._running = {}     # root -> stamp being computed
         self._failed = {}      # root -> (stamp, error)
         self._threads = {}
+        self._primed = set()   # (root, stamp) handed to the runner from disk
 
     def get(self, root, start=True):
         """(Verdicts or None, State) for the package's current version.
@@ -239,6 +258,7 @@ class VerdictService:
         if stored is not None:
             with self._lock:
                 self._done[root] = stored
+            self._prime(root, stored)
             return stored, State('ready', seconds=stored.seconds)
         with self._lock:
             failed = self._failed.get(root)
@@ -279,6 +299,19 @@ class VerdictService:
         except (KeyError, TypeError, ValueError):
             return None                      # an older format: compute again
         return verdicts if verdicts.stamp == stamp else None
+
+    def _prime(self, root, verdicts):
+        """Verdicts from disk: the runner, if it can, takes them as its last
+        run now -- or the first edit after a restart validates everything."""
+        prime = getattr(self._run_one, 'prime', None)
+        key = (root, verdicts.stamp)
+        if prime is None or key in self._primed:
+            return
+        self._primed.add(key)
+        try:
+            prime(root, verdicts)
+        except Exception:                            # noqa: BLE001 -- only an edit's head start
+            pass
 
     def _start(self, root, stamp):
         with self._lock:

@@ -165,6 +165,45 @@ def test_a_restart_on_an_unchanged_package_validates_nothing(package):
     assert len(verdicts.model.violations) == 3
 
 
+def test_verdicts_from_disk_are_handed_to_the_runner_once(package):
+    """So the worker compares the first edit with them, not with nothing."""
+    from semforge.editor.cache import fingerprint
+
+    first = VerdictService(fingerprint, in_process(load))
+    first.get(package.path)
+    first.wait(package.path, timeout=120)
+
+    primed, runs = [], []
+
+    class Runner:
+        def __call__(self, root, stamp):
+            runs.append(stamp)
+
+        def prime(self, root, verdicts):
+            primed.append((root, verdicts.stamp))
+
+    second = VerdictService(fingerprint, Runner())
+    second.get(package.path)
+    second.get(package.path)
+    assert primed == [(package.path, fingerprint(package.path))] and not runs
+
+
+def test_the_worker_process_takes_them(package):
+    """Through the real worker: primed, its next run on the same version is
+    the kept one."""
+    from semforge.editor.verdicts import ProcessRunner, _prime_in_worker, to_json
+
+    stored = in_process(load)(package.path, 'v1')
+    runner = ProcessRunner()
+    try:
+        assert runner._executor().submit(_prime_in_worker, package.path,
+                                         to_json(stored)).result(timeout=180) is True
+        assert runner._executor().submit(_prime_in_worker, package.path,
+                                         to_json(stored)).result(timeout=60) is False
+    finally:
+        runner.shutdown()
+
+
 def test_pages_without_verdicts_never_validate(package, monkeypatch):
     """The property that keeps a click fast at any size."""
     from semforge.cooked.casepage import build_case_page, build_model_page

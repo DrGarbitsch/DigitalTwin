@@ -491,6 +491,43 @@ class Session:
             gc.freeze()
         return verdicts
 
+    def prime(self, root, verdicts):
+        """Take verdicts that came from the disk cache as the last run.
+
+        A restart on an unchanged package validates nothing: the verdicts are
+        read from disk. The worker then held no run, so the first edit loaded
+        the package and validated it whole -- 5-6 s on the OPC UA pumps, where
+        every later edit took a fraction of that. Loaded here, while nobody
+        waits, the first edit is compared with this version like any other.
+        """
+        old = self._last.get(root)
+        if old is not None and old.stamp == verdicts.stamp:
+            return False
+        digests, _ = _digests(root, set())
+        package = self._load(root, reuse=None)
+        kept = {}
+        for path in {os.path.abspath(p) for p in package.files('knowledge')}:
+            try:
+                with open(path, 'rb') as handle:
+                    kept[path] = handle.read()
+            except OSError:
+                pass
+        self._last[root] = Snapshot(stamp=verdicts.stamp, package=package, verdicts=verdicts,
+                                    digests=digests, knowledge=kept)
+        # The main model and the editor's findings once, results dropped: what
+        # each builds on its first run (the shapes compiled, the knowledge cut,
+        # the Turtle files' index -- 8 s of the 13 on the pumps) is then built,
+        # and the first edit costs what every later one does.
+        from ..validate.orchestrator import validate_graphs
+        from ..validate.readset import run_knowledge
+        validate_graphs(package.model, package.shapes,
+                        run_knowledge(package.shapes, package.knowledge), strict=False, cut=False)
+        findings(root, package, verdicts)
+        gc.unfreeze()
+        gc.collect()
+        gc.freeze()
+        return True
+
     @staticmethod
     def _reusable(old, digests):
         """{role: (documents, graph)} the last run read that are unchanged.
