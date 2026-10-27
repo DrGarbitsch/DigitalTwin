@@ -23,7 +23,7 @@
 const assert = require('assert');
 const vscode = require('vscode');
 const path = require('path');
-const { WORKSPACE, semforge, until, request, rows } = require('./helpers');
+const { WORKSPACE, PACKAGE_URI, semforge, until, request, rows } = require('./helpers');
 
 const ENT = 'https://industryfusion.github.io/contexts/example/v0/base_entities/';
 
@@ -106,6 +106,38 @@ describe('Validation in the background', () => {
       return page.verdicts.state === 'ready' &&
         JSON.stringify(width(page).violations.slice().sort()) === JSON.stringify(already);
     }, 'the violation to clear');
+  });
+
+  // The edit is the server's (no editor saves anything): the open page used
+  // to keep the verdicts it had -- a user's type page still said what it said
+  // before a case gained a value.
+  it('an open type page follows an edit no editor saved', async () => {
+    const api = await semforge();
+    const before = await until(async () => {
+      const page = await workpiecePage(api);
+      return page.verdicts.state === 'ready' && page;
+    }, 'the first verdicts');
+    const already = width(before).violations.slice().sort();
+    await vscode.commands.executeCommand('semforge.openTypePage',
+      { raw: { kind: 'type', targetClass: `${ENT}Workpiece`, children: [] },
+        packageUri: PACKAGE_URI });
+    await until(() => api.pages.type.page && api.pages.type.page.label === 'Workpiece' &&
+      api.pages.type.page.verdicts.state === 'ready', 'the Workpiece page');
+
+    await setMaximum(api, '50');
+    await until(() => {
+      const page = api.pages.type.page;
+      return page && page.verdicts.state === 'ready' &&
+        width(page).violations.some((id) => !already.includes(id));
+    }, 'the open page to show the new violation', 90000);
+
+    await setMaximum(api, '100');
+    await until(() => {
+      const page = api.pages.type.page;
+      return page && page.verdicts.state === 'ready' &&
+        JSON.stringify(width(page).violations.slice().sort()) === JSON.stringify(already);
+    }, 'the open page to show it cleared', 90000);
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 });
 

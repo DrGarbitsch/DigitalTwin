@@ -336,6 +336,7 @@ const stub = {
         set title(value) { record.title = value; },
         reveal: () => { record.revealed = (record.revealed || 0) + 1; },
         onDidDispose: noop,
+        onDidChangeViewState: noop,
         webview: {
           set html(value) { record.html.push(value); },
           get html() { return record.html[record.html.length - 1]; },

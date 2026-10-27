@@ -152,7 +152,10 @@ def test_results_wait_for_an_open_edit():
     Driven on the type, shape and case pages: during a picker of the
     extension's and during the page's own editor the redraw waits, and comes
     once when the edit ends; with nothing open it comes at once; a page whose
-    results are final is not redrawn.
+    results are final is not redrawn -- until a run for its package finishes:
+    an edit made on another page writes the file with no editor save, and the
+    type page kept showing the verdicts from before it. Hidden, it is marked
+    and drawn when shown.
     """
     node = shutil.which('node')
     if node is None:
@@ -163,7 +166,8 @@ def test_results_wait_for_an_open_edit():
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     for page in ('type', 'shape', 'case'):
         assert seen[page] == {'duringPicker': 0, 'afterPicker': 1, 'duringEditor': 1,
-                              'afterEditor': 2, 'idle': 3, 'final': 3}, (page, seen[page])
+                              'afterEditor': 2, 'idle': 3, 'final': 3, 'newer': 4,
+                              'other': 4, 'hidden': 4, 'marked': True}, (page, seen[page])
 
 
 def test_a_quick_page_does_not_flicker(tmp_path):

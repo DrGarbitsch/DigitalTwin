@@ -369,6 +369,13 @@ class ShapePages {
         { viewColumn: vscode.ViewColumn.Active, preserveFocus: !!preserveFocus },
         { enableScripts: true, localResourceRoots: [] });
       this.panel.onDidDispose(() => { this.panel = undefined; });
+      this.panel.onDidChangeViewState(() => {
+        if (this.panel && this.panel.visible && this.staleWhileHidden) {
+          this.staleWhileHidden = false;
+          this.refreshPending = true;
+          this.flushRefresh();
+        }
+      });
       this.panel.webview.onDidReceiveMessage((message) => this.receive(message));
     } else {
       this.panel.reveal(undefined, !!preserveFocus);
@@ -438,13 +445,29 @@ class ShapePages {
     }
   }
 
-  /** The background validation finished: a page still waiting for it asks again. */
-  verdictsArrived() {
-    const state = this.page && this.page.verdicts && this.page.verdicts.state;
-    if (state && state !== 'ready') {
-      this.refreshPending = true;
-      this.flushRefresh();
+  /**
+   * A validation run finished. A page waiting for it asks again -- and so
+   * does one showing an older version's verdicts: an edit made on another
+   * page writes the file with no editor save, and a type page that had its
+   * verdicts kept showing them. Hidden, it asks when it is shown again.
+   */
+  verdictsArrived(notice) {
+    const shown = this.page && this.page.verdicts;
+    if (!shown || !this.panel) {
+      return;
     }
+    if (notice && notice.root && this.page.root && notice.root !== this.page.root) {
+      return;                          // another package's run
+    }
+    if (shown.state === 'ready' && !(notice && notice.state === 'ready')) {
+      return;
+    }
+    if (!this.panel.visible) {
+      this.staleWhileHidden = true;
+      return;
+    }
+    this.refreshPending = true;
+    this.flushRefresh();
   }
 
   flushRefresh() {
@@ -706,7 +729,7 @@ function register(context, clientHolder, session) {
     vscode.workspace.onDidSaveTextDocument(() => pages.refresh())
   );
   if (clientHolder.onVerdicts) {
-    context.subscriptions.push(clientHolder.onVerdicts(() => pages.verdictsArrived()));
+    context.subscriptions.push(clientHolder.onVerdicts((notice) => pages.verdictsArrived(notice)));
   }
   return pages;
 }

@@ -65,7 +65,23 @@ async function check(name, Pages) {
   const idle = renders;
   pages.page = { verdicts: { state: 'ready' } };
   pages.verdictsArrived();
-  out[name] = { duringPicker, afterPicker, duringEditor, afterEditor, idle, final: renders };
+  const final = renders;
+
+  // 5. Final, but a run for its package finished: an edit made elsewhere
+  // (another page writes the file, no editor saves it) -- it asks again.
+  pages.page = { root: '/pkg', verdicts: { state: 'ready' } };
+  pages.verdictsArrived({ root: '/pkg', state: 'ready' });
+  const newer = renders;
+  // 6. Another package's run: not this page's business.
+  pages.verdictsArrived({ root: '/other', state: 'ready' });
+  const other = renders;
+  // 7. Hidden: marked, not drawn; drawn when shown (the view-state handler).
+  pages.panel = { visible: false };
+  pages.verdictsArrived({ root: '/pkg', state: 'ready' });
+  const hidden = renders;
+  const marked = !!pages.staleWhileHidden;
+  out[name] = { duringPicker, afterPicker, duringEditor, afterEditor, idle, final,
+                newer, other, hidden, marked };
 }
 
 (async () => {
