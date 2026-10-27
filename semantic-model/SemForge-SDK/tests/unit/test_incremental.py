@@ -266,7 +266,9 @@ def test_verdicts_from_disk_make_the_first_edit_incremental(root, monkeypatch):
     with them, it is compared with that version like any later edit."""
     import semforge.editor.incremental as incremental
 
-    stored = compute(load(root), 'v1')             # what the disk cache holds
+    from semforge.editor.cache import fingerprint
+
+    stored = compute(load(root), fingerprint(root))   # what the disk cache holds
     session = Session(load)
     assert session.prime(root, stored)
     assert not session.prime(root, stored), 'once per version'
@@ -274,6 +276,39 @@ def test_verdicts_from_disk_make_the_first_edit_incremental(root, monkeypatch):
     monkeypatch.setattr(incremental, 'compute',
                         lambda package, stamp: full.append(stamp) or compute(package, stamp))
     _replace(root, 'model-instance.jsonld', '"urn:cutter:1"', '"urn:cutter:1" ')
-    after = session.run(root, 'v2')
+    after = session.run(root, fingerprint(root))
     assert full == [], 'the first edit after the restart validated everything'
     assert _keys(after) == _keys(compute(load(root), 'v2'))
+
+
+def test_an_edit_before_the_prime_keeps_it_out(root):
+    """The prime waits in the worker's queue. Edited meanwhile, the files
+    are not what the verdicts judged: kept as their version, the next run
+    would find nothing changed and show the old verdicts as current."""
+    from semforge.editor.cache import fingerprint
+
+    stored = compute(load(root), fingerprint(root))
+    _replace(root, 'model-instance.jsonld', '"urn:cutter:1"', '"urn:cutter:1" ')
+    session = Session(load)
+    assert not session.prime(root, stored)
+    assert root not in session._last
+    after = session.run(root, fingerprint(root))
+    assert _keys(after) == _keys(compute(load(root), 'v2'))
+
+
+def test_the_prime_builds_what_the_first_edit_would(root, monkeypatch):
+    """The model validated and the findings computed once: the Turtle
+    index the findings build was 8 of the 13 s of the first edit."""
+    import semforge.editor.incremental as incremental
+    import semforge.validate.orchestrator as orchestrator
+    from semforge.editor.cache import fingerprint
+
+    stored = compute(load(root), fingerprint(root))
+    called = []
+    real_findings, real_validate = incremental.findings, orchestrator.validate_graphs
+    monkeypatch.setattr(incremental, 'findings',
+                        lambda *a: called.append('findings') or real_findings(*a))
+    monkeypatch.setattr(orchestrator, 'validate_graphs',
+                        lambda *a, **k: called.append('model') or real_validate(*a, **k))
+    assert Session(load).prime(root, stored)
+    assert called == ['model', 'findings']

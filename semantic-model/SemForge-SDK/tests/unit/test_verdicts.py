@@ -21,6 +21,7 @@ A click on a class used to validate the whole package inside the request --
 structure at once and the verdicts when they are in.
 """
 
+import os
 import shutil
 import threading
 
@@ -188,12 +189,42 @@ def test_verdicts_from_disk_are_handed_to_the_runner_once(package):
     assert primed == [(package.path, fingerprint(package.path))] and not runs
 
 
+def test_a_failing_prime_costs_nothing_but_the_head_start(package):
+    """Verdicts from disk still come back ready, and the next version is
+    validated as before."""
+    from semforge.editor.cache import fingerprint
+
+    first = VerdictService(fingerprint, in_process(load))
+    first.get(package.path)
+    first.wait(package.path, timeout=120)
+
+    runs = []
+
+    class Runner:
+        def __call__(self, root, stamp):
+            runs.append(stamp)
+            return in_process(load)(root, stamp)
+
+        def prime(self, root, verdicts):
+            raise RuntimeError('the worker died')
+
+    second = VerdictService(fingerprint, Runner())
+    assert second.get(package.path)[1].state == 'ready'
+    with open(os.path.join(package.path, 'model-instance.jsonld'), 'a') as handle:
+        handle.write('\n')
+    second.get(package.path)
+    second.wait(package.path, timeout=120)
+    assert runs == [fingerprint(package.path)]
+    assert second.get(package.path)[1].state == 'ready'
+
+
 def test_the_worker_process_takes_them(package):
     """Through the real worker: primed, its next run on the same version is
     the kept one."""
+    from semforge.editor.cache import fingerprint
     from semforge.editor.verdicts import ProcessRunner, _prime_in_worker, to_json
 
-    stored = in_process(load)(package.path, 'v1')
+    stored = in_process(load)(package.path, fingerprint(package.path))
     runner = ProcessRunner()
     try:
         assert runner._executor().submit(_prime_in_worker, package.path,

@@ -504,6 +504,13 @@ class Session:
         if old is not None and old.stamp == verdicts.stamp:
             return False
         digests, _ = _digests(root, set())
+        # Edited since the verdicts were read (the prime waits in the worker's
+        # queue): these files are not what they judged, and kept as their
+        # version the next run would find nothing changed and show them as
+        # current. Read after the digests, so any edit before is seen here.
+        from .cache import fingerprint
+        if fingerprint(root) != verdicts.stamp:
+            return False
         package = self._load(root, reuse=None)
         kept = {}
         for path in {os.path.abspath(p) for p in package.files('knowledge')}:
