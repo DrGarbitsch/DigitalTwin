@@ -155,21 +155,37 @@ def analyse(root, profile_name='shacl2flink', package=None, verdicts=None):
     from ..package.prefixes import PREFIX_LINE, check as check_prefixes
 
     try:
+        said = set()           # the check repeats a finding per file it read
         for finding in check_prefixes(package):
-            for role in set(finding.files):
+            # On the files that bind the namespace, at that line -- not on
+            # every file of the role: a knowledge directory of ten files made
+            # one finding ten, and buried what else the panel had to say.
+            places = []
+            for role in sorted(set(finding.files)):
                 for path in package.files(role):
-                    line = 1
-                    if finding.namespace:
-                        with open(path, encoding='utf-8') as handle:
-                            text = handle.read()
-                        for match in PREFIX_LINE.finditer(text):
-                            if match.group(3) == finding.namespace:
-                                line = text[:match.start()].count('\n') + 1
-                                break
-                    findings.setdefault(os.path.abspath(path), []).append(
-                        EditorFinding(line=line, severity=finding.severity,
-                                      kind='prefix', message=finding.message,
-                                      subject=finding.namespace))
+                    if not finding.namespace:
+                        continue
+                    with open(path, encoding='utf-8') as handle:
+                        text = handle.read()
+                    for match in PREFIX_LINE.finditer(text):
+                        if match.group(3) == finding.namespace:
+                            places.append((path, text[:match.start()].count('\n') + 1))
+                            break
+            if not places:
+                first = next((package.files(role)[0] for role in sorted(set(finding.files))
+                              if package.files(role)), None)
+                places = [(first, 1)] if first else []
+            # Once, on the first file: a generator binds a namespace the same
+            # way in every file it writes, and ten copies of one finding
+            # buried the violations in the Problems panel.
+            if places and (finding.message, places[0]) not in said:
+                said.add((finding.message, places[0]))
+                path, line = places[0]
+                more = f' (the same in {len(places) - 1} other file(s))' if len(places) > 1 else ''
+                findings.setdefault(os.path.abspath(path), []).append(
+                    EditorFinding(line=line, severity=finding.severity,
+                                  kind='prefix', message=finding.message + more,
+                                  subject=finding.namespace))
     except Exception:                              # noqa: BLE001
         pass            # `semforge prefixes` tells this better than a squiggle
 
@@ -202,26 +218,14 @@ def analyse(root, profile_name='shacl2flink', package=None, verdicts=None):
         return findings, package
     report = verdicts.model if verdicts is not None else validate_package(package, strict=False)
 
-    fires = {}
-    for result in report.violations:
-        fires.setdefault(result.shape, []).append(result)
-    for shape, results in fires.items():
-        resources = sorted({r.resource for r in results})
-        at(shape, 'warning', 'fires',
-           f'{len(results)} violation(s) here: '
-           + ', '.join(f'{r.component}({r.attribute}) on {r.resource}'
-                       for r in results[:3])
-           + (f' and {len(results) - 3} more' if len(results) > 3 else '')
-           + f'  [{len(resources)} entity/entities]')
-
-    # And each one where it is written: the per-shape line above says a
-    # shape fires; this is where -- the row in the data, which F8 steps to.
+    # Each violation of the model where it is written: the row in the data,
+    # which F8 steps to (the Main page shows it with its entity).
     from ..cooked.casepage import located_violations
 
     for found in located_violations(package, report):
         where = f' · {found["attribute"]}' if found['attribute'] else ''
         findings.setdefault(os.path.abspath(found['file']), []).append(EditorFinding(
-            line=found['line'], severity='warning', kind='violation',
+            line=found['line'], severity='error', kind='violation',
             message=f'{found["entity"]}{where}: {found["text"]} ({found["shape"]})',
             subject=found['entity'], code='model-violation',
             data={'code': 'model-violation', 'subject': found['entity'],
@@ -245,7 +249,9 @@ def analyse(root, profile_name='shacl2flink', package=None, verdicts=None):
     for shape, constraints in unexercised.items():
         listed = ', '.join(c.split('/', 1)[-1] for c in sorted(constraints)[:3])
         more = f' and {len(constraints) - 3} more' if len(constraints) > 3 else ''
-        at(shape, 'information', 'unexercised',
+        # A hint: VS Code lists no hints in the Problems panel, where these
+        # outnumbered the violations; the Health page counts them.
+        at(shape, 'hint', 'unexercised',
            f'{len(constraints)} constraint(s) here have no example that makes '
            f'them fire ({listed}{more}). A constraint that cannot fire looks '
            f'exactly like one that is satisfied, so only a violating example '

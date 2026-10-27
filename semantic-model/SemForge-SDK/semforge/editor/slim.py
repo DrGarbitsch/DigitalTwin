@@ -329,6 +329,38 @@ def tests_view(roots):
         # yellow read as a lesser thing than the rows it counts.
         data['severity'] = 'violation' if violations else ''
         out.insert(0, data)
+        found = violations_of(data)
+        if found:
+            # The model's violations, one row each, first: the way to each,
+            # not a count to hunt for -- a click opens its row on the Main page.
+            out.insert(0, {'kind': 'violations', 'label': 'Violations',
+                           'detail': f'{len(found)} in the Main model', 'severity': 'violation',
+                           'children': found})
+    return out
+
+
+def violations_of(main):
+    """[violation rows] under Main: one per message, on its attribute -- or on
+    its entity, for what is about an attribute the entity lacks."""
+    out = []
+    for entity in (n for n in _nodes(main) if n.get('kind') == 'entity'):
+        said = set()
+        for node in _nodes(entity):
+            if node is entity or node.get('severity') != 'violation':
+                continue
+            for message in node.get('messages') or []:
+                if message in said:
+                    continue
+                said.add(message)
+                out.append({'kind': 'violation', 'label': node.get('label', ''),
+                            'detail': message, 'entity': entity.get('entity', ''),
+                            'attribute': node.get('label', ''), 'severity': 'violation',
+                            'children': []})
+        for message in entity.get('messages') or []:
+            if message not in said:
+                out.append({'kind': 'violation', 'label': entity.get('label', ''),
+                            'detail': message, 'entity': entity.get('entity', ''),
+                            'attribute': '', 'severity': 'violation', 'children': []})
     return out
 
 

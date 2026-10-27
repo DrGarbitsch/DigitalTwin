@@ -55,8 +55,10 @@ def test_each_violation_of_the_model_is_a_problem_on_its_row(corpus):
         lines = handle.read().split('\n')
     near = '\n'.join(lines[cutter.line - 1:cutter.line + 2])
     assert 'urn:cutter:1' in near, f'line {cutter.line} is not the entity: {near}'
-    # The per-shape line on the shape stays.
-    assert any(f.kind == 'fires' for items in found.values() for f in items)
+    assert cutter.severity == 'error', 'a violation is the error the panel leads with'
+    # Nothing about it on the shapes: a click there would open the .ttl.
+    shapes = os.path.abspath(package.sources['shapes'])
+    assert not [f for f in found.get(shapes, []) if 'hasXXXWorkpiece' in f.message]
 
 
 def test_its_quick_fix_shows_it_on_the_main_page():

@@ -78,12 +78,19 @@ def test_every_finding_has_a_real_line(analysis):
         assert finding.line >= 1
 
 
-def test_a_firing_constraint_is_reported_against_its_shape(analysis):
+def test_a_firing_constraint_is_not_a_problem_on_its_shape(analysis):
+    """The violation is on the data row; a copy on the shape led every click
+    in the Problems panel into the .ttl."""
     items, _ = analysis
-    fires = [f for f in items if f.kind == 'fires']
-    assert fires
-    assert 'MachineShape' in fires[0].subject
-    assert 'hasXXXWorkpiece' in fires[0].message
+    assert not [f for f in items if f.kind == 'fires']
+
+
+def test_unexercised_constraints_are_hints(analysis):
+    """VS Code lists no hints in the Problems panel: they outnumbered the
+    violations there."""
+    items, _ = analysis
+    unexercised = [f for f in items if f.kind == 'unexercised']
+    assert unexercised and {f.severity for f in unexercised} == {'hint'}
 
 
 def test_unexercised_constraints_are_aggregated_per_shape(analysis):
@@ -323,3 +330,14 @@ def test_activation_covers_a_package_without_shapes_open():
     events = manifest['activationEvents']
     assert any('model-instance.jsonld' in e for e in events)
     assert any('shacl.ttl' in e for e in events)
+
+
+def test_a_prefix_finding_is_said_once():
+    """A generator binds a namespace the same way in every file it writes;
+    one finding per file buried the violations in the Problems panel."""
+    root = os.path.join(os.path.dirname(__file__), '..', 'corpus', 'opcua-pumps')
+    findings, _ = analyse(root)
+    said = [(f.subject, f.message.split(' (the same in')[0])
+            for items in findings.values() for f in items if f.kind == 'prefix']
+    assert said, 'the OPC UA corpus names namespaces the package does not'
+    assert len(said) == len(set(said)), sorted(said)

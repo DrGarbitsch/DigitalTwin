@@ -45,14 +45,18 @@ describe('Instances view', () => {
         }, 'the tree to redraw');
       });
 
-      it('holds Main first, then Tests', async () => {
+      // Summary leads with the model's violations, one row each; full keeps
+      // the two kinds of data only.
+      const groups = detail === 'summary' ? ['Violations', 'Main', 'Tests'] : ['Main', 'Tests'];
+
+      it(`holds ${groups.join(', then ')}`, async () => {
         const api = await semforge();
         const top = await until(async () => {
           const found = (await api.trees.model.getChildren()).map((n) => n.raw.label);
-          return found.length === 2 && found;
-        }, 'two groups');
-        assert.deepStrictEqual(top, ['Main', 'Tests']);
-        const tests = (await api.trees.model.getChildren())[1];
+          return found.length === groups.length && found;
+        }, `${groups.length} groups`);
+        assert.deepStrictEqual(top, groups);
+        const tests = (await api.trees.model.getChildren())[groups.length - 1];
         const suites = (await api.trees.model.getChildren(tests)).map((n) => n.raw.kind);
         assert.ok(suites.length && suites.every((kind) => kind === 'suite'));
       });
@@ -79,6 +83,33 @@ describe('Instances view', () => {
             .slice(0, 600).includes(entity.raw.entity) && api.pages.case.panel;
         }, `${entity.raw.entity} marked on the page`);
       });
+
+      if (detail === 'summary') {
+        it('opens a violation on the Main page, at its entity, and no file', async () => {
+          const api = await semforge();
+          const group = await row(api.trees.model, (raw) => raw.kind === 'violations',
+            'the Violations group');
+          const violation = (await api.trees.model.getChildren(group))
+            .find((node) => node.raw.entity === 'urn:cutter:1');
+          assert.ok(violation, 'urn:cutter:1 violates MachineShape');
+          assert.ok(violation.raw.detail.includes('hasXXXWorkpiece'));
+          // From a page with no mark: the click, not an earlier one, sets it.
+          await click(api, await row(api.trees.model, (raw) => raw.label === 'Main', 'Main'));
+          await until(() => api.pages.case.panel && api.pages.case.panel.title === 'Entities: Main' &&
+            !api.pages.case.panel.webview.html.includes('id="focus"'), 'the Main page unmarked');
+          const editors = vscode.window.visibleTextEditors.map((e) => e.document.uri.toString());
+          await click(api, violation);
+          await until(() => {
+            const panel = api.pages.case.panel;
+            const html = panel && panel.webview.html;
+            return html && panel.title === 'Entities: Main' && html.includes('id="focus"') &&
+              html.split('id="focus"')[1].slice(0, 600).includes('urn:cutter:1');
+          }, 'urn:cutter:1 marked on the Main page');
+          assert.deepStrictEqual(
+            vscode.window.visibleTextEditors.map((e) => e.document.uri.toString()), editors,
+            'a click stays in the pages');
+        });
+      }
 
       it('opens a case page from a case', async () => {
         const api = await semforge();

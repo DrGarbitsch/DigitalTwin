@@ -154,6 +154,32 @@ def test_the_model_data_opens_the_model_page(tmp_path, label, focus):
     assert seen['shown'] == [], 'the source stays where it was'
 
 
+VIOLATIONS_TREE = [
+    {'kind': 'violations', 'label': 'Violations', 'detail': '1 in the Main model',
+     'severity': 'violation', 'children': [
+         {'kind': 'violation', 'label': 'hasTemperature', 'entity': 'urn:m:1',
+          'attribute': 'hasTemperature', 'detail': 'hasTemperature is too high (MShape)',
+          'severity': 'violation', 'children': []}]}]
+
+
+@pytest.mark.parametrize('label, expected', [
+    ('Violations', {'only': True, 'preserveFocus': True}),
+    ('hasTemperature', {'focus': 'urn:m:1', 'attribute': 'hasTemperature',
+                        'preserveFocus': True})])
+def test_a_violation_opens_its_row_on_the_main_page_never_a_file(tmp_path, label, expected):
+    """The way to a violation is its entity in the GUI; a .ttl only on request."""
+    seen = _drive(tmp_path, {
+        'mode': 'select', 'view': 'semforgeModel', 'label': label, 'config': {},
+        'replies': {'semforge/tree': {'roots': []},
+                    'semforge/model': {'roots': VIOLATIONS_TREE},
+                    'semforge/shapes': {'roots': []}, 'semforge/knowledge': {'roots': []}}})
+    assert seen['errors'] == [], seen['errors']
+    opened = _opened(seen, 'semforge.openModelPage')
+    assert len(opened) == 1, seen['executed']
+    assert opened[0][1] == expected
+    assert seen['shown'] == [], 'no file opens'
+
+
 def test_a_case_in_the_same_tree_still_opens_its_case_page(tmp_path):
     seen = _click_in_tests(tmp_path, 'too-hot.jsonld')
     assert seen['errors'] == [], seen['errors']

@@ -146,10 +146,16 @@ def test_the_entity_types_are_the_types_view_s_not_the_knowledge_s(full):
     assert 'Entity types' in full_groups, 'full mode keeps everything'
 
 
-def test_instances_are_main_then_tests(full):
+def test_instances_are_violations_then_main_then_tests(full):
     slim = slim_model(full['model'])
-    assert [n['label'] for n in slim] == ['Main', 'Tests']
-    main, tests = slim
+    assert [n['label'] for n in slim] == ['Violations', 'Main', 'Tests']
+    violations, main, tests = slim
+    assert violations['detail'] == '3 in the Main model'
+    assert len(violations['children']) == 3
+    for row in violations['children']:
+        assert row['kind'] == 'violation' and row['entity'] and row['detail']
+    cutter = next(r for r in violations['children'] if r['entity'] == 'urn:cutter:1')
+    assert 'hasXXXWorkpiece is required but missing' in cutter['detail']
     assert main['detail'] == '8 entities · 3 violation(s)'
     assert main['severity'] == 'violation'
     suites = [n for n in tests['children'] if n['kind'] == 'suite']

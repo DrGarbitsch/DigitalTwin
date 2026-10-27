@@ -383,7 +383,17 @@ class ModelTreeProvider {
     // case would stop looking like a case.
     const tone = raw.severity === 'violation' || raw.severity === 'error'
       ? 'error' : raw.severity ? 'warning' : '';
-    if (raw.kind === 'group') {
+    if (raw.kind === 'violations' || raw.kind === 'violation') {
+      // The model's violations, each a way to its row on the Main page.
+      item.iconPath = icon(raw.kind === 'violations' ? 'pulse'
+        : raw.attribute ? 'symbol-field' : 'symbol-object', 'error');
+      item.tooltip = raw.kind === 'violation'
+        ? `${raw.entity}${raw.attribute ? ` · ${raw.attribute}` : ''}\n${raw.detail}\n\n` +
+          'Click: show it on the Main page.' : undefined;
+      if (raw.kind === 'violation') {
+        item.description = `${raw.detail} · ${raw.entity}`;
+      }
+    } else if (raw.kind === 'group') {
       // Tests and Main: the two kinds of data, judged by different rules.
       item.iconPath = icon(DATA.includes(raw.label) ? 'symbol-object' : 'beaker', tone);
     } else if (raw.kind === 'suite' || raw.kind === 'example') {
@@ -1074,6 +1084,19 @@ function register(context, clientHolder, session, onChanged) {
         } catch (error) {
           // reveal throws if the node is gone after a refresh; nothing to do.
         }
+      }
+      // A violation in the Violations group: its row on the Main page; the
+      // group itself, the Main page showing only what violates.
+      if (['violation', 'violations'].includes(selected.raw.kind)) {
+        const raw = selected.raw;
+        const options = raw.kind === 'violations' ? { only: true, preserveFocus: true }
+          : { focus: raw.entity || undefined, preserveFocus: true };
+        if (raw.kind === 'violation' && raw.attribute) {
+          options.attribute = raw.attribute;
+        }
+        await vscode.commands.executeCommand('semforge.openModelPage',
+          { packageUri: selected.packageUri }, options);
+        return;
       }
       // A row inside a test case opens the case page, its entity marked: the
       // page shows the claims and the data together, which the .jsonld does
