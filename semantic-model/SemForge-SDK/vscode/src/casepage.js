@@ -775,6 +775,18 @@ ${BUSY_SCRIPT}
     }
     if (ui.view !== 'cards') { setView('cards'); }
     flash(node);
+    report(node, card ? card.dataset.id : '', node.dataset.name || '', 'list');
+  }
+  // Where a jump ended, said to the extension: the SemForge output shows it,
+  // and the e2e tests read it.
+  function report(node, entity, attribute, from) {
+    setTimeout(function () {
+      const box = node.getBoundingClientRect();
+      vscode.postMessage({ command: 'landed', from: from, entity: entity, attribute: attribute,
+        inView: box.height > 0 && box.top >= 0 && box.bottom <= window.innerHeight,
+        top: Math.round(box.top), height: window.innerHeight, scrollY: Math.round(window.scrollY),
+        page: document.documentElement.scrollHeight });
+    }, 1100);
   }
   function flash(node) {
     node.scrollIntoView({ block: 'center' });
@@ -828,8 +840,22 @@ ${BUSY_SCRIPT}
     if (ui.view !== 'cards') { setView('cards'); }
     const node = row || focused;
     flash(node);
-    // Once more when the layout has settled (fonts, the details opened).
-    requestAnimationFrame(function () { node.scrollIntoView({ block: 'center' }); });
+    settle(node, wanted || '');
+  }
+  // VS Code puts back the scroll position the webview had before its new
+  // content -- after the page's own script ran, sometimes, so the jump was
+  // undone sometimes. Again on load and a little later, until the reader
+  // scrolls; then the page says where it landed (what the e2e test reads).
+  function settle(node, attribute) {
+    let moved = false;
+    ['wheel', 'keydown', 'mousedown', 'touchstart'].forEach(function (name) {
+      window.addEventListener(name, function () { moved = true; }, { once: true, capture: true });
+    });
+    const again = function () { if (!moved) { node.scrollIntoView({ block: 'center' }); } };
+    requestAnimationFrame(again);
+    if (document.readyState !== 'complete') { window.addEventListener('load', again, { once: true }); }
+    [150, 400, 1000].forEach(function (ms) { setTimeout(again, ms); });
+    report(node, focused.dataset.id, attribute, 'open');
   }
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.
@@ -982,6 +1008,11 @@ class CasePages {
     const same = this.panel && this.current && this.current.packageUri === packageUri &&
       this.current.caseFile === caseFile && this.current.focus === focus &&
       this.current.attribute === more.attribute && this.current.only === more.only;
+    if (focus || more.only) {
+      this.trace(`open ${caseFile === MODEL ? 'Main' : caseFile} at ${focus || '-'}` +
+        `${more.attribute ? ` · ${more.attribute}` : ''}${more.only ? ' (only what violates)' : ''}` +
+        `${same ? ' -- already shown, jump again' : ''}`);
+    }
     this.current = { packageUri, caseFile, focus, attribute: more.attribute, only: more.only };
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
@@ -1038,6 +1069,18 @@ class CasePages {
     this.panel.webview.html = renderCasePage(page,
       { nonce: crypto.randomBytes(16).toString('base64'), focus: this.current.focus,
         attribute: this.current.attribute, only: this.current.only });
+    if (this.current.focus && !this.panel.webview.html.includes('id="focus"')) {
+      this.trace(`no card on the page is ${this.current.focus}`);
+    }
+  }
+
+  /** A line in the SemForge output: where a jump went, for when it went wrong. */
+  trace(line) {
+    const client = this.clientHolder.client;
+    const channel = client && client.outputChannel;
+    if (channel) {
+      channel.appendLine(`[${new Date().toISOString().slice(11, 23)} page] ${line}`);
+    }
   }
 
   /**
@@ -1050,6 +1093,14 @@ class CasePages {
     if (message && message.command === 'editing') {
       this.editing = !!message.open;
       this.flushRefresh();
+      return;
+    }
+    if (message && message.command === 'landed') {
+      this.landed = message;           // where a jump ended: read by the e2e tests
+      this.trace(`${message.from === 'list' ? 'list click' : 'opened'} -> ${message.entity}` +
+        `${message.attribute ? ` · ${message.attribute}` : ''}: ` +
+        `${message.inView ? 'in view' : 'NOT in view'} (top ${message.top} of ${message.height}, ` +
+        `scrolled ${message.scrollY} of ${message.page})`);
       return;
     }
     this.busy = (this.busy || 0) + 1;

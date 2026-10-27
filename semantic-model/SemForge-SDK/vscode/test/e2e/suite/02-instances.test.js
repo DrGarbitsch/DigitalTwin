@@ -98,6 +98,7 @@ describe('Instances view', () => {
           await until(() => api.pages.case.panel && api.pages.case.panel.title === 'Entities: Main' &&
             !api.pages.case.panel.webview.html.includes('id="focus"'), 'the Main page unmarked');
           const editors = vscode.window.visibleTextEditors.map((e) => e.document.uri.toString());
+          api.pages.case.landed = undefined;
           await click(api, violation);
           await until(() => {
             const panel = api.pages.case.panel;
@@ -105,6 +106,22 @@ describe('Instances view', () => {
             return html && panel.title === 'Entities: Main' && html.includes('id="focus"') &&
               html.split('id="focus"')[1].slice(0, 600).includes('urn:cutter:1');
           }, 'urn:cutter:1 marked on the Main page');
+          // In sight in the real webview, which puts back its old scroll position.
+          const landed = await until(() => api.pages.case.landed, 'the page to say where it landed');
+          assert.strictEqual(landed.entity, 'urn:cutter:1');
+          assert.ok(landed.inView, JSON.stringify(landed));
+          // And each other violation, one after the other, from wherever the last left it.
+          for (const other of (await api.trees.model.getChildren(group))) {
+            api.pages.case.landed = undefined;
+            // As the mouse does: the row's command -- a selection of the row
+            // already selected changes nothing, and so does nothing.
+            const { command } = await api.trees.model.getTreeItem(other);
+            await vscode.commands.executeCommand(command.command, ...command.arguments);
+            const there = await until(() => api.pages.case.landed &&
+              api.pages.case.landed.entity === other.raw.entity && api.pages.case.landed,
+              `${other.raw.entity} landed`);
+            assert.ok(there.inView, JSON.stringify(there));
+          }
           assert.deepStrictEqual(
             vscode.window.visibleTextEditors.map((e) => e.document.uri.toString()), editors,
             'a click stays in the pages');

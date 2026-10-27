@@ -108,4 +108,28 @@ describe('An OPC UA package', () => {
     assert.ok((offered.choices || []).some((c) => c.value === 'rdf:JSON'),
       JSON.stringify((offered.choices || []).map((c) => c.value)));
   });
+
+  // The pump's Main page is many screens long: the jump to an entity, in the
+  // real webview, from wherever the last one left it.
+  it('opens its Main page at any entity, and that entity is in sight', async () => {
+    const api = await semforge();
+    const page = await until(async () => {
+      const found = await ask(api, 'semforge/modelPage', {});
+      return found.ok && found.files && found.files[0].cards.length > 3 && found;
+    }, 'the Main page', 90000);
+    const cards = page.files[0].cards;
+    const picks = [cards[cards.length - 1], cards[Math.floor(cards.length / 2)], cards[0],
+      cards[cards.length - 2]];
+    for (const card of picks) {
+      const attribute = (card.attributes.find((a) => a.name) || {}).name;
+      api.pages.case.landed = undefined;
+      await vscode.commands.executeCommand('semforge.openModelPage', { packageUri: OPCUA_URI },
+        { focus: card.id, attribute, preserveFocus: true });
+      const landed = await until(() => api.pages.case.landed &&
+        api.pages.case.landed.entity === card.id && api.pages.case.landed,
+      `${card.id} landed`, 90000);
+      assert.ok(landed.page > 2 * landed.height, `a page to scroll: ${JSON.stringify(landed)}`);
+      assert.ok(landed.inView, JSON.stringify(landed));
+    }
+  });
 });
