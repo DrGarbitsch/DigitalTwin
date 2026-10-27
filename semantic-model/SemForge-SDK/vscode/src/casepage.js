@@ -804,14 +804,32 @@ ${BUSY_SCRIPT}
     }, true);
     setView(ui.view);
     applyFilter();
-    // Opened at an attribute (a violation's "Show it on the Main page"):
-    // its row on the marked card.
+    land();
+    // Clicked again from the tree, the page already open: the same jump.
+    window.addEventListener('message', function (event) {
+      if (event.data && event.data.command === 'land') { land(); }
+    });
+  }
+  // Opened at an entity -- or at its attribute, from a violation: there,
+  // AFTER the filter and the view are what they will be. Scrolled before,
+  // the cards a remembered filter hid afterwards moved it out of sight, and
+  // in the graph it was a card in the hidden list.
+  function land() {
+    if (!focused) { return; }
     const wanted = opened.focusattr;
-    if (wanted && focused) {
-      const row = Array.from(focused.querySelectorAll('.attr[data-name]'))
-        .find(function (r) { return r.dataset.name === wanted; });
-      if (row) { flash(row); }
+    const row = wanted && Array.from(focused.querySelectorAll('.attr[data-name]'))
+      .find(function (r) { return r.dataset.name === wanted; });
+    if (focused.hidden) {
+      ui.type = ''; ui.attr = ''; ui.id = ''; ui.bad = false;
+      ftype.value = ''; fattr.value = ''; fid.value = ''; fbad.checked = false;
+      remember();
+      applyFilter();
     }
+    if (ui.view !== 'cards') { setView('cards'); }
+    const node = row || focused;
+    flash(node);
+    // Once more when the layout has settled (fonts, the details opened).
+    requestAnimationFrame(function () { node.scrollIntoView({ block: 'center' }); });
   }
   // observedAt: a date-and-time picker beside the time, in UTC, to the
   // millisecond; Now, Just after the latest of its datasetId, Remove.
@@ -975,7 +993,9 @@ class CasePages {
     } else {
       this.panel.reveal(undefined, !!preserveFocus);
       if (same) {
-        return;                        // clicked again: already showing it
+        // Clicked again: already showing it, but maybe scrolled away.
+        this.panel.webview.postMessage({ command: 'land' });
+        return;
       }
     }
     await this.render();

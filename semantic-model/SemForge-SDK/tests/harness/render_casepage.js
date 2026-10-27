@@ -36,13 +36,15 @@ Module._load = function (request, parent, isMain) {
 const { renderCasePage } = require(path.join(process.argv[2], 'casepage.js'));
 const page = JSON.parse(fs.readFileSync(process.argv[3], 'utf-8'));
 // `__options` on the payload: what the extension passes besides the nonce
-// (focus, the attribute to mark, only what violates).
+// (focus, the attribute to mark, only what violates); `__state`, what the
+// webview remembered from an earlier visit (its filter, its view).
 let html = renderCasePage(page, Object.assign({}, page.__options || {}, { nonce: 'n' }));
 // What the page posts is kept on <html data-posted="[…]">, for a dumped DOM to show.
 const stub = '<script nonce="n">function acquireVsCodeApi() { return { postMessage(m) { ' +
   'var all = JSON.parse(document.documentElement.dataset.posted || "[]"); all.push(m); ' +
   'document.documentElement.dataset.posted = JSON.stringify(all); }, ' +
-  'getState() { return null; }, setState() {} }; }</script>';
+  'getState() { return ' + JSON.stringify(page.__state || null).replace(/</g, '\\u003c') +
+  '; }, setState() {} }; }</script>';
 html = html.replace('<script nonce="n">', stub + '<script nonce="n">');
 if (process.argv[5]) {
   html = html.replace('</body>', '<script nonce="n">' + fs.readFileSync(process.argv[5], 'utf-8') +

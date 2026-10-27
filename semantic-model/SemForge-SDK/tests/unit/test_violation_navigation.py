@@ -194,6 +194,67 @@ document.documentElement.dataset.flashed = String(row.classList.contains('flash'
     assert re.search(r'<html[^>]* data-flashed="true"', dom)
 
 
+LANDED = """
+setTimeout(function () {
+  var row = document.querySelector('.attr[data-name="hasWidth"]');
+  var box = row.getBoundingClientRect();
+  var d = document.documentElement.dataset;
+  d.inview = String(box.height > 0 && box.top >= 0 && box.bottom <= window.innerHeight);
+  d.flashed = String(row.classList.contains('flash'));
+  d.cards = String(!document.getElementById('cardview').hidden);
+}, WAIT);
+"""
+
+
+def _long_page(**more):
+    page = json.loads(json.dumps(PAGE))
+    page['files'][0]['cards'][:0] = [_card(f'urn:f{i}', [_row('hasSpeed')]) for i in range(40)]
+    page['__options'] = {'focus': 'urn:b', 'attribute': 'hasWidth'}
+    page.update(more)
+    return page
+
+
+REMEMBERED = [
+    {'bad': True, 'open': True},          # hid the cards above AFTER the jump
+    {'view': 'graph'},                    # the card was in the hidden list
+    {'id': 'urn:a'},                      # the filter hid the card itself
+]
+
+
+@pytest.mark.parametrize('remembered', REMEMBERED)
+def test_opened_at_a_violation_it_is_in_sight_whatever_the_page_remembered(
+        tmp_path, remembered):
+    """The jump comes last: a remembered filter or view used to move it away."""
+    page = _long_page(__state={'/pkg/model.jsonld': remembered})
+    dom = _dom(tmp_path, LANDED.replace('WAIT', '500'), page)
+    assert re.search(r'<html[^>]* data-cards="true"', dom), 'the cards, where the row is'
+    assert re.search(r'<html[^>]* data-flashed="true"', dom)
+    assert re.search(r'<html[^>]* data-inview="true"', dom), 'scrolled to it'
+
+
+@pytest.mark.parametrize('remembered', REMEMBERED)
+def test_opened_at_an_entity_s_own_violation_its_card_is_in_sight(tmp_path, remembered):
+    """A missing attribute has no row: the card is the place."""
+    page = _long_page(__state={'/pkg/model.jsonld': remembered})
+    page['__options'] = {'focus': 'urn:c', 'attribute': 'hasPort'}
+    dom = _dom(tmp_path, LANDED.replace('WAIT', '500').replace(
+        """document.querySelector('.attr[data-name="hasWidth"]')""",
+        """document.querySelector('.card[data-id="urn:c"]')"""), page)
+    assert re.search(r'<html[^>]* data-cards="true"', dom)
+    assert re.search(r'<html[^>]* data-inview="true"', dom), 'scrolled to it'
+
+
+def test_clicked_again_it_jumps_again(tmp_path):
+    """The tree sends `land` when the page already shows that violation."""
+    dom = _dom(tmp_path, """
+setTimeout(function () {
+  window.scrollTo(0, 0);
+  window.postMessage({ command: 'land' }, '*');
+}, 200);
+""" + LANDED.replace('WAIT', '700'), _long_page())
+    assert re.search(r'<html[^>]* data-inview="true"', dom)
+
+
 def test_opened_from_a_count_it_shows_only_what_violates(tmp_path):
     page = dict(PAGE, __options={'only': True})
     dom = _dom(tmp_path, 'document.documentElement.dataset.ticked = '
