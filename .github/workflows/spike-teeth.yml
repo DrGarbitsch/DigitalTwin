@@ -32,12 +32,9 @@ jobs:
       fail-fast: false
       matrix:
         bug:
-          - iri-label
-          - python-boolean
-          - none-on-outage
-          - enum-without-logic
-          - bridge-drops-iri
+          - no-bug
           - bridge-batches-iri
+          - bridge-batches-all
     env:
       OUT: ${{ github.workspace }}/.spike
     steps:

@@ -18,5 +18,8 @@ case "$1" in
   enum-without-logic) sub semantic-model/opcua/owl2instances.py 'logic = bindingsg.enum_logic(shacl_rule['"'"'contentclass'"'"'])' 'logic = None' ;;
   bridge-drops-iri)   sub KafkaBridge/mqttBridge/sparkplug_data_ingestion.js "metricType === 'IriProperty'" "metricType === 'NoSuchProperty'" ;;
   bridge-batches-iri) sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(entity => !hasIriValue(entity))' 'entities' ;;
+  bridge-batches-all) sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(entity => !hasIriValue(entity))' 'entities'
+                      sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(hasIriValue)' '[]' ;;
+  no-bug)             ;;
   *) echo "unknown bug $1"; exit 2 ;;
 esac
