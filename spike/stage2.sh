@@ -38,6 +38,8 @@ start_server 2
 for i in $(seq 1 30); do tail -n 60 "$M" | grep -q '"v": "42.5"' && break; sleep 1; done
 tail -n 60 "$M" | grep -q '"v": "42.5"'
 echo "recovered after the outage"
+: "the connector reads each node on its own 5 s cycle, so give all of them one more cycle"
+sleep 7
 test "$(grep -c '"None"' "$M" || true)" = 0
 top -b -n1 -p "$(cat "$OUT/dataservice.pid")" | tail -1 | awk '{print "dataservice CPU%", $9}'
 kill "$(cat "$OUT/dataservice.pid")" "$(cat "$OUT/server.pid")"

@@ -20,6 +20,6 @@ case "$1" in
   bridge-batches-iri) sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(entity => !hasIriValue(entity))' 'entities' ;;
   bridge-batches-all) sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(entity => !hasIriValue(entity))' 'entities'
                       sub KafkaBridge/lib/ngsildUpdates.js 'entities.filter(hasIriValue)' '[]' ;;
-  no-bug)             ;;
+  no-bug|no-bug-again) ;;
   *) echo "unknown bug $1"; exit 2 ;;
 esac

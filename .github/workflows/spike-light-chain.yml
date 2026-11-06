@@ -19,7 +19,7 @@ name: Spike light chain test
 
 on:
   push:
-    branches: [spike/none]
+    branches: [spike/light-chain-test]
   workflow_dispatch:
 
 permissions:

@@ -33,6 +33,12 @@ jobs:
       matrix:
         bug:
           - no-bug
+          - no-bug-again
+          - iri-label
+          - python-boolean
+          - none-on-outage
+          - enum-without-logic
+          - bridge-drops-iri
           - bridge-batches-iri
           - bridge-batches-all
     env:
