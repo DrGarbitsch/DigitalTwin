@@ -1,0 +1,70 @@
+#
+# Copyright (c) 2026 IndustryFusion Foundation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Spike: is the lightweight chain test feasible on GitHub-hosted runners?
+name: Spike light chain test
+
+on:
+  push:
+    branches: [spike/light-chain-test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    env:
+      OUT: ${{ github.workspace }}/.spike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Runner
+        run: |
+          mkdir -p "$OUT"
+          nproc; free -h | head -2; df -h / | tail -1; python3 --version; node --version
+      - name: Stage 1 - build the model
+        run: bash spike/stage1.sh
+      - name: Stage 2 - connector with real OPC UA server, fake agent
+        run: bash spike/stage2.sh
+      - name: Stage 3 - bridge mapping
+        run: bash spike/stage3.sh
+      - name: Stage 4a - start Scorpio stack
+        run: bash spike/stage4a.sh
+      - name: Stage 4b - real updates bridge against real Scorpio
+        run: bash spike/stage4b.sh
+      - name: Logs on failure
+        if: failure()
+        run: |
+          for f in "$OUT"/*.log; do echo "=== $f"; tail -n 25 "$f" | cut -c1-200; done
+          docker logs lt-scorpio 2>&1 | tail -n 25 | cut -c1-200 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spike-${{ matrix.python }}
+          path: .spike/*.jsonl
+          if-no-files-found: ignore
