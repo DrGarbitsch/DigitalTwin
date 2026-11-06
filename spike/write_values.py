@@ -15,8 +15,9 @@ SETS = {
         ('i=6097', 1, V.Int32),
         ('i=6095', ua.OptionSet(Value=b'\x01\x00', ValidBits=b'\x80\x0f'), None),
     ],
-    'after': [('i=6020', 42.5, V.Double)],
 }
+# A restarted server is back at its nodeset defaults, so everything is written again
+SETS['after'] = [('i=6020', 42.5, V.Double)] + SETS['all'][1:]
 
 
 async def main():
