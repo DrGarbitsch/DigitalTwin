@@ -1,0 +1,65 @@
+#
+# Copyright (c) 2026 IndustryFusion Foundation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Spike: every job puts one real bug back. A job which stays green has found a gap in the test.
+name: Spike light chain teeth
+
+on:
+  push:
+    branches: [spike/light-chain-test]
+
+permissions:
+  contents: read
+
+jobs:
+  mutant:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        bug:
+          - iri-label
+          - python-boolean
+          - none-on-outage
+          - enum-without-logic
+          - bridge-drops-iri
+          - bridge-batches-iri
+    env:
+      OUT: ${{ github.workspace }}/.spike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Put the bug back
+        run: |
+          mkdir -p "$OUT"
+          bash spike/mutate.sh ${{ matrix.bug }}
+          git diff --stat | tail -2
+      - name: Stage 1 - build the model
+        run: bash spike/stage1.sh
+      - name: Stage 2 - connector with real OPC UA server, fake agent
+        run: bash spike/stage2.sh
+      - name: Stage 3 - bridge mapping
+        run: bash spike/stage3.sh
+      - name: Stage 4a - start Scorpio stack
+        run: bash spike/stage4a.sh
+      - name: Stage 4b - real updates bridge against real Scorpio
+        run: bash spike/stage4b.sh
