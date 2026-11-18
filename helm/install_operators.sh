@@ -81,9 +81,9 @@ printf "\n"
 printf "\033[1mInstalling EMQX Operator\n"
 printf -- "------------------------\033[0m\n"
 printf "\033[1mWait 30 seconds to give cert-manager time to settle\n"
-kubectl -n cert-manager wait --for=condition=ready pod -l app=cert-manager
-kubectl -n cert-manager wait --for=condition=ready pod -l app=cainjector
-kubectl -n cert-manager wait --for=condition=ready pod -l app=webhook
+kubectl -n cert-manager wait --timeout=300s --for=condition=ready pod -l app=cert-manager
+kubectl -n cert-manager wait --timeout=300s --for=condition=ready pod -l app=cainjector
+kubectl -n cert-manager wait --timeout=300s --for=condition=ready pod -l app=webhook
 loop=0
 while [ $loop -lt 10 ]; do
   printf "\033[1mNow installing\n"
