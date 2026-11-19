@@ -1,15 +1,18 @@
 name: K8s tests
 
+# Every suite on one full install on the self-hosted runner: the nightly calls
+# this. A pull request runs its shards on GitHub-hosted runners (k8s-e2e.yaml)
+# and comes here only with the label e2e-full.
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'openspec/**'
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - 'openspec/**'
+    types: [ opened, synchronize, reopened, labeled ]
   workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: k8s-tests-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -19,6 +22,7 @@ env:
 
 jobs:
   clean-docker:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e-full')
     uses: ./.github/workflows/docker-clean.yaml
 
   build:
