@@ -62,8 +62,35 @@ jobs:
         echo "shards: $shards"
         echo "shards=$shards" >> "$GITHUB_OUTPUT"
 
-  e2e:
+  # The platform images, built once for all shards: a slow mirror or registry
+  # then delays one build instead of every shard, and Scorpio's Maven build
+  # runs once.
+  images:
     needs: changes
+    if: needs.changes.outputs.shards != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+    - name: Prepare the runner for the build
+      run: bash test/prepare-platform-for-github-runner.sh images
+    - name: Build Platform locally
+      run: cd test && bash build-local-platform.sh
+    - name: Save the images
+      run: bash test/platform-images.sh save "$RUNNER_TEMP/platform-images.tar.zst"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: platform-images
+        path: ${{ runner.temp }}/platform-images.tar.zst
+        retention-days: 1
+        compression-level: 0  # zstd already
+
+  e2e:
+    needs: [ changes, images ]
     if: needs.changes.outputs.shards != '[]'
     name: e2e (${{ matrix.shard }})
     runs-on: ubuntu-24.04
@@ -84,16 +111,18 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-    - uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: "17"
     - name: Prepare the runner and the k3d cluster
-      run: bash test/prepare-platform-for-github-runner.sh
+      run: bash test/prepare-platform-for-github-runner.sh cluster
     - name: Prepare Bats framework
       run: cd test/bats && bash ./prepare-test.sh
-    - name: Build Platform locally
-      run: cd test && bash build-local-platform.sh
+    - uses: actions/download-artifact@v4
+      with:
+        name: platform-images
+        path: ${{ runner.temp }}
+    - name: Load the platform images into the local registry
+      run: |
+        bash test/platform-images.sh load "$RUNNER_TEMP/platform-images.tar.zst"
+        rm -f "$RUNNER_TEMP/platform-images.tar.zst"
     - name: Install from local registry
       run: cd test && bash ./install-platform.sh -l -c all
     - name: Run the suites of the shard
